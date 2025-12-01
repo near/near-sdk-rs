@@ -94,6 +94,26 @@ extern "C" {
     // # Promise API actions #
     // #######################
     pub fn promise_set_refund_to(promise_index: u64, account_id_len: u64, account_id_ptr: u64);
+    pub fn promise_batch_action_state_init(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64;
+    pub fn promise_batch_action_state_init_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64;
+    pub fn set_state_init_data_entry(
+        promise_index: u64,
+        action_index: u64,
+        key_len: u64,
+        key_ptr: u64,
+        value_len: u64,
+        value_ptr: u64,
+    );
     pub fn promise_batch_action_create_account(promise_index: u64);
     pub fn promise_batch_action_deploy_contract(promise_index: u64, code_len: u64, code_ptr: u64);
     pub fn promise_batch_action_function_call(

@@ -20,7 +20,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{AccountContract, CryptoHash, GasWeight, PromiseError};
+use crate::{AccountContract, ActionIndex, CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -1127,6 +1127,53 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
     }
 }
 
+pub fn promise_batch_action_state_init(
+    promise_index: PromiseIndex,
+    code: CryptoHash,
+    amount: NearToken,
+) -> ActionIndex {
+    unsafe {
+        sys::promise_batch_action_state_init(
+            promise_index.0,
+            code.len() as _,
+            code.as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        )
+    }
+}
+
+pub fn promise_batch_action_state_init_by_account_id(
+    promise_index: PromiseIndex,
+    account_id: AccountId,
+    amount: NearToken,
+) -> ActionIndex {
+    unsafe {
+        sys::promise_batch_action_state_init_by_account_id(
+            promise_index.0,
+            account_id.as_bytes().len() as _,
+            account_id.as_bytes().as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        )
+    }
+}
+
+pub fn set_state_init_data_entry(
+    promise_index: PromiseIndex,
+    action_index: ActionIndex,
+    key: &[u8],
+    value: &[u8],
+) {
+    unsafe {
+        sys::set_state_init_data_entry(
+            promise_index.0,
+            action_index,
+            key.len() as _,
+            key.as_ptr() as _,
+            value.len() as _,
+            value.as_ptr() as _,
+        )
+    }
+}
 /// Attach a create account promise action to the NEAR promise index with the provided promise index.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)

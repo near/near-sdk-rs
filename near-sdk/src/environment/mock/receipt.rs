@@ -119,7 +119,7 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
-            MockAction::DeterministicStateInit { .. } => None,
+            MockAction::DeterministicStateInit { receipt_index, .. } => Some(*receipt_index),
             MockAction::SetRefundTo { receipt_index, .. } => Some(*receipt_index),
         }
     }
