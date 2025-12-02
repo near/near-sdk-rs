@@ -27,7 +27,7 @@ near-sys = { path = "../near-sys", version = "0.2.6" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
-hex = "0.4"
+hex = { version = "0.4", optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
@@ -77,8 +77,9 @@ insta = "1.39.0"
 default = ["wee_alloc"]
 expensive-debug = []
 deterministic-account-ids = [
-    "near-sys/deterministic-account-ids",
     "global-contracts",
+    "dep:hex",
+    "near-sys/deterministic-account-ids",
 ]
 unstable = []
 legacy = []
