@@ -21,7 +21,7 @@ impl MemoryLike for MockedMemory {
         Ok(())
     }
 
-    fn view_memory(&self, slice: MemSlice) -> Result<std::borrow::Cow<[u8]>, ()> {
+    fn view_memory(&self, slice: MemSlice) -> Result<std::borrow::Cow<'_, [u8]>, ()> {
         let src = unsafe { std::slice::from_raw_parts(slice.ptr as *const u8, slice.len as usize) };
 
         Ok(std::borrow::Cow::Borrowed(src))

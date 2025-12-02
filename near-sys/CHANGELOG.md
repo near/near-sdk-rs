@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.5...near-sys-v0.2.6) - 2025-12-01
+
+### Added
+
+- Added support for refund_to and current_contract_code, updated deps to match nearcore 2.10 release ([#1423](https://github.com/near/near-sdk-rs/pull/1423))
+
 ## [0.2.4](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.3...near-sys-v0.2.4) - 2025-05-14
 
 ### Other

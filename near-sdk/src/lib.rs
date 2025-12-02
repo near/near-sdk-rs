@@ -1161,6 +1161,9 @@ pub use crate::events::{AsNep297Event, Nep297Event};
 
 pub mod state;
 
+#[cfg(feature = "deterministic-account-ids")]
+pub mod state_init;
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]

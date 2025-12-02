@@ -39,7 +39,7 @@ pub enum PromiseResult {
 impl From<PromiseResult> for VmPromiseResult {
     fn from(p: PromiseResult) -> Self {
         match p {
-            PromiseResult::Successful(v) => Self::Successful(v),
+            PromiseResult::Successful(v) => Self::Successful(v.into_boxed_slice().into()),
             PromiseResult::Failed => Self::Failed,
         }
     }

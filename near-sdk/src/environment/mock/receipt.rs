@@ -89,6 +89,17 @@ pub enum MockAction {
         data: Vec<u8>,
         data_id: near_primitives::hash::CryptoHash,
     },
+    #[cfg(feature = "deterministic-account-ids")]
+    DeterministicStateInit {
+        receipt_index: ReceiptIndex,
+        state_init: crate::state_init::StateInit,
+        amount: NearToken,
+    },
+    #[cfg(feature = "deterministic-account-ids")]
+    SetRefundTo {
+        receipt_index: ReceiptIndex,
+        refund_to_account_id: AccountId,
+    },
 }
 
 impl MockAction {
@@ -110,6 +121,10 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
+            #[cfg(feature = "deterministic-account-ids")]
+            MockAction::DeterministicStateInit { receipt_index, .. } => Some(*receipt_index),
+            #[cfg(feature = "deterministic-account-ids")]
+            MockAction::SetRefundTo { receipt_index, .. } => Some(*receipt_index),
         }
     }
 }
@@ -181,18 +196,16 @@ impl From<LogicMockAction> for MockAction {
                 receipt_index,
                 method_name,
                 args,
-                attached_deposit: NearToken::from_yoctonear(attached_deposit),
-                prepaid_gas: Gas::from_gas(prepaid_gas),
+                attached_deposit,
+                prepaid_gas: near_gas::NearGas::from_gas(prepaid_gas.as_gas()),
                 gas_weight,
             },
             LogicMockAction::Transfer { receipt_index, deposit } => {
-                MockAction::Transfer { receipt_index, deposit: NearToken::from_yoctonear(deposit) }
+                MockAction::Transfer { receipt_index, deposit }
             }
-            LogicMockAction::Stake { receipt_index, stake, public_key } => MockAction::Stake {
-                receipt_index,
-                stake: NearToken::from_yoctonear(stake),
-                public_key,
-            },
+            LogicMockAction::Stake { receipt_index, stake, public_key } => {
+                MockAction::Stake { receipt_index, stake, public_key }
+            }
             LogicMockAction::DeleteAccount { receipt_index, beneficiary_id } => {
                 Self::DeleteAccount { receipt_index, beneficiary_id }
             }
@@ -210,7 +223,7 @@ impl From<LogicMockAction> for MockAction {
                 receipt_index,
                 public_key,
                 nonce,
-                allowance: allowance.map(NearToken::from_yoctonear),
+                allowance,
                 receiver_id,
                 method_names: map_vec_str(method_names),
             },
@@ -221,6 +234,23 @@ impl From<LogicMockAction> for MockAction {
                 Self::YieldCreate { data_id, receiver_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
+            #[cfg(feature = "deterministic-account-ids")]
+            LogicMockAction::SetRefundTo { receipt_index, refund_to } => {
+                Self::SetRefundTo { receipt_index, refund_to_account_id: refund_to }
+            }
+            #[cfg(feature = "deterministic-account-ids")]
+            LogicMockAction::DeterministicStateInit { receipt_index, state_init, amount } => {
+                Self::DeterministicStateInit {
+                    receipt_index,
+                    state_init: state_init.into(),
+                    amount,
+                }
+            }
+            #[cfg(not(feature = "deterministic-account-ids"))]
+            LogicMockAction::DeterministicStateInit { .. }
+            | LogicMockAction::SetRefundTo { .. } => {
+                panic!("Deterministic AccountIds functionality requires the 'deterministic-account-ids' feature flag")
+            }
         }
     }
 }

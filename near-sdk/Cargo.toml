@@ -22,16 +22,17 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.18.1" }
-near-sys = { path = "../near-sys", version = "0.2.5" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.19.0" }
+near-sys = { path = "../near-sys", version = "0.2.6" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
+hex = { version = "0.4", optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-account-id = { version = "1.0.0", features = ["serde", "borsh"] }
+near-account-id = { version = "2.0.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
@@ -43,11 +44,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.31", optional = true }
-near-primitives-core = { version = "0.31", optional = true }
-near-primitives = { version = "0.31", optional = true }
-near-crypto = { version = "0.31", default-features = false, optional = true }
-near-parameters = { version = "0.31", optional = true }
+near-vm-runner = { version = "0.34", optional = true }
+near-primitives-core = { version = "0.34", optional = true }
+near-primitives = { version = "0.34", optional = true }
+near-crypto = { version = "0.34", default-features = false, optional = true }
+near-parameters = { version = "0.34", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
@@ -75,6 +76,11 @@ insta = "1.39.0"
 [features]
 default = ["wee_alloc"]
 expensive-debug = []
+deterministic-account-ids = [
+    "global-contracts",
+    "dep:hex",
+    "near-sys/deterministic-account-ids",
+]
 unstable = []
 legacy = []
 global-contracts = ["near-sys/global-contracts"]

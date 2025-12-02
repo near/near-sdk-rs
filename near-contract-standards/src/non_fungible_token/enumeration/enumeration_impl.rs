@@ -14,7 +14,7 @@ impl NonFungibleToken {
         let approved_account_ids = self
             .approvals_by_id
             .as_ref()
-            .map(|approvals_by_id| approvals_by_id.get(&token_id.to_string()).unwrap_or_default());
+            .map(|approvals_by_id| approvals_by_id.get(&token_id).unwrap_or_default());
 
         Token { token_id, owner_id, metadata, approved_account_ids }
     }
