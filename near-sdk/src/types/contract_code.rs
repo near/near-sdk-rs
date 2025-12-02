@@ -18,7 +18,7 @@ pub enum AccountContract {
 #[serde(untagged)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
-pub enum GlobalContractIdentifier {
+pub enum GlobalContractId {
     CodeHash(
         #[serde_as(as = "::serde_with::base64::Base64")]
         #[cfg_attr(feature = "abi", schemars(with = "String"))]
@@ -27,14 +27,14 @@ pub enum GlobalContractIdentifier {
     AccountId(AccountId) = 1,
 }
 
-impl From<CryptoHash> for GlobalContractIdentifier {
+impl From<CryptoHash> for GlobalContractId {
     #[inline]
     fn from(hash: CryptoHash) -> Self {
         Self::CodeHash(hash)
     }
 }
 
-impl From<AccountId> for GlobalContractIdentifier {
+impl From<AccountId> for GlobalContractId {
     #[inline]
     fn from(account_id: AccountId) -> Self {
         Self::AccountId(account_id)
@@ -61,7 +61,7 @@ const _: () = {
         }
     }
 
-    impl From<NearGlobalContractIdentifier> for GlobalContractIdentifier {
+    impl From<NearGlobalContractIdentifier> for GlobalContractId {
         fn from(value: NearGlobalContractIdentifier) -> Self {
             match value {
                 NearGlobalContractIdentifier::CodeHash(code_hash) => Self::CodeHash(code_hash.0),

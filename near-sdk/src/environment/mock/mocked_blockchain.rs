@@ -921,7 +921,7 @@ mod tests {
     mod deterministic_account_ids {
         use crate::{
             state_init::{StateInit, StateInitV1},
-            GlobalContractIdentifier,
+            GlobalContractId,
         };
 
         use super::*;
@@ -1001,7 +1001,7 @@ mod tests {
                 MockAction::DeterministicStateInit {
                     receipt_index: 0,
                     state_init: StateInit::V1(StateInitV1 {
-                        code: GlobalContractIdentifier::CodeHash([1; 32]),
+                        code: GlobalContractId::CodeHash([1; 32]),
                         data: tree,
                     }),
                     amount: NearToken::from_millinear(1),
@@ -1042,7 +1042,7 @@ mod tests {
                 MockAction::DeterministicStateInit {
                     receipt_index: 0,
                     state_init: StateInit::V1(StateInitV1 {
-                        code: GlobalContractIdentifier::AccountId("account.near".parse().unwrap()),
+                        code: GlobalContractId::AccountId("account.near".parse().unwrap()),
                         data: tree,
                     }),
                     amount: NearToken::from_millinear(1),

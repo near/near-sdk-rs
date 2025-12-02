@@ -4,7 +4,7 @@ use near_account_id::AccountId;
 use near_sdk_macros::near;
 use serde_with::{base64::Base64, serde_as};
 
-use crate::{env, GlobalContractIdentifier};
+use crate::{env, GlobalContractId};
 
 #[near(inside_nearsdk, serializers = [
     json,
@@ -31,7 +31,7 @@ impl StateInit {
 #[near(inside_nearsdk, serializers = [json, borsh])]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateInitV1 {
-    pub code: GlobalContractIdentifier,
+    pub code: GlobalContractId,
     #[serde_as(as = "BTreeMap<Base64, Base64>")]
     #[cfg_attr(feature = "abi", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
@@ -39,7 +39,7 @@ pub struct StateInitV1 {
 
 impl StateInitV1 {
     #[inline]
-    pub const fn code(code: GlobalContractIdentifier) -> Self {
+    pub const fn code(code: GlobalContractId) -> Self {
         Self { code, data: BTreeMap::new() }
     }
 

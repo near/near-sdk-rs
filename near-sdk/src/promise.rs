@@ -180,17 +180,17 @@ impl PromiseAction {
                 state_init: crate::state_init::StateInit::V1(state_init),
                 deposit,
             } => {
-                use crate::GlobalContractIdentifier;
+                use crate::GlobalContractId;
 
                 let action_index = match &state_init.code {
-                    GlobalContractIdentifier::CodeHash(code_hash) => {
+                    GlobalContractId::CodeHash(code_hash) => {
                         crate::env::promise_batch_action_state_init(
                             promise_index,
                             *code_hash,
                             *deposit,
                         )
                     }
-                    GlobalContractIdentifier::AccountId(account_id) => {
+                    GlobalContractId::AccountId(account_id) => {
                         crate::env::promise_batch_action_state_init_by_account_id(
                             promise_index,
                             account_id,
