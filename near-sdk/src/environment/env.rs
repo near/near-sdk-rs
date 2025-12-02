@@ -662,7 +662,7 @@ pub fn ecrecover(
         if return_code == 0 {
             None
         } else {
-            Some(read_register_fixed_64(ATOMIC_OP_REGISTER))
+            Some(read_register_fixed(ATOMIC_OP_REGISTER))
         }
     }
 }
