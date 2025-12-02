@@ -7,10 +7,10 @@
 //! In case of cross-contract calls prefer using higher-level API available
 //! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
 
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::mem::{size_of, size_of_val};
 use std::panic as std_panic;
-use std::{convert::TryFrom, mem::MaybeUninit};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
@@ -63,25 +63,10 @@ macro_rules! method_into_register {
     }};
 }
 
-//* Note: need specific length functions because const generics don't work with mem::transmute
-//* https://github.com/rust-lang/rust/issues/61956
-
-pub(crate) unsafe fn read_register_fixed_20(register_id: u64) -> [u8; 20] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 20];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
-}
-
-pub(crate) unsafe fn read_register_fixed_32(register_id: u64) -> [u8; 32] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 32];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
-}
-
-pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 64];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
+pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
+    let mut buf = [0; N];
+    sys::read_register(register_id, buf.as_mut_ptr() as _);
+    buf
 }
 
 /// Replaces the current low-level blockchain interface accessible through `env::*` with another
@@ -188,8 +173,8 @@ pub fn current_contract_code() -> AccountContract {
     let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
     match mode {
         0 => AccountContract::None,
-        1 => AccountContract::Local(unsafe { read_register_fixed_32(ATOMIC_OP_REGISTER) }),
-        2 => AccountContract::Global(unsafe { read_register_fixed_32(ATOMIC_OP_REGISTER) }),
+        1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+        2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
         3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register!(
             current_account_id
         ))),
@@ -496,7 +481,7 @@ pub fn random_seed_array() -> [u8; 32] {
     //*         because all bytes are filled. This assumes a valid random_seed implementation.
     unsafe {
         sys::random_seed(ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
+        read_register_fixed(ATOMIC_OP_REGISTER)
     }
 }
 
@@ -571,7 +556,7 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
     //*         because all bytes are filled. This assumes a valid sha256 implementation.
     unsafe {
         sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
+        read_register_fixed(ATOMIC_OP_REGISTER)
     }
 }
 
@@ -596,7 +581,7 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
     //*         because all bytes are filled. This assumes a valid keccak256 implementation.
     unsafe {
         sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
+        read_register_fixed(ATOMIC_OP_REGISTER)
     }
 }
 
@@ -621,7 +606,7 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
     //*         because all bytes are filled. This assumes a valid keccak512 implementation.
     unsafe {
         sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_64(ATOMIC_OP_REGISTER)
+        read_register_fixed(ATOMIC_OP_REGISTER)
     }
 }
 
@@ -646,7 +631,7 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
     //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
     unsafe {
         sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_20(ATOMIC_OP_REGISTER)
+        read_register_fixed(ATOMIC_OP_REGISTER)
     }
 }
 
@@ -677,7 +662,7 @@ pub fn ecrecover(
         if return_code == 0 {
             None
         } else {
-            Some(read_register_fixed_64(ATOMIC_OP_REGISTER))
+            Some(read_register_fixed(ATOMIC_OP_REGISTER))
         }
     }
 }
@@ -1204,7 +1189,7 @@ pub fn promise_batch_action_state_init(
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
     promise_index: PromiseIndex,
-    account_id: AccountId,
+    account_id: &AccountIdRef,
     amount: NearToken,
 ) -> ActionIndex {
     unsafe {

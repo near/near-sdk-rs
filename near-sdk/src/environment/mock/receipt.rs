@@ -89,11 +89,13 @@ pub enum MockAction {
         data: Vec<u8>,
         data_id: near_primitives::hash::CryptoHash,
     },
+    #[cfg(feature = "deterministic-account-ids")]
     DeterministicStateInit {
         receipt_index: ReceiptIndex,
-        state_init: near_primitives_core::deterministic_account_id::DeterministicAccountStateInit,
+        state_init: crate::state_init::StateInit,
         amount: NearToken,
     },
+    #[cfg(feature = "deterministic-account-ids")]
     SetRefundTo {
         receipt_index: ReceiptIndex,
         refund_to_account_id: AccountId,
@@ -119,7 +121,9 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
+            #[cfg(feature = "deterministic-account-ids")]
             MockAction::DeterministicStateInit { receipt_index, .. } => Some(*receipt_index),
+            #[cfg(feature = "deterministic-account-ids")]
             MockAction::SetRefundTo { receipt_index, .. } => Some(*receipt_index),
         }
     }
@@ -230,11 +234,22 @@ impl From<LogicMockAction> for MockAction {
                 Self::YieldCreate { data_id, receiver_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
+            #[cfg(feature = "deterministic-account-ids")]
             LogicMockAction::SetRefundTo { receipt_index, refund_to } => {
                 Self::SetRefundTo { receipt_index, refund_to_account_id: refund_to }
             }
+            #[cfg(feature = "deterministic-account-ids")]
             LogicMockAction::DeterministicStateInit { receipt_index, state_init, amount } => {
-                Self::DeterministicStateInit { receipt_index, state_init, amount }
+                Self::DeterministicStateInit {
+                    receipt_index,
+                    state_init: state_init.into(),
+                    amount,
+                }
+            }
+            #[cfg(not(feature = "deterministic-account-ids"))]
+            LogicMockAction::DeterministicStateInit { .. }
+            | LogicMockAction::SetRefundTo { .. } => {
+                panic!("Deterministic AccountIds functionality requires the 'deterministic-account-ids' feature flag")
             }
         }
     }

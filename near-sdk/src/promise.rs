@@ -32,13 +32,6 @@ impl Allowance {
     }
 }
 
-#[cfg(feature = "deterministic-account-ids")]
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub enum GlobalContractIdentifier {
-    CodeHash(CryptoHash),
-    AccountId(AccountId),
-}
-
 enum PromiseAction {
     CreateAccount,
     DeployContract {
@@ -99,9 +92,8 @@ enum PromiseAction {
     },
     #[cfg(feature = "deterministic-account-ids")]
     DeterministicStateInit {
-        code: GlobalContractIdentifier,
+        state_init: crate::state_init::StateInit,
         deposit: NearToken,
-        data: BTreeMap<Vec<u8>, Vec<u8>>,
     },
 }
 
@@ -184,24 +176,29 @@ impl PromiseAction {
                 )
             }
             #[cfg(feature = "deterministic-account-ids")]
-            DeterministicStateInit { code, deposit, data } => {
-                let action_index = match code {
-                    GlobalContractIdentifier::CodeHash(code_hash) => {
+            DeterministicStateInit {
+                state_init: crate::state_init::StateInit::V1(state_init),
+                deposit,
+            } => {
+                use crate::GlobalContractId;
+
+                let action_index = match &state_init.code {
+                    GlobalContractId::CodeHash(code_hash) => {
                         crate::env::promise_batch_action_state_init(
                             promise_index,
                             *code_hash,
                             *deposit,
                         )
                     }
-                    GlobalContractIdentifier::AccountId(account_id) => {
+                    GlobalContractId::AccountId(account_id) => {
                         crate::env::promise_batch_action_state_init_by_account_id(
                             promise_index,
-                            account_id.clone(),
+                            account_id,
                             *deposit,
                         )
                     }
                 };
-                for (key, value) in data.iter() {
+                for (key, value) in &state_init.data {
                     crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
                 }
             }
@@ -440,13 +437,8 @@ impl Promise {
 
     /// Creates a deterministic account with the given code, deposit, and data.
     #[cfg(feature = "deterministic-account-ids")]
-    pub fn deterministic_state_init(
-        self,
-        code: GlobalContractIdentifier,
-        deposit: NearToken,
-        data: BTreeMap<Vec<u8>, Vec<u8>>,
-    ) -> Self {
-        self.add_action(PromiseAction::DeterministicStateInit { code, deposit, data })
+    pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
+        self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
