@@ -1,10 +1,11 @@
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
+#[cfg(feature = "deterministic-account-ids")]
+use crate::AccountContract;
 use crate::{test_vm_config, AccountId};
 use crate::{BlockHeight, EpochHeight, Gas, NearToken, PromiseResult, PublicKey, StorageUsage};
 use near_parameters::RuntimeFeesConfig;
-#[cfg(feature = "deterministic-account-ids")]
-use near_primitives_core::account::AccountContract;
+
 use near_primitives_core::config::ViewConfig;
 use std::convert::TryInto;
 use std::rc::Rc;
