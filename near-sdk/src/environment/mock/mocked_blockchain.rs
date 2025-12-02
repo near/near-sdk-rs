@@ -919,16 +919,14 @@ mod tests {
     }
     #[cfg(feature = "deterministic-account-ids")]
     mod deterministic_account_ids {
+        use crate::{
+            state_init::{StateInit, StateInitV1},
+            GlobalContractIdentifier,
+        };
+
         use super::*;
         use near_account_id::{AccountId, AccountIdRef};
-        use near_primitives::{
-            account::AccountContract,
-            action::GlobalContractIdentifier,
-            deterministic_account_id::{
-                DeterministicAccountStateInit, DeterministicAccountStateInitV1,
-            },
-            hash::CryptoHash,
-        };
+        use near_primitives::{account::AccountContract, hash::CryptoHash};
         use std::collections::BTreeMap;
 
         #[test]
@@ -1002,12 +1000,10 @@ mod tests {
                 actions[0].actions[1],
                 MockAction::DeterministicStateInit {
                     receipt_index: 0,
-                    state_init: DeterministicAccountStateInit::V1(
-                        DeterministicAccountStateInitV1 {
-                            code: GlobalContractIdentifier::CodeHash(CryptoHash([1; 32])),
-                            data: tree,
-                        }
-                    ),
+                    state_init: StateInit::V1(StateInitV1 {
+                        code: GlobalContractIdentifier::CodeHash([1; 32]),
+                        data: tree,
+                    }),
                     amount: NearToken::from_millinear(1),
                 }
             );
@@ -1045,14 +1041,10 @@ mod tests {
                 actions[0].actions[1],
                 MockAction::DeterministicStateInit {
                     receipt_index: 0,
-                    state_init: DeterministicAccountStateInit::V1(
-                        DeterministicAccountStateInitV1 {
-                            code: GlobalContractIdentifier::AccountId(
-                                "account.near".parse().unwrap()
-                            ),
-                            data: tree,
-                        }
-                    ),
+                    state_init: StateInit::V1(StateInitV1 {
+                        code: GlobalContractIdentifier::AccountId("account.near".parse().unwrap()),
+                        data: tree,
+                    }),
                     amount: NearToken::from_millinear(1),
                 }
             );

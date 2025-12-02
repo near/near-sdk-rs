@@ -76,7 +76,10 @@ insta = "1.39.0"
 [features]
 default = ["wee_alloc"]
 expensive-debug = []
-deterministic-account-ids = ["near-sys/deterministic-account-ids"]
+deterministic-account-ids = [
+    "near-sys/deterministic-account-ids",
+    "global-contracts",
+]
 unstable = []
 legacy = []
 global-contracts = ["near-sys/global-contracts"]
