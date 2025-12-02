@@ -7,9 +7,9 @@ pub use self::public_key::{CurveType, PublicKey};
 mod primitives;
 pub use self::primitives::*;
 
-#[cfg(feature = "deterministic-account-ids")]
+#[cfg(feature = "global-contracts")]
 mod contract_code;
-#[cfg(feature = "deterministic-account-ids")]
+#[cfg(feature = "global-contracts")]
 pub use contract_code::*;
 
 pub use near_account_id::{AccountId, AccountIdRef};
