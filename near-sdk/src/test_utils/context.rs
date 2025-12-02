@@ -138,12 +138,6 @@ impl VMContextBuilder {
         self
     }
 
-    #[cfg(feature = "deterministic-account-ids")]
-    pub fn refund_to_account_id(&mut self, beneficiary_id: AccountId) -> &mut Self {
-        self.context.refund_to_account_id = beneficiary_id;
-        self
-    }
-
     #[deprecated(since = "4.1.2", note = "Use `block_height` method instead")]
     pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
         self.context.block_index = block_index;
@@ -192,6 +186,12 @@ impl VMContextBuilder {
 
     pub fn random_seed(&mut self, seed: [u8; 32]) -> &mut Self {
         self.context.random_seed = seed;
+        self
+    }
+
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn refund_to_account_id(&mut self, beneficiary_id: AccountId) -> &mut Self {
+        self.context.refund_to_account_id = beneficiary_id;
         self
     }
 
