@@ -437,11 +437,7 @@ impl Promise {
 
     /// Creates a deterministic account with the given code, deposit, and data.
     #[cfg(feature = "deterministic-account-ids")]
-    pub fn deterministic_state_init(
-        self,
-        state_init: crate::state_init::StateInit,
-        deposit: NearToken,
-    ) -> Self {
+    pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
         self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
     }
 
