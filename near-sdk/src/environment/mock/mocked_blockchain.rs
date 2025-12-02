@@ -189,7 +189,7 @@ fn sdk_context_to_vm_context(
         #[cfg(not(feature = "deterministic-account-ids"))]
         refund_to_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
         #[cfg(feature = "deterministic-account-ids")]
-        account_contract: context.account_contract.into(),
+        account_contract: context.account_contract,
         #[cfg(not(feature = "deterministic-account-ids"))]
         account_contract: near_primitives::account::AccountContract::None,
     }
