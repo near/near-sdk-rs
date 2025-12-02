@@ -1,8 +1,10 @@
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
-use crate::{test_vm_config, AccountContract, AccountId};
+use crate::{test_vm_config, AccountId};
 use crate::{BlockHeight, EpochHeight, Gas, NearToken, PromiseResult, PublicKey, StorageUsage};
 use near_parameters::RuntimeFeesConfig;
+#[cfg(feature = "deterministic-account-ids")]
+use near_primitives_core::account::AccountContract;
 use near_primitives_core::config::ViewConfig;
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -40,6 +42,7 @@ pub struct VMContext {
     /// If this execution is the result of direct execution of transaction then it
     /// is equal to `signer_account_id`.
     pub predecessor_account_id: AccountId,
+    #[cfg(feature = "deterministic-account-ids")]
     /// Where balance refunds after failure should go. Usually the same as
     /// `predecessor_account_id` but may have been changed by the predecessor
     /// via host function `promise_set_refund_to`.
@@ -61,6 +64,7 @@ pub struct VMContext {
     pub account_locked_balance: NearToken,
     /// The account's storage usage before the contract execution
     pub storage_usage: StorageUsage,
+    #[cfg(feature = "deterministic-account-ids")]
     /// The account's current contract code
     pub account_contract: AccountContract,
     /// The balance that was attached to the call that will be immediately deposited before the
@@ -106,7 +110,9 @@ impl VMContextBuilder {
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],
+                #[cfg(feature = "deterministic-account-ids")]
                 refund_to_account_id: bob(),
+                #[cfg(feature = "deterministic-account-ids")]
                 account_contract: AccountContract::None,
             },
         }
@@ -129,6 +135,12 @@ impl VMContextBuilder {
 
     pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id;
+        self
+    }
+
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn refund_to_account_id(&mut self, beneficiary_id: AccountId) -> &mut Self {
+        self.context.refund_to_account_id = beneficiary_id;
         self
     }
 
@@ -183,11 +195,7 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn refund_to_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.refund_to_account_id = account_id;
-        self
-    }
-
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn account_contract(&mut self, contract: AccountContract) -> &mut Self {
         self.context.account_contract = contract;
         self

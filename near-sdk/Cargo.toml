@@ -27,6 +27,7 @@ near-sys = { path = "../near-sys", version = "0.2.6" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
+hex = "0.4"
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
