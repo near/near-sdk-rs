@@ -984,7 +984,7 @@ mod tests {
 
             let action_index = env::promise_batch_action_state_init(
                 promise_index,
-                &[1; 32],
+                [1; 32],
                 NearToken::from_millinear(1),
             );
 

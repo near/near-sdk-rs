@@ -1155,7 +1155,7 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init(
     promise_index: PromiseIndex,
-    code: &CryptoHash,
+    code: CryptoHash,
     amount: NearToken,
 ) -> ActionIndex {
     unsafe {

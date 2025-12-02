@@ -186,7 +186,7 @@ impl PromiseAction {
                     GlobalContractIdentifier::CodeHash(code_hash) => {
                         crate::env::promise_batch_action_state_init(
                             promise_index,
-                            code_hash,
+                            *code_hash,
                             *deposit,
                         )
                     }
