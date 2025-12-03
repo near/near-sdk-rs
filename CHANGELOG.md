@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Re-export `near-account-id` crate as `near_sdk::account_id` ([#1426](https://github.com/near/near-sdk-rs/pull/1426))
-- introduced `StateInit` functions, clean up of the code ([#1425](https://github.com/near/near-sdk-rs/pull/1425))
+- Introduced `StateInit` functions, clean up of the code ([#1425](https://github.com/near/near-sdk-rs/pull/1425))
 
 ### Other
 
