@@ -506,7 +506,7 @@ impl Promise {
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b"`.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
     pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
@@ -536,7 +536,7 @@ impl Promise {
     }
 
     /// Add an access key with a provided nonce.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
     pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
