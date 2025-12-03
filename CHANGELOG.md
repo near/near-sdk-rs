@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.20.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.19.0...near-sdk-v5.20.0) - 2025-12-03
+
+### Added
+
+- Re-export `near-account-id` crate as `near_sdk::account_id` ([#1426](https://github.com/near/near-sdk-rs/pull/1426))
+- Introduced `StateInit` functions, clean up of the code ([#1425](https://github.com/near/near-sdk-rs/pull/1425))
+
+### Other
+
+- *(promise)* fix low-level links for add_access_key_allowance* ([#1427](https://github.com/near/near-sdk-rs/pull/1427))
+- Relaxed iterator bounds to BorshDeserialize for UnorderedMap ([#1419](https://github.com/near/near-sdk-rs/pull/1419))
+
 ## [5.19.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.1...near-sdk-v5.19.0) - 2025-12-01
 
 ### Added
