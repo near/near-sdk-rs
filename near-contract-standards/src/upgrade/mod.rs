@@ -65,13 +65,10 @@ impl Upgradable for Upgrade {
     }
 
     fn deploy_code(&mut self) -> Promise {
-        if self.staging_timestamp < env::block_timestamp() {
+        if env::block_timestamp() < self.staging_timestamp {
             env::panic_str(
-                format!(
-                    "Deploy code too early: staging ends on {}",
-                    self.staging_timestamp + self.staging_duration
-                )
-                .as_str(),
+                format!("Deploy code too early: staging ends on {}", self.staging_timestamp)
+                    .as_str(),
             );
         }
         let code = env::storage_read(b"upgrade")
