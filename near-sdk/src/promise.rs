@@ -1436,11 +1436,11 @@ mod tests {
                 .detach();
         }
 
-        // Should use DeployGlobalContract when account_id provided
+        // Should use DeployGlobalContract with AccountId mode (account-indexed) when account_id provided
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: near_primitives::action::GlobalContractMode::AccountId } if c == code
             )
         });
         assert!(has_action);
