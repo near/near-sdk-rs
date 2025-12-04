@@ -408,43 +408,46 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
+    /// use near_sdk::{env, Promise};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
     ///
-    /// // Publish contract code - can be referenced by its hash later
-    /// Promise::new("alice.near".parse().unwrap())
-    ///     .create_account()
+    /// // Publish contract code from the current account - can be referenced by its hash later
+    /// Promise::new(env::current_account_id())
     ///     .publish_contract_by_hash(code)
     ///     .detach();
     /// ```
-    pub fn publish_contract_by_hash(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContract { code })
+    pub fn publish_contract_by_hash(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
-    /// Publish contract code to the global contract registry, indexed by the current account.
+    /// Publish contract code to the global contract registry, indexed by account ID.
     ///
-    /// This is a high-level API that publishes contract code and associates it with the
-    /// current account. The code can then be referenced by account ID using
-    /// [`Self::deploy_from_published`], making it easier for others to find and use.
+    /// This associates the contract code with the target account, enabling an auto-update
+    /// pattern: when accounts deploy using [`Self::deploy_from_published`] with this account ID,
+    /// they will get the latest version of the code. If you later call this method again with
+    /// new code, all future deployments referencing this account will use the updated version.
+    ///
+    /// Use this when you want to provide an updateable contract template that others can deploy.
+    /// For immutable/pinned deployments, use [`Self::publish_contract_by_hash`] instead.
     ///
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
+    /// use near_sdk::{env, Promise};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
     ///
-    /// // Publish and associate with account - others can reference by account ID
-    /// Promise::new("multisig-template.near".parse().unwrap())
-    ///     .create_account()
+    /// // Publish as an updateable template - others can deploy using your account ID
+    /// // and will automatically get updates when you publish new versions
+    /// Promise::new(env::current_account_id())
     ///     .publish_contract_by_account(code)
     ///     .detach();
     /// ```
-    pub fn publish_contract_by_account(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+    pub fn publish_contract_by_account(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -504,8 +507,11 @@ impl Promise {
     /// doesn't need to be uploaded again.
     ///
     /// The `reference` parameter accepts either:
-    /// - A code hash ([`CryptoHash`]) - if you know the exact hash of the published code
-    /// - An account ID ([`AccountId`]) - if the code was published with an associated account
+    /// - A code hash ([`CryptoHash`]) - deploys a pinned version of the contract; the deployed
+    ///   code will never change unless explicitly redeployed
+    /// - An account ID ([`AccountId`]) - deploys whatever code is currently associated with that
+    ///   account; if the publisher updates their global contract, accounts using this reference
+    ///   will get the new version on their next deployment (enables auto-update patterns)
     ///
     /// # Examples
     /// ```no_run
@@ -514,13 +520,13 @@ impl Promise {
     /// let code_hash: CryptoHash = [0u8; 32]; // Hash from previously published code
     /// let publisher: AccountId = "multisig-template.near".parse().unwrap();
     ///
-    /// // Deploy using code hash
+    /// // Deploy using code hash (pinned version - won't change)
     /// Promise::new("alice.near".parse().unwrap())
     ///     .create_account()
     ///     .deploy_from_published(code_hash)
     ///     .detach();
     ///
-    /// // Deploy using publisher account (more ergonomic!)
+    /// // Deploy using publisher account (follows publisher's latest version)
     /// Promise::new("bob.near".parse().unwrap())
     ///     .create_account()
     ///     .deploy_from_published(publisher)

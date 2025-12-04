@@ -25,7 +25,7 @@ impl GlobalFactoryContract {
         let code_hash = env::sha256_array(&code);
         self.global_contracts_registered_by_code_hash.insert(name.clone(), code_hash);
 
-        Promise::new(env::current_account_id()).publish_contract_by_hash(code.into())
+        Promise::new(env::current_account_id()).publish_contract_by_hash(code)
     }
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
@@ -42,7 +42,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .publish_contract_by_account(code.into())
+            .publish_contract_by_account(code)
     }
 
     /// Use an existing global contract by its code hash
