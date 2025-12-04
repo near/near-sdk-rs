@@ -499,12 +499,12 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
-    /// Deploy an account using previously published global contract code.
+    /// Deploy previously published global contract code to an account.
     ///
-    /// This is a high-level API that creates a new account and deploys it using code that
-    /// was previously published to the global contract registry via [`Self::publish_contract_by_hash`]
-    /// or [`Self::publish_contract_by_account`]. This saves on deployment costs since the code
-    /// doesn't need to be uploaded again.
+    /// This function deploys code that was previously published to the global contract registry via
+    /// [`Self::publish_contract_by_hash`] or [`Self::publish_contract_by_account`] to the specified account.
+    /// Note: This function does **not** create a new account. If you need to create an account, use
+    /// `.create_account()` before calling this method, as shown in the examples.
     ///
     /// The `reference` parameter accepts either:
     /// - A code hash ([`CryptoHash`]) - deploys a pinned version of the contract; the deployed
