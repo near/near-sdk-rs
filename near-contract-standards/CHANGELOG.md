@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.20.0...near-contract-standards-v5.20.1) - 2025-12-05
+
+### Fixed
+
+- Corrected deploy_code time gate in upgradability standard implementation ([#1429](https://github.com/near/near-sdk-rs/pull/1429))
+
 ## [5.19.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.18.1...near-contract-standards-v5.19.0) - 2025-12-01
 
 ### Other
