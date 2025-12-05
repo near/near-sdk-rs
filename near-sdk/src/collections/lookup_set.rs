@@ -1,4 +1,4 @@
-//! A persistent set without iterators. Unlike `near_sdk::collections::LookupSet` this set
+//! A persistent set without iterators. Unlike `near_sdk::collections::UnorderedSet` this set
 //! doesn't store values separately in a vector, so it can't iterate over the values. But it
 //! makes this implementation more efficient in the number of reads and writes.
 use std::marker::PhantomData;
