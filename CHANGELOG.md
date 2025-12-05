@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.0...near-sdk-v5.20.1) - 2025-12-05
+
+### Other
+
+- Fixed the doc-string in LookupSet to compare against UnorderedSet instead of itself ([#1428](https://github.com/near/near-sdk-rs/pull/1428))
+
 ## [5.20.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.19.0...near-sdk-v5.20.0) - 2025-12-03
 
 ### Added
