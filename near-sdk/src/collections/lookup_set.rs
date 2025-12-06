@@ -23,7 +23,7 @@ pub struct LookupSet<T> {
 }
 
 impl<T> LookupSet<T> {
-    /// Create a new map. Use `element_prefix` as a unique prefix for trie keys.
+    /// Create a new set. Use `element_prefix` as a unique prefix for trie keys.
     ///
     /// # Examples
     ///
@@ -42,7 +42,7 @@ impl<T> LookupSet<T> {
         append_slice(&self.element_prefix, element_raw)
     }
 
-    /// Returns `true` if the serialized key is present in the map.
+    /// Returns `true` if the set contains a serialized element.
     fn contains_raw(&self, element_raw: &[u8]) -> bool {
         let storage_key = self.raw_element_to_storage_key(element_raw);
         env::storage_has_key(&storage_key)
