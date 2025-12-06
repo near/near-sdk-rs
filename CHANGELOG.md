@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.20.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.1...near-sdk-v5.20.2) - 2025-12-06
+
+### Other
+
+- correct LookupSet docs to refer to set elements ([#1433](https://github.com/near/near-sdk-rs/pull/1433))
+
 ## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.0...near-sdk-v5.20.1) - 2025-12-05
 
 ### Other
