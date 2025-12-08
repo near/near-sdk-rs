@@ -103,7 +103,9 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    fn split_key_type_data(value: &str) -> Result<(CurveType, &str), ParsePublicKeyError> {
+    pub(crate) fn split_key_type_data(
+        value: &str,
+    ) -> Result<(CurveType, &str), ParsePublicKeyError> {
         if let Some(idx) = value.find(':') {
             let (prefix, key_data) = value.split_at(idx);
             Ok((prefix.parse::<CurveType>()?, &key_data[1..]))
@@ -235,11 +237,11 @@ impl std::str::FromStr for PublicKey {
 }
 #[derive(Debug)]
 pub struct ParsePublicKeyError {
-    kind: ParsePublicKeyErrorKind,
+    pub(crate) kind: ParsePublicKeyErrorKind,
 }
 
 #[derive(Debug)]
-enum ParsePublicKeyErrorKind {
+pub(crate) enum ParsePublicKeyErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
     UnknownCurve,
