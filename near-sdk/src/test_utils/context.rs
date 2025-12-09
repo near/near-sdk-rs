@@ -48,7 +48,7 @@ pub struct VMContext {
     /// via host function `promise_set_refund_to`.
     pub refund_to_account_id: AccountId,
     /// The input to the contract call.
-    /// Encoded as base64 string to be able to pass input in borsh binary format.
+    /// Raw input bytes for the contract call (e.g. JSON or Borsh-serialized).
     pub input: Rc<[u8]>,
     /// The current block height.
     pub block_index: BlockHeight,
