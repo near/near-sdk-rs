@@ -48,19 +48,17 @@ fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
 }
 
-/// A simple macro helper to read blob value coming from host's method.
-macro_rules! try_method_into_register {
-    ( $method:ident ) => {{
-        unsafe { sys::$method(ATOMIC_OP_REGISTER) };
-        read_register(ATOMIC_OP_REGISTER)
-    }};
+/// A simple helper to read blob value coming from host's method.
+#[inline]
+fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>> {
+    unsafe { method(ATOMIC_OP_REGISTER) };
+    read_register(ATOMIC_OP_REGISTER)
 }
 
 /// Same as `try_method_into_register` but expects the data.
-macro_rules! method_into_register {
-    ( $method:ident ) => {{
-        expect_register(try_method_into_register!($method))
-    }};
+#[inline]
+fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
+    expect_register(try_method_into_register(method))
 }
 
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
@@ -142,6 +140,18 @@ pub fn register_len(register_id: u64) -> Option<u64> {
     }
 }
 
+macro_rules! maybe_cached {
+    ($t:ty: $v:block) => {{
+        #[cfg(not(feature = "unit-testing"))]
+        {
+            static CACHED: ::std::sync::LazyLock<$t> = ::std::sync::LazyLock::new(|| $v);
+            CACHED.clone()
+        }
+        #[cfg(feature = "unit-testing")]
+        $v
+    }};
+}
+
 // ###############
 // # Context API #
 // ###############
@@ -156,7 +166,9 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// assert_eq!(current_account_id(), "alice.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn current_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(current_account_id))
+    maybe_cached!(AccountId: {
+        assert_valid_account_id(method_into_register(sys::current_account_id))
+    })
 }
 
 /// The code of the current contract.
@@ -170,16 +182,18 @@ pub fn current_account_id() -> AccountId {
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn current_contract_code() -> AccountContract {
-    let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
-    match mode {
-        0 => AccountContract::None,
-        1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
-        2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
-        3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register!(
-            current_account_id
-        ))),
-        _ => panic!("Invalid contract mode"),
-    }
+    maybe_cached!(AccountContract: {
+        let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
+        match mode {
+            0 => AccountContract::None,
+            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+            3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register(
+                sys::current_account_id,
+            ))),
+            _ => panic!("Invalid contract mode"),
+        }
+    })
 }
 
 /// The account id that will receive the refund if the contract panics.
@@ -191,7 +205,9 @@ pub fn current_contract_code() -> AccountContract {
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn refund_to_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(refund_to_account_id))
+    maybe_cached!(AccountId: {
+        assert_valid_account_id(method_into_register(sys::refund_to_account_id))
+    })
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
@@ -206,7 +222,9 @@ pub fn refund_to_account_id() -> AccountId {
 /// assert_eq!(signer_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn signer_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(signer_account_id))
+    maybe_cached!(AccountId: {
+        assert_valid_account_id(method_into_register(sys::signer_account_id))
+    })
 }
 
 /// The public key of the account that did the signing.
@@ -220,7 +238,10 @@ pub fn signer_account_id() -> AccountId {
 /// assert_eq!(signer_account_pk(), pk);
 /// ```
 pub fn signer_account_pk() -> PublicKey {
-    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
+    maybe_cached!(PublicKey: {
+        PublicKey::try_from(method_into_register(sys::signer_account_pk))
+            .unwrap_or_else(|_| abort())
+    })
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
@@ -235,7 +256,7 @@ pub fn signer_account_pk() -> PublicKey {
 /// assert_eq!(predecessor_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn predecessor_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(predecessor_account_id))
+    maybe_cached!(AccountId: { assert_valid_account_id(method_into_register(sys::predecessor_account_id)) })
 }
 
 /// Helper function to convert and check the account ID from bytes from the runtime.
@@ -256,7 +277,7 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
 /// ```
 /// See an example here [here](https://github.com/near-examples/update-migrate-rust/blob/a1a326de73c152831f93fbf6d90932e13a08b89f/self-updates/update/src/update.rs#L19)
 pub fn input() -> Option<Vec<u8>> {
-    try_method_into_register!(input)
+    try_method_into_register(sys::input)
 }
 
 /// Current block index.
@@ -281,7 +302,7 @@ pub fn block_index() -> BlockHeight {
 /// assert_eq!(block_height(), 0);
 /// ```
 pub fn block_height() -> BlockHeight {
-    unsafe { sys::block_height() }
+    maybe_cached!(BlockHeight: { unsafe { sys::block_height() } })
 }
 
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
@@ -293,7 +314,7 @@ pub fn block_height() -> BlockHeight {
 /// assert_eq!(block_timestamp(), 0);
 /// ```
 pub fn block_timestamp() -> u64 {
-    unsafe { sys::block_timestamp() }
+    maybe_cached!(u64: { unsafe { sys::block_timestamp() } })
 }
 
 /// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
@@ -317,7 +338,7 @@ pub fn block_timestamp_ms() -> u64 {
 /// assert_eq!(epoch_height(), 0);
 /// ```
 pub fn epoch_height() -> u64 {
-    unsafe { sys::epoch_height() }
+    maybe_cached!(u64: { unsafe { sys::epoch_height() } })
 }
 
 /// Current total storage usage of this smart contract that this account would be paying for.
@@ -377,9 +398,11 @@ pub fn account_locked_balance() -> NearToken {
 /// assert_eq!(attached_deposit(), NearToken::from_yoctonear(0));
 /// ```
 pub fn attached_deposit() -> NearToken {
-    let mut data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::attached_deposit(data.as_mut_ptr() as u64) };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    maybe_cached!(NearToken: {
+        let mut data = [0u8; size_of::<NearToken>()];
+        unsafe { sys::attached_deposit(data.as_mut_ptr() as u64) };
+        NearToken::from_yoctonear(u128::from_le_bytes(data))
+    })
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
@@ -392,7 +415,7 @@ pub fn attached_deposit() -> NearToken {
 /// assert_eq!(prepaid_gas(), Gas::from_tgas(300));
 /// ```
 pub fn prepaid_gas() -> Gas {
-    Gas::from_gas(unsafe { sys::prepaid_gas() })
+    maybe_cached!(Gas: { Gas::from_gas(unsafe { sys::prepaid_gas() }) })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
@@ -476,13 +499,15 @@ pub fn random_seed() -> Vec<u8> {
 /// ```
 /// More info in [documentation](https://docs.near.org/develop/contracts/security/random)
 pub fn random_seed_array() -> [u8; 32] {
-    //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid random_seed implementation.
-    unsafe {
-        sys::random_seed(ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
-    }
+    maybe_cached!([u8; 32]: {
+        //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid random_seed implementation.
+        unsafe {
+            sys::random_seed(ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
+    })
 }
 
 /// Hashes the random sequence of bytes using sha256.
@@ -1792,7 +1817,7 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
 ///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
-    unsafe { sys::promise_results_count() }
+    maybe_cached!(u64: { unsafe { sys::promise_results_count() } })
 }
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
