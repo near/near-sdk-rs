@@ -3,6 +3,7 @@ use near_sdk_macros::near;
 
 use crate::CryptoHash;
 
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum AccountContract {
     None,
@@ -11,6 +12,7 @@ pub enum AccountContract {
     GlobalByAccount(AccountId),
 }
 
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [
     json,
     borsh(use_discriminant = true),
