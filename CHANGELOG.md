@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.22.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.21.0...near-sdk-v5.22.0) - 2025-12-09
+
+### Added
+
+- Added optional `arbitrary` feature (useful for fuzz testing) ([#1437](https://github.com/near/near-sdk-rs/pull/1437))
+
 ## [5.21.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.1...near-sdk-v5.21.0) - 2025-12-09
 
 ### Added
