@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.21.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.1...near-sdk-v5.21.0) - 2025-12-09
+
+### Added
+
+- Cache host funcs to save gas on repetitive calls (calling host is more expensive than caching inside Wasm) ([#1431](https://github.com/near/near-sdk-rs/pull/1431))
+
+### Other
+
+- Corrected VMContext.input doc comment to describe raw bytes ([#1435](https://github.com/near/near-sdk-rs/pull/1435))
+- correct LookupSet docs to refer to set elements ([#1433](https://github.com/near/near-sdk-rs/pull/1433))
+- Avoid cloning self_occurrences vectors in AttrSigInfo::new ([#1436](https://github.com/near/near-sdk-rs/pull/1436))
+- Added tests for #[init] + #[private] macro combination ([#1432](https://github.com/near/near-sdk-rs/pull/1432))
+
 ## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.0...near-sdk-v5.20.1) - 2025-12-05
 
 ### Other
