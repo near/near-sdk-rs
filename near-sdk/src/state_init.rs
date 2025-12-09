@@ -6,6 +6,7 @@ use serde_with::{base64::Base64, serde_as};
 
 use crate::{env, GlobalContractId};
 
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [
     json,
     borsh(use_discriminant = true),
@@ -28,6 +29,7 @@ impl StateInit {
     }
 }
 
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [json, borsh])]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateInitV1 {

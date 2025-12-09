@@ -32,9 +32,11 @@ hex = { version = "0.4", optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-account-id = { version = "2.0.0", features = ["serde", "borsh"] }
+near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
+
+arbitrary = { version = "1.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
@@ -75,6 +77,8 @@ insta = "1.39.0"
 
 [features]
 default = ["wee_alloc"]
+
+arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 expensive-debug = []
 deterministic-account-ids = [
     "global-contracts",
