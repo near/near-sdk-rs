@@ -206,32 +206,52 @@ impl PromiseAction {
     }
 }
 
+enum PromiseSingleSubtype {
+    Regular {
+        account_id: AccountId,
+        after: RefCell<Option<Rc<Promise>>>,
+        /// Promise index that is computed only once.
+        promise_index: RefCell<Option<PromiseIndex>>,
+    },
+    Yielded(PromiseIndex),
+}
+
 struct PromiseSingle {
-    pub account_id: AccountId,
+    pub subtype: PromiseSingleSubtype,
     pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Rc<Promise>>>,
-    /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<PromiseIndex>>,
 }
 
 impl PromiseSingle {
     pub fn construct_recursively(&self) -> PromiseIndex {
-        let mut promise_lock = self.promise_index.borrow_mut();
-        if let Some(res) = promise_lock.as_ref() {
-            return *res;
-        }
-        let promise_index = if let Some(after) =
-            self.after.borrow().as_deref().and_then(Promise::construct_recursively)
-        {
-            crate::env::promise_batch_then(after, &self.account_id)
-        } else {
-            crate::env::promise_batch_create(&self.account_id)
+        let promise_index = match &self.subtype {
+            PromiseSingleSubtype::Regular { account_id, after, promise_index } => {
+                let mut promise_lock = promise_index.borrow_mut();
+                if let Some(res) = promise_lock.as_ref() {
+                    return *res;
+                }
+                let idx = if let Some(after) =
+                    after.borrow().as_deref().and_then(Promise::construct_recursively)
+                {
+                    crate::env::promise_batch_then(after, account_id)
+                } else {
+                    crate::env::promise_batch_create(account_id)
+                };
+                let actions_lock = self.actions.borrow();
+                for action in actions_lock.iter() {
+                    action.add(idx);
+                }
+                *promise_lock = Some(idx);
+                idx
+            }
+            PromiseSingleSubtype::Yielded(promise_index) => {
+                // For yielded promises, actions are added to the already-created promise
+                let actions_lock = self.actions.borrow();
+                for action in actions_lock.iter() {
+                    action.add(*promise_index);
+                }
+                *promise_index
+            }
         };
-        let actions_lock = self.actions.borrow();
-        for action in actions_lock.iter() {
-            action.add(promise_index);
-        }
-        *promise_lock = Some(promise_index);
         promise_index
     }
 }
@@ -325,7 +345,6 @@ impl BorshSchema for Promise {
 enum PromiseSubtype {
     Single(Rc<PromiseSingle>),
     Joint(Rc<PromiseJoint>),
-    Yielded(PromiseIndex),
 }
 
 impl Promise {
@@ -333,10 +352,12 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
         Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
-            account_id,
+            subtype: PromiseSingleSubtype::Regular {
+                account_id,
+                after: RefCell::new(None),
+                promise_index: RefCell::new(None),
+            },
             actions: RefCell::new(vec![]),
-            after: RefCell::new(None),
-            promise_index: RefCell::new(None),
         })))
     }
 
@@ -357,8 +378,7 @@ impl Promise {
     /// * `weight` - Gas weight for distributing remaining gas
     ///
     /// # Important
-    /// Yielded promises have restrictions:
-    /// - **Cannot add actions**: Calling methods like `create_account()`, `transfer()`, etc. will panic
+    /// Yielded promises have a restriction:
     /// - **Cannot be used as continuations**: Using a yielded promise in `other.then(yielded)` will panic.
     ///   Yielded promises must be first in the chain: `yielded.then(other)` is valid.
     ///
@@ -389,7 +409,11 @@ impl Promise {
     ) -> (Self, YieldId) {
         let (promise_index, yield_id) =
             crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
-        (Self::new_with_subtype(PromiseSubtype::Yielded(promise_index)), yield_id)
+        let promise = Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
+            subtype: PromiseSingleSubtype::Yielded(promise_index),
+            actions: RefCell::new(vec![]),
+        })));
+        (promise, yield_id)
     }
 
     fn add_action(self, action: PromiseAction) -> Self {
@@ -397,9 +421,6 @@ impl Promise {
             PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
             PromiseSubtype::Joint(_) => {
                 crate::env::panic_str("Cannot add action to a joint promise.")
-            }
-            PromiseSubtype::Yielded(_) => {
-                crate::env::panic_str("Cannot add action to a yielded promise.")
             }
         }
         self
@@ -701,17 +722,21 @@ impl Promise {
     /// promise.
     fn then_impl(self: Rc<Self>, other: Promise) -> Promise {
         match &other.subtype {
-            PromiseSubtype::Single(x) => {
-                let mut after = x.after.borrow_mut();
-                if after.is_some() {
-                    crate::env::panic_str(
-                        "Cannot callback promise which is already scheduled after another",
-                    );
+            PromiseSubtype::Single(x) => match &x.subtype {
+                PromiseSingleSubtype::Regular { after, .. } => {
+                    let mut after = after.borrow_mut();
+                    if after.is_some() {
+                        crate::env::panic_str(
+                            "Cannot callback promise which is already scheduled after another",
+                        );
+                    }
+                    *after = Some(self)
                 }
-                *after = Some(self)
-            }
+                PromiseSingleSubtype::Yielded(_) => {
+                    crate::env::panic_str("Cannot callback yielded promise.")
+                }
+            },
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
-            PromiseSubtype::Yielded(_) => crate::env::panic_str("Cannot callback yielded promise."),
         }
         other
     }
@@ -795,7 +820,6 @@ impl Promise {
         let res = match &self.subtype {
             PromiseSubtype::Single(x) => x.construct_recursively(),
             PromiseSubtype::Joint(x) => x.construct_recursively()?,
-            PromiseSubtype::Yielded(promise_index) => *promise_index,
         };
         if *self.should_return.borrow() {
             crate::env::promise_return(res);
@@ -1008,6 +1032,7 @@ impl ConcurrentPromises {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use super::PromiseSubtype;
     use crate::mock::MockAction;
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
@@ -1522,20 +1547,6 @@ mod tests {
             &[sub1_creation_index, sub2_creation_index],
             "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
         );
-    }
-
-    #[test]
-    #[should_panic(expected = "Cannot add action to a yielded promise.")]
-    fn test_yielded_promise_cannot_add_action() {
-        use crate::{Gas, GasWeight};
-
-        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
-
-        let (yielded, _yield_id) =
-            Promise::yield_create("callback", vec![], Gas::from_tgas(5), GasWeight(1));
-
-        // This should panic - yielded promises cannot have actions added
-        yielded.create_account().detach();
     }
 
     #[test]
