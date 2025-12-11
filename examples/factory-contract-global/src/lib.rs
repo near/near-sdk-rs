@@ -25,7 +25,7 @@ impl GlobalFactoryContract {
         let code_hash = env::sha256_array(&code);
         self.global_contracts_registered_by_code_hash.insert(name.clone(), code_hash);
 
-        Promise::new(env::current_account_id()).deploy_global_contract(code)
+        Promise::new(env::current_account_id()).publish_contract_by_hash(code)
     }
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
@@ -38,11 +38,11 @@ impl GlobalFactoryContract {
     ) -> Promise {
         self.global_contracts_registered_by_account_id.insert(name, account_id.clone());
 
-        Promise::new(account_id)
+        Promise::new(account_id.clone())
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_global_contract_by_account_id(code)
+            .publish_contract_by_account(code)
     }
 
     /// Use an existing global contract by its code hash
@@ -55,7 +55,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .use_global_contract(code_hash)
+            .deploy_from_published(CryptoHash::from(code_hash))
     }
 
     /// Use an existing global contract by referencing the account that deployed it
@@ -68,7 +68,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .use_global_contract_by_account_id(deployer_account_id)
+            .deploy_from_published(deployer_account_id)
     }
 
     /// Get the code hash of a deployed global contract by name
