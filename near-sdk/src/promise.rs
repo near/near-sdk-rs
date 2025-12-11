@@ -1,7 +1,7 @@
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
 use std::cell::RefCell;
-#[cfg(any(feature = "abi", feature = "deterministic-account-ids"))]
+#[cfg(feature = "abi")]
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::io::{Error, Write};
@@ -9,9 +9,9 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-#[cfg(any(feature = "deterministic-account-ids", feature = "global-contracts"))]
 use crate::CryptoHash;
 use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use near_sdk_macros::near;
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -325,21 +325,71 @@ impl BorshSchema for Promise {
 enum PromiseSubtype {
     Single(Rc<PromiseSingle>),
     Joint(Rc<PromiseJoint>),
+    Yielded(PromiseIndex),
 }
 
 impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
-        Self {
-            subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
-                account_id,
-                actions: RefCell::new(vec![]),
-                after: RefCell::new(None),
-                promise_index: RefCell::new(None),
-            })),
-            should_return: RefCell::new(false),
-        }
+        Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
+            account_id,
+            actions: RefCell::new(vec![]),
+            after: RefCell::new(None),
+            promise_index: RefCell::new(None),
+        })))
+    }
+
+    const fn new_with_subtype(subtype: PromiseSubtype) -> Self {
+        Self { subtype, should_return: RefCell::new(false) }
+    }
+
+    /// Create a yielded promise that suspends execution until resumed.
+    ///
+    /// Returns a tuple of `(Promise, YieldId)` where:
+    /// - The `Promise` represents the yielded execution that will call `function_name` when resumed
+    /// - The `YieldId` can be stored and used later to resume the promise with [`YieldId::resume`]
+    ///
+    /// # Arguments
+    /// * `function_name` - The callback function to invoke when the promise is resumed
+    /// * `arguments` - Arguments to pass to the callback function
+    /// * `gas` - Base gas to allocate for the callback
+    /// * `weight` - Gas weight for distributing remaining gas
+    ///
+    /// # Important
+    /// Yielded promises have restrictions:
+    /// - **Cannot add actions**: Calling methods like `create_account()`, `transfer()`, etc. will panic
+    /// - **Cannot be used as continuations**: Using a yielded promise in `other.then(yielded)` will panic.
+    ///   Yielded promises must be first in the chain: `yielded.then(other)` is valid.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use near_sdk::{Promise, Gas, GasWeight};
+    ///
+    /// // Create a yielded promise
+    /// let (promise, yield_id) = Promise::yield_create(
+    ///     "on_data_received",
+    ///     vec![],
+    ///     Gas::from_tgas(10),
+    ///     GasWeight(1),
+    /// );
+    ///
+    /// // Chain another promise after the yielded one (valid)
+    /// promise.then(Promise::new("other.near".parse().unwrap()).create_account());
+    ///
+    /// // Store yield_id to resume later from another transaction
+    /// ```
+    ///
+    /// Uses low-level [`crate::env::promise_yield_create`]
+    pub fn yield_create(
+        function_name: &str,
+        arguments: impl AsRef<[u8]>,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> (Self, YieldId) {
+        let (promise_index, yield_id) =
+            crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
+        (Self::new_with_subtype(PromiseSubtype::Yielded(promise_index)), yield_id)
     }
 
     fn add_action(self, action: PromiseAction) -> Self {
@@ -347,6 +397,9 @@ impl Promise {
             PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
             PromiseSubtype::Joint(_) => {
                 crate::env::panic_str("Cannot add action to a joint promise.")
+            }
+            PromiseSubtype::Yielded(_) => {
+                crate::env::panic_str("Cannot add action to a yielded promise.")
             }
         }
         self
@@ -658,6 +711,7 @@ impl Promise {
                 *after = Some(self)
             }
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            PromiseSubtype::Yielded(_) => crate::env::panic_str("Cannot callback yielded promise."),
         }
         other
     }
@@ -741,6 +795,7 @@ impl Promise {
         let res = match &self.subtype {
             PromiseSubtype::Single(x) => x.construct_recursively(),
             PromiseSubtype::Joint(x) => x.construct_recursively()?,
+            PromiseSubtype::Yielded(promise_index) => *promise_index,
         };
         if *self.should_return.borrow() {
             crate::env::promise_return(res);
@@ -789,6 +844,45 @@ impl schemars::JsonSchema for Promise {
         // Since promises are untyped, for now we represent Promise results with the schema
         // `true` which matches everything (i.e. always passes validation)
         schemars::schema::Schema::Bool(true)
+    }
+}
+
+/// A unique identifier for a yielded promise that can be used to resume execution.
+///
+/// `YieldId` is returned by [`Promise::yield_create`] and can be stored or passed to another
+/// transaction to resume the yielded promise with data.
+///
+/// # Example
+/// ```ignore
+/// // In the first transaction, create a yielded promise
+/// let (promise, yield_id) = Promise::yield_create(
+///     "on_resume",
+///     vec![],
+///     Gas::from_tgas(5),
+///     GasWeight(1),
+/// );
+/// // Store yield_id somewhere (e.g., contract state)
+///
+/// // In a later transaction, resume with data
+/// yield_id.resume(b"result data");
+/// ```
+#[near(inside_nearsdk, serializers = [json, borsh])]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct YieldId(
+    #[serde_as(as = "::serde_with::base64::Base64")]
+    #[cfg_attr(feature = "abi", schemars(with = "String"))]
+    pub(crate) CryptoHash,
+);
+
+impl YieldId {
+    /// Resume the yielded promise with the provided data.
+    ///
+    /// Returns `true` if the promise was successfully resumed, `false` if no promise
+    /// with this `YieldId` was found (e.g., if it was already resumed or timed out).
+    ///
+    /// Uses low-level [`crate::env::promise_yield_resume`]
+    pub fn resume(self, data: impl AsRef<[u8]>) -> bool {
+        crate::env::promise_yield_resume(&self.0, data)
     }
 }
 
@@ -1428,5 +1522,36 @@ mod tests {
             &[sub1_creation_index, sub2_creation_index],
             "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot add action to a yielded promise.")]
+    fn test_yielded_promise_cannot_add_action() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let (yielded, _yield_id) =
+            Promise::yield_create("callback", vec![], Gas::from_tgas(5), GasWeight(1));
+
+        // This should panic - yielded promises cannot have actions added
+        yielded.create_account().detach();
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot callback yielded promise.")]
+    fn test_yielded_promise_cannot_be_continuation() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let (yielded, _yield_id) =
+            Promise::yield_create("callback", vec![], Gas::from_tgas(5), GasWeight(1));
+
+        let regular = Promise::new(alice()).create_account();
+
+        // This should panic - yielded promises cannot be used as continuations
+        // i.e., they cannot appear on the right side of .then()
+        regular.then(yielded).detach();
     }
 }

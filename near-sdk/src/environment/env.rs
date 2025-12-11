@@ -1968,6 +1968,25 @@ pub fn promise_yield_create(
     }
 }
 
+/// Helper function that creates a yield promise and returns both the promise index and the yield ID.
+///
+/// This is a convenience wrapper around [`promise_yield_create`] that automatically reads the
+/// yield ID from the register and returns it as a [`YieldId`].
+pub fn promise_yield_create_id(
+    function_name: &str,
+    arguments: impl AsRef<[u8]>,
+    gas: Gas,
+    weight: GasWeight,
+) -> (PromiseIndex, crate::YieldId) {
+    const REGISTER_ID: u64 = 66;
+    let promise_index = promise_yield_create(function_name, arguments, gas, weight, REGISTER_ID);
+    let yield_id = read_register(REGISTER_ID)
+        .and_then(|v| v.try_into().ok())
+        .map(crate::YieldId)
+        .expect("Failed to read yield ID from register");
+    (promise_index, yield_id)
+}
+
 /// Accepts a resumption token `data_id` created by promise_yield_create on the local account.
 /// `data` is a payload to be passed to the callback method as a promise input. Returns false if
 /// no promise yield with the specified `data_id` is found. Returns true otherwise, guaranteeing
