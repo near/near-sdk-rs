@@ -1978,10 +1978,10 @@ pub fn promise_yield_create_id(
     gas: Gas,
     weight: GasWeight,
 ) -> (PromiseIndex, crate::YieldId) {
-    const REGISTER_ID: u64 = 66;
-    let promise_index = promise_yield_create(function_name, arguments, gas, weight, REGISTER_ID);
+    let promise_index =
+        promise_yield_create(function_name, arguments, gas, weight, ATOMIC_OP_REGISTER);
     // SAFETY: promise_yield_create writes a 32-byte yield ID to the register
-    let yield_id = crate::YieldId(unsafe { read_register_fixed(REGISTER_ID) });
+    let yield_id = crate::YieldId(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) });
     (promise_index, yield_id)
 }
 

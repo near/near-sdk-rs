@@ -387,7 +387,7 @@ impl Promise {
     /// use near_sdk::{Promise, Gas, GasWeight};
     ///
     /// // Create a yielded promise
-    /// let (promise, yield_id) = Promise::yield_create(
+    /// let (promise, yield_id) = Promise::new_yield(
     ///     "on_data_received",
     ///     vec![],
     ///     Gas::from_tgas(10),
@@ -401,7 +401,7 @@ impl Promise {
     /// ```
     ///
     /// Uses low-level [`crate::env::promise_yield_create`]
-    pub fn yield_create(
+    pub fn new_yield(
         function_name: &str,
         arguments: impl AsRef<[u8]>,
         gas: Gas,
@@ -873,13 +873,13 @@ impl schemars::JsonSchema for Promise {
 
 /// A unique identifier for a yielded promise that can be used to resume execution.
 ///
-/// `YieldId` is returned by [`Promise::yield_create`] and can be stored or passed to another
+/// `YieldId` is returned by [`Promise::new_yield`] and can be stored or passed to another
 /// transaction to resume the yielded promise with data.
 ///
 /// # Example
 /// ```ignore
 /// // In the first transaction, create a yielded promise
-/// let (promise, yield_id) = Promise::yield_create(
+/// let (promise, yield_id) = Promise::new_yield(
 ///     "on_resume",
 ///     vec![],
 ///     Gas::from_tgas(5),
@@ -898,15 +898,36 @@ pub struct YieldId(
     pub(crate) CryptoHash,
 );
 
+/// Error returned when attempting to resume a yielded promise that was not found.
+///
+/// This occurs when:
+/// - The promise was already resumed
+/// - The promise timed out
+/// - The `YieldId` is invalid
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ResumeError;
+
+impl std::fmt::Display for ResumeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to resume yielded promise: not found or already resumed")
+    }
+}
+
+impl std::error::Error for ResumeError {}
+
 impl YieldId {
     /// Resume the yielded promise with the provided data.
     ///
-    /// Returns `true` if the promise was successfully resumed, `false` if no promise
+    /// Returns `Ok(())` if the promise was successfully resumed, or `Err(ResumeError)` if no promise
     /// with this `YieldId` was found (e.g., if it was already resumed or timed out).
     ///
     /// Uses low-level [`crate::env::promise_yield_resume`]
-    pub fn resume(self, data: impl AsRef<[u8]>) -> bool {
-        crate::env::promise_yield_resume(&self.0, data)
+    pub fn resume(self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
+        if crate::env::promise_yield_resume(&self.0, data) {
+            Ok(())
+        } else {
+            Err(ResumeError)
+        }
     }
 }
 
@@ -1032,7 +1053,6 @@ impl ConcurrentPromises {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use super::PromiseSubtype;
     use crate::mock::MockAction;
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
@@ -1557,12 +1577,83 @@ mod tests {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
         let (yielded, _yield_id) =
-            Promise::yield_create("callback", vec![], Gas::from_tgas(5), GasWeight(1));
+            Promise::new_yield("callback", vec![], Gas::from_tgas(5), GasWeight(1));
 
         let regular = Promise::new(alice()).create_account();
 
         // This should panic - yielded promises cannot be used as continuations
         // i.e., they cannot appear on the right side of .then()
         regular.then(yielded).detach();
+    }
+
+    #[test]
+    fn test_new_yield_creates_promise_and_yield_id() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create a yielded promise
+        let (_promise, yield_id) = Promise::new_yield(
+            "on_callback",
+            b"test_args".to_vec(),
+            Gas::from_tgas(10),
+            GasWeight(1),
+        );
+
+        // Verify yield_id is a valid 32-byte CryptoHash
+        let yield_id_bytes: [u8; 32] = yield_id.0;
+        // The mock generates a random yield ID, so just check it's not all zeros
+        assert!(yield_id_bytes.iter().any(|&b| b != 0), "YieldId should not be all zeros");
+    }
+
+    #[test]
+    fn test_yield_id_is_unique() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create multiple yielded promises and verify they get unique YieldIds
+        let (_promise1, yield_id1) =
+            Promise::new_yield("on_callback1", vec![], Gas::from_tgas(5), GasWeight(1));
+        let (_promise2, yield_id2) =
+            Promise::new_yield("on_callback2", vec![], Gas::from_tgas(5), GasWeight(1));
+
+        // The two yield IDs should be different
+        assert_ne!(yield_id1, yield_id2, "Two yielded promises should have different YieldIds");
+    }
+
+    #[test]
+    #[ignore]
+    //TODO: currently mock does not support yielded promises
+    // uncomment after https://github.com/near/nearcore/pull/14792 is released
+    fn test_yielded_promise_can_chain_then() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create a yielded promise and chain another promise after it
+        {
+            let (yielded, _yield_id) =
+                Promise::new_yield("on_resume", vec![], Gas::from_tgas(5), GasWeight(1));
+
+            // This should not panic - yielded promises CAN be first in a chain
+            yielded.then(Promise::new(bob()).transfer(NearToken::from_yoctonear(1000))).detach();
+        }
+
+        // Verify the chained promise was created (receipts are created on drop)
+        let receipts = get_created_receipts();
+        // The chained promise creates a receipt for bob()
+        let bob_receipt = receipts
+            .iter()
+            .find(|r| r.receiver_id == bob())
+            .expect("Should have created a receipt for bob()");
+
+        // Verify the exact transfer action in the chained receipt
+        assert_eq!(bob_receipt.actions.len(), 1, "bob() receipt should have exactly 1 action");
+        let receipt_index = bob_receipt.actions[0].receipt_index().unwrap();
+        assert_eq!(
+            bob_receipt.actions[0],
+            MockAction::Transfer { receipt_index, deposit: NearToken::from_yoctonear(1000) }
+        );
     }
 }
