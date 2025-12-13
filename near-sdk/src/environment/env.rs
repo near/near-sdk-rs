@@ -1971,7 +1971,7 @@ pub fn promise_yield_create(
 /// Helper function that creates a yield promise and returns both the promise index and the yield ID.
 ///
 /// This is a convenience wrapper around [`promise_yield_create`] that automatically reads the
-/// yield ID from the register and returns it as a [`YieldId`].
+/// yield ID from the register and returns it as a [`crate::YieldId`].
 pub fn promise_yield_create_id(
     function_name: &str,
     arguments: impl AsRef<[u8]>,
