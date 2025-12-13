@@ -1595,7 +1595,7 @@ mod tests {
         // Create a yielded promise
         let (_promise, yield_id) = Promise::new_yield(
             "on_callback",
-            b"test_args".to_vec(),
+            b"test_args",
             Gas::from_tgas(10),
             GasWeight(1),
         );
