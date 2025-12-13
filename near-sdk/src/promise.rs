@@ -1593,12 +1593,8 @@ mod tests {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
         // Create a yielded promise
-        let (_promise, yield_id) = Promise::new_yield(
-            "on_callback",
-            b"test_args",
-            Gas::from_tgas(10),
-            GasWeight(1),
-        );
+        let (_promise, yield_id) =
+            Promise::new_yield("on_callback", b"test_args", Gas::from_tgas(10), GasWeight(1));
 
         // Verify yield_id is a valid 32-byte CryptoHash
         let yield_id_bytes: [u8; 32] = yield_id.0;
