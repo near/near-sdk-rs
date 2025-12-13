@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.23.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.22.0...near-sdk-v5.23.0) - 2025-12-13
+
+### Added
+
+- Introduced high-level promise yield API `Promise::new_yield` ([#1439](https://github.com/near/near-sdk-rs/pull/1439))
+
+### Fixed
+
+- correct NEP330 build info output path error message ([#1441](https://github.com/near/near-sdk-rs/pull/1441))
+
 ## [5.22.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.21.0...near-sdk-v5.22.0) - 2025-12-09
 
 ### Added
