@@ -9,13 +9,10 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-<<<<<<< HEAD
-use crate::{errors, AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
-=======
+
 use crate::CryptoHash;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use crate::{errors, AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
 use near_sdk_macros::near;
->>>>>>> master
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction

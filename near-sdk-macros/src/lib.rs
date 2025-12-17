@@ -869,6 +869,8 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let ident = &input.ident;
+    let generics = &input.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let error_type = if contract_error_args.sdk.unwrap_or(false) {
         quote! {"SDK_CONTRACT_ERROR"}
@@ -891,7 +893,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[derive(Debug)]
         #input
 
-        impl #near_sdk_crate ::ContractErrorTrait for #ident {
+        impl #impl_generics #near_sdk_crate ::ContractErrorTrait for #ident #ty_generics #where_clause {
             fn error_type(&self) -> &'static str {
                 #error_type
             }
@@ -913,7 +915,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                     { "error" : ErrorWrapper {
                         name: String::from(self.error_type()),
                         cause: ErrorCause {
-                            name: std::any::type_name::<#ident>().to_string(),
+                            name: std::any::type_name::<#ident #ty_generics>().to_string(),
                             info: self
                         }
                     } }
@@ -923,14 +925,14 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     if *ident != "BaseError" {
         expanded.extend(quote! {
-            impl From<#ident> for String {
-                fn from(err: #ident) -> Self {
+            impl #impl_generics From<#ident #ty_generics> for String #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
                     #near_sdk_crate ::serde_json::json!{#near_sdk_crate ::wrap_error(err)}.to_string()
                 }
             }
 
-            impl From<#ident> for #near_sdk_crate ::BaseError {
-                fn from(err: #ident) -> Self {
+            impl #impl_generics From<#ident #ty_generics> for #near_sdk_crate ::BaseError #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
                     #near_sdk_crate ::BaseError{
                         error: #near_sdk_crate ::wrap_error(err),
                     }

@@ -1,95 +1,97 @@
+use std::borrow::Cow;
+
 use near_sdk_macros::contract_error;
 
 #[contract_error(inside_nearsdk)]
-pub struct InvalidArgument {
-    pub message: String,
+pub struct InvalidArgument<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl InvalidArgument {
+impl InvalidArgument<'_> {
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: Cow::Owned(message.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct InvalidContractState {
-    pub message: String,
+pub struct InvalidContractState<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl InvalidContractState {
+impl InvalidContractState<'_> {
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: Cow::Owned(message.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct PermissionDenied {
-    message: Option<String>,
+pub struct PermissionDenied<'a> {
+    message: Option<Cow<'a, str>>,
 }
 
-impl PermissionDenied {
+impl PermissionDenied<'_> {
     pub fn new(message: Option<&str>) -> Self {
-        Self { message: message.map(|s| s.to_string()) }
+        Self { message: message.map(|s| Cow::Owned(s.to_string())) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct ContractUpgradeError {
-    pub message: String,
+pub struct ContractUpgradeError<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl ContractUpgradeError {
+impl ContractUpgradeError<'_> {
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: Cow::Owned(message.to_string()) }
     }
 }
+
 #[contract_error(inside_nearsdk)]
-#[derive(Default)]
 pub struct RequireFailed<'a> {
     pub message: Cow<'a, str>,
 }
 
-impl RequireFailed {
+impl RequireFailed<'_> {
     pub fn new() -> Self {
-        Self { message: "require! assertion failed".to_string() }
+        Self { message: Cow::Borrowed("require! assertion failed") }
     }
 
     pub fn new_from_message(message: String) -> Self {
-        Self { message }
+        Self { message: Cow::Owned(message) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct PromiseFailed {
+pub struct PromiseFailed<'a> {
     pub promise_index: Option<u64>,
-    pub message: Option<String>,
+    pub message: Option<Cow<'a, str>>,
 }
 
-impl PromiseFailed {
+impl PromiseFailed<'_> {
     pub fn new(promise_index: Option<u64>, message: Option<&str>) -> Self {
-        Self { promise_index, message: message.map(|s| s.to_string()) }
+        Self { promise_index, message: message.map(|s| Cow::Owned(s.to_string())) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct InvalidPromiseReturn {
-    pub message: String,
+pub struct InvalidPromiseReturn<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl InvalidPromiseReturn {
+impl InvalidPromiseReturn<'_> {
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: Cow::Owned(message.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct InsufficientBalance {
-    message: Option<String>,
+pub struct InsufficientBalance<'a> {
+    message: Option<Cow<'a, str>>,
 }
 
-impl InsufficientBalance {
+impl InsufficientBalance<'_> {
     pub fn new(message: Option<&str>) -> Self {
-        Self { message: message.map(|s| s.to_string()) }
+        Self { message: message.map(|s| Cow::Owned(s.to_string())) }
     }
 }
 
@@ -100,18 +102,18 @@ pub struct InsufficientGas {}
 pub struct TotalSupplyOverflow {}
 
 #[contract_error(inside_nearsdk)]
-pub struct UnexpectedFailure {
-    pub message: String,
+pub struct UnexpectedFailure<'a> {
+    pub message: Cow<'a, str>,
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct ContractError {
-    pub message: String,
+pub struct ContractError<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl ContractError {
+impl ContractError<'_> {
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: Cow::Owned(message.to_string()) }
     }
 }
 

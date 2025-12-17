@@ -1,13 +1,15 @@
+use std::borrow::Cow;
+
 use near_sdk_macros::contract_error;
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct DepositNotAccepted {
-    pub method: String,
+pub struct DepositNotAccepted<'a> {
+    pub method: Cow<'a, str>,
 }
 
-impl DepositNotAccepted {
+impl DepositNotAccepted<'_> {
     pub fn new(method: &str) -> Self {
-        Self { method: method.to_string() }
+        Self { method: Cow::Owned(method.to_string()) }
     }
 }
 
@@ -29,105 +31,107 @@ impl CallbackComputationUnsuccessful {
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct ActionInJointPromise {
-    pub message: String,
+pub struct ActionInJointPromise<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl ActionInJointPromise {
+impl ActionInJointPromise<'_> {
     pub fn new() -> Self {
-        Self { message: "Cannot add action to a joint promise.".to_string() }
+        Self { message: Cow::Borrowed("Cannot add action to a joint promise.") }
     }
 }
 
-impl Default for ActionInJointPromise {
+impl Default for ActionInJointPromise<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct PromiseAlreadyScheduled {
-    pub message: String,
+pub struct PromiseAlreadyScheduled<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl PromiseAlreadyScheduled {
+impl PromiseAlreadyScheduled<'_> {
     pub fn new() -> Self {
         Self {
-            message: "Cannot callback promise which is already scheduled after another".to_string(),
+            message: Cow::Borrowed(
+                "Cannot callback promise which is already scheduled after another",
+            ),
         }
     }
 }
 
-impl Default for PromiseAlreadyScheduled {
+impl Default for PromiseAlreadyScheduled<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct CallbackYieldPromise {
-    pub message: String,
+pub struct CallbackYieldPromise<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl CallbackYieldPromise {
+impl CallbackYieldPromise<'_> {
     pub fn new() -> Self {
-        Self { message: "Cannot callback yielded promise".to_string() }
+        Self { message: Cow::Borrowed("Cannot callback yielded promise") }
     }
 }
 
-impl Default for CallbackYieldPromise {
+impl Default for CallbackYieldPromise<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct CallbackJointPromise {
-    pub message: String,
+pub struct CallbackJointPromise<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl CallbackJointPromise {
+impl CallbackJointPromise<'_> {
     pub fn new() -> Self {
-        Self { message: "Cannot callback joint promise".to_string() }
+        Self { message: Cow::Borrowed("Cannot callback joint promise") }
     }
 }
 
-impl Default for CallbackJointPromise {
+impl Default for CallbackJointPromise<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct PrivateMethod {
-    pub method_name: String,
+pub struct PrivateMethod<'a> {
+    pub method_name: Cow<'a, str>,
 }
 
-impl PrivateMethod {
+impl PrivateMethod<'_> {
     pub fn new(method_name: &str) -> Self {
-        Self { method_name: method_name.to_string() }
+        Self { method_name: Cow::Owned(method_name.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct BorshSerializeError {
-    subject: String,
+pub struct BorshSerializeError<'a> {
+    subject: Cow<'a, str>,
 }
 
-impl BorshSerializeError {
+impl BorshSerializeError<'_> {
     pub fn new(subject: &str) -> Self {
-        Self { subject: subject.to_string() }
+        Self { subject: Cow::Owned(subject.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct BorshDeserializeError {
-    subject: String,
+pub struct BorshDeserializeError<'a> {
+    subject: Cow<'a, str>,
 }
 
-impl BorshDeserializeError {
+impl BorshDeserializeError<'_> {
     pub fn new(subject: &str) -> Self {
-        Self { subject: subject.to_string() }
+        Self { subject: Cow::Owned(subject.to_string()) }
     }
 }
 
@@ -135,19 +139,19 @@ impl BorshDeserializeError {
 pub struct InvalidTreeMapRange {}
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct InconsistentCollectionState {
-    pub message: String,
+pub struct InconsistentCollectionState<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl InconsistentCollectionState {
+impl InconsistentCollectionState<'_> {
     pub fn new() -> Self {
         Self {
-            message: "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?".to_string()
+            message: Cow::Borrowed("The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?")
         }
     }
 }
 
-impl Default for InconsistentCollectionState {
+impl Default for InconsistentCollectionState<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -160,20 +164,21 @@ pub struct IndexOutOfBounds {}
 pub struct KeyNotFound {}
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct RegisterEmpty {
-    pub message: String,
+pub struct RegisterEmpty<'a> {
+    pub message: Cow<'a, str>,
 }
 
-impl RegisterEmpty {
+impl RegisterEmpty<'_> {
     pub fn new() -> Self {
         Self {
-            message: "Register was expected to have data because we just wrote it into it."
-                .to_string(),
+            message: Cow::Borrowed(
+                "Register was expected to have data because we just wrote it into it.",
+            ),
         }
     }
 }
 
-impl Default for RegisterEmpty {
+impl Default for RegisterEmpty<'_> {
     fn default() -> Self {
         Self::new()
     }
