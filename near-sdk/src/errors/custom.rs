@@ -45,8 +45,8 @@ impl ContractUpgradeError {
 }
 #[contract_error(inside_nearsdk)]
 #[derive(Default)]
-pub struct RequireFailed {
-    pub message: String,
+pub struct RequireFailed<'a> {
+    pub message: Cow<'a, str>,
 }
 
 impl RequireFailed {
