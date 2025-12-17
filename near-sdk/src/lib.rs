@@ -114,7 +114,7 @@
 //! cargo test
 //! ```
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 // Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
 // https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
@@ -353,12 +353,19 @@ compile_error!(
 /// You can also use [`#[serde_as(as = "...")]` attributes](https://docs.rs/serde_with/latest/serde_with/attr.serde_as.html)
 /// as if `#[serde_as]` is added to the type (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
 ///
+/// Note: When using the `abi` feature with base64/hex encoding, prefer the SDK's [`json_types`](crate::json_types)
+/// like [`Base64VecU8`](crate::json_types::Base64VecU8), which have full JSON Schema support.
+///
+/// For hex encoding with ABI support, you can use `#[serde_as(as = "serde_with::hex::Hex")]` by enabling
+/// the `serde_with/schemars_1` feature in your `Cargo.toml` (this requires upgrading to schemars 1.x).
+///
 /// ```
-/// # use std::{collections::BTreeMap};
+/// # use std::collections::BTreeMap;
 /// use near_sdk::{
 ///     near,
 ///     serde_json::json,
-///     serde_with::{base64::Base64, hex::Hex, json::JsonString, DisplayFromStr},
+///     serde_with::{json::JsonString, DisplayFromStr},
+///     json_types::Base64VecU8,
 /// };
 ///
 /// #[near(serializers = [json])]
@@ -366,14 +373,10 @@ compile_error!(
 ///     #[serde_as(as = "DisplayFromStr")]
 ///     pub amount: u128,
 ///
-///     #[serde_as(as = "Hex")]
-///     pub hex_bytes: Vec<u8>,
+///     pub base64_bytes: Base64VecU8,
 ///
-///     #[serde_as(as = "Base64")]
-///     pub base64_bytes: Vec<u8>,
-///
-///     #[serde_as(as = "BTreeMap<Hex, Vec<DisplayFromStr>>")]
-///     pub collection: BTreeMap<Vec<u8>, Vec<u128>>,
+///     #[serde_as(as = "BTreeMap<DisplayFromStr, Vec<DisplayFromStr>>")]
+///     pub collection: BTreeMap<u128, Vec<u128>>,
 ///
 ///     #[serde_as(as = "JsonString")]
 ///     pub json_string: serde_json::Value,
@@ -382,18 +385,16 @@ compile_error!(
 /// #     assert_eq!(
 /// #         serde_json::to_value(&MyStruct {
 /// #             amount: u128::MAX,
-/// #             hex_bytes: vec![0x1a, 0x2b, 0x3c],
-/// #             base64_bytes: vec![1, 2, 3],
-/// #             collection: [(vec![0x1a, 0x2b, 0x3c], vec![u128::MAX])].into(),
+/// #             base64_bytes: Base64VecU8::from(vec![1, 2, 3]),
+/// #             collection: [(u128::MAX, vec![100, 200, u128::MAX])].into(),
 /// #             json_string: json!({"key": "value"}),
 /// #         })
 /// #         .unwrap(),
 /// #         json!({
 /// #             "amount": "340282366920938463463374607431768211455",
-/// #             "hex_bytes": "1a2b3c",
 /// #             "base64_bytes": "AQID",
 /// #             "collection": {
-/// #                 "1a2b3c": ["340282366920938463463374607431768211455"],
+/// #                 "340282366920938463463374607431768211455": ["100", "200", "340282366920938463463374607431768211455"],
 /// #             },
 /// #             "json_string": "{\"key\":\"value\"}",
 /// #         })
@@ -1144,7 +1145,7 @@ pub use environment::env;
 pub use near_sys as sys;
 
 mod promise;
-pub use promise::{Allowance, ConcurrentPromises, Promise, PromiseOrValue};
+pub use promise::{Allowance, ConcurrentPromises, Promise, PromiseOrValue, ResumeError, YieldId};
 
 // Private types just used within macro generation, not stable to be used.
 #[doc(hidden)]
@@ -1160,6 +1161,9 @@ pub mod events;
 pub use crate::events::{AsNep297Event, Nep297Event};
 
 pub mod state;
+
+#[cfg(feature = "deterministic-account-ids")]
+pub mod state_init;
 
 pub mod errors;
 

@@ -1,12 +1,15 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_trait_info.rs
+assertion_line: 72
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub mod test {
     use super::*;
     #[must_use]
     pub struct TestExt {
-        pub(crate) account_id: ::near_sdk::AccountId,
+        pub(crate) promise_or_create_on: ::near_sdk::PromiseOrValue<
+            ::near_sdk::AccountId,
+        >,
         pub(crate) deposit: ::near_sdk::NearToken,
         pub(crate) static_gas: ::near_sdk::Gas,
         pub(crate) gas_weight: ::near_sdk::GasWeight,
@@ -28,7 +31,15 @@ pub mod test {
     /// API for calling this contract's functions in a subsequent execution.
     pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
         TestExt {
-            account_id,
+            promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id),
+            deposit: ::near_sdk::NearToken::from_near(0),
+            static_gas: ::near_sdk::Gas::from_gas(0),
+            gas_weight: ::near_sdk::GasWeight::default(),
+        }
+    }
+    pub fn ext_on(promise: ::near_sdk::Promise) -> TestExt {
+        TestExt {
+            promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(promise),
             deposit: ::near_sdk::NearToken::from_near(0),
             static_gas: ::near_sdk::Gas::from_gas(0),
             gas_weight: ::near_sdk::GasWeight::default(),
@@ -52,7 +63,12 @@ pub mod test {
                     }
                 }
             };
-            ::near_sdk::Promise::new(self.account_id)
+            match self.promise_or_create_on {
+                ::near_sdk::PromiseOrValue::Promise(p) => p,
+                ::near_sdk::PromiseOrValue::Value(account_id) => {
+                    ::near_sdk::Promise::new(account_id)
+                }
+            }
                 .function_call_weight(
                     ::std::string::String::from("test"),
                     __args,

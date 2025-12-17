@@ -167,8 +167,7 @@ impl AttrSigInfo {
         }
 
         let (method_kind, returns) = visitor.build()?;
-
-        self_occurrences.extend(args.iter().flat_map(|arg| arg.self_occurrences.clone()));
+        self_occurrences.extend(args.iter().flat_map(|arg| arg.self_occurrences.iter().copied()));
 
         original_attrs.clone_from(&non_bindgen_attrs);
 

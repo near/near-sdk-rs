@@ -55,11 +55,13 @@ async fn dev_generate(
 ) -> anyhow::Result<(Account, Collection)> {
     let id = random_account_id(collection, &seed);
     let sk = SecretKey::from_seed(KeyType::ED25519, &seed);
-    let account = worker.create_tla(id.clone(), sk).await?;
+    let account = worker.create_tla(id.as_str().parse().unwrap(), sk).await?;
     Ok((account.into_result()?, collection))
 }
 
-async fn setup_worker(contract: Contract) -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
+async fn setup_worker(
+    contract: Contract,
+) -> anyhow::Result<(Arc<Worker<Sandbox>>, near_workspaces::AccountId)> {
     let contract_path = match contract {
         Contract::StoreContract => "./tests/test-contracts/store",
         Contract::LazyContract => "./tests/test-contracts/lazy",
@@ -90,7 +92,7 @@ fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u
 }
 
 #[allow(unused)]
-async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> {
+async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, near_workspaces::AccountId)> {
     let (worker, contract_id) = setup_worker(Contract::StoreContract).await?;
     let mut accounts = Vec::new();
 
@@ -103,7 +105,7 @@ async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> 
     Ok((accounts, contract_id))
 }
 
-async fn setup(contract: Contract) -> anyhow::Result<(Account, AccountId)> {
+async fn setup(contract: Contract) -> anyhow::Result<(Account, near_workspaces::AccountId)> {
     let (worker, contract_id) = setup_worker(contract).await?;
 
     let (account, _) =

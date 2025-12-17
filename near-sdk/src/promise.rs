@@ -9,7 +9,13 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
+<<<<<<< HEAD
 use crate::{errors, AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+=======
+use crate::CryptoHash;
+use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use near_sdk_macros::near;
+>>>>>>> master
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -82,11 +88,16 @@ enum PromiseAction {
     },
     #[cfg(feature = "global-contracts")]
     UseGlobalContract {
-        code_hash: Vec<u8>,
+        code_hash: CryptoHash,
     },
     #[cfg(feature = "global-contracts")]
     UseGlobalContractByAccountId {
         account_id: AccountId,
+    },
+    #[cfg(feature = "deterministic-account-ids")]
+    DeterministicStateInit {
+        state_init: crate::state_init::StateInit,
+        deposit: NearToken,
     },
 }
 
@@ -168,36 +179,83 @@ impl PromiseAction {
                     account_id,
                 )
             }
+            #[cfg(feature = "deterministic-account-ids")]
+            DeterministicStateInit {
+                state_init: crate::state_init::StateInit::V1(state_init),
+                deposit,
+            } => {
+                use crate::GlobalContractId;
+
+                let action_index = match &state_init.code {
+                    GlobalContractId::CodeHash(code_hash) => {
+                        crate::env::promise_batch_action_state_init(
+                            promise_index,
+                            *code_hash,
+                            *deposit,
+                        )
+                    }
+                    GlobalContractId::AccountId(account_id) => {
+                        crate::env::promise_batch_action_state_init_by_account_id(
+                            promise_index,
+                            account_id,
+                            *deposit,
+                        )
+                    }
+                };
+                for (key, value) in &state_init.data {
+                    crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
+                }
+            }
         }
     }
 }
 
+enum PromiseSingleSubtype {
+    Regular {
+        account_id: AccountId,
+        after: RefCell<Option<Rc<Promise>>>,
+        /// Promise index that is computed only once.
+        promise_index: RefCell<Option<PromiseIndex>>,
+    },
+    Yielded(PromiseIndex),
+}
+
 struct PromiseSingle {
-    pub account_id: AccountId,
+    pub subtype: PromiseSingleSubtype,
     pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Rc<Promise>>>,
-    /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<PromiseIndex>>,
 }
 
 impl PromiseSingle {
     pub fn construct_recursively(&self) -> PromiseIndex {
-        let mut promise_lock = self.promise_index.borrow_mut();
-        if let Some(res) = promise_lock.as_ref() {
-            return *res;
-        }
-        let promise_index = if let Some(after) =
-            self.after.borrow().as_deref().and_then(Promise::construct_recursively)
-        {
-            crate::env::promise_batch_then(after, &self.account_id)
-        } else {
-            crate::env::promise_batch_create(&self.account_id)
+        let promise_index = match &self.subtype {
+            PromiseSingleSubtype::Regular { account_id, after, promise_index } => {
+                let mut promise_lock = promise_index.borrow_mut();
+                if let Some(res) = promise_lock.as_ref() {
+                    return *res;
+                }
+                let idx = if let Some(after) =
+                    after.borrow().as_deref().and_then(Promise::construct_recursively)
+                {
+                    crate::env::promise_batch_then(after, account_id)
+                } else {
+                    crate::env::promise_batch_create(account_id)
+                };
+                let actions_lock = self.actions.borrow();
+                for action in actions_lock.iter() {
+                    action.add(idx);
+                }
+                *promise_lock = Some(idx);
+                idx
+            }
+            PromiseSingleSubtype::Yielded(promise_index) => {
+                // For yielded promises, actions are added to the already-created promise
+                let actions_lock = self.actions.borrow();
+                for action in actions_lock.iter() {
+                    action.add(*promise_index);
+                }
+                *promise_index
+            }
         };
-        let actions_lock = self.actions.borrow();
-        for action in actions_lock.iter() {
-            action.add(promise_index);
-        }
-        *promise_lock = Some(promise_index);
         promise_index
     }
 }
@@ -297,15 +355,69 @@ impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
-        Self {
-            subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
+        Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
+            subtype: PromiseSingleSubtype::Regular {
                 account_id,
-                actions: RefCell::new(vec![]),
                 after: RefCell::new(None),
                 promise_index: RefCell::new(None),
-            })),
-            should_return: RefCell::new(false),
-        }
+            },
+            actions: RefCell::new(vec![]),
+        })))
+    }
+
+    const fn new_with_subtype(subtype: PromiseSubtype) -> Self {
+        Self { subtype, should_return: RefCell::new(false) }
+    }
+
+    /// Create a yielded promise that suspends execution until resumed.
+    ///
+    /// Returns a tuple of `(Promise, YieldId)` where:
+    /// - The `Promise` represents the yielded execution that will call `function_name` when resumed
+    /// - The `YieldId` can be stored and used later to resume the promise with [`YieldId::resume`]
+    ///
+    /// # Arguments
+    /// * `function_name` - The callback function to invoke when the promise is resumed
+    /// * `arguments` - Arguments to pass to the callback function
+    /// * `gas` - Base gas to allocate for the callback
+    /// * `weight` - Gas weight for distributing remaining gas
+    ///
+    /// # Important
+    /// Yielded promises have a restriction:
+    /// - **Cannot be used as continuations**: Using a yielded promise in `other.then(yielded)` will panic.
+    ///   Yielded promises must be first in the chain: `yielded.then(other)` is valid.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use near_sdk::{Promise, Gas, GasWeight};
+    ///
+    /// // Create a yielded promise
+    /// let (promise, yield_id) = Promise::new_yield(
+    ///     "on_data_received",
+    ///     vec![],
+    ///     Gas::from_tgas(10),
+    ///     GasWeight(1),
+    /// );
+    ///
+    /// // Chain another promise after the yielded one (valid)
+    /// promise.then(Promise::new("other.near".parse().unwrap()).create_account());
+    ///
+    /// // Store yield_id to resume later from another transaction
+    /// ```
+    ///
+    /// Uses low-level [`crate::env::promise_yield_create`]
+    pub fn new_yield(
+        function_name: &str,
+        arguments: impl AsRef<[u8]>,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> (Self, YieldId) {
+        let (promise_index, yield_id) =
+            crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
+        let promise = Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
+            subtype: PromiseSingleSubtype::Yielded(promise_index),
+            actions: RefCell::new(vec![]),
+        })));
+        (promise, yield_id)
     }
 
     fn add_action(self, action: PromiseAction) -> Self {
@@ -326,8 +438,8 @@ impl Promise {
 
     /// Deploy a smart contract to the account on which this promise acts.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
-    pub fn deploy_contract(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployContract { code })
+    pub fn deploy_contract(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployContract { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -344,8 +456,8 @@ impl Promise {
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract(code);
     /// ```
-    pub fn deploy_global_contract(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContract { code })
+    pub fn deploy_global_contract(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -362,8 +474,8 @@ impl Promise {
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract_by_account_id(code);
     /// ```
-    pub fn deploy_global_contract_by_account_id(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+    pub fn deploy_global_contract_by_account_id(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -374,14 +486,14 @@ impl Promise {
     /// ```no_run
     /// use near_sdk::{Promise, NearToken};
     ///
-    /// let code_hash = vec![0u8; 32]; // 32-byte hash
+    /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
     /// Promise::new("alice.near".parse().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .use_global_contract(code_hash);
     /// ```
-    pub fn use_global_contract(self, code_hash: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::UseGlobalContract { code_hash })
+    pub fn use_global_contract(self, code_hash: impl Into<CryptoHash>) -> Self {
+        self.add_action(PromiseAction::UseGlobalContract { code_hash: code_hash.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -401,16 +513,27 @@ impl Promise {
         self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
     }
 
+    /// Creates a deterministic account with the given code, deposit, and data.
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
+        self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
+    }
+
     /// A low-level interface for making a function call to the account that this promise acts on.
     /// Uses low-level [`crate::env::promise_batch_action_function_call`]
     pub fn function_call(
         self,
-        function_name: String,
-        arguments: Vec<u8>,
+        function_name: impl Into<String>,
+        arguments: impl Into<Vec<u8>>,
         amount: NearToken,
         gas: Gas,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
+        self.add_action(PromiseAction::FunctionCall {
+            function_name: function_name.into(),
+            arguments: arguments.into(),
+            amount,
+            gas,
+        })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
@@ -419,15 +542,15 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
     pub fn function_call_weight(
         self,
-        function_name: String,
-        arguments: Vec<u8>,
+        function_name: impl Into<String>,
+        arguments: impl Into<Vec<u8>>,
         amount: NearToken,
         gas: Gas,
         weight: GasWeight,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCallWeight {
-            function_name,
-            arguments,
+            function_name: function_name.into(),
+            arguments: arguments.into(),
             amount,
             gas,
             weight,
@@ -460,14 +583,14 @@ impl Promise {
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
-    /// e.g. `"method_a,method_b".to_string()`.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
+    /// e.g. `"method_a,method_b"`.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
     pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
         allowance: Allowance,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
     ) -> Self {
         self.add_access_key_allowance_with_nonce(
             public_key,
@@ -484,27 +607,27 @@ impl Promise {
         public_key: PublicKey,
         allowance: NearToken,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
     ) -> Self {
         let allowance = migrate_to_allowance(allowance);
         self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
     }
 
     /// Add an access key with a provided nonce.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
     pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
         allowance: Allowance,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
         nonce: u64,
     ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {
             public_key,
             allowance,
             receiver_id,
-            function_names,
+            function_names: function_names.into(),
             nonce,
         })
     }
@@ -515,7 +638,7 @@ impl Promise {
         public_key: PublicKey,
         allowance: NearToken,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
         nonce: u64,
     ) -> Self {
         let allowance = migrate_to_allowance(allowance);
@@ -603,16 +726,20 @@ impl Promise {
     /// promise.
     fn then_impl(self: Rc<Self>, other: Promise) -> Promise {
         match &other.subtype {
-            PromiseSubtype::Single(x) => {
-                let mut after = x.after.borrow_mut();
-                if after.is_some() {
-                    crate::env::panic_err(errors::PromiseAlreadyScheduled::new().into());
+            PromiseSubtype::Single(x) => match &x.subtype {
+                PromiseSingleSubtype::Regular { after, .. } => {
+                    let mut after = after.borrow_mut();
+                    if after.is_some() {
+                        crate::env::panic_err(errors::PromiseAlreadyScheduled::new().into());
+                    }
+                    *after = Some(self)
                 }
-                *after = Some(self)
-            }
-            PromiseSubtype::Joint(_) => {
-                crate::env::panic_err(errors::CallbackJointPromise::new().into())
-            }
+                PromiseSingleSubtype::Yielded(_) => {
+                    crate::env::panic_err(errors::CallbackYieldPromise::new().into())
+                }
+            },
+            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::CallbackJointPromise::new().into()),
+
         }
         other
     }
@@ -649,7 +776,10 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
     /// ```
-    pub fn then_concurrent(self, promises: Vec<Promise>) -> ConcurrentPromises {
+    pub fn then_concurrent(
+        self,
+        promises: impl IntoIterator<Item = Promise>,
+    ) -> ConcurrentPromises {
         let this = Rc::new(self);
         let mapped_promises =
             promises.into_iter().map(|other| Rc::clone(&this).then_impl(other)).collect();
@@ -741,6 +871,66 @@ impl schemars::JsonSchema for Promise {
         // Since promises are untyped, for now we represent Promise results with the schema
         // `true` which matches everything (i.e. always passes validation)
         schemars::schema::Schema::Bool(true)
+    }
+}
+
+/// A unique identifier for a yielded promise that can be used to resume execution.
+///
+/// `YieldId` is returned by [`Promise::new_yield`] and can be stored or passed to another
+/// transaction to resume the yielded promise with data.
+///
+/// # Example
+/// ```ignore
+/// // In the first transaction, create a yielded promise
+/// let (promise, yield_id) = Promise::new_yield(
+///     "on_resume",
+///     vec![],
+///     Gas::from_tgas(5),
+///     GasWeight(1),
+/// );
+/// // Store yield_id somewhere (e.g., contract state)
+///
+/// // In a later transaction, resume with data
+/// yield_id.resume(b"result data");
+/// ```
+#[near(inside_nearsdk, serializers = [json, borsh])]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct YieldId(
+    #[serde_as(as = "::serde_with::base64::Base64")]
+    #[cfg_attr(feature = "abi", schemars(with = "String"))]
+    pub(crate) CryptoHash,
+);
+
+/// Error returned when attempting to resume a yielded promise that was not found.
+///
+/// This occurs when:
+/// - The promise was already resumed
+/// - The promise timed out
+/// - The `YieldId` is invalid
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ResumeError;
+
+impl std::fmt::Display for ResumeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to resume yielded promise: not found or already resumed")
+    }
+}
+
+impl std::error::Error for ResumeError {}
+
+impl YieldId {
+    /// Resume the yielded promise with the provided data.
+    ///
+    /// Returns `Ok(())` if the promise was successfully resumed, or `Err(ResumeError)` if no promise
+    /// with this `YieldId` was found (e.g., if it was already resumed or timed out).
+    ///
+    /// Uses low-level [`crate::env::promise_yield_resume`]
+    pub fn resume(self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
+        if crate::env::promise_yield_resume(&self.0, data) {
+            Ok(())
+        } else {
+            Err(ResumeError)
+        }
     }
 }
 
@@ -1154,10 +1344,10 @@ mod tests {
     fn test_use_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
-        let code_hash = vec![0u8; 32];
+        let code_hash = [0u8; 32];
 
         {
-            Promise::new(alice()).create_account().use_global_contract(code_hash.clone()).detach();
+            Promise::new(alice()).create_account().use_global_contract(code_hash).detach();
         }
 
         // Check if any UseGlobalContract action exists
@@ -1379,6 +1569,90 @@ mod tests {
             &sub4_creation.receipt_indices,
             &[sub1_creation_index, sub2_creation_index],
             "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot callback yielded promise.")]
+    fn test_yielded_promise_cannot_be_continuation() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let (yielded, _yield_id) =
+            Promise::new_yield("callback", vec![], Gas::from_tgas(5), GasWeight(1));
+
+        let regular = Promise::new(alice()).create_account();
+
+        // This should panic - yielded promises cannot be used as continuations
+        // i.e., they cannot appear on the right side of .then()
+        regular.then(yielded).detach();
+    }
+
+    #[test]
+    fn test_new_yield_creates_promise_and_yield_id() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create a yielded promise
+        let (_promise, yield_id) =
+            Promise::new_yield("on_callback", b"test_args", Gas::from_tgas(10), GasWeight(1));
+
+        // Verify yield_id is a valid 32-byte CryptoHash
+        let yield_id_bytes: [u8; 32] = yield_id.0;
+        // The mock generates a random yield ID, so just check it's not all zeros
+        assert!(yield_id_bytes.iter().any(|&b| b != 0), "YieldId should not be all zeros");
+    }
+
+    #[test]
+    fn test_yield_id_is_unique() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create multiple yielded promises and verify they get unique YieldIds
+        let (_promise1, yield_id1) =
+            Promise::new_yield("on_callback1", vec![], Gas::from_tgas(5), GasWeight(1));
+        let (_promise2, yield_id2) =
+            Promise::new_yield("on_callback2", vec![], Gas::from_tgas(5), GasWeight(1));
+
+        // The two yield IDs should be different
+        assert_ne!(yield_id1, yield_id2, "Two yielded promises should have different YieldIds");
+    }
+
+    #[test]
+    #[ignore]
+    //TODO: currently mock does not support yielded promises
+    // uncomment after https://github.com/near/nearcore/pull/14792 is released
+    fn test_yielded_promise_can_chain_then() {
+        use crate::{Gas, GasWeight};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // Create a yielded promise and chain another promise after it
+        {
+            let (yielded, _yield_id) =
+                Promise::new_yield("on_resume", vec![], Gas::from_tgas(5), GasWeight(1));
+
+            // This should not panic - yielded promises CAN be first in a chain
+            yielded.then(Promise::new(bob()).transfer(NearToken::from_yoctonear(1000))).detach();
+        }
+
+        // Verify the chained promise was created (receipts are created on drop)
+        let receipts = get_created_receipts();
+        // The chained promise creates a receipt for bob()
+        let bob_receipt = receipts
+            .iter()
+            .find(|r| r.receiver_id == bob())
+            .expect("Should have created a receipt for bob()");
+
+        // Verify the exact transfer action in the chained receipt
+        assert_eq!(bob_receipt.actions.len(), 1, "bob() receipt should have exactly 1 action");
+        let receipt_index = bob_receipt.actions[0].receipt_index().unwrap();
+        assert_eq!(
+            bob_receipt.actions[0],
+            MockAction::Transfer { receipt_index, deposit: NearToken::from_yoctonear(1000) }
         );
     }
 }

@@ -435,6 +435,46 @@ mod tests {
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
+    #[test]
+    fn init_private() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[init]
+            #[private]
+            pub fn new() -> Self { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn private_init_generates_same_code_as_init_private() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+
+        // #[init] #[private] order
+        let mut method1: ImplItemFn = parse_quote! {
+            #[init]
+            #[private]
+            pub fn new() -> Self { }
+        };
+        let method_info1 =
+            ImplItemMethodInfo::new(&mut method1, None, impl_type.clone()).unwrap().unwrap();
+        let code1 = pretty_print_syn_str(&method_info1.method_wrapper()).unwrap();
+
+        // #[private] #[init] order (reversed)
+        let mut method2: ImplItemFn = parse_quote! {
+            #[private]
+            #[init]
+            pub fn new() -> Self { }
+        };
+        let method_info2 =
+            ImplItemMethodInfo::new(&mut method2, None, impl_type).unwrap().unwrap();
+        let code2 = pretty_print_syn_str(&method_info2.method_wrapper()).unwrap();
+
+        assert_eq!(code1, code2, "Attribute order should not affect generated code");
+    }
+
 
     #[test]
     fn result_implicit() {

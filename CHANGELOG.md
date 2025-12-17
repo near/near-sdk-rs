@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.23.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.22.0...near-sdk-v5.23.0) - 2025-12-13
+
+### Added
+
+- Introduced high-level promise yield API `Promise::new_yield` ([#1439](https://github.com/near/near-sdk-rs/pull/1439))
+
+### Fixed
+
+- correct NEP330 build info output path error message ([#1441](https://github.com/near/near-sdk-rs/pull/1441))
+
+## [5.22.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.21.0...near-sdk-v5.22.0) - 2025-12-09
+
+### Added
+
+- Added optional `arbitrary` feature (useful for fuzz testing) ([#1437](https://github.com/near/near-sdk-rs/pull/1437))
+
+## [5.21.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.1...near-sdk-v5.21.0) - 2025-12-09
+
+### Added
+
+- Cache host funcs to save gas on repetitive calls (calling host is more expensive than caching inside Wasm) ([#1431](https://github.com/near/near-sdk-rs/pull/1431))
+
+### Other
+
+- Corrected VMContext.input doc comment to describe raw bytes ([#1435](https://github.com/near/near-sdk-rs/pull/1435))
+- correct LookupSet docs to refer to set elements ([#1433](https://github.com/near/near-sdk-rs/pull/1433))
+- Avoid cloning self_occurrences vectors in AttrSigInfo::new ([#1436](https://github.com/near/near-sdk-rs/pull/1436))
+- Added tests for #[init] + #[private] macro combination ([#1432](https://github.com/near/near-sdk-rs/pull/1432))
+
+## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.20.0...near-sdk-v5.20.1) - 2025-12-05
+
+### Other
+
+- Fixed the doc-string in LookupSet to compare against UnorderedSet instead of itself ([#1428](https://github.com/near/near-sdk-rs/pull/1428))
+
+## [5.20.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.19.0...near-sdk-v5.20.0) - 2025-12-03
+
+### Added
+
+- Re-export `near-account-id` crate as `near_sdk::account_id` ([#1426](https://github.com/near/near-sdk-rs/pull/1426))
+- Introduced `StateInit` functions, clean up of the code ([#1425](https://github.com/near/near-sdk-rs/pull/1425))
+
+### Other
+
+- *(promise)* fix low-level links for add_access_key_allowance* ([#1427](https://github.com/near/near-sdk-rs/pull/1427))
+- Relaxed iterator bounds to BorshDeserialize for UnorderedMap ([#1419](https://github.com/near/near-sdk-rs/pull/1419))
+
+## [5.19.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.1...near-sdk-v5.19.0) - 2025-12-01
+
+### Added
+
+- Added support for refund_to and current_contract_code, updated deps to match nearcore 2.10 release ([#1423](https://github.com/near/near-sdk-rs/pull/1423))
+
+### Other
+
+- Clarified how keys are constructed for persistent NEAR SDK collections ([#1417](https://github.com/near/near-sdk-rs/pull/1417))
+
+## [5.18.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.0...near-sdk-v5.18.1) - 2025-11-28
+
+### Fixed
+
+- Fixed docs.rs compilation error ([#1415](https://github.com/near/near-sdk-rs/pull/1415))
+
+## [5.18.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.2...near-sdk-v5.18.0) - 2025-11-27
+
+### Added
+
+- relax owned String requirements ([#1404](https://github.com/near/near-sdk-rs/pull/1404))
+- Add Event::to_event_log() utility function ([#1394](https://github.com/near/near-sdk-rs/pull/1394))
+- be explicit about detached `Promise`s ([#1400](https://github.com/near/near-sdk-rs/pull/1400))
+- *(near-sdk-macros)* `#[near(contract_state(key = b"CUSTOM"))]` ([#1399](https://github.com/near/near-sdk-rs/pull/1399))
+- optimize `Promise::and` ([#1396](https://github.com/near/near-sdk-rs/pull/1396))
+- use #[serde_as] for #[near(serializers = [json])] ([#1393](https://github.com/near/near-sdk-rs/pull/1393))
+- Introduce new method `::ext_on(promise)` for all Ext Contract Traits for using high-level APIs for batching actions into a single promise receipt ([#1413](https://github.com/near/near-sdk-rs/pull/1413))
+
+### Fixed
+
+- Pass mutable buffers to sys out-params in balance and stake getters ([#1412](https://github.com/near/near-sdk-rs/pull/1412))
+- Fixed the `TreeMap::range()` method to respect lower Bound::Unbounded ([#1408](https://github.com/near/near-sdk-rs/pull/1408))
+- *(serde)* avoid String allocation in error mapping for integers and hash ([#1411](https://github.com/near/near-sdk-rs/pull/1411))
+- Fix serde_as and ordering of the fields in AsNep297Event ([#1405](https://github.com/near/near-sdk-rs/pull/1405))
+- Added support for #[private] attribute for #[init] methods ([#1410](https://github.com/near/near-sdk-rs/pull/1410))
+- allow PanicOnDefault on eums ([#1401](https://github.com/near/near-sdk-rs/pull/1401))
+
+### Other
+
+- Use CryptoHash wherever applicable and other small papercut fixes ([#1387](https://github.com/near/near-sdk-rs/pull/1387))
+- fix example header format for readme.md ([#1407](https://github.com/near/near-sdk-rs/pull/1407))
+
 ## [5.17.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.1...near-sdk-v5.17.2) - 2025-08-30
 
 ### Other

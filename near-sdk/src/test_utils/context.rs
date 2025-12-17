@@ -3,8 +3,11 @@ use crate::test_utils::test_env::*;
 use crate::{test_vm_config, AccountId};
 use crate::{BlockHeight, EpochHeight, Gas, NearToken, PromiseResult, PublicKey, StorageUsage};
 use near_parameters::RuntimeFeesConfig;
+#[cfg(feature = "deterministic-account-ids")]
+use near_primitives_core::account::AccountContract;
 use near_primitives_core::config::ViewConfig;
 use std::convert::TryInto;
+use std::rc::Rc;
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
@@ -39,9 +42,14 @@ pub struct VMContext {
     /// If this execution is the result of direct execution of transaction then it
     /// is equal to `signer_account_id`.
     pub predecessor_account_id: AccountId,
+    #[cfg(feature = "deterministic-account-ids")]
+    /// Where balance refunds after failure should go. Usually the same as
+    /// `predecessor_account_id` but may have been changed by the predecessor
+    /// via host function `promise_set_refund_to`.
+    pub refund_to_account_id: AccountId,
     /// The input to the contract call.
-    /// Encoded as base64 string to be able to pass input in borsh binary format.
-    pub input: Vec<u8>,
+    /// Raw input bytes for the contract call (e.g. JSON or Borsh-serialized).
+    pub input: Rc<[u8]>,
     /// The current block height.
     pub block_index: BlockHeight,
     /// The current block timestamp (number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC).
@@ -56,6 +64,9 @@ pub struct VMContext {
     pub account_locked_balance: NearToken,
     /// The account's storage usage before the contract execution
     pub storage_usage: StorageUsage,
+    #[cfg(feature = "deterministic-account-ids")]
+    /// The account's current contract code
+    pub account_contract: AccountContract,
     /// The balance that was attached to the call that will be immediately deposited before the
     /// contract execution starts.
     pub attached_deposit: NearToken,
@@ -87,7 +98,7 @@ impl VMContextBuilder {
                 signer_account_id: bob(),
                 signer_account_pk: vec![0u8; 33].try_into().unwrap(),
                 predecessor_account_id: bob(),
-                input: vec![],
+                input: Rc::new([]),
                 block_index: 0,
                 block_timestamp: 0,
                 epoch_height: 0,
@@ -99,6 +110,10 @@ impl VMContextBuilder {
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],
+                #[cfg(feature = "deterministic-account-ids")]
+                refund_to_account_id: bob(),
+                #[cfg(feature = "deterministic-account-ids")]
+                account_contract: AccountContract::None,
             },
         }
     }
@@ -174,9 +189,24 @@ impl VMContextBuilder {
         self
     }
 
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn refund_to_account_id(&mut self, beneficiary_id: AccountId) -> &mut Self {
+        self.context.refund_to_account_id = beneficiary_id;
+        self
+    }
+
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn account_contract(&mut self, contract: AccountContract) -> &mut Self {
+        self.context.account_contract = contract;
+        self
+    }
+
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
-        self.context.view_config =
-            if is_view { Some(ViewConfig { max_gas_burnt: 200000000000000 }) } else { None };
+        self.context.view_config = if is_view {
+            Some(ViewConfig { max_gas_burnt: near_primitives::gas::Gas::from_teragas(200) })
+        } else {
+            None
+        };
         self
     }
 

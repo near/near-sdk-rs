@@ -8,7 +8,7 @@ pub struct Callback;
 
 #[near]
 impl Callback {
-    /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
+    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
         Self::ext(env::current_account_id())
             .a()
@@ -18,7 +18,7 @@ impl Callback {
             .then(Self::ext(env::current_account_id()).handle_callbacks())
     }
 
-    /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
+    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks_reverse`.
     pub fn call_all_reverse(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
         Self::ext(env::current_account_id())
             .b(fail_b)
@@ -33,7 +33,7 @@ impl Callback {
         Self::ext(env::current_account_id()).c(A_VALUE)
     }
 
-    /// Returns a static string if fail is false, return
+    /// Returns a static string if `fail` is false, panicking otherwise.
     #[private]
     pub fn b(fail: bool) -> &'static str {
         if fail {

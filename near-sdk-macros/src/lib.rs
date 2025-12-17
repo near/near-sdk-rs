@@ -161,6 +161,22 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    // Add serde_as BEFORE schema_derive so that serde_with can process
+    // the schemars = true parameter and inject schema attributes before
+    // JsonSchema derive macro runs
+    if has_json {
+        let enable_schemars = cfg!(feature = "abi").then_some(quote! {schemars = true,});
+        expanded = quote! {
+            #expanded
+            #[#near_sdk_crate::serde_with::serde_as(
+                crate = #string_serde_with_crate,
+                #enable_schemars
+            )]
+            #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
+            #[serde(crate = #string_serde_crate)]
+        };
+    }
+
     #[cfg(feature = "abi")]
     {
         let schema_derive: proc_macro2::TokenStream =
@@ -176,19 +192,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             #expanded
             #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
             #borsh_attr
-        };
-    }
-
-    if has_json {
-        let enable_schemars = cfg!(feature = "abi").then_some(quote! {schemars = true,});
-        expanded = quote! {
-            #expanded
-            #[#near_sdk_crate::serde_with::serde_as(
-                crate = #string_serde_with_crate,
-                #enable_schemars
-            )]
-            #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
-            #[serde(crate = #string_serde_crate)]
         };
     }
 

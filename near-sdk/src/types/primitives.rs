@@ -28,6 +28,9 @@ pub type Nonce = u64;
 pub type BlockHeight = u64;
 /// Height of the epoch.
 pub type EpochHeight = u64;
+
+/// Action index is used to identify an action in a promise.
+pub type ActionIndex = u64;
 /// Shard index, from 0 to NUM_SHARDS - 1.
 #[deprecated(since = "4.0.0", note = "Type has no connection with the SDK")]
 pub type ShardId = u64;

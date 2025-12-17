@@ -1,4 +1,4 @@
-//! A persistent set without iterators. Unlike `near_sdk::collections::LookupSet` this set
+//! A persistent set without iterators. Unlike `near_sdk::collections::UnorderedSet` this set
 //! doesn't store values separately in a vector, so it can't iterate over the values. But it
 //! makes this implementation more efficient in the number of reads and writes.
 use std::marker::PhantomData;
@@ -11,8 +11,8 @@ use crate::{env, errors, IntoStorageKey};
 
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///
-/// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
-/// value.
+/// This set stores values under a concatenation of the set's `prefix` and the value's
+/// [`BorshSerialize`] bytes. No hashing is performed.
 #[near(inside_nearsdk)]
 pub struct LookupSet<T> {
     element_prefix: Vec<u8>,
@@ -21,7 +21,7 @@ pub struct LookupSet<T> {
 }
 
 impl<T> LookupSet<T> {
-    /// Create a new map. Use `element_prefix` as a unique prefix for trie keys.
+    /// Create a new set. Use `element_prefix` as a unique prefix for trie keys.
     ///
     /// # Examples
     ///
@@ -40,7 +40,7 @@ impl<T> LookupSet<T> {
         append_slice(&self.element_prefix, element_raw)
     }
 
-    /// Returns `true` if the serialized key is present in the map.
+    /// Returns `true` if the set contains a serialized element.
     fn contains_raw(&self, element_raw: &[u8]) -> bool {
         let storage_key = self.raw_element_to_storage_key(element_raw);
         env::storage_has_key(&storage_key)

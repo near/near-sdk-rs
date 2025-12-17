@@ -30,7 +30,7 @@ const ERR_UNSET_OR_EMPTY_SOURCE_SNAPSHOT: &str = "`NEP330_BUILD_INFO_SOURCE_CODE
                                                     required, when `NEP330_BUILD_INFO_BUILD_ENVIRONMENT` \
                                                     is set, but it's either not set or empty!";
 
-const ERR_INVALID_UNICODE_OUTPUT_WASM_PATH: &str = "`NEP331_BUILD_INFO_OUTPUT_WASM_PATH` was \
+const ERR_INVALID_UNICODE_OUTPUT_WASM_PATH: &str = "`NEP330_BUILD_INFO_OUTPUT_WASM_PATH` was \
                                                     provided, but it contained invalid UTF8!";
 
 impl BuildInfo {

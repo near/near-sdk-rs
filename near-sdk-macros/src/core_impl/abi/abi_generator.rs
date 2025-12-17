@@ -403,4 +403,18 @@ mod tests {
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
+
+    #[test]
+    fn test_generate_abi_init_private() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            #[init]
+            #[private]
+            pub fn new() -> Self { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
+    }
 }

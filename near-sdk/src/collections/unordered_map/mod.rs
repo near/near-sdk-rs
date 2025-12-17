@@ -119,8 +119,8 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Inserts a serialized key-value pair into the map.
     /// If the map did not have this key present, `None` is returned. Otherwise returns
-    /// a serialized value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a serialized value. Note: keys are addressed by their Borsh-serialized bytes (combined with
+    /// this map's prefixes). Two keys that serialize to identical bytes will be indistinguishable.
     pub fn insert_raw(&mut self, key_raw: &[u8], value_raw: &[u8]) -> Option<Vec<u8>> {
         let index_lookup = self.raw_key_to_index_lookup(key_raw);
         match env::storage_read(&index_lookup) {
@@ -239,8 +239,8 @@ where
 
     /// Inserts a key-value pair into the map.
     /// If the map did not have this key present, `None` is returned. Otherwise returns
-    /// a value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a value. Note: keys are addressed by their Borsh-serialized bytes (combined with this map's
+    /// prefixes). Two keys that serialize to identical bytes will be indistinguishable.
     ///
     /// # Examples
     ///
