@@ -65,6 +65,23 @@ impl Default for PromiseAlreadyScheduled {
 }
 
 #[contract_error(inside_nearsdk, sdk)]
+pub struct CallbackYieldPromise {
+    pub message: String,
+}
+
+impl CallbackYieldPromise {
+    pub fn new() -> Self {
+        Self { message: "Cannot callback yielded promise".to_string() }
+    }
+}
+
+impl Default for CallbackYieldPromise {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
 pub struct CallbackJointPromise {
     pub message: String,
 }
