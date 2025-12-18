@@ -1,10 +1,8 @@
 use super::NonFungibleTokenEnumeration;
-use crate::non_fungible_token::token::Token;
+use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
 use near_sdk::{env, require, AccountId};
-
-type TokenId = String;
 
 impl NonFungibleToken {
     /// Helper function used by a enumerations methods
