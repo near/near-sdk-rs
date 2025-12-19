@@ -172,7 +172,6 @@ pub struct SanitizeSelfResult {
     pub self_occurrences: Vec<Span>,
 }
 
-
 pub fn standardized_error_panic_tokens() -> TokenStream2 {
     quote! {
         // Initial error is wrapped into a struct to be able to serialize the type of it.
