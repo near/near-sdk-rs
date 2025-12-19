@@ -118,7 +118,7 @@ macro_rules! compile_warning {
     (
     $name:ident, $message:expr $(,)*
 ) => {
-        mod $name {
+        const _: () = {
             #[must_use = $message]
             struct compile_warning;
             #[allow(dead_code)]
