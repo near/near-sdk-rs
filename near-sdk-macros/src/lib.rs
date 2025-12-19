@@ -351,7 +351,7 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
-    let error_methods = item_impl_info.generate_error_methods();
+    let error_methods = item_impl_info.generate_error_method();
 
     Ok(TokenStream::from(quote! {
         #ext_generated_code

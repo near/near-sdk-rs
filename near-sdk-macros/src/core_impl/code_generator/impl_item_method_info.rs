@@ -108,12 +108,14 @@ impl ImplItemMethodInfo {
         match &self.attr_signature_info.returns.kind {
             ReturnKind::HandlesResultImplicit(status_result) => {
                 if status_result.unsafe_persist_on_error {
-                    let error_method_name =
-                        quote::format_ident!("{}_near_sdk_internal_error", self.attr_signature_info.ident);
                     let contract_ser = self.contract_ser_tokens();
+                    let struct_type = &self.struct_type;
                     quote! {
                         #contract_ser
-                        let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
+                        let __base_err: ::near_sdk::BaseError = err.into();
+                        let __promise = #struct_type::ext(::near_sdk::env::current_account_id())
+                            .__near_sdk_panic_callback(__base_err)
+                            .as_return();
                     }
                 } else {
                     utils::standardized_error_panic_tokens()

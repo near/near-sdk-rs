@@ -53,8 +53,9 @@ impl ItemImplInfo {
         }
     }
 
-    pub fn generate_error_methods(&self) -> TokenStream2 {
-        let mut error_methods = quote! {};
+    pub fn generate_error_method(&self) -> TokenStream2 {
+        let mut result = quote! {};
+        let mut needs_panic_callback = false;
 
         self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
             if let ReturnKind::HandlesResultExplicit(explicit_result) = &method.returns.kind {
@@ -64,44 +65,34 @@ impl ItemImplInfo {
                         method.ident
                     );
                     let warning_name = format_ident!("using_handle_result_{}", method.ident);
-                    error_methods.extend(quote! {
+                    result.extend(quote! {
                         near_sdk::compile_warning!(#warning_name, #warning_message);
                     });
                 }
             }
 
             if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
-                // if method.ident ends with _error, emit warning to avoid name clash
-                if method.ident.to_string().ends_with("_near_sdk_internal_error") {
-                    let warning_message = format!(
-                        "Method '{}' ends with '_error'. This suffix in method identifier is reserved for our usage",
-                        method.ident
-                    );
-                    let warning_name = format_ident!("reserved_error_suffix_{}", method.ident);
-                    error_methods.extend(quote! {
-                        near_sdk::compile_warning!(#warning_name, #warning_message);
-                    });
-                }
-                let error_method_name = quote::format_ident!("{}_near_sdk_internal_error", method.ident);
                 if status.unsafe_persist_on_error {
-                    let error_type = crate::get_error_type_from_status(status);
-                    let panic_tokens = crate::standardized_error_panic_tokens();
-
-                    let ty = self.ty.to_token_stream();
-
-                    error_methods.extend(quote! {
-                        #[near]
-                        impl #ty {
-                            pub fn #error_method_name(&self, err: #error_type) {
-                                #panic_tokens
-                            }
-                        }
-                    });
+                    needs_panic_callback = true;
                 }
             }
         });
 
-        error_methods
+        // Generate a single shared panic callback if any method uses unsafe_persist_on_error
+        if needs_panic_callback {
+            let ty = self.ty.to_token_stream();
+            result.extend(quote! {
+                #[near]
+                impl #ty {
+                    #[private]
+                    pub fn __near_sdk_panic_callback(&self, err: ::near_sdk::BaseError) {
+                        ::near_sdk::env::panic_err(err);
+                    }
+                }
+            });
+        }
+
+        result
     }
 }
 // Rustfmt removes comas.
@@ -509,7 +500,7 @@ mod tests {
             }
         };
         let impl_contract_info = ItemImplInfo::new(&mut impl_contract).unwrap();
-        let actual = impl_contract_info.generate_error_methods();
+        let actual = impl_contract_info.generate_error_method();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }

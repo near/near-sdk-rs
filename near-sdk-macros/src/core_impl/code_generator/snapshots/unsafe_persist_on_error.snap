@@ -29,8 +29,9 @@ pub extern "C" fn method() {
         }
         ::std::result::Result::Err(err) => {
             <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
-            let promise = Contract::ext(::near_sdk::env::current_account_id())
-                .method_error(err)
+            let __base_err: ::near_sdk::BaseError = err.into();
+            let __promise = Hello::ext(::near_sdk::env::current_account_id())
+                .__near_sdk_panic_callback(__base_err)
                 .as_return();
         }
     }
