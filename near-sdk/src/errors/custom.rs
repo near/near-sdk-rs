@@ -61,6 +61,12 @@ impl RequireFailed<'_> {
     }
 }
 
+impl Default for RequireFailed<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[contract_error(inside_nearsdk)]
 pub struct PromiseFailed<'a> {
     pub promise_index: Option<u64>,
