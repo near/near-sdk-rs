@@ -735,8 +735,9 @@ impl Promise {
                     crate::env::panic_err(errors::CallbackYieldPromise::new().into())
                 }
             },
-            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::CallbackJointPromise::new().into()),
-
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_err(errors::CallbackJointPromise::new().into())
+            }
         }
         other
     }

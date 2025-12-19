@@ -95,8 +95,8 @@ impl InsufficientBalance<'_> {
     }
 }
 
-// Note: We use InsufficientGas {} rather than unit type InsufficientGas;                                                 
-// The latter serializes to null and OpenAPI spec 3.0 (for example progenitor uses it) doesn't support it. Though 3.1 does. 
+// Note: We use InsufficientGas {} rather than unit type InsufficientGas;
+// The latter serializes to null and OpenAPI spec 3.0 (for example progenitor uses it) doesn't support it. Though 3.1 does.
 #[contract_error(inside_nearsdk)]
 pub struct InsufficientGas {}
 
