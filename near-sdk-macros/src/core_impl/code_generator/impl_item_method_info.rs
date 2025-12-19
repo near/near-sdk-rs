@@ -216,7 +216,7 @@ impl ImplItemMethodInfo {
             let method_name = &self.attr_signature_info.ident.to_string();
             quote! {
                 if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
-                    ::near_sdk::errors::PrivateMethod::new(#method_name);
+                    ::near_sdk::env::panic_err(::near_sdk::errors::PrivateMethod::new(#method_name).into());
                 }
             }
         } else {
