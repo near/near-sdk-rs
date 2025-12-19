@@ -109,7 +109,7 @@ impl ImplItemMethodInfo {
             ReturnKind::HandlesResultImplicit(status_result) => {
                 if status_result.unsafe_persist_on_error {
                     let error_method_name =
-                        quote::format_ident!("{}_error", self.attr_signature_info.ident);
+                        quote::format_ident!("{}_near_sdk_internal_error", self.attr_signature_info.ident);
                     let contract_ser = self.contract_ser_tokens();
                     quote! {
                         #contract_ser

@@ -72,7 +72,7 @@ impl ItemImplInfo {
 
             if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
                 // if method.ident ends with _error, emit warning to avoid name clash
-                if method.ident.to_string().ends_with("_error") {
+                if method.ident.to_string().ends_with("_near_sdk_internal_error") {
                     let warning_message = format!(
                         "Method '{}' ends with '_error'. This suffix in method identifier is reserved for our usage",
                         method.ident
@@ -82,7 +82,7 @@ impl ItemImplInfo {
                         near_sdk::compile_warning!(#warning_name, #warning_message);
                     });
                 }
-                let error_method_name = quote::format_ident!("{}_error", method.ident);
+                let error_method_name = quote::format_ident!("{}_near_sdk_internal_error", method.ident);
                 if status.unsafe_persist_on_error {
                     let error_type = crate::get_error_type_from_status(status);
                     let panic_tokens = crate::standardized_error_panic_tokens();
