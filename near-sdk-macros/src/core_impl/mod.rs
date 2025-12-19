@@ -9,4 +9,3 @@ pub(crate) use code_generator::*;
 pub(crate) use contract_metadata::ContractMetadata;
 pub(crate) use event::{get_event_version, near_events};
 pub(crate) use info_extractor::*;
-pub(crate) use utils::{get_error_type_from_status, standardized_error_panic_tokens};

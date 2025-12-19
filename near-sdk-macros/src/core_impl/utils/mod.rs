@@ -1,4 +1,3 @@
-use crate::StatusResult;
 use proc_macro2::{Group, Span, TokenStream as TokenStream2, TokenTree};
 use quote::quote;
 use syn::spanned::Spanned;
@@ -173,10 +172,6 @@ pub struct SanitizeSelfResult {
     pub self_occurrences: Vec<Span>,
 }
 
-pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
-    let ty = status_result.result_type.clone();
-    syn::parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Error }
-}
 
 pub fn standardized_error_panic_tokens() -> TokenStream2 {
     quote! {
