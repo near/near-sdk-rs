@@ -1869,7 +1869,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidTreeMapRange.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_same_excluded() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));

@@ -1571,7 +1571,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot callback yielded promise.")]
+    #[should_panic(expected = "Cannot callback yielded promise")]
     fn test_yielded_promise_cannot_be_continuation() {
         use crate::{Gas, GasWeight};
 

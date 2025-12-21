@@ -5,14 +5,14 @@ error[E0277]: the trait bound `u64: ContractErrorTrait` is not satisfied
    | ^^^^^^^ the trait `ContractErrorTrait` is not implemented for `u64`
    |
    = help: the following other types implement trait `ContractErrorTrait`:
-             ActionInJointPromise
+             ActionInJointPromise<'a>
              BaseError
-             BorshDeserializeError
-             BorshSerializeError
+             BorshDeserializeError<'a>
+             BorshSerializeError<'a>
              CallbackComputationUnsuccessful
-             CallbackJointPromise
+             CallbackJointPromise<'a>
+             CallbackYieldPromise<'a>
              ContractAlreadyInitialized
-             ContractError
            and $N others
 note: required by a bound in `check_contract_error_trait`
   --> src/utils/contract_error.rs
@@ -20,3 +20,6 @@ note: required by a bound in `check_contract_error_trait`
    | pub fn check_contract_error_trait<T: ContractErrorTrait>(_: &T) {}
    |                                      ^^^^^^^^^^^^^^^^^^ required by this bound in `check_contract_error_trait`
    = note: this error originates in the attribute macro `::near_sdk::near_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+note: If the actual output is the correct output you can bless it by rerunning
+      your test with the environment variable TRYBUILD=overwrite
