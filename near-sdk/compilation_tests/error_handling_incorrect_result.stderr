@@ -20,6 +20,3 @@ note: required by a bound in `check_contract_error_trait`
    | pub fn check_contract_error_trait<T: ContractErrorTrait>(_: &T) {}
    |                                      ^^^^^^^^^^^^^^^^^^ required by this bound in `check_contract_error_trait`
    = note: this error originates in the attribute macro `::near_sdk::near_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-note: If the actual output is the correct output you can bless it by rerunning
-      your test with the environment variable TRYBUILD=overwrite
