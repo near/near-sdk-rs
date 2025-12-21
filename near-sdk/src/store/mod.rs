@@ -16,7 +16,7 @@
 //! ## FAQ: most collections of this [`module`](self) persist on `Drop` and `flush`
 //! Unlike containers in [`near_sdk::collections`](crate::collections) module, most containers in current [`module`](self) cache all changes
 //! and loads and only update values that are changed in storage after it’s dropped through it’s [`Drop`] implementation.
-//! Note that [`LookupSet`](crate::store::LookupSet) is an exception and writes directly to storage on each operation
+//! Note that [`LookupSet`] is an exception and writes directly to storage on each operation
 //! without using an in-memory cache or a `flush`-based persistence mechanism.
 //!
 //! These changes can be updated in storage before the container variable is dropped by using

@@ -97,8 +97,8 @@ mod tests {
         assert!(res.is_failure());
         let failure_message = format!("{:?}", res.into_result().unwrap_err());
         assert!(
-            failure_message.contains("Method new_private is private"),
-            "Expected 'Method new_private is private' error, got: {}",
+            failure_message.contains("near_sdk::errors::sdk::PrivateMethod"),
+            "Expected 'near_sdk::errors::sdk::PrivateMethod' error, got: {}",
             failure_message
         );
 
