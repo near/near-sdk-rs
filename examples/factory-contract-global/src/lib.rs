@@ -28,7 +28,7 @@ impl GlobalFactoryContract {
         Promise::new(env::current_account_id()).deploy_global_contract(code)
     }
 
-    /// Deploy a global contract, identifiable by the predecessor's account ID
+    /// Deploy a global contract, identifiable by the provided deployer account ID
     #[payable]
     pub fn deploy_global_contract_by_account_id(
         &mut self,

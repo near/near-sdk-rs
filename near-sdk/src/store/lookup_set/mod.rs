@@ -255,7 +255,7 @@ mod tests {
     fn test_flush_on_drop() {
         let mut set = LookupSet::<_, Keccak256>::with_hasher(b"m");
 
-        // Set a value, which does not write to storage yet
+        // Set a value and ensure it remains readable after this instance is dropped
         set.insert(5u8);
         assert!(set.contains(&5u8));
 
@@ -284,7 +284,7 @@ mod tests {
         assert!(!set.contains(&8));
         set.insert(8);
 
-        // Drop the set which should flush all data
+        // Drop the set to end this instance's lifetime
         drop(set);
 
         let dup_set = LookupSet::<u8, _>::new(b"m");
@@ -334,7 +334,7 @@ mod tests {
         // Initialized value which state is `Deleted`
         assert!(!set.remove(&8));
 
-        // Drop the set which should flush all data
+        // Drop the set to end this instance's lifetime
         set.insert(8u8);
         drop(set);
 

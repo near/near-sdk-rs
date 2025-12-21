@@ -13,9 +13,11 @@
 //! mentioned above shows that running the contains method on a native [`std::collections::HashSet<i32>`] **consumes 41% more gas**
 //! compared to a near [`crate::store::IterableSet<i32>`].
 //!
-//! ## FAQ: collections of this [`module`](self) only persist on `Drop` and `flush`
-//! Unlike containers in [`near_sdk::collections`](crate::collections) module, most containers in current [`module`](self) will cache all changes
+//! ## FAQ: most collections of this [`module`](self) persist on `Drop` and `flush`
+//! Unlike containers in [`near_sdk::collections`](crate::collections) module, most containers in current [`module`](self) cache all changes
 //! and loads and only update values that are changed in storage after it’s dropped through it’s [`Drop`] implementation.
+//! Note that [`LookupSet`](crate::store::LookupSet) is an exception and writes directly to storage on each operation
+//! without using an in-memory cache or a `flush`-based persistence mechanism.
 //!
 //! These changes can be updated in storage before the container variable is dropped by using
 //! the container's `flush` method, e.g. [`IterableMap::flush`](crate::store::IterableMap::flush) ([`IterableMap::drop`](crate::store::IterableMap::drop) uses it in implementation too).
