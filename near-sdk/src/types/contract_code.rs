@@ -20,13 +20,13 @@ pub enum AccountContract {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum GlobalContractId {
-    #[serde(rename="hash")]
+    #[serde(rename = "hash")]
     CodeHash(
         #[serde_as(as = "::serde_with::base64::Base64")]
         #[cfg_attr(feature = "abi", schemars(with = "String"))]
         CryptoHash,
     ) = 0,
-    #[serde(rename="account_id")]
+    #[serde(rename = "account_id")]
     AccountId(AccountId) = 1,
 }
 
@@ -81,7 +81,10 @@ mod tests {
 
     #[test]
     fn test_global_contract_id_json_serialization_code_hash() {
-        let hash: CryptoHash = "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ".parse::<Base58CryptoHash>().unwrap().into();
+        let hash: CryptoHash = "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"
+            .parse::<Base58CryptoHash>()
+            .unwrap()
+            .into();
         let id = GlobalContractId::CodeHash(hash);
 
         let json = serde_json::to_string(&id).unwrap();
