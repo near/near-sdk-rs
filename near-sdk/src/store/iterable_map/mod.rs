@@ -583,14 +583,25 @@ where
         K: BorshDeserialize + Clone,
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
+        Self::remove_entry_impl(&mut self.keys, &mut self.values, k.to_owned())
+    }
+
+    fn remove_entry_impl(
+        keys: &mut Vector<K>,
+        values: &mut LookupMap<K, ValueAndIndex<V>, H>,
+        key: K,
+    ) -> Option<(K, V)>
+    where
+        K: BorshDeserialize + Clone,
+    {
         // Remove value
-        let old_value = self.values.remove(&k.to_owned())?;
+        let old_value = values.remove(&key)?;
 
         // Remove key with index if value exists
-        let last_index = self.keys.len() - 1;
-        let key = self.keys.swap_remove(old_value.key_index);
+        let last_index = keys.len() - 1;
+        let key = keys.swap_remove(old_value.key_index);
 
-        Self::remove_entry_helper(&self.keys, &mut self.values, old_value.key_index, last_index);
+        Self::remove_entry_helper(keys, values, old_value.key_index, last_index);
 
         // Return removed value
         Some((key, old_value.value))
