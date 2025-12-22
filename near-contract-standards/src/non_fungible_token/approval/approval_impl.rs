@@ -121,8 +121,6 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         approved_account_id: AccountId,
         approval_id: Option<u64>,
     ) -> bool {
-        expect_token_found(self.owner_by_id.get(&token_id));
-
         let approvals_by_id = if let Some(a) = self.approvals_by_id.as_ref() {
             a
         } else {
