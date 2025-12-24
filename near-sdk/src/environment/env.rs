@@ -1090,8 +1090,8 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/actions)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_batch_create(account_id: impl AsRef<AccountIdRef>) -> PromiseIndex {
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         PromiseIndex(sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _))
     }
@@ -1216,14 +1216,15 @@ pub fn promise_batch_action_state_init(
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
     promise_index: PromiseIndex,
-    account_id: &AccountIdRef,
+    account_id: impl AsRef<AccountIdRef>,
     amount: NearToken,
 ) -> ActionIndex {
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         sys::promise_batch_action_state_init_by_account_id(
             promise_index.0,
-            account_id.as_bytes().len() as _,
-            account_id.as_bytes().as_ptr() as _,
+            account_id.len() as _,
+            account_id.as_ptr() as _,
             &amount.as_yoctonear() as *const u128 as _,
         )
     }
@@ -2072,8 +2073,8 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
 ///     NearToken::from_yoctonear(0)
 /// );
 /// ```
-pub fn validator_stake(account_id: &AccountId) -> NearToken {
-    let account_id: &str = account_id.as_ref();
+pub fn validator_stake(account_id: impl AsRef<AccountIdRef>) -> NearToken {
+    let account_id = account_id.as_ref().as_str();
     let mut data = [0u8; size_of::<NearToken>()];
     unsafe {
         sys::validator_stake(
@@ -3006,10 +3007,10 @@ mod tests {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
 
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise_index = super::promise_batch_create(AccountIdRef::new_or_panic("alice.near"));
         let code = vec![0u8; 100]; // Mock contract bytecode
         let code_hash = [0u8; 32]; // Mock 32-byte hash (CryptoHash)
-        let account_id = "deployer.near".parse::<AccountId>().unwrap();
+        let account_id = AccountIdRef::new_or_panic("deployer.near");
 
         // Test deploy_global_contract
         super::promise_batch_action_deploy_global_contract(promise_index, &code);
@@ -3028,7 +3029,7 @@ mod tests {
     #[cfg(feature = "global-contracts")]
     fn test_global_contract_edge_cases() {
         // Test with minimal valid inputs
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise_index = super::promise_batch_create(AccountIdRef::new_or_panic("alice.near"));
 
         // Test with single byte code (minimal size)
         super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
