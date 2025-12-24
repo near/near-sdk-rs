@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 
 #[near(inside_nearsdk)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[repr(transparent)]
 pub struct Base58CryptoHash(CryptoHash);
 
