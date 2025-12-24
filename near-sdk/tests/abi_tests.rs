@@ -40,7 +40,7 @@ fn ensure_abi_for_prepended_functions() {
         .collect::<HashSet<_>>();
 
     // ensure methods are prepended
-    PREPENDED_METHODS.map(|method| {
+    PREPENDED_METHODS.iter().for_each(|method| {
         assert!(
             near_abi_symbols.contains(format!("__near_abi_{method}").as_str()),
             "ABI should contain prepended method {method}"

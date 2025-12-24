@@ -389,7 +389,7 @@ impl Promise {
     ///
     /// Uses low-level [`crate::env::promise_yield_create`]
     pub fn new_yield(
-        function_name: &str,
+        function_name: impl AsRef<str>,
         arguments: impl AsRef<[u8]>,
         gas: Gas,
         weight: GasWeight,

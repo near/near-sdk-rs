@@ -125,7 +125,7 @@ where
     /// If the set did have this value present, false is returned.
     pub fn insert(&mut self, value: T) -> bool {
         let lookup_key = H::to_key(&self.prefix, &value, &mut Vec::new());
-        !env::storage_write(lookup_key.as_ref(), &[])
+        !env::storage_write(lookup_key.as_ref(), [])
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.

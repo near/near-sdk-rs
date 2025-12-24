@@ -138,7 +138,7 @@ impl<K, V> UnorderedMap<K, V> {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                env::storage_write(&index_lookup, &next_index_raw);
+                env::storage_write(index_lookup, next_index_raw);
                 self.keys.push_raw(key_raw);
                 self.values.push_raw(value_raw);
                 None

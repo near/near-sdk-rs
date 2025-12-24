@@ -359,7 +359,10 @@ where
     }
 
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
-    fn min_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
+    fn min_at(
+        &self,
+        mut at: FreeListIndex,
+    ) -> Option<(NodeAndIndex<'_, K>, Option<NodeAndIndex<'_, K>>)> {
         let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
             let node = self.node(at);
@@ -376,7 +379,10 @@ where
     }
 
     /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
-    fn max_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
+    fn max_at(
+        &self,
+        mut at: FreeListIndex,
+    ) -> Option<(NodeAndIndex<'_, K>, Option<NodeAndIndex<'_, K>>)> {
         let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
             let node = self.node(at);
@@ -473,7 +479,7 @@ where
         &self,
         mut at: FreeListIndex,
         key: &Q,
-    ) -> Option<(NodeAndIndex<K>, Option<(FreeListIndex, &Node<K>, Edge)>)>
+    ) -> Option<(NodeAndIndex<'_, K>, Option<(FreeListIndex, &Node<K>, Edge)>)>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
@@ -794,7 +800,7 @@ where
 {
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
-    pub fn iter(&self) -> Iter<K, V, H>
+    pub fn iter(&self) -> Iter<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -804,7 +810,7 @@ where
     /// An iterator visiting all key-value pairs in arbitrary order,
     /// with exclusive references to the values.
     /// The iterator element type is `(&'a K, &'a mut V)`.
-    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -813,7 +819,7 @@ where
 
     /// An iterator visiting all keys in arbitrary order.
     /// The iterator element type is `&'a K`.
-    pub fn keys(&self) -> Keys<K>
+    pub fn keys(&self) -> Keys<'_, K>
     where
         K: BorshDeserialize,
     {
@@ -822,7 +828,7 @@ where
 
     /// An iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a V`.
-    pub fn values(&self) -> Values<K, V, H>
+    pub fn values(&self) -> Values<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -831,7 +837,7 @@ where
 
     /// A mutable iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a mut V`.
-    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -966,7 +972,7 @@ where
     /// assert_eq!(count[&1], 1);
     /// assert_eq!(count.get(&8), None);
     /// ```
-    pub fn entry(&mut self, key: K) -> Entry<K, V>
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, V>
     where
         K: Clone,
     {

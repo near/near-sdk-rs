@@ -668,8 +668,8 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
 /// Returns 64 bytes representing the public key if the recovery was successful.
 #[cfg(feature = "unstable")]
 pub fn ecrecover(
-    hash: &[u8],
-    signature: &[u8],
+    hash: &[u8; 32],
+    signature: &[u8; 64],
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
@@ -934,12 +934,13 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 pub fn promise_create(
     account_id: impl AsRef<AccountIdRef>,
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_ref().as_bytes();
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_create(
@@ -991,12 +992,13 @@ pub fn promise_create(
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: impl AsRef<AccountIdRef>,
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_ref().as_bytes();
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_then(
@@ -1252,9 +1254,11 @@ pub fn promise_batch_action_state_init_by_account_id(
 pub fn set_state_init_data_entry(
     promise_index: PromiseIndex,
     action_index: ActionIndex,
-    key: &[u8],
-    value: &[u8],
+    key: impl AsRef<[u8]>,
+    value: impl AsRef<[u8]>,
 ) {
+    let key = key.as_ref();
+    let value = value.as_ref();
     unsafe {
         sys::set_state_init_data_entry(
             promise_index.0,
@@ -1547,7 +1551,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     nonce: u64,
     allowance: NearToken,
     receiver_id: impl AsRef<AccountIdRef>,
-    function_names: &str,
+    function_names: impl AsRef<str>,
 ) {
     let allowance = migrate_to_allowance(allowance);
     promise_batch_action_add_key_allowance_with_function_call(
@@ -1745,8 +1749,9 @@ pub fn promise_batch_action_deploy_global_contract(
 /// ```
 pub fn promise_batch_action_deploy_global_contract_by_account_id(
     promise_index: PromiseIndex,
-    code: &[u8],
+    code: impl AsRef<[u8]>,
 ) {
+    let code = code.as_ref();
     unsafe {
         sys::promise_batch_action_deploy_global_contract_by_account_id(
             promise_index.0,
@@ -1961,12 +1966,13 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     gas: Gas,
     weight: GasWeight,
     register_id: u64,
 ) -> PromiseIndex {
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_yield_create(
@@ -1986,7 +1992,7 @@ pub fn promise_yield_create(
 /// This is a convenience wrapper around [`promise_yield_create`] that automatically reads the
 /// yield ID from the register and returns it as a [`crate::YieldId`].
 pub fn promise_yield_create_id(
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     gas: Gas,
     weight: GasWeight,
@@ -2141,7 +2147,8 @@ pub fn value_return(value: impl AsRef<[u8]>) {
 /// panic(b"Unexpected error");
 /// ```
 #[deprecated(since = "4.0.0", note = "Use env::panic_str to panic with a message.")]
-pub fn panic(message: &[u8]) -> ! {
+pub fn panic(message: impl AsRef<[u8]>) -> ! {
+    let message = message.as_ref();
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
@@ -2161,7 +2168,8 @@ pub fn panic(message: &[u8]) -> ! {
 /// let account = AccountId::from_str("bob.near").unwrap();
 /// panic_str(format!("Unexpected error happened for account {}", account).as_str());
 /// ```
-pub fn panic_str(message: &str) -> ! {
+pub fn panic_str(message: impl AsRef<str>) -> ! {
+    let message = message.as_ref();
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
@@ -2203,7 +2211,8 @@ pub fn abort() -> ! {
 /// log_str(format!("Number: {}", number).as_str());
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
-pub fn log_str(message: &str) {
+pub fn log_str(message: impl AsRef<str>) {
+    let message = message.as_ref();
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{message}");
 
@@ -2219,7 +2228,9 @@ pub fn log_str(message: &str) {
 /// log(b"Text");
 /// ```
 #[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
-pub fn log(message: &[u8]) {
+pub fn log(message: impl AsRef<[u8]>) {
+    let message = message.as_ref();
+
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", String::from_utf8_lossy(message));
 
@@ -2245,7 +2256,9 @@ pub fn log(message: &[u8]) {
 /// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
-pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
+pub fn storage_write(key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
+    let value = value.as_ref();
     match unsafe {
         sys::storage_write(
             key.len() as _,
@@ -2279,7 +2292,8 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 ///
 /// Another example:
 /// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
-pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
+pub fn storage_read(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let key = key.as_ref();
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
         1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
@@ -2302,7 +2316,8 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// assert_eq!(storage_remove(b"key"), true);
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
-pub fn storage_remove(key: &[u8]) -> bool {
+pub fn storage_remove(key: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
         1 => true,
@@ -2338,7 +2353,8 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_has_key(b"key"), true);
 /// ```
-pub fn storage_has_key(key: &[u8]) -> bool {
+pub fn storage_has_key(key: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
     match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
@@ -3032,8 +3048,8 @@ mod tests {
         let promise_index = super::promise_batch_create(AccountIdRef::new_or_panic("alice.near"));
 
         // Test with single byte code (minimal size)
-        super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
-        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &[0]);
+        super::promise_batch_action_deploy_global_contract(promise_index, [0]);
+        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, [0]);
 
         // Test with 32-byte hash (standard size for CryptoHash)
         let valid_hash = [0u8; 32];

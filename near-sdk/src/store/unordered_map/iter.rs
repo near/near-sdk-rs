@@ -145,7 +145,7 @@ where
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &mut map.values }
     }
-    fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
+    fn get_entry_mut<'b>(&mut self, key: &'b K) -> (&'b K, &'a mut V)
     where
         K: Clone,
         V: BorshDeserialize,

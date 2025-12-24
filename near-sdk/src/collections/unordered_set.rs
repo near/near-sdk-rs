@@ -95,7 +95,7 @@ impl<T> UnorderedSet<T> {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                env::storage_write(&index_lookup, &next_index_raw);
+                env::storage_write(&index_lookup, next_index_raw);
                 self.elements.push_raw(element_raw);
                 true
             }
