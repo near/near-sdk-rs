@@ -15,10 +15,9 @@ use std::panic as std_panic;
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
-#[cfg(feature = "global-contracts")]
-use crate::types::AccountIdRef;
 use crate::types::{
-    AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    AccountId, AccountIdRef, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey,
+    StorageUsage,
 };
 use crate::{CryptoHash, GasWeight, PromiseError};
 
