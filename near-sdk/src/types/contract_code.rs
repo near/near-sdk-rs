@@ -12,6 +12,16 @@ pub enum AccountContract {
     GlobalByAccount(AccountId),
 }
 
+impl AccountContract {
+    pub fn into_global(self) -> Option<GlobalContractId> {
+        Some(match self {
+            Self::Global(hash) => GlobalContractId::CodeHash(hash),
+            Self::GlobalByAccount(account_id) => GlobalContractId::AccountId(account_id),
+            _ => return None,
+        })
+    }
+}
+
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [
     json,
