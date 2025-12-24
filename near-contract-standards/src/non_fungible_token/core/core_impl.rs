@@ -10,8 +10,10 @@ use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto,
+    env::{self, TooLong},
+    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult,
+    StorageUsage,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -430,12 +432,14 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         token_id: TokenId,
         approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool {
+        const MAX_RESULT_LENGTH: usize = "false".len();
+
         // Get whether token should be returned
-        let must_revert = match env::promise_result(0) {
-            PromiseResult::Successful(value) => {
+        let must_revert = match env::promise_result_at_most(0, MAX_RESULT_LENGTH) {
+            PromiseResult::Successful(Ok(value)) => {
                 near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true)
             }
-            PromiseResult::Failed => true,
+            PromiseResult::Failed | PromiseResult::Successful(Err(TooLong)) => true,
         };
 
         // if call succeeded, return early
