@@ -156,7 +156,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 230),
+        Collection::TreeMap => (col, 260),
         Collection::IterableSet => (col, 130),
         Collection::IterableMap => (col, 120),
         Collection::UnorderedSet => (col, 240),
