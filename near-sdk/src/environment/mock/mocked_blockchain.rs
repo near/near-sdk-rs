@@ -843,6 +843,7 @@ mod mock_chain {
 mod tests {
     use std::str::FromStr;
 
+    use near_account_id::AccountId;
     use near_gas::NearGas;
     use near_primitives::types::GasWeight;
 
@@ -874,7 +875,7 @@ mod tests {
         assert!(!env::storage_has_key(b"smile"));
 
         let promise_index = env::promise_create(
-            "account.near".parse().unwrap(),
+            "account.near".parse::<AccountId>().unwrap(),
             "method",
             [],
             NearToken::from_millinear(1),
@@ -975,7 +976,7 @@ mod tests {
             testing_env!(context.clone());
 
             let promise_index = env::promise_create(
-                "account.near".parse().unwrap(),
+                "account.near".parse::<AccountId>().unwrap(),
                 "method",
                 [],
                 NearToken::from_millinear(1),
@@ -1016,7 +1017,7 @@ mod tests {
             testing_env!(context.clone());
 
             let promise_index = env::promise_create(
-                "account.near".parse().unwrap(),
+                "account.near".parse::<AccountId>().unwrap(),
                 "method",
                 [],
                 NearToken::from_millinear(1),

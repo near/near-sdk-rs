@@ -934,13 +934,13 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 ///
 pub fn promise_create(
-    account_id: AccountId,
+    account_id: impl AsRef<AccountIdRef>,
     function_name: &str,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_create(
@@ -991,13 +991,13 @@ pub fn promise_create(
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 pub fn promise_then(
     promise_idx: PromiseIndex,
-    account_id: AccountId,
+    account_id: impl AsRef<AccountIdRef>,
     function_name: &str,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_then(
@@ -1124,8 +1124,11 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_then`]
-pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_batch_then(
+    promise_index: PromiseIndex,
+    account_id: impl AsRef<AccountIdRef>,
+) -> PromiseIndex {
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         PromiseIndex(sys::promise_batch_then(
             promise_index.0,
@@ -1154,7 +1157,7 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef<AccountIdRef>) {
-    let account_id: &str = account_id.as_ref().as_str();
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         sys::promise_set_refund_to(promise_index.0, account_id.len() as _, account_id.as_ptr() as _)
     }
@@ -1538,7 +1541,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     public_key: &PublicKey,
     nonce: u64,
     allowance: NearToken,
-    receiver_id: &AccountId,
+    receiver_id: impl AsRef<AccountIdRef>,
     function_names: &str,
 ) {
     let allowance = migrate_to_allowance(allowance);
@@ -1604,10 +1607,10 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     public_key: &PublicKey,
     nonce: u64,
     allowance: Allowance,
-    receiver_id: &AccountId,
+    receiver_id: impl AsRef<AccountIdRef>,
     function_names: &str,
 ) {
-    let receiver_id: &str = receiver_id.as_ref();
+    let receiver_id = receiver_id.as_ref().as_str();
     let allowance = match allowance {
         Allowance::Limited(x) => x.get(),
         Allowance::Unlimited => 0,
@@ -1678,9 +1681,9 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_account`]
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
-    beneficiary_id: &AccountId,
+    beneficiary_id: impl AsRef<AccountIdRef>,
 ) {
-    let beneficiary_id: &str = beneficiary_id.as_ref();
+    let beneficiary_id = beneficiary_id.as_ref().as_str();
     unsafe {
         sys::promise_batch_action_delete_account(
             promise_index.0,
