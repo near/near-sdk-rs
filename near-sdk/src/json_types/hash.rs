@@ -5,7 +5,8 @@ use serde::{de, ser, Deserialize};
 use std::convert::TryFrom;
 
 #[near(inside_nearsdk)]
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
+#[repr(transparent)]
 pub struct Base58CryptoHash(CryptoHash);
 
 impl From<Base58CryptoHash> for CryptoHash {
