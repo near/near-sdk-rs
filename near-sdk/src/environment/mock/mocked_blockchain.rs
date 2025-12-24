@@ -956,7 +956,7 @@ mod tests {
                 NearGas::from_tgas(1),
             );
 
-            env::promise_set_refund_to(promise_index, &"mike.near".parse().unwrap());
+            env::promise_set_refund_to(promise_index, "mike.near".parse::<AccountId>().unwrap());
 
             let actions = get_created_receipts();
             assert_eq!(

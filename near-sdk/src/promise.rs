@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::io::{Error, Write};
+use std::mem;
 use std::num::NonZeroU128;
 use std::rc::Rc;
 
@@ -219,9 +220,14 @@ enum PromiseSingleSubtype {
 struct PromiseSingle {
     pub subtype: PromiseSingleSubtype,
     pub actions: RefCell<Vec<PromiseAction>>,
+    pub refund_to: RefCell<Option<AccountId>>,
 }
 
 impl PromiseSingle {
+    pub const fn new(subtype: PromiseSingleSubtype) -> Self {
+        Self { subtype, actions: RefCell::new(Vec::new()), refund_to: RefCell::new(None) }
+    }
+
     pub fn construct_recursively(&self) -> PromiseIndex {
         let promise_index = match &self.subtype {
             PromiseSingleSubtype::Regular { account_id, after, promise_index } => {
@@ -236,22 +242,20 @@ impl PromiseSingle {
                 } else {
                     crate::env::promise_batch_create(account_id)
                 };
-                let actions_lock = self.actions.borrow();
-                for action in actions_lock.iter() {
-                    action.add(idx);
-                }
                 *promise_lock = Some(idx);
                 idx
             }
-            PromiseSingleSubtype::Yielded(promise_index) => {
-                // For yielded promises, actions are added to the already-created promise
-                let actions_lock = self.actions.borrow();
-                for action in actions_lock.iter() {
-                    action.add(*promise_index);
-                }
-                *promise_index
-            }
+            PromiseSingleSubtype::Yielded(promise_index) => *promise_index,
         };
+
+        if let Some(refund_to) = self.refund_to.borrow_mut().take() {
+            crate::env::promise_set_refund_to(promise_index, refund_to);
+        }
+
+        for action in mem::take(&mut *self.actions.borrow_mut()) {
+            action.add(promise_index);
+        }
+
         promise_index
     }
 }
@@ -350,15 +354,14 @@ enum PromiseSubtype {
 impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
-    pub fn new(account_id: AccountId) -> Self {
-        Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
-            subtype: PromiseSingleSubtype::Regular {
-                account_id,
+    pub fn new(account_id: impl Into<AccountId>) -> Self {
+        Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle::new(
+            PromiseSingleSubtype::Regular {
+                account_id: account_id.into(),
                 after: RefCell::new(None),
                 promise_index: RefCell::new(None),
             },
-            actions: RefCell::new(vec![]),
-        })))
+        ))))
     }
 
     const fn new_with_subtype(subtype: PromiseSubtype) -> Self {
@@ -409,11 +412,18 @@ impl Promise {
     ) -> (Self, YieldId) {
         let (promise_index, yield_id) =
             crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
-        let promise = Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
-            subtype: PromiseSingleSubtype::Yielded(promise_index),
-            actions: RefCell::new(vec![]),
-        })));
+        let promise = Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle::new(
+            PromiseSingleSubtype::Yielded(promise_index),
+        ))));
         (promise, yield_id)
+    }
+
+    pub fn refund_to(self, account_id: impl Into<AccountId>) -> Self {
+        let PromiseSubtype::Single(promise) = &self.subtype else {
+            crate::env::panic_str("Cannot set refund account for a joint promise.");
+        };
+        *promise.refund_to.borrow_mut() = Some(account_id.into());
+        self
     }
 
     fn add_action(self, action: PromiseAction) -> Self {

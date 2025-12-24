@@ -1153,8 +1153,8 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 /// promise_set_refund_to(promise, "refund.near".parse().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
-pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId) {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef<AccountIdRef>) {
+    let account_id: &str = account_id.as_ref().as_str();
     unsafe {
         sys::promise_set_refund_to(promise_index.0, account_id.len() as _, account_id.as_ptr() as _)
     }
