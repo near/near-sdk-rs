@@ -81,7 +81,7 @@ impl<T> UnorderedSet<T> {
     /// Returns true if the set contains a serialized element.
     fn contains_raw(&self, element_raw: &[u8]) -> bool {
         let index_lookup = self.raw_element_to_index_lookup(element_raw);
-        env::storage_has_key(&index_lookup)
+        env::storage_has_key(index_lookup)
     }
 
     /// Adds a value to the set.
@@ -95,7 +95,7 @@ impl<T> UnorderedSet<T> {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                env::storage_write(&index_lookup, next_index_raw);
+                env::storage_write(index_lookup, next_index_raw);
                 self.elements.push_raw(element_raw);
                 true
             }
@@ -111,7 +111,7 @@ impl<T> UnorderedSet<T> {
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
-                    env::storage_remove(&index_lookup);
+                    env::storage_remove(index_lookup);
                 } else {
                     // If there is more than one element then swap remove swaps it with the last
                     // element.
@@ -119,13 +119,13 @@ impl<T> UnorderedSet<T> {
                         Some(x) => x,
                         None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
-                    env::storage_remove(&index_lookup);
+                    env::storage_remove(index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
                     // reinsert the lookup back.
                     if last_element_raw != element_raw {
                         let last_lookup_element =
                             self.raw_element_to_index_lookup(&last_element_raw);
-                        env::storage_write(&last_lookup_element, &index_raw);
+                        env::storage_write(last_lookup_element, &index_raw);
                     }
                 }
                 let index = Self::deserialize_index(&index_raw);
@@ -215,7 +215,7 @@ where
     pub fn clear(&mut self) {
         for raw_element in self.elements.iter_raw() {
             let index_lookup = self.raw_element_to_index_lookup(&raw_element);
-            env::storage_remove(&index_lookup);
+            env::storage_remove(index_lookup);
         }
         self.elements.clear();
     }
