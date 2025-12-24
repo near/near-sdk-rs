@@ -186,8 +186,8 @@ pub fn current_contract_code() -> AccountContract {
         let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
         match mode {
             0 => AccountContract::None,
-            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
-            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
+            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
             3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register(
                 sys::current_account_id,
             ))),
