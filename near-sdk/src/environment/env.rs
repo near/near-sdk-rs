@@ -1234,8 +1234,8 @@ pub fn promise_batch_action_state_init_by_account_id(
     unsafe {
         sys::promise_batch_action_state_init_by_account_id(
             promise_index.0,
-            account_id.as_bytes().len() as _,
-            account_id.as_bytes().as_ptr() as _,
+            account_id.len() as _,
+            account_id.as_ptr() as _,
             &amount.as_yoctonear() as *const u128 as _,
         )
     }

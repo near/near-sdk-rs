@@ -33,12 +33,12 @@ jobs:
           default: true
           target: wasm32-unknown-unknown
       - name: Install cargo-near CLI (dependency for build with near-workspaces)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
       - uses: Swatinem/rust-cache@v2
-      #      - name: Downgrade dependencies
-      #        run: |
-      #          cargo update -p clap@4.5.4 --precise 4.4.18
-      #          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+      #- name: Downgrade dependencies
+      #  run: |
+      #    cargo update -p clap@4.5.4 --precise 4.4.18
+      #    cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
       - name: print rustc && rustdoc version
         run: rustc --version && rustdoc --version
       - name: test
