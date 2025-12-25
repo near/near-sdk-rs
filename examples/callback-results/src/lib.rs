@@ -59,7 +59,7 @@ impl Callback {
     #[private]
     pub fn handle_callbacks(
         #[callback_unwrap] a: u8,
-        #[callback_result] b: Result<String, PromiseError>,
+        #[callback_result(max_bytes = "Some string".len())] b: Result<String, PromiseError>,
         #[callback_result] c: Result<u8, PromiseError>,
         #[callback_result] d: Result<(), PromiseError>,
     ) -> (bool, bool, bool) {

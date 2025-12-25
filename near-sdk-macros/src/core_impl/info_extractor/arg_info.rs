@@ -8,7 +8,7 @@ pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
     Regular,
     /// An argument that we read from one or many `env::promise_result()`.
-    Callback { ty: CallbackBindgenArgType, max_len: Expr },
+    Callback { ty: CallbackBindgenArgType, max_bytes: Expr },
 }
 
 /// An argument that we read from one or many `env::promise_result()`.
@@ -64,7 +64,7 @@ struct SerializerAttrConfig {
 )]
 struct CallbackAttrConfig {
     #[darling(default)]
-    max_len: Option<Expr>, // TODO: expr?
+    max_bytes: Option<Expr>, // TODO: expr?
 }
 
 impl ArgInfo {
@@ -107,7 +107,7 @@ impl ArgInfo {
                         Ok(args) => {
                             bindgen_ty = BindgenArgType::Callback {
                                 ty: cb_bindgen_ty,
-                                max_len: args.max_len.unwrap_or(parse_quote!(usize::MAX)),
+                                max_bytes: args.max_bytes.unwrap_or(parse_quote!(usize::MAX)),
                             };
                         }
                         Err(e) => more_errors.push(Error::new(e.span(), e.to_string())),
