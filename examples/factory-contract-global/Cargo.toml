@@ -11,7 +11,7 @@ near-sdk = { path = "../../near-sdk", features = ["legacy", "unstable", "global-
 
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unit-testing", "global-contracts"] }
-near-workspaces = { version = "0.21", features = ["unstable"] }
+near-workspaces = { version = "0.22", features = ["unstable"] }
 tokio = { version = "1.12.0", features = ["full"] }
 anyhow = "1.0"
 
