@@ -58,17 +58,15 @@ impl FactoryContract {
     }
 
     pub fn get_result(&mut self, account_id: AccountId) {
-        match env::promise_result(0) {
-            PromiseResult::Successful(_) => {
-                env::promise_return(env::promise_create(
-                    account_id,
-                    "get_status",
-                    &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
-                    NearToken::from_near(0),
-                    SINGLE_CALL_GAS,
-                ));
-            }
-            _ => env::panic_str("Failed to set status"),
-        };
+        env::promise_result_bounded(0, 0)
+            .unwrap_or_else(|_| env::panic_str("Failed to set status"));
+
+        env::promise_return(env::promise_create(
+            account_id,
+            "get_status",
+            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
+            NearToken::from_near(0),
+            SINGLE_CALL_GAS,
+        ));
     }
 }
