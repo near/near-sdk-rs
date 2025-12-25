@@ -51,4 +51,9 @@ impl From<PromiseResult> for VmPromiseResult {
 pub enum PromiseError {
     /// Promise result failed.
     Failed,
+    /// Promise succeeded but result length exceeded the limit.
+    TooLong(
+        /// The length (in bytes) of the result occurred
+        usize,
+    ),
 }

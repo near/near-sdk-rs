@@ -1883,10 +1883,12 @@ pub fn promise_results_count() -> u64 {
 #[deprecated = "use `promise_result_bounded` to prevent out-of-gas errors"]
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_bounded(result_idx, usize::MAX) {
-        Ok(result) => PromiseResult::Successful(result),
-        Err(PromiseResultError::PromiseError(PromiseError::Failed)) => PromiseResult::Failed,
-        // vector can't be longer than usize::MAX
-        Err(PromiseResultError::TooLong(_len)) => unreachable!(),
+        Ok(data) => PromiseResult::Successful(data),
+        Err(err) => match err {
+            PromiseError::Failed => PromiseResult::Failed,
+            // vector can't be longer than usize::MAX
+            PromiseError::TooLong(_len) => unreachable!(),
+        },
     }
 }
 
@@ -1914,31 +1916,10 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 /// log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
 /// assert!(data.len() <= 100);
 /// ```
-pub fn promise_result_bounded(
-    result_idx: u64,
-    max_len: usize,
-) -> Result<Vec<u8>, PromiseResultError> {
+pub fn promise_result_bounded(result_idx: u64, max_len: usize) -> Result<Vec<u8>, PromiseError> {
     promise_result_internal(result_idx)?;
     expect_register(read_register_bounded(ATOMIC_OP_REGISTER, max_len))
-        .map_err(PromiseResultError::TooLong)
-}
-
-/// An error returned from [`promise_result_bounded`].
-#[derive(Debug, PartialEq, Eq)]
-pub enum PromiseResultError {
-    PromiseError(PromiseError),
-    /// Promise succeeded but result length exceeded the limit.
-    TooLong(
-        /// The length (in bytes) of the result occurred
-        usize,
-    ),
-}
-
-impl From<PromiseError> for PromiseResultError {
-    #[inline]
-    fn from(err: PromiseError) -> Self {
-        Self::PromiseError(err)
-    }
+        .map_err(PromiseError::TooLong)
 }
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {

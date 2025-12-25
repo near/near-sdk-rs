@@ -43,9 +43,8 @@ impl CrossContract {
     pub fn factorial_mult(&self, n: u32) {
         require!(env::current_account_id() == env::predecessor_account_id());
         require!(env::promise_results_count() == 1);
-        let cur = match env::promise_result(0) {
-            PromiseResult::Successful(x) => serde_json::from_slice::<u32>(&x).unwrap(),
-            _ => env::panic_str("Promise with index 0 failed"),
+        let Ok(cur) = env::promise_result_bounded(0, 15) else {
+            env::panic_str("Promise with index 0 failed or returned too long result");
         };
         env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }

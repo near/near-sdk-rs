@@ -2,6 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
 use crate::core_impl::{utils, MethodKind};
+use crate::CallbackBindgenArgType;
 use quote::quote;
 
 impl AttrSigInfo {
@@ -228,22 +229,19 @@ impl AttrSigInfo {
     pub fn callback_deserialization(&self) -> TokenStream2 {
         self.args
             .iter()
-            .filter(|arg| {
-                matches!(
-                    arg.bindgen_ty,
-                    BindgenArgType::CallbackArg | BindgenArgType::CallbackResultArg
-                )
-            })
+            .filter(|arg|
+                matches!(arg.bindgen_ty, BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg | CallbackBindgenArgType::ResultArg, .. })
+            )
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
-                    BindgenArgType::CallbackArg => {
+                    BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_len } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
                         let read_data = quote! {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
-                                ::near_sdk::PromiseResult::Successful(x) => x,
+                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result_bounded(#idx, #max_len) {
+                                ::std::result::Result::Ok(x) => x,
                                 _ => ::near_sdk::env::panic_str(#error_msg)
                             };
                         };
@@ -254,7 +252,7 @@ impl AttrSigInfo {
                             let #mutability #ident: #ty = #invocation;
                         }
                     }
-                    BindgenArgType::CallbackResultArg => {
+                    BindgenArgType::Callback { ty: CallbackBindgenArgType::ResultArg, max_len } => {
                         let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
                             ok_type
                         } else {
@@ -275,19 +273,19 @@ impl AttrSigInfo {
                             // deserialization otherwise.
                             syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
                                 quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
+                                    ::std::result::Result::Ok(data) if data.is_empty() =>
                                         ::std::result::Result::Ok(()),
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
+                                    ::std::result::Result::Ok(data) => ::std::result::Result::Ok(#deserialize)
                                 },
                             _ =>
                                 quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
+                                    ::std::result::Result::Ok(data) => ::std::result::Result::Ok(#deserialize)
                                 }
                         };
                         let result = quote! {
-                            match ::near_sdk::env::promise_result(#idx) {
+                            match ::near_sdk::env::promise_result_bounded(#idx, #max_len) {
                                 #deserialization_branch,
-                                ::near_sdk::PromiseResult::Failed => ::std::result::Result::Err(::near_sdk::PromiseError::Failed),
+                                ::std::result::Result::Err(err) => ::std::result::Result::Err(err),
                             }
                         };
                         quote! {
@@ -305,8 +303,13 @@ impl AttrSigInfo {
         self
             .args
             .iter()
-            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
-            .fold(TokenStream2::new(), |acc, arg| {
+            .filter_map(|arg| {let BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, ref max_len } = arg.bindgen_ty else {
+                return None;
+            };
+            Some((arg, max_len))
+        }
+        )
+            .fold(TokenStream2::new(), |acc, (arg, max_len)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
@@ -314,8 +317,7 @@ impl AttrSigInfo {
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
-                                ::near_sdk::PromiseResult::Successful(x) => x,
+                            let ::core::result::Result::Ok(data): ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result_bounded(i, #max_len) else {
                                 _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
                             };
                             #invocation

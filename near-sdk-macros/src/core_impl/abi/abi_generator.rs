@@ -3,7 +3,8 @@ use quote::{format_ident, quote};
 use syn::{parse_quote, Attribute, Expr, Lit::Str, Meta::NameValue, MetaNameValue, Type};
 
 use crate::core_impl::{
-    utils, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind, ReturnKind, SerializerType,
+    utils, BindgenArgType, CallbackBindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind,
+    ReturnKind, SerializerType,
 };
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
@@ -129,10 +130,10 @@ impl ImplItemMethodInfo {
                         }),
                     };
                 }
-                BindgenArgType::CallbackArg => {
+                BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, .. } => {
                     callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
                 }
-                BindgenArgType::CallbackResultArg => {
+                BindgenArgType::Callback { ty: CallbackBindgenArgType::ResultArg, .. } => {
                     let typ = if let Some(ok_type) = utils::extract_ok_type(typ) {
                         ok_type
                     } else {
@@ -145,7 +146,7 @@ impl ImplItemMethodInfo {
                     };
                     callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
                 }
-                BindgenArgType::CallbackArgVec => {
+                BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, .. } => {
                     if callback_vec.is_none() {
                         let typ = if let Some(vec_type) = utils::extract_vec_type(typ) {
                             vec_type
