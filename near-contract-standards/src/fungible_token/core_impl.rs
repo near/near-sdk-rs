@@ -1,6 +1,6 @@
 use near_sdk::{
-    assert_one_yocto, collections::LookupMap, env, json_types::U128, log, near, require, AccountId,
-    Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
+    assert_one_yocto, collections::LookupMap, env, json_types::U128, log, near, require,
+    serde_json, AccountId, Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
 };
 
 use crate::fungible_token::{
@@ -174,19 +174,15 @@ impl FungibleToken {
     ) -> (u128, u128) {
         const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
 
-        let amount: Balance = amount.into();
-
         // Get the unused amount from the `ft_on_transfer` call result.
-        let unused_amount = match env::promise_result_bounded(0, MAX_RESULT_LENGTH) {
-            Ok(Ok(value)) => {
-                if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
-                    std::cmp::min(amount, unused_amount.0)
-                } else {
-                    amount
-                }
-            }
-            _ => amount,
-        };
+        let unused_amount = env::promise_result_bounded(0, MAX_RESULT_LENGTH)
+            .ok()
+            .and_then(|value| serde_json::from_slice(&value).ok())
+            .unwrap_or(amount)
+            .0
+            .min(amount.0);
+
+        let amount: Balance = amount.into();
 
         if unused_amount > 0 {
             let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);

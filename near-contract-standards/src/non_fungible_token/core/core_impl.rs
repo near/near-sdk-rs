@@ -6,7 +6,8 @@ use near_sdk::{
     collections::{LookupMap, TreeMap, UnorderedSet},
     env,
     json_types::Base64VecU8,
-    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
+    near, require, serde_json, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
+    StorageUsage,
 };
 
 use crate::non_fungible_token::{
@@ -436,10 +437,10 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         const MAX_RESULT_LENGTH: usize = "false".len();
 
         // Get whether token should be returned
-        let must_revert = match env::promise_result_bounded(0, MAX_RESULT_LENGTH) {
-            Ok(Ok(value)) => near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true),
-            _ => true,
-        };
+        let must_revert = env::promise_result_bounded(0, MAX_RESULT_LENGTH)
+            .ok()
+            .and_then(|value| serde_json::from_slice(&value).ok())
+            .unwrap_or(true);
 
         // if call succeeded, return early
         if !must_revert {
