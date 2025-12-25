@@ -157,13 +157,13 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 260),
-        Collection::IterableSet => (col, 130),
-        Collection::IterableMap => (col, 120),
-        Collection::UnorderedSet => (col, 240),
-        Collection::UnorderedMap => (col, 250),
-        Collection::LookupMap => (col, 520),
-        Collection::LookupSet => (col, 1050),
-        Collection::Vector => (col, 530),
+        Collection::IterableSet => (col, 150),
+        Collection::IterableMap => (col, 140),
+        Collection::UnorderedSet => (col, 270),
+        Collection::UnorderedMap => (col, 280),
+        Collection::LookupMap => (col, 560),
+        Collection::LookupSet => (col, 1150),
+        Collection::Vector => (col, 560),
     }) {
         let total_gas = account
             .call(&contract_id, "remove")
