@@ -200,12 +200,9 @@ pub fn current_contract_code() -> AccountContract {
 ///
 /// # Examples
 /// ```
-/// # #[cfg(feature = "deterministic-account-ids")]
-/// # let _ = {
 /// use near_sdk::env::refund_to_account_id;
 ///
 /// assert_eq!(refund_to_account_id(), "bob.near".parse::<near_sdk::AccountId>().unwrap());
-/// # };
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn refund_to_account_id() -> AccountId {
@@ -1144,8 +1141,6 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 ///
 /// # Examples
 /// ```
-/// # #[cfg(feature = "deterministic-account-ids")]
-/// # let _ = {
 /// use near_sdk::env::{promise_set_refund_to, promise_create};
 /// use near_sdk::{AccountId, Gas, NearToken};
 /// use std::str::FromStr;
@@ -1158,7 +1153,6 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 ///     Gas::from_tgas(1),
 /// );
 /// promise_set_refund_to(promise, &"refund.near".parse().unwrap());
-/// # };
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId) {
@@ -1209,8 +1203,6 @@ pub fn promise_batch_action_state_init(
 ///
 /// # Examples
 /// ```
-/// # #[cfg(feature = "deterministic-account-ids")]
-/// # let _ = {
 /// use near_sdk::env::{promise_batch_action_state_init_by_account_id, promise_create};
 /// use near_sdk::{AccountId, Gas, NearToken};
 ///
@@ -1223,7 +1215,6 @@ pub fn promise_batch_action_state_init(
 ///     Gas::from_tgas(1),
 /// );
 /// promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
-/// # };
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
@@ -1244,10 +1235,9 @@ pub fn promise_batch_action_state_init_by_account_id(
 
 /// Appends a data entry to an existing `DeterministicStateInit` action.
 /// Uses low-level [`crate::sys::set_state_init_data_entry`]
+///
 /// # Examples
 /// ```
-/// # #[cfg(feature = "deterministic-account-ids")]
-/// # let _ = {
 /// use near_sdk::env::{set_state_init_data_entry, promise_batch_action_state_init_by_account_id, promise_create};
 /// use near_sdk::{AccountId, Gas, NearToken};
 /// use std::str::FromStr;
@@ -1262,7 +1252,6 @@ pub fn promise_batch_action_state_init_by_account_id(
 /// );
 /// let action_index = promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
 /// set_state_init_data_entry(promise, action_index, b"key", b"value");
-/// # };
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn set_state_init_data_entry(
@@ -1298,6 +1287,7 @@ pub fn set_state_init_data_entry(
 ///
 /// promise_batch_action_create_account(promise);
 /// ```
+///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
