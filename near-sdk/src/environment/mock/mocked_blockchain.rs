@@ -1002,7 +1002,7 @@ mod tests {
                 MockAction::DeterministicStateInit {
                     receipt_index: 0,
                     state_init: StateInit::V1(StateInitV1 {
-                        code: GlobalContractId::CodeHash([1; 32]),
+                        code: GlobalContractId::CodeHash([1; 32].into()),
                         data: tree,
                     }),
                     amount: NearToken::from_millinear(1),
