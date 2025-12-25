@@ -5,23 +5,61 @@ use serde::{de, ser, Deserialize};
 use std::convert::TryFrom;
 
 #[near(inside_nearsdk)]
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
+#[repr(transparent)]
 pub struct Base58CryptoHash(CryptoHash);
 
+impl PartialEq<CryptoHash> for Base58CryptoHash {
+    fn eq(&self, other: &CryptoHash) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialOrd<CryptoHash> for Base58CryptoHash {
+    fn partial_cmp(&self, other: &CryptoHash) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(other)
+    }
+}
+
 impl From<Base58CryptoHash> for CryptoHash {
-    fn from(v: Base58CryptoHash) -> CryptoHash {
+    fn from(v: Base58CryptoHash) -> Self {
+        v.0
+    }
+}
+
+impl From<Base58CryptoHash> for Vec<u8> {
+    fn from(v: Base58CryptoHash) -> Self {
+        v.0.into()
+    }
+}
+
+impl From<&Base58CryptoHash> for CryptoHash {
+    fn from(v: &Base58CryptoHash) -> Self {
         v.0
     }
 }
 
 impl From<CryptoHash> for Base58CryptoHash {
-    fn from(c: CryptoHash) -> Base58CryptoHash {
+    fn from(c: CryptoHash) -> Self {
         Base58CryptoHash(c)
+    }
+}
+
+impl From<&CryptoHash> for Base58CryptoHash {
+    fn from(c: &CryptoHash) -> Self {
+        Base58CryptoHash(*c)
     }
 }
 
 impl AsRef<CryptoHash> for Base58CryptoHash {
     fn as_ref(&self) -> &CryptoHash {
+        &self.0
+    }
+}
+
+impl AsRef<[u8]> for Base58CryptoHash {
+    fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
@@ -86,7 +124,7 @@ impl std::str::FromStr for Base58CryptoHash {
     type Err = ParseCryptoHashError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let mut crypto_hash: CryptoHash = CryptoHash::default();
+        let mut crypto_hash: CryptoHash = Default::default();
         let size = bs58::decode(value).onto(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
             return Err(ParseCryptoHashError {
