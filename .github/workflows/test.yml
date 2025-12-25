@@ -23,6 +23,7 @@ jobs:
           - os: macos-latest
             rs: 1.86.0
         features: ["", "--features unstable,legacy,__abi-generate"]
+        targets: ["--all-targets", "--doc"]
     steps:
       - uses: actions/checkout@v4
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
@@ -42,7 +43,7 @@ jobs:
       - name: print rustc && rustdoc version
         run: rustc --version && rustdoc --version
       - name: test
-        run: cargo test --all ${{ matrix.features }}
+        run: cargo test --workspace ${{ matrix.targets }} ${{ matrix.features }}
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest

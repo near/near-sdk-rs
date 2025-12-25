@@ -278,7 +278,7 @@ impl PromiseJoint {
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
 /// ```no_run
-/// # use near_sdk::{ext_contract, near, Promise, Gas};
+/// # use near_sdk::{ext_contract, near, AccountId, Promise, Gas};
 /// #[ext_contract]
 /// pub trait ContractB {
 ///     fn b(&mut self);
@@ -291,7 +291,7 @@ impl PromiseJoint {
 /// #[near]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::ext("bob_near".parse().unwrap()).b()
+///         contract_b::ext("bob_near".parse::<AccountId>().unwrap()).b()
 ///     }
 /// }
 /// ```
@@ -300,10 +300,10 @@ impl PromiseJoint {
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
 /// ```no_run
-/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
+/// # use near_sdk::{AccountId, Promise, env, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
 /// # testing_env!(VMContextBuilder::new().signer_account_id("bob_near".parse().unwrap())
 /// #               .account_balance(NearToken::from_yoctonear(1000)).prepaid_gas(Gas::from_gas(1_000_000)).build());
-/// Promise::new("bob_near".parse().unwrap())
+/// Promise::new("bob_near".parse::<AccountId>().unwrap())
 ///   .create_account()
 ///   .transfer(NearToken::from_yoctonear(1000))
 ///   .add_full_access_key(env::signer_account_pk());
@@ -430,10 +430,10 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
+    /// use near_sdk::{AccountId, Promise, NearToken};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
-    /// Promise::new("alice.near".parse().unwrap())
+    /// Promise::new("alice.near".parse::<AccountId>().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract(code);
@@ -448,10 +448,10 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
+    /// use near_sdk::{AccountId, Promise, NearToken};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
-    /// Promise::new("alice.near".parse().unwrap())
+    /// Promise::new("alice.near".parse::<AccountId>().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract_by_account_id(code);
@@ -466,10 +466,10 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
+    /// use near_sdk::{AccountId, Promise, NearToken};
     ///
     /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
-    /// Promise::new("alice.near".parse().unwrap())
+    /// Promise::new("alice.near".parse::<AccountId>().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .use_global_contract(code_hash);
@@ -486,7 +486,7 @@ impl Promise {
     /// ```no_run
     /// use near_sdk::{Promise, NearToken, AccountId};
     ///
-    /// Promise::new("alice.near".parse().unwrap())
+    /// Promise::new("alice.near".parse::<AccountId>().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
@@ -652,9 +652,9 @@ impl Promise {
     /// following code will panic during the execution of the smart contract:
     ///
     /// ```no_run
-    /// # use near_sdk::{Promise, testing_env};
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// # use near_sdk::{AccountId, Promise, testing_env};
+    /// let p1 = Promise::new("bob_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse::<AccountId>().unwrap()).create_account();
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
@@ -689,11 +689,11 @@ impl Promise {
     /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
     /// and `dave_near` to be created first.
     /// ```no_run
-    /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
-    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
-    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// # use near_sdk::{AccountId, Promise, VMContext, testing_env};
+    /// let p1 = Promise::new("bob_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse::<AccountId>().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     /// Uses low-level [`crate::env::promise_batch_then`]
@@ -735,11 +735,11 @@ impl Promise {
     /// and finally `dave_near` and `eva_near` are created concurrently.
     ///
     /// ```no_run
-    /// # use near_sdk::Promise;
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
-    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
-    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// # use near_sdk::{AccountId, Promise};
+    /// let p1 = Promise::new("bob_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse::<AccountId>().unwrap()).create_account();
     /// p1.then(p2).then_concurrent(vec![p3, p4]);
     /// ```
     ///
@@ -750,11 +750,11 @@ impl Promise {
     /// created after all others have been created.
     ///
     /// ```no_run
-    /// # use near_sdk::Promise;
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
-    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
-    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// # use near_sdk::{AccountId, Promise};
+    /// let p1 = Promise::new("bob_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse::<AccountId>().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse::<AccountId>().unwrap()).create_account();
     /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
     /// ```
     pub fn then_concurrent(
@@ -772,7 +772,7 @@ impl Promise {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, Gas, near, Promise};
+    /// # use near_sdk::{ext_contract, Gas, near, Promise, AccountId};
     /// #[ext_contract]
     /// pub trait ContractB {
     ///     fn b(&mut self);
@@ -785,11 +785,11 @@ impl Promise {
     /// #[near]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::ext("bob_near".parse().unwrap()).b().as_return();
+    ///        contract_b::ext("bob_near".parse::<AccountId>().unwrap()).b().as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::ext("bob_near".parse().unwrap()).b()
+    ///        contract_b::ext("bob_near".parse::<AccountId>().unwrap()).b()
     ///     }
     /// }
     /// ```
@@ -919,7 +919,7 @@ impl YieldId {
 /// or `PromiseOrValue::Value` to specify which one should be returned.
 /// # Example
 /// ```no_run
-/// # use near_sdk::{ext_contract, near, Gas, PromiseOrValue};
+/// # use near_sdk::{ext_contract, near, Gas, PromiseOrValue, AccountId};
 /// #[ext_contract]
 /// pub trait ContractA {
 ///     fn a(&mut self);
@@ -929,7 +929,7 @@ impl YieldId {
 /// let val: PromiseOrValue<bool> = if let Some(value) = value {
 ///     PromiseOrValue::Value(value)
 /// } else {
-///     contract_a::ext("bob_near".parse().unwrap()).a().into()
+///     contract_a::ext("bob_near".parse::<AccountId>().unwrap()).a().into()
 /// };
 /// ```
 #[must_use = "return or detach explicitly via `.detach()`"]

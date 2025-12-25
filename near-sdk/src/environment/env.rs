@@ -9,7 +9,7 @@
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 use std::panic as std_panic;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
@@ -173,8 +173,8 @@ pub fn current_account_id() -> AccountId {
 /// The code of the current contract.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::current_contract_code;
+/// ```no_run
+/// use near_sdk::{env::current_contract_code, testing_env};
 /// use near_sdk::AccountContract;
 ///
 /// assert!(matches!(current_contract_code(), AccountContract::Local(_)));
@@ -199,6 +199,7 @@ pub fn current_contract_code() -> AccountContract {
 ///
 /// # Examples
 /// ```
+/// use near_sdk::{AccountId, env::refund_to_account_id};
 ///
 /// assert_eq!(refund_to_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
@@ -966,7 +967,7 @@ pub fn promise_create(
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -977,7 +978,7 @@ pub fn promise_create(
 ///
 /// let chained_promise = promise_then(
 ///     promise,
-///     "greetings.near".parse().unwrap(),
+///     "greetings.near".parse::<AccountId>().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -1025,7 +1026,7 @@ pub fn promise_then(
 /// use std::str::FromStr;
 ///
 /// let promise1 = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1035,7 +1036,7 @@ pub fn promise_then(
 /// );
 ///
 /// let promise2 = promise_create(
-///     "greetings.near".parse().unwrap(),
+///     "greetings.near".parse::<AccountId>().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -1048,11 +1049,7 @@ pub fn promise_then(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let mut data = vec![0u8; size_of_val(promise_indices)];
-    for i in 0..promise_indices.len() {
-        data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
-            .copy_from_slice(&promise_indices[i].0.to_le_bytes());
-    }
+    let data = promise_indices.iter().map(|idx| idx.0.to_le_bytes()).collect::<Vec<_>>();
     unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
 }
 
@@ -1064,7 +1061,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = env::promise_batch_create(
-///     &"receiver.near".parse().unwrap()
+///     &"receiver.near".parse::<AccountId>().unwrap()
 /// );
 /// ```
 /// Create a NEAR promise which will have multiple promise actions inside.
@@ -1074,7 +1071,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use near_sdk::{env, NearToken, Gas, AccountId};
 ///
 /// let promise_index = env::promise_batch_create(
-///     &"example.near".parse().unwrap()
+///     &"example.near".parse::<AccountId>().unwrap()
 /// );
 ///
 /// // Adding actions to the promise
@@ -1107,7 +1104,7 @@ pub fn promise_batch_create(account_id: impl AsRef<AccountIdRef>) -> PromiseInde
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1118,7 +1115,7 @@ pub fn promise_batch_create(account_id: impl AsRef<AccountIdRef>) -> PromiseInde
 ///
 /// let new_promise = promise_batch_then(
 ///     promise,
-///     &"receiver.near".parse().unwrap()
+///     "receiver.near".parse::<AccountId>().unwrap()
 /// );
 /// ```
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
@@ -1144,17 +1141,17 @@ pub fn promise_batch_then(
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_set_refund_to, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::{AccountId, Gas, NearToken};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_set_refund_to(promise, "refund.near".parse().unwrap());
+/// promise_set_refund_to(promise, "refund.near".parse::<AccountId>().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef<AccountIdRef>) {
@@ -1169,18 +1166,21 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef
 /// Uses low-level [`crate::env::promise_batch_action_state_init`]
 /// # Examples
 /// ```
-/// use near_sdk::env::{promise_batch_action_state_init, promise_create};
-/// use near_sdk::AccountId;
-/// use std::str::FromStr;
+/// use near_sdk::{AccountId, NearToken, Gas, env::{promise_batch_action_state_init, promise_create}};
+/// use hex_literal::hex;
 ///
-/// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+/// let promise_idx = promise_create(
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init(promise, CryptoHash::from_str("code_hash").unwrap(), NearToken::from_millinear(1));
+/// promise_batch_action_state_init(
+///     promise_idx,
+///     hex!("acbd03da36aeab52cb6924e5fa4c2771c77669006b819d0a39c0952346650fe0"), // code hash
+///     NearToken::from_millinear(1)
+/// );
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init(
     promise_index: PromiseIndex,
@@ -1203,17 +1203,17 @@ pub fn promise_batch_action_state_init(
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_state_init_by_account_id, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::{AccountId, NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init_by_account_id(promise, "account.near".parse().unwrap(), NearToken::from_millinear(1));
+/// promise_batch_action_state_init_by_account_id(promise, "account.near".parse::<AccountId>().unwrap(), NearToken::from_millinear(1));
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
@@ -1236,18 +1236,20 @@ pub fn promise_batch_action_state_init_by_account_id(
 /// Uses low-level [`crate::env::set_state_init_data_entry`]
 /// # Examples
 /// ```
-/// use near_sdk::env::{set_state_init_data_entry, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::{
+///     AccountId, NearToken, Gas,
+///     env::{promise_create, promise_batch_action_state_init_by_account_id, set_state_init_data_entry}
+/// };
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// let action_index = promise_batch_action_state_init_by_account_id(promise, "account.near".parse().unwrap(), NearToken::from_millinear(1));
+/// let action_index = promise_batch_action_state_init_by_account_id(promise, "account.near".parse::<AccountId>().unwrap(), NearToken::from_millinear(1));
 /// set_state_init_data_entry(promise, action_index, b"key", b"value");
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
@@ -1712,11 +1714,11 @@ pub fn promise_batch_action_delete_account(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create("alice.near".parse::<AccountId>().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
-/// env::promise_batch_action_deploy_global_contract(promise, &code);
+/// env::promise_batch_action_deploy_global_contract(promise, code);
 /// ```
 pub fn promise_batch_action_deploy_global_contract(
     promise_index: PromiseIndex,
@@ -1741,9 +1743,9 @@ pub fn promise_batch_action_deploy_global_contract(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
 /// env::promise_batch_action_deploy_global_contract_by_account_id(promise, &code);
 /// ```
@@ -1770,9 +1772,9 @@ pub fn promise_batch_action_deploy_global_contract_by_account_id(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
 /// env::promise_batch_action_use_global_contract(promise, &code_hash);
 /// ```
@@ -1801,10 +1803,10 @@ pub fn promise_batch_action_use_global_contract(
 /// use near_sdk::{env, PromiseIndex, AccountId};
 /// use std::str::FromStr;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// env::promise_batch_action_use_global_contract_by_account_id(
 ///     promise,
-///     &AccountId::from_str("deployer.near").unwrap()
+///     AccountId::from_str("deployer.near").unwrap()
 /// );
 /// ```
 pub fn promise_batch_action_use_global_contract_by_account_id(
