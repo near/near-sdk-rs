@@ -177,7 +177,7 @@ impl FungibleToken {
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = env::promise_result_bounded(0, MAX_RESULT_LENGTH)
             .ok()
-            .and_then(|value| serde_json::from_slice(&value).ok())
+            .and_then(|value| serde_json::from_slice::<U128>(&value).ok())
             .unwrap_or(amount)
             .0
             .min(amount.0);

@@ -1900,7 +1900,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::env::{promise_result_bounded, promise_results_count, log_str};
+/// use near_sdk::env::{promise_result_bounded, promise_results_count, log_str, panic_str};
 /// use near_sdk::PromiseResult;
 ///
 /// assert!(promise_results_count() > 0);
@@ -1910,9 +1910,8 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 /// // retrieved from promise_results_count()
 /// let promise_index = 0;
 ///
-/// let Ok(data) = promise_result(promise_index, 100) else {
-///     log_str("Promise failed or returned result is too long!");
-/// };
+/// let data = promise_result_bounded(promise_index, 100)
+///     .unwrap_or_else(|_| panic_str("Promise failed or returned result is too long!"));
 /// log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
 /// assert!(data.len() <= 100);
 /// ```
