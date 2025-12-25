@@ -1186,6 +1186,7 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
 ///     Gas::from_tgas(1),
 /// );
 /// promise_batch_action_state_init(promise, [0; 32], NearToken::from_millinear(1));
+/// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init(
     promise_index: PromiseIndex,
