@@ -48,23 +48,17 @@ pub struct ArgInfo {
 }
 use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
-#[darling(
-    attributes(init, payable, private, result_serializer, serializer, handle_result),
-    forward_attrs(serializer)
-)]
+#[darling(attributes(serializer))]
 struct SerializerAttrConfig {
     borsh: Option<bool>,
     json: Option<bool>,
 }
 
 #[derive(darling::FromAttributes, Clone, Debug)]
-#[darling(
-    attributes(callback, callback_unwrap, callback_result, callback_vec),
-    // forward_attrs(callback, callback_unwrap, callback_result, callback_vec)
-)]
+#[darling(attributes(callback, callback_unwrap, callback_result, callback_vec))]
 struct CallbackAttrConfig {
     #[darling(default)]
-    max_bytes: Option<Expr>, // TODO: expr?
+    max_bytes: Option<Expr>,
 }
 
 impl ArgInfo {
