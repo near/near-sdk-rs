@@ -174,7 +174,7 @@ pub fn current_account_id() -> AccountId {
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env::current_contract_code, testing_env};
+/// use near_sdk::env::current_contract_code;
 /// use near_sdk::AccountContract;
 ///
 /// assert!(matches!(current_contract_code(), AccountContract::Local(_)));
@@ -185,8 +185,8 @@ pub fn current_contract_code() -> AccountContract {
         let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
         match mode {
             0 => AccountContract::None,
-            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
-            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
+            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
             3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register(
                 sys::current_account_id,
             ))),
@@ -199,9 +199,9 @@ pub fn current_contract_code() -> AccountContract {
 ///
 /// # Examples
 /// ```
-/// use near_sdk::{AccountId, env::refund_to_account_id};
+/// use near_sdk::env::refund_to_account_id;
 ///
-/// assert_eq!(refund_to_account_id(), "bob.near".parse::<AccountId>().unwrap());
+/// assert_eq!(refund_to_account_id(), "bob.near".parse::<near_sdk::AccountId>().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn refund_to_account_id() -> AccountId {
@@ -1137,7 +1137,8 @@ pub fn promise_batch_then(
 }
 
 /// Set the account id that will receive the refund if the promise panics.
-/// Uses low-level [`crate::env::promise_set_refund_to`]
+/// Uses low-level [`crate::sys::promise_set_refund_to`]
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_set_refund_to, promise_create};
@@ -1162,12 +1163,13 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef
 }
 
 /// Appends `DeterministicStateInit` action to the batch of actions for the given promise
-/// pointed by `promise_index`
-/// Uses low-level [`crate::env::promise_batch_action_state_init`]
+/// pointed by `promise_index`.
+/// Uses low-level [`crate::sys::promise_batch_action_state_init`]
+///
 /// # Examples
 /// ```
-/// use near_sdk::{AccountId, NearToken, Gas, env::{promise_batch_action_state_init, promise_create}};
-/// use hex_literal::hex;
+/// use near_sdk::env::{promise_batch_action_state_init, promise_create};
+/// use near_sdk::{AccountId, CryptoHash, Gas, NearToken};
 ///
 /// let promise_idx = promise_create(
 ///     "account.near".parse::<AccountId>().unwrap(),
@@ -1176,11 +1178,8 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef
 ///     NearToken::from_millinear(1),
 ///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init(
-///     promise_idx,
-///     hex!("acbd03da36aeab52cb6924e5fa4c2771c77669006b819d0a39c0952346650fe0"), // code hash
-///     NearToken::from_millinear(1)
-/// );
+/// promise_batch_action_state_init(promise, [0; 32], NearToken::from_millinear(1));
+/// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init(
     promise_index: PromiseIndex,
@@ -1198,13 +1197,13 @@ pub fn promise_batch_action_state_init(
 }
 
 /// Appends `DeterministicStateInit` action to the batch of actions for the given promise
-/// pointed by `promise_index`
-/// Uses low-level [`crate::env::promise_batch_action_state_init_by_account_id`]
+/// pointed by `promise_index`.
+/// Uses low-level [`crate::sys::promise_batch_action_state_init_by_account_id`]
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_state_init_by_account_id, promise_create};
-/// use near_sdk::{AccountId, NearToken, Gas};
-/// use std::str::FromStr;
+/// use near_sdk::{AccountId, Gas, NearToken};
 ///
 /// let promise = promise_create(
 ///     "account.near".parse::<AccountId>().unwrap(),
@@ -1233,14 +1232,12 @@ pub fn promise_batch_action_state_init_by_account_id(
 }
 
 /// Appends a data entry to an existing `DeterministicStateInit` action.
-/// Uses low-level [`crate::env::set_state_init_data_entry`]
+/// Uses low-level [`crate::sys::set_state_init_data_entry`]
+///
 /// # Examples
 /// ```
-/// use near_sdk::{
-///     AccountId, NearToken, Gas,
-///     env::{promise_create, promise_batch_action_state_init_by_account_id, set_state_init_data_entry}
-/// };
-/// use std::str::FromStr;
+/// use near_sdk::env::{set_state_init_data_entry, promise_batch_action_state_init_by_account_id, promise_create};
+/// use near_sdk::{AccountId, Gas, NearToken};
 ///
 /// let promise = promise_create(
 ///     "account.near".parse::<AccountId>().unwrap(),
@@ -1275,6 +1272,7 @@ pub fn set_state_init_data_entry(
 /// Attach a create account promise action to the NEAR promise index with the provided promise index.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_create_account, promise_batch_create};
@@ -1287,6 +1285,7 @@ pub fn set_state_init_data_entry(
 ///
 /// promise_batch_action_create_account(promise);
 /// ```
+///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
@@ -1813,7 +1812,7 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
     promise_index: PromiseIndex,
     account_id: impl AsRef<AccountIdRef>,
 ) {
-    let account_id = account_id.as_ref().as_str();
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         sys::promise_batch_action_use_global_contract_by_account_id(
             promise_index.0,
