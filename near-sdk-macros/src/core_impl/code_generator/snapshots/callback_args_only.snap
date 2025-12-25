@@ -1,5 +1,6 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 159
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -10,9 +11,11 @@ pub extern "C" fn method() {
     {
         ::near_sdk::env::panic_str("Method method is private");
     }
-    let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(0u64) {
-        ::near_sdk::PromiseResult::Successful(x) => x,
-        _ => ::near_sdk::env::panic_str("Callback computation 0 was not successful"),
+    let ::core::result::Result::Ok(data) = ::near_sdk::env::promise_result_bounded(
+        0u64,
+        usize::MAX,
+    ) else {
+        ::near_sdk::env::panic_str("Callback computation 0 was not successful");
     };
     let mut x: u64 = match ::near_sdk::serde_json::from_slice(&data) {
         Ok(deserialized) => deserialized,
@@ -22,9 +25,11 @@ pub extern "C" fn method() {
             );
         }
     };
-    let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(1u64) {
-        ::near_sdk::PromiseResult::Successful(x) => x,
-        _ => ::near_sdk::env::panic_str("Callback computation 1 was not successful"),
+    let ::core::result::Result::Ok(data) = ::near_sdk::env::promise_result_bounded(
+        1u64,
+        usize::MAX,
+    ) else {
+        ::near_sdk::env::panic_str("Callback computation 1 was not successful");
     };
     let y: ::std::string::String = match ::near_sdk::serde_json::from_slice(&data) {
         Ok(deserialized) => deserialized,

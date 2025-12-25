@@ -1,5 +1,6 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 181
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -32,17 +33,13 @@ pub extern "C" fn method() {
         ::std::iter::Iterator::map(
             0..::near_sdk::env::promise_results_count(),
             |i| {
-                let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(
+                let ::core::result::Result::Ok(data) = ::near_sdk::env::promise_result_bounded(
                     i,
-                ) {
-                    ::near_sdk::PromiseResult::Successful(x) => x,
-                    _ => {
-                        ::near_sdk::env::panic_str(
-                            &::std::format!(
-                                "Callback computation {} was not successful", i
-                            ),
-                        )
-                    }
+                    usize::MAX,
+                ) else {
+                    ::near_sdk::env::panic_str(
+                        &::std::format!("Callback computation {} was not successful", i),
+                    );
                 };
                 match ::near_sdk::serde_json::from_slice(&data) {
                     Ok(deserialized) => deserialized,

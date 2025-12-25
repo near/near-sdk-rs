@@ -1,5 +1,6 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 170
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -10,29 +11,11 @@ pub extern "C" fn method() {
     {
         ::near_sdk::env::panic_str("Method method is private");
     }
-    let mut x: Result<u64, PromiseError> = match ::near_sdk::env::promise_result(0u64) {
-        ::near_sdk::PromiseResult::Successful(data) => {
-            ::std::result::Result::Ok(
-                match ::near_sdk::serde_json::from_slice(&data) {
-                    Ok(deserialized) => deserialized,
-                    Err(e) => {
-                        ::near_sdk::env::panic_str(
-                            &format!(
-                                "Failed to deserialize callback using JSON. Error: `{e}`"
-                            ),
-                        );
-                    }
-                },
-            )
-        }
-        ::near_sdk::PromiseResult::Failed => {
-            ::std::result::Result::Err(::near_sdk::PromiseError::Failed)
-        }
-    };
-    let y: Result<::std::string::String, PromiseError> = match ::near_sdk::env::promise_result(
-        1u64,
+    let mut x: Result<u64, PromiseError> = match ::near_sdk::env::promise_result_bounded(
+        0u64,
+        usize::MAX,
     ) {
-        ::near_sdk::PromiseResult::Successful(data) => {
+        ::std::result::Result::Ok(data) => {
             ::std::result::Result::Ok(
                 match ::near_sdk::serde_json::from_slice(&data) {
                     Ok(deserialized) => deserialized,
@@ -46,9 +29,27 @@ pub extern "C" fn method() {
                 },
             )
         }
-        ::near_sdk::PromiseResult::Failed => {
-            ::std::result::Result::Err(::near_sdk::PromiseError::Failed)
+        ::std::result::Result::Err(err) => ::std::result::Result::Err(err),
+    };
+    let y: Result<::std::string::String, PromiseError> = match ::near_sdk::env::promise_result_bounded(
+        1u64,
+        usize::MAX,
+    ) {
+        ::std::result::Result::Ok(data) => {
+            ::std::result::Result::Ok(
+                match ::near_sdk::serde_json::from_slice(&data) {
+                    Ok(deserialized) => deserialized,
+                    Err(e) => {
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
+                        );
+                    }
+                },
+            )
         }
+        ::std::result::Result::Err(err) => ::std::result::Result::Err(err),
     };
     let contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
