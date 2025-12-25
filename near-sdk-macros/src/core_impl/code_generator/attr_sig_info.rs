@@ -240,9 +240,8 @@ impl AttrSigInfo {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
                         let read_data = quote! {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result_bounded(#idx, #max_bytes) {
-                                ::std::result::Result::Ok(x) => x,
-                                _ => ::near_sdk::env::panic_str(#error_msg)
+                            let ::core::result::Result::Ok(data) = ::near_sdk::env::promise_result_bounded(#idx, #max_bytes) else {
+                                ::near_sdk::env::panic_str(#error_msg);
                             };
                         };
                         let invocation = deserialize_data(serializer_ty);
@@ -317,8 +316,8 @@ impl AttrSigInfo {
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
-                            let ::core::result::Result::Ok(data): ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result_bounded(i, #max_bytes) else {
-                                _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
+                            let ::core::result::Result::Ok(data) = ::near_sdk::env::promise_result_bounded(i, #max_bytes) else {
+                                ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i));
                             };
                             #invocation
                         }));
