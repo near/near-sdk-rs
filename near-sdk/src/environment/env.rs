@@ -110,7 +110,7 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
-    read_register_at_most(register_id, usize::MAX).map(|r| {
+    read_register_bounded(register_id, usize::MAX).map(|r| {
         r
             // vector can't be longer than usize::MAX
             .unwrap_or_else(|_| unreachable!())
@@ -118,15 +118,15 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
 }
 
 /// Same as [`read_register`] but bounded: if data in the register is
-/// longer than `max_len`, then `Some(Err(TooLong))` is returned.
-pub fn read_register_at_most(register_id: u64, max_len: usize) -> Option<Result<Vec<u8>, TooLong>> {
+/// longer than `max_len`, then `Some(Err(len))` is returned.
+pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<Vec<u8>, usize>> {
     // Get register length and convert to a usize. The max register size in config is much less
     // than the u32 max so the abort should never be hit, but is there for safety because there
     // would be undefined behaviour during `read_register` if the buffer length is truncated.
     let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
 
     if len > max_len {
-        return Some(Err(TooLong));
+        return Some(Err(len));
     }
 
     // Initialize buffer with capacity.
@@ -1876,29 +1876,29 @@ pub fn promise_results_count() -> u64 {
 /// - [near-contract-standards/src/non_fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433)
 /// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
 /// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
+#[deprecated = "use `promise_result_bounded` to prevent out-of-gas errors"]
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match promise_result_at_most(result_idx, usize::MAX) {
-        PromiseResult::Successful(result) => {
-            PromiseResult::Successful(result.unwrap_or_else(|_| unreachable!()))
-        }
-        PromiseResult::Failed => PromiseResult::Failed,
+    match promise_result_bounded(result_idx, usize::MAX) {
+        Ok(result) => PromiseResult::Successful(
+            result
+                // vector can't be longer than usize::MAX
+                .unwrap_or_else(|_| unreachable!()),
+        ),
+        Err(PromiseError::Failed) => PromiseResult::Failed,
     }
 }
 
 /// Same as [`promise_result`] but bounded: if the result is longer than
-/// `max_len`, then `PromiseResult::Successful(Err(TooLong))` is returned.
+/// `max_len`, then `PromiseResult::Successful(Err(len))` is returned.
 ///
 /// This should be preferred when reading promise results from unknown
 /// contracts to prevent out-of-gas errors.
-pub fn promise_result_at_most(
+pub fn promise_result_bounded(
     result_idx: u64,
     max_len: usize,
-) -> PromiseResult<Result<Vec<u8>, TooLong>> {
-    if let Err(PromiseError::Failed) = promise_result_internal(result_idx) {
-        return PromiseResult::Failed;
-    }
-
-    PromiseResult::Successful(expect_register(read_register_at_most(ATOMIC_OP_REGISTER, max_len)))
+) -> Result<Result<Vec<u8>, usize>, PromiseError> {
+    promise_result_internal(result_idx)?;
+    Ok(expect_register(read_register_bounded(ATOMIC_OP_REGISTER, max_len)))
 }
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
@@ -1908,9 +1908,6 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
         _ => abort(),
     }
 }
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct TooLong;
 
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.

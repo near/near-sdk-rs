@@ -1,14 +1,13 @@
-use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::events::{FtBurn, FtTransfer};
-use crate::fungible_token::receiver::ext_ft_receiver;
-use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
-use near_sdk::collections::LookupMap;
-use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto,
-    env::{self, TooLong},
-    log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue, PromiseResult,
-    StorageUsage,
+    assert_one_yocto, collections::LookupMap, env, json_types::U128, log, near, require, AccountId,
+    Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
+};
+
+use crate::fungible_token::{
+    core::FungibleTokenCore,
+    events::{FtBurn, FtTransfer},
+    receiver::ext_ft_receiver,
+    resolver::{ext_ft_resolver, FungibleTokenResolver},
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
@@ -173,20 +172,20 @@ impl FungibleToken {
         receiver_id: AccountId,
         amount: U128,
     ) -> (u128, u128) {
-        const MAX_RESULT_LENGTH: usize = "\"340282366920938463463374607431768211455\"".len(); // u128::MAX
+        const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
 
         let amount: Balance = amount.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
-        let unused_amount = match env::promise_result_at_most(0, MAX_RESULT_LENGTH) {
-            PromiseResult::Successful(Ok(value)) => {
+        let unused_amount = match env::promise_result_bounded(0, MAX_RESULT_LENGTH) {
+            Ok(Ok(value)) => {
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
                     std::cmp::min(amount, unused_amount.0)
                 } else {
                     amount
                 }
             }
-            PromiseResult::Failed | PromiseResult::Successful(Err(TooLong)) => amount,
+            _ => amount,
         };
 
         if unused_amount > 0 {

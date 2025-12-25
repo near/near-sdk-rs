@@ -1,22 +1,23 @@
-use super::resolver::NonFungibleTokenResolver;
-use crate::non_fungible_token::core::receiver::ext_nft_receiver;
-use crate::non_fungible_token::core::resolver::ext_nft_resolver;
-use crate::non_fungible_token::core::NonFungibleTokenCore;
-use crate::non_fungible_token::events::{NftMint, NftTransfer};
-use crate::non_fungible_token::metadata::TokenMetadata;
-use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
-use near_sdk::borsh::BorshSerialize;
-use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::json_types::Base64VecU8;
+use std::{collections::HashMap, ops::Deref};
+
 use near_sdk::{
     assert_one_yocto,
-    env::{self, TooLong},
-    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult,
-    StorageUsage,
+    borsh::BorshSerialize,
+    collections::{LookupMap, TreeMap, UnorderedSet},
+    env,
+    json_types::Base64VecU8,
+    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
 };
-use std::collections::HashMap;
-use std::ops::Deref;
+
+use crate::non_fungible_token::{
+    core::{receiver::ext_nft_receiver, resolver::ext_nft_resolver, NonFungibleTokenCore},
+    events::{NftMint, NftTransfer},
+    metadata::TokenMetadata,
+    token::{Token, TokenId},
+    utils::{refund_approved_account_ids, refund_deposit_to_account},
+};
+
+use super::resolver::NonFungibleTokenResolver;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 
@@ -435,11 +436,9 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         const MAX_RESULT_LENGTH: usize = "false".len();
 
         // Get whether token should be returned
-        let must_revert = match env::promise_result_at_most(0, MAX_RESULT_LENGTH) {
-            PromiseResult::Successful(Ok(value)) => {
-                near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true)
-            }
-            PromiseResult::Failed | PromiseResult::Successful(Err(TooLong)) => true,
+        let must_revert = match env::promise_result_bounded(0, MAX_RESULT_LENGTH) {
+            Ok(Ok(value)) => near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true),
+            _ => true,
         };
 
         // if call succeeded, return early

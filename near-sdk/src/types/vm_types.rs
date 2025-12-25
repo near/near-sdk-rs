@@ -30,8 +30,8 @@ pub type IteratorIndex = u64;
 /// When there is a callback attached to one or more contract calls the execution results of these
 /// calls are available to the contract invoked through the callback.
 #[derive(Debug, PartialEq, Eq)]
-pub enum PromiseResult<T = Vec<u8>> {
-    Successful(T),
+pub enum PromiseResult {
+    Successful(Vec<u8>),
     Failed,
 }
 

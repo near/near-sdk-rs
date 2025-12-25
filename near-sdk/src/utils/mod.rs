@@ -106,11 +106,13 @@ pub fn is_promise_success() -> bool {
 /// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
 ///
 /// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`] **host functions**.
+#[deprecated = "use `env::promise_result_bounded` to prevent out-of-gas errors"]
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
     require!(
         env::promise_results_count() == 1,
         "Contract expected a single result on the callback"
     );
+    #[allow(deprecated)]
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,
