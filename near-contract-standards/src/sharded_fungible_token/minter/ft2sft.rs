@@ -32,6 +32,7 @@ pub struct Ft2SftData {
 
     /// Contract implementing NEP-141 fungible token standard
     pub ft_contract_id: AccountId,
+    // TODO: feature nep245 + token_id
 }
 
 /// Message for [`.ft_on_transfer()`](crate::fungible_token::receiver::FungibleTokenReceiver::ft_on_transfer)
@@ -53,6 +54,10 @@ pub struct MintMessage {
     /// doesn't support attaching deposit according to NEP-141 spec.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notify: Option<TransferNotification>,
+
+    /// Where to refund excess attached deposit, or `sender_id` if not given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refund_to: Option<AccountId>,
 }
 
 /// Message for [`.sft_on_burn()`](super::ShardedFungibleTokenBurner::sft_on_burn)

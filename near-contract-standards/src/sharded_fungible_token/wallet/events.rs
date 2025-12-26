@@ -7,26 +7,25 @@ use near_sdk::{near, serde::Deserialize, serde_with::DisplayFromStr, AccountIdRe
 #[derive(Debug, Clone, Deserialize)]
 pub enum SftEvent<'a> {
     #[event_version("1.0.0")]
-    #[serde(rename = "sft_minted")]
-    Minted(Cow<'a, [SftMinted<'a>]>),
+    #[serde(rename = "sft_mint")]
+    Mint(Cow<'a, [SftMint<'a>]>),
 
     #[event_version("1.0.0")]
-    #[serde(rename = "sft_sent")]
-    Sent(Cow<'a, [SftSent<'a>]>),
+    #[serde(rename = "sft_send")]
+    Send(Cow<'a, [SftSend<'a>]>),
 
     #[event_version("1.0.0")]
-    #[serde(rename = "sft_received")]
-    Received(Cow<'a, [SftReceived<'a>]>),
+    #[serde(rename = "sft_receive")]
+    Receive(Cow<'a, [SftReceive<'a>]>),
 
     #[event_version("1.0.0")]
-    #[serde(rename = "sft_burned")]
-    Burned(Cow<'a, [SftBurned<'a>]>),
+    #[serde(rename = "sft_burn")]
+    Burn(Cow<'a, [SftBurn<'a>]>),
 }
 
 #[near(serializers = [json])]
 #[derive(Debug, Clone)]
-pub struct SftMinted<'a> {
-    // TODO: include minter_id everywhere?
+pub struct SftMint<'a> {
     pub owner_id: Cow<'a, AccountIdRef>,
 
     #[serde_as(as = "DisplayFromStr")]
@@ -38,9 +37,7 @@ pub struct SftMinted<'a> {
 
 #[near(serializers = [json])]
 #[derive(Debug, Clone)]
-pub struct SftSent<'a> {
-    pub sender_id: Cow<'a, AccountIdRef>,
-
+pub struct SftSend<'a> {
     pub receiver_id: Cow<'a, AccountIdRef>,
 
     #[serde_as(as = "DisplayFromStr")]
@@ -52,10 +49,8 @@ pub struct SftSent<'a> {
 
 #[near(serializers = [json])]
 #[derive(Debug, Clone)]
-pub struct SftReceived<'a> {
+pub struct SftReceive<'a> {
     pub sender_id: Cow<'a, AccountIdRef>,
-
-    pub receiver_id: Cow<'a, AccountIdRef>,
 
     #[serde_as(as = "DisplayFromStr")]
     pub amount: u128,
@@ -66,7 +61,7 @@ pub struct SftReceived<'a> {
 
 #[near(serializers = [json])]
 #[derive(Debug, Clone)]
-pub struct SftBurned<'a> {
+pub struct SftBurn<'a> {
     pub owner_id: Cow<'a, AccountIdRef>,
 
     #[serde_as(as = "DisplayFromStr")]

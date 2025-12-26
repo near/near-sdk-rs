@@ -6,13 +6,16 @@ use near_contract_standards::{
             SftMinterData, ShardedFungibleTokenBurner, ShardedFungibleTokenMinter,
             ft2sft::{BurnMessage, Ft2Sft, Ft2SftData, MintMessage},
         },
-        wallet::{SftWalletData, ext_sft_wallet},
+        wallet::{
+            SftWalletData,
+            events::{SftBurn, SftEvent, SftMint},
+            ext_sft_wallet,
+        },
     },
     storage_management::ext_storage_management,
 };
 use near_sdk::{
-    AccountId, AccountIdRef, Gas, NearToken, PanicOnDefault, Promise, PromiseError, PromiseOrValue,
-    env,
+    AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue, env,
     json_types::U128,
     near, require, serde_json,
     state_init::{StateInit, StateInitV1},
@@ -67,48 +70,58 @@ impl FungibleTokenReceiver for Ft2SftContract {
             .checked_add(amount.0)
             .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
 
-        let receiver_id = mint.receiver_id.as_deref().unwrap_or(&sender_id);
-        let sft_wallet_id = self.sft_wallet_account_id_for(receiver_id);
+        let receiver_id = mint.receiver_id.unwrap_or(sender_id.clone());
 
-        // We don't do `.with_state_init()`, since there is no way to attach
-        // deposit to `.ft_on_transfer()` according to NEP-141 spec. So, if
-        // the wallet-contract turns out to *not* exist, we will refund NEP-141
-        // tokens to sender in `.resolve_transfer()`. Thus, if sender wants to
-        // ensure successful wrapping, he needs to create receiver's
-        // wallet-contract by himself in advance.
-        //
-        // It doesn't make sense to expose additional function for creation of
-        // wallet-contracts (e.g. `.storage_deposit()`), since the caller's
-        // intention is to further interact with receiver's wallet-contract,
-        // so he needs a way to calculate its account id, and, thus, can
-        // deploy & init it by himself.
-        ext_sft_wallet::ext(sft_wallet_id)
-            // Attach 1yN according to `.sft_receive()` specification. Draining
-            // this minter-contract is not profitable for an attacker, since
-            // gas per mint is more expensive than the potential profit of 1yN.
-            // If we run out of NEAR, then anyone can replenish this account
-            // permissionlessly. Moreover, according to Near specs, 30% of gas
-            // goes to the contract balance, so we definitely have it.
-            .with_attached_deposit(NearToken::from_yoctonear(1))
-            .with_static_gas(SftWalletData::SFT_RECEIVE_MIN_GAS)
-            // forward remaining gas here
-            .with_unused_gas_weight(1)
-            .sft_receive(
-                // Note: there is no guarantee that `sender_id` from
-                // `.ft_on_transfer()` indeed initiated the transfer.
-                sender_id,
-                amount,
-                mint.memo,
-                mint.notify,
-            )
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(Self::RESOLVE_TRANSFER_GAS)
-                    // do not distribute remaining gas here
-                    .with_unused_gas_weight(0)
-                    .resolve_transfer(Op::SftReceive, amount),
-            )
-            .into()
+        SftEvent::Mint(
+            [SftMint {
+                owner_id: (&receiver_id).into(),
+                amount: amount.0,
+                memo: mint.memo.as_deref().map(Into::into),
+            }]
+            .as_slice()
+            .into(),
+        )
+        .emit();
+
+        ext_sft_wallet::ext_on({
+            let state_init = self.sft_wallet_init_for(&receiver_id);
+            Promise::new(state_init.derive_account_id())
+                // always deploy & init receiver's wallet-contract
+                .state_init(
+                    state_init,
+                    // sFT wallet-contract fits into ZBA limits, i.e. < 770 bytes
+                    NearToken::ZERO,
+                )
+                // refund attached deposit in case of failure to `refund_to`
+                // or sender_id
+                .refund_to(mint.refund_to.as_deref().unwrap_or(&sender_id))
+        })
+        // Attach 1yN according to `.sft_receive()` specification. Draining
+        // this minter-contract is not profitable for an attacker, since
+        // gas per mint is more expensive than the potential profit of 1yN.
+        // If we run out of NEAR, then anyone can replenish this account
+        // permissionlessly. Moreover, according to Near specs, 30% of gas
+        // goes to the contract balance, so we definitely have it.
+        .with_attached_deposit(NearToken::from_yoctonear(1))
+        .with_static_gas(SftWalletData::SFT_RECEIVE_MIN_GAS)
+        // forward remaining gas here
+        .with_unused_gas_weight(1)
+        .sft_receive(
+            // Note: there is no guarantee that `sender_id` from
+            // `.ft_on_transfer()` indeed initiated the transfer.
+            sender_id,
+            amount,
+            mint.memo,
+            mint.notify,
+        )
+        .then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(Self::RESOLVE_TRANSFER_GAS)
+                // do not distribute remaining gas here
+                .with_unused_gas_weight(0)
+                .sft_resolve_mint(receiver_id, amount),
+        )
+        .into()
     }
 }
 
@@ -122,13 +135,13 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        let mut deposit_left = env::attached_deposit()
+        let deposit_left = env::attached_deposit()
+            // reserve 1yN for `ft_transfer()` / `ft_trnsfer_call()` later
             .checked_sub(NearToken::from_yoctonear(1))
             .unwrap_or_else(|| env::panic_str(ERR_INSUFFICIENT_DEPOSIT));
 
         require!(
-            env::predecessor_account_id()
-                == self.sft_wallet_account_id_for(&env::current_account_id()),
+            env::predecessor_account_id() == self.sft_wallet_account_id_for(&sender_id),
             ERR_WRONG_WALLET,
         );
 
@@ -143,58 +156,54 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
             .checked_sub(amount.0)
             .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
 
+        SftEvent::Burn(
+            [SftBurn {
+                owner_id: (&sender_id).into(),
+                amount: amount.0,
+                memo: burn.memo.as_deref().map(Into::into),
+            }]
+            .as_slice()
+            .into(),
+        )
+        .emit();
+
         let receiver_id = burn.receiver_id.unwrap_or_else(|| sender_id.clone());
 
-        let mut p = Promise::new(self.ft_contract_id.clone());
+        let p = ext_ft_core::ext_on(if burn.storage_deposit.is_zero() {
+            Promise::new(self.ft_contract_id.clone())
+        } else {
+            // make sure enough deposit is attached
+            require!(deposit_left >= burn.storage_deposit, ERR_INSUFFICIENT_DEPOSIT);
 
-        if !burn.storage_deposit.is_zero() {
-            deposit_left = deposit_left
-                .checked_sub(burn.storage_deposit)
-                .unwrap_or_else(|| env::panic_str(ERR_INSUFFICIENT_DEPOSIT));
-
-            p = ext_storage_management::ext_on(p)
+            ext_storage_management::ext(self.ft_contract_id.clone())
                 .with_attached_deposit(burn.storage_deposit)
                 .with_static_gas(Self::STORAGE_DEPOSIT_GAS)
                 // do not distribute remaining gas here
                 .with_unused_gas_weight(0)
-                .storage_deposit(Some(receiver_id.clone()), None);
-        }
+                .storage_deposit(Some(receiver_id.clone()), None)
+        })
+        // both `.ft_transfer()` and `.ft_transfer_call()` require 1yN
+        .with_attached_deposit(NearToken::from_yoctonear(1))
+        // forward here all remaining gas
+        .with_unused_gas_weight(1);
 
-        if !deposit_left.is_zero() {
-            // detached
-            let _ = Promise::new(burn.refund_to.unwrap_or(sender_id)).transfer(deposit_left);
-        }
-
-        let op: Op;
-        let ft_ext = ext_ft_core::ext_on(p)
-            // both `.ft_transfer()` and `.ft_transfer_call()` require 1yN
-            .with_attached_deposit(NearToken::from_yoctonear(1))
-            // forward here all remaining gas
-            .with_unused_gas_weight(1);
-        (op, p) = if let Some(msg) = burn.msg {
-            (
-                Op::FtTransferCall,
-                ft_ext
-                    // require minimum gas
-                    .with_static_gas(Self::FT_TRANSFER_CALL_MIN_GAS)
-                    .ft_transfer_call(receiver_id, amount, burn.memo, msg),
+        let is_call = burn.msg.is_some();
+        if let Some(msg) = burn.msg {
+            p.with_static_gas(Self::FT_TRANSFER_CALL_MIN_GAS).ft_transfer_call(
+                receiver_id,
+                amount,
+                burn.memo,
+                msg,
             )
         } else {
-            (
-                Op::FtTransfer,
-                ft_ext
-                    // require minimum gas
-                    .with_static_gas(Self::FT_TRANSFER_MIN_GAS)
-                    .ft_transfer(receiver_id, amount, burn.memo),
-            )
-        };
-
-        p.then(
+            p.with_static_gas(Self::FT_TRANSFER_MIN_GAS).ft_transfer(receiver_id, amount, burn.memo)
+        }
+        .then(
             Self::ext(env::current_account_id())
                 .with_static_gas(Self::RESOLVE_TRANSFER_GAS)
                 // do not distribute remaining gas here
                 .with_unused_gas_weight(0)
-                .resolve_transfer(op, amount),
+                .sft_resolve_burn(sender_id, amount, is_call),
         )
         .into()
     }
@@ -212,80 +221,100 @@ impl Ft2SftContract {
 
     #[allow(dead_code)]
     #[private]
-    pub fn resolve_transfer(&mut self, op: Op, amount: U128) -> U128 {
-        let used_amount = op
-            .extract_used_amount(env::promise_result_checked(0, Self::MAX_RESULT_LENGTH), amount.0);
+    pub fn sft_resolve_mint(&mut self, owner_id: AccountId, amount: U128) -> U128 {
+        let minted_amount = env::promise_result_checked(0, Self::MAX_RESULT_LENGTH)
+            .ok() // promise failed or result was too long
+            .and_then(|data| serde_json::from_slice::<U128>(&data).ok()) // JSON
+            .unwrap_or_default()
+            .0
+            .min(amount.0);
 
-        let unused_amount = amount.0.saturating_sub(used_amount);
+        let burn_amount = amount.0.saturating_sub(minted_amount);
+        if burn_amount > 0 {
+            self.total_supply = self
+                .total_supply
+                .checked_sub(burn_amount)
+                .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
 
-        match op {
-            Op::SftReceive => {
-                // subtract from total_supply
-                self.total_supply = self
-                    .total_supply
-                    .checked_sub(unused_amount)
-                    .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
-
-                // return unused amount from `self::ft_on_transfer()`
-                U128(unused_amount)
-            }
-            Op::FtTransfer | Op::FtTransferCall => {
-                // add back to total_supply
-                self.total_supply = self
-                    .total_supply
-                    .checked_add(unused_amount)
-                    .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
-
-                // return used amount from `self::sft_on_burn()`
-                U128(used_amount)
-            }
+            SftEvent::Burn(
+                [SftBurn {
+                    owner_id: owner_id.into(),
+                    amount: burn_amount,
+                    memo: Some("refund".into()),
+                }]
+                .as_slice()
+                .into(),
+            )
+            .emit();
         }
+
+        // return unused amount from `self::ft_on_transfer()`
+        U128(burn_amount)
+    }
+
+    #[allow(dead_code)]
+    #[private]
+    pub fn sft_resolve_burn(&mut self, owner_id: AccountId, amount: U128, is_call: bool) -> U128 {
+        let burned_amount = match env::promise_result_checked(0, Self::MAX_RESULT_LENGTH) {
+            Ok(data) => {
+                if is_call {
+                    // `ft_transfer_call` returns used amount
+                    serde_json::from_slice::<U128>(&data).unwrap_or_default().0.min(amount.0)
+                } else if data.is_empty() {
+                    // `ft_transfer` returns empty result on success
+                    amount.0
+                } else {
+                    0
+                }
+            }
+            Err(_) => {
+                if is_call {
+                    // do not refund on failed `ft_transfer_call` due to
+                    // NEP-141 vulnerability: `ft_resolve_transfer` fails to
+                    // read result of `ft_on_transfer` due to insufficient gas
+                    amount.0
+                } else {
+                    0
+                }
+            }
+        };
+
+        let mint_amount = amount.0.saturating_sub(burned_amount);
+        if mint_amount > 0 {
+            // add back to total_supply
+            self.total_supply = self
+                .total_supply
+                .checked_add(mint_amount)
+                .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
+
+            SftEvent::Mint(
+                [SftMint {
+                    owner_id: owner_id.into(),
+                    amount: mint_amount,
+                    memo: Some("refund".into()),
+                }]
+                .as_slice()
+                .into(),
+            )
+            .emit();
+        }
+
+        // return used amount from `self::sft_on_burn()`
+        U128(burned_amount)
     }
 }
 
 impl Ft2SftContract {
-    fn sft_wallet_init_for(&self, owner_id: &AccountIdRef) -> StateInit {
+    fn sft_wallet_init_for(&self, owner_id: impl Into<AccountId>) -> StateInit {
         StateInit::V1(StateInitV1 {
             code: self.sft_wallet_code.clone(),
             data: SftWalletData::init_state(owner_id, env::current_account_id()),
+            // TODO: governed ft2sft proxy?
         })
     }
 
-    fn sft_wallet_account_id_for(&self, owner_id: &AccountIdRef) -> AccountId {
+    fn sft_wallet_account_id_for(&self, owner_id: impl Into<AccountId>) -> AccountId {
         self.sft_wallet_init_for(owner_id).derive_account_id()
-    }
-}
-
-#[near(serializers = [json])]
-#[serde(rename_all = "snake_case")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Op {
-    SftReceive,
-    FtTransfer,
-    FtTransferCall,
-}
-
-impl Op {
-    fn extract_used_amount(self, result: Result<Vec<u8>, PromiseError>, sent: u128) -> u128 {
-        match result {
-            Ok(data) => match self {
-                Self::SftReceive | Self::FtTransferCall => {
-                    // both `sft_receive` and `ft_transfer_call` return used amount
-                    serde_json::from_slice::<U128>(&data).unwrap_or_default().0.min(sent)
-                }
-                Self::FtTransfer => {
-                    // `ft_transfer` returns empty result on success
-                    if data.is_empty() { sent } else { 0 }
-                }
-            },
-            _ => match self {
-                Self::SftReceive | Self::FtTransfer => 0,
-                // do not refund on failed `ft_transfer_call` due to
-                // NEP-141 vulnerability: `ft_resolve_transfer` fails to
-                // read result of `ft_on_transfer` due to insufficient gas
-                Self::FtTransferCall => sent,
-            },
-        }
     }
 }
 

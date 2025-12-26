@@ -43,7 +43,7 @@ pub trait ShardedFungibleTokenWallet {
         &mut self,
         receiver_id: AccountId,
         amount: U128,
-        memo: Option<String>,
+        memo: Option<String>, // TODO: optional comment prefix? or in msg?
         notify: Option<TransferNotification>,
     ) -> PromiseOrValue<U128>;
 

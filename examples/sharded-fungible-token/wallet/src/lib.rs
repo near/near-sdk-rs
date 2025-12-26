@@ -4,7 +4,7 @@ use near_contract_standards::sharded_fungible_token::{
     receiver::ext_sft_receiver,
     wallet::{
         SftWalletData, ShardedFungibleTokenWallet, StateInitArgs, TransferNotification,
-        events::{SftBurned, SftEvent, SftMinted, SftReceived, SftSent},
+        events::{SftEvent, SftReceive, SftSend},
     },
 };
 use near_sdk::{
@@ -84,9 +84,8 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
             .checked_sub(amount.0)
             .unwrap_or_else(|| env::panic_str(Self::ERR_INSUFFICIENT_BALANCE));
 
-        SftEvent::Sent(
-            [SftSent {
-                sender_id: (&self.owner_id).into(),
+        SftEvent::Send(
+            [SftSend {
                 receiver_id: (&receiver_id).into(),
                 amount: amount.0,
                 memo: memo.as_deref().map(Into::into),
@@ -102,7 +101,8 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                 // always deploy & init receiver's wallet-contract
                 .state_init(
                     state_init,
-                    NearToken::ZERO, // sFT wallet-contract fits into ZBA limits, i.e. < 770 bytes
+                    // sFT wallet-contract fits into ZBA limits, i.e. < 770 bytes
+                    NearToken::ZERO,
                 )
                 // refund attached deposit in case of failure to `refund_to` set for current receipt
                 // (or predecessor, otherwise) instead of sender's wallet-contract
@@ -120,7 +120,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                 .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
                 // do not distribute remaining gas here
                 .with_unused_gas_weight(0)
-                .sft_resolve(amount, Op::SftSend { receiver_id }),
+                .sft_resolve_transfer(amount, true, receiver_id),
         )
         .into()
     }
@@ -148,9 +148,8 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
 
         let caller = env::predecessor_account_id();
         // verify that the caller is the minter or a valid wallet-contract
-        let mint = caller == *self.minter_id;
         require!(
-            mint || caller == self.sft_wallet_account_id_for(&sender_id),
+            caller == *self.minter_id || caller == self.sft_wallet_account_id_for(&sender_id),
             Self::ERR_WRONG_WALLET,
         );
         #[cfg(feature = "governed")]
@@ -161,30 +160,16 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
             .checked_add(amount.0)
             .unwrap_or_else(|| env::panic_str(Self::ERR_BALANCE_OVERFLOW));
 
-        if mint {
-            SftEvent::Minted(
-                [SftMinted {
-                    owner_id: (&self.owner_id).into(),
-                    amount: amount.0,
-                    memo: memo.as_deref().map(Into::into),
-                }]
-                .as_slice()
-                .into(),
-            )
-            .emit();
-        } else {
-            SftEvent::Received(
-                [SftReceived {
-                    sender_id: (&sender_id).into(),
-                    receiver_id: (&self.owner_id).into(),
-                    amount: amount.0,
-                    memo: memo.as_deref().map(Into::into),
-                }]
-                .as_slice()
-                .into(),
-            )
-            .emit();
-        }
+        SftEvent::Receive(
+            [SftReceive {
+                sender_id: (&sender_id).into(),
+                amount: amount.0,
+                memo: memo.as_deref().map(Into::into),
+            }]
+            .as_slice()
+            .into(),
+        )
+        .emit();
 
         let Some(notify) = notify else {
             // no transfer notification, all tokens received
@@ -222,7 +207,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                     // do not distribute remaining gas here
                     .with_unused_gas_weight(0)
                     // resolve notification
-                    .sft_resolve(amount, Op::SftReceive { sender_id }),
+                    .sft_resolve_transfer(amount, false, sender_id),
             )
             .into()
     }
@@ -267,9 +252,9 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
             .checked_sub(amount.0)
             .unwrap_or_else(|| env::panic_str(Self::ERR_INSUFFICIENT_BALANCE));
 
-        SftEvent::Burned(
-            [SftBurned {
-                owner_id: (&self.owner_id).into(),
+        SftEvent::Send(
+            [SftSend {
+                receiver_id: (&self.owner_id).into(),
                 amount: amount.0,
                 memo: memo.as_deref().map(Into::into),
             }]
@@ -289,7 +274,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                     .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
                     // do not distribute remaining gas here
                     .with_unused_gas_weight(0)
-                    .sft_resolve(amount, Op::SftBurn),
+                    .sft_resolve_transfer(amount, true, self.minter_id.clone()),
             )
             .into()
     }
@@ -302,14 +287,19 @@ impl SFTWalletContract {
     /// and returns `used_amount`.
     #[allow(dead_code)]
     #[private]
-    pub fn sft_resolve(&mut self, amount: U128, op: Op) -> U128 {
+    pub fn sft_resolve_transfer(
+        &mut self,
+        amount: U128,
+        sender: bool,
+        account_id: AccountId,
+    ) -> U128 {
         const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
         // TODO: promise_result_at_most
         let mut used_amount = env::promise_result_checked(
             0,
             MAX_RESULT_LENGTH, // prevent out of gas (too long result)
         )
-        .ok() // promise failed
+        .ok() // promise failed or result was too long
         .and_then(|data| serde_json::from_slice::<U128>(&data).ok()) // JSON
         .unwrap_or_default() // if any of above failed, then refund full amount
         .0
@@ -317,7 +307,7 @@ impl SFTWalletContract {
 
         let mut refund_amount = amount.0.saturating_sub(used_amount);
 
-        self.balance = if op.is_sender() {
+        self.balance = if sender {
             // add refund_amount to sender, but in checked way:
             // faulty minter-contract implementation could have minted
             // too many tokens after `.sft_resolve()` was scheduled
@@ -337,46 +327,29 @@ impl SFTWalletContract {
         };
 
         if refund_amount > 0 {
-            match op {
-                Op::SftSend { receiver_id } => {
-                    SftEvent::Received(
-                        [SftReceived {
-                            sender_id: (&self.owner_id).into(),
-                            receiver_id: receiver_id.into(),
-                            amount: refund_amount,
-                            memo: Some("refund".into()),
-                        }]
-                        .as_slice()
-                        .into(),
-                    )
-                    .emit();
-                }
-                Op::SftReceive { sender_id } => {
-                    SftEvent::Sent(
-                        [SftSent {
-                            sender_id: (&self.owner_id).into(),
-                            receiver_id: sender_id.into(),
-                            amount: refund_amount,
-                            memo: Some("refund".into()),
-                        }]
-                        .as_slice()
-                        .into(),
-                    )
-                    .emit();
-                }
-                Op::SftBurn => {
-                    SftEvent::Minted(
-                        [SftMinted {
-                            owner_id: (&self.owner_id).into(),
-                            amount: refund_amount,
-                            memo: Some("refund".into()),
-                        }]
-                        .as_slice()
-                        .into(),
-                    )
-                    .emit();
-                }
-            };
+            if sender {
+                SftEvent::Receive(
+                    [SftReceive {
+                        sender_id: account_id.into(),
+                        amount: refund_amount,
+                        memo: Some("refund".into()),
+                    }]
+                    .as_slice()
+                    .into(),
+                )
+                .emit();
+            } else {
+                SftEvent::Send(
+                    [SftSend {
+                        receiver_id: account_id.into(),
+                        amount: refund_amount,
+                        memo: Some("refund".into()),
+                    }]
+                    .as_slice()
+                    .into(),
+                )
+                .emit();
+            }
         }
 
         U128(used_amount)
