@@ -46,7 +46,7 @@ impl CrossContract {
         require!(env::current_account_id() == env::predecessor_account_id());
         require!(env::promise_results_count() == 1);
 
-        let data = env::promise_result_bounded(0, MAX_RESULT_LENGTH).unwrap_or_else(|_| {
+        let data = env::promise_result_checked(0, MAX_RESULT_LENGTH).unwrap_or_else(|_| {
             env::panic_str("Promise with index 0 failed or returned too long result")
         });
         let cur = serde_json::from_slice::<u32>(&data).unwrap();

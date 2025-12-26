@@ -249,7 +249,7 @@ impl AttrSigInfo {
                         quote! {
                             #acc
                             let #mutability #ident: #ty = {
-                                let data = ::near_sdk::env::promise_result_bounded(#idx, #max_bytes)
+                                let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
                                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
                                 #invocation
                             };
@@ -291,7 +291,7 @@ impl AttrSigInfo {
                             _ => None,
                         };
                         let result = quote! {
-                            ::near_sdk::env::promise_result_bounded(#idx, #max_bytes)
+                            ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
                                 .map(|data| {
                                     #deserialization_tweak
                                     #deserialize
@@ -326,7 +326,7 @@ impl AttrSigInfo {
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
-                            let data = ::near_sdk::env::promise_result_bounded(i, #max_bytes)
+                            let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
                                 .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
                             #invocation
                         }));

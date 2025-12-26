@@ -175,7 +175,7 @@ impl FungibleToken {
         const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
 
         // Get the unused amount from the `ft_on_transfer` call result.
-        let unused_amount = env::promise_result_bounded(0, MAX_RESULT_LENGTH)
+        let unused_amount = env::promise_result_checked(0, MAX_RESULT_LENGTH)
             .ok()
             .and_then(|value| serde_json::from_slice::<U128>(&value).ok())
             .unwrap_or(amount)

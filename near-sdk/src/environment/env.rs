@@ -1900,9 +1900,9 @@ pub fn promise_results_count() -> u64 {
 /// - [near-contract-standards/src/non_fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433)
 /// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
 /// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
-#[deprecated = "use `promise_result_bounded` to prevent out-of-gas errors"]
+#[deprecated = "use `promise_result_checked` to prevent out-of-gas errors"]
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match promise_result_bounded(result_idx, usize::MAX) {
+    match promise_result_checked(result_idx, usize::MAX) {
         Ok(data) => PromiseResult::Successful(data),
         Err(err) => match err {
             PromiseError::Failed => PromiseResult::Failed,
@@ -1920,7 +1920,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::env::{promise_result_bounded, promise_results_count, log_str, panic_str};
+/// use near_sdk::env::{promise_result_checked, promise_results_count, log_str, panic_str};
 /// use near_sdk::PromiseResult;
 ///
 /// assert!(promise_results_count() > 0);
@@ -1930,12 +1930,12 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 /// // retrieved from promise_results_count()
 /// let promise_index = 0;
 ///
-/// let data = promise_result_bounded(promise_index, 100)
+/// let data = promise_result_checked(promise_index, 100)
 ///     .unwrap_or_else(|_| panic_str("Promise failed or returned result is too long!"));
 /// log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
 /// assert!(data.len() <= 100);
 /// ```
-pub fn promise_result_bounded(result_idx: u64, max_len: usize) -> Result<Vec<u8>, PromiseError> {
+pub fn promise_result_checked(result_idx: u64, max_len: usize) -> Result<Vec<u8>, PromiseError> {
     promise_result_internal(result_idx)?;
     expect_register(read_register_bounded(ATOMIC_OP_REGISTER, max_len))
         .map_err(PromiseError::TooLong)

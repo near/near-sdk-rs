@@ -12,7 +12,7 @@ pub extern "C" fn method() {
         ::near_sdk::env::panic_str("Method method is private");
     }
     let mut x: u64 = {
-        let data = ::near_sdk::env::promise_result_bounded(0u64, usize::MAX)
+        let data = ::near_sdk::env::promise_result_checked(0u64, usize::MAX)
             .unwrap_or_else(|_| ::near_sdk::env::panic_str(
                 "Callback computation 0 was not successful",
             ));
@@ -22,7 +22,7 @@ pub extern "C" fn method() {
             ))
     };
     let y: ::std::string::String = {
-        let data = ::near_sdk::env::promise_result_bounded(1u64, usize::MAX)
+        let data = ::near_sdk::env::promise_result_checked(1u64, usize::MAX)
             .unwrap_or_else(|_| ::near_sdk::env::panic_str(
                 "Callback computation 1 was not successful",
             ));

@@ -33,7 +33,7 @@ pub extern "C" fn method() {
         ::std::iter::Iterator::map(
             0..::near_sdk::env::promise_results_count(),
             |i| {
-                let data = ::near_sdk::env::promise_result_bounded(i, usize::MAX)
+                let data = ::near_sdk::env::promise_result_checked(i, usize::MAX)
                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(
                         &::std::format!("Callback computation {} was not successful", i),
                     ));

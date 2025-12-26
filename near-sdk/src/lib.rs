@@ -954,7 +954,7 @@ compile_error!(
 /// 1. arguments, annotated with `#[callback_unwrap]`, are no longer expected to be included into `input`,
 ///    deserialized in (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)).
 /// 2. for each argument, annotated with `#[callback_unwrap]`:
-///     1. [`env::promise_result_bounded`] host function is called with corresponding index, starting from 0
+///     1. [`env::promise_result_checked`] host function is called with corresponding index, starting from 0
 ///        (`0u64` for argument `one`, `1u64` for argument `two` above), and saved into `promise_result` variable
 ///     2. if the `promise_result` is an `Err` (due to failed promise to too long result), then [`env::panic_str`]
 ///        host function is called to signal callback computation error

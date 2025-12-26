@@ -60,7 +60,7 @@ impl FactoryContract {
     pub fn get_result(&mut self, account_id: AccountId) {
         const SET_STATUS_MAX_RESULT_LENGTH: usize = 0; // set_status returns empty result
 
-        env::promise_result_bounded(0, SET_STATUS_MAX_RESULT_LENGTH)
+        env::promise_result_checked(0, SET_STATUS_MAX_RESULT_LENGTH)
             .unwrap_or_else(|_| env::panic_str("Failed to set status"));
 
         env::promise_return(env::promise_create(
