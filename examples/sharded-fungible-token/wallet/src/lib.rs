@@ -120,7 +120,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                 .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
                 // do not distribute remaining gas here
                 .with_unused_gas_weight(0)
-                .sft_resolve_transfer(amount, true, receiver_id),
+                .sft_resolve_transfer(receiver_id, true, amount),
         )
         .into()
     }
@@ -207,7 +207,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                     // do not distribute remaining gas here
                     .with_unused_gas_weight(0)
                     // resolve notification
-                    .sft_resolve_transfer(amount, false, sender_id),
+                    .sft_resolve_transfer(sender_id, false, amount),
             )
             .into()
     }
@@ -274,7 +274,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
                     .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
                     // do not distribute remaining gas here
                     .with_unused_gas_weight(0)
-                    .sft_resolve_transfer(amount, true, self.minter_id.clone()),
+                    .sft_resolve_transfer(self.minter_id.clone(), true, amount),
             )
             .into()
     }
@@ -289,9 +289,9 @@ impl SFTWalletContract {
     #[private]
     pub fn sft_resolve_transfer(
         &mut self,
+        peer_id: AccountId,
+        outgoing: bool,
         amount: U128,
-        sender: bool,
-        account_id: AccountId,
     ) -> U128 {
         const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
         // TODO: promise_result_at_most
@@ -307,7 +307,7 @@ impl SFTWalletContract {
 
         let mut refund_amount = amount.0.saturating_sub(used_amount);
 
-        self.balance = if sender {
+        self.balance = if outgoing {
             // add refund_amount to sender, but in checked way:
             // faulty minter-contract implementation could have minted
             // too many tokens after `.sft_resolve()` was scheduled
@@ -327,10 +327,10 @@ impl SFTWalletContract {
         };
 
         if refund_amount > 0 {
-            if sender {
+            if outgoing {
                 SftEvent::Receive(
                     [SftReceive {
-                        sender_id: account_id.into(),
+                        sender_id: peer_id.into(),
                         amount: refund_amount,
                         memo: Some("refund".into()),
                     }]
@@ -341,7 +341,7 @@ impl SFTWalletContract {
             } else {
                 SftEvent::Send(
                     [SftSend {
-                        receiver_id: account_id.into(),
+                        receiver_id: peer_id.into(),
                         amount: refund_amount,
                         memo: Some("refund".into()),
                     }]
@@ -353,22 +353,6 @@ impl SFTWalletContract {
         }
 
         U128(used_amount)
-    }
-}
-
-#[near(serializers = [json])]
-#[serde(tag = "op", rename_all = "snake_case")]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Op {
-    SftSend { receiver_id: AccountId },
-    SftReceive { sender_id: AccountId },
-    SftBurn,
-}
-
-impl Op {
-    #[inline]
-    pub fn is_sender(&self) -> bool {
-        matches!(self, Self::SftSend { .. } | Self::SftBurn)
     }
 }
 
