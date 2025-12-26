@@ -2129,7 +2129,7 @@ pub fn panic_str(message: &str) -> ! {
 }
 
 pub fn panic_err(err: crate::BaseError) -> ! {
-    panic_str(serde_json::json!(err).to_string().as_str())
+    panic_str(&err.error)
 }
 
 /// Aborts the current contract execution without a custom message.

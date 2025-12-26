@@ -898,28 +898,14 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #error_type
             }
 
-            fn wrap(&self) -> #near_sdk_crate ::serde_json::Value {
-                #[#near_sdk_crate ::near(inside_nearsdk=#bool_inside_nearsdk_for_macro, serializers = [json])]
-                struct ErrorWrapper<T> {
-                    name: String,
-                    cause: ErrorCause<T>,
-                }
-
-                #[#near_sdk_crate ::near(inside_nearsdk=#bool_inside_nearsdk_for_macro, serializers = [json])]
-                struct ErrorCause<T> {
-                    name: String,
-                    info: T
-                }
-
-                #near_sdk_crate ::serde_json::json! {
-                    { "error" : ErrorWrapper {
-                        name: String::from(self.error_type()),
-                        cause: ErrorCause {
-                            name: std::any::type_name::<#ident #ty_generics>().to_string(),
-                            info: self
-                        }
-                    } }
-                }
+            fn wrap(&self) -> String {
+                let info = #near_sdk_crate ::serde_json::to_string(self).unwrap_or_default();
+                format!(
+                    r#"{{"error":{{"name":"{}","cause":{{"name":"{}","info":{}}}}}}}"#,
+                    self.error_type(),
+                    std::any::type_name::<#ident #ty_generics>(),
+                    info
+                )
             }
         }
     };
@@ -927,7 +913,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         expanded.extend(quote! {
             impl #impl_generics From<#ident #ty_generics> for String #where_clause {
                 fn from(err: #ident #ty_generics) -> Self {
-                    #near_sdk_crate ::serde_json::json!{#near_sdk_crate ::wrap_error(err)}.to_string()
+                    #near_sdk_crate ::wrap_error(err)
                 }
             }
 

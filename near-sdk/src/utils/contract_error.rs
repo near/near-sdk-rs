@@ -1,22 +1,32 @@
 pub trait ContractErrorTrait {
     fn error_type(&self) -> &'static str;
-    fn wrap(&self) -> serde_json::Value;
+    fn wrap(&self) -> String;
 }
 
 pub fn check_contract_error_trait<T: ContractErrorTrait>(_: &T) {}
 
-#[crate::contract_error(inside_nearsdk)]
+#[crate::near(serializers = [json], inside_nearsdk = true)]
+#[derive(Debug)]
 pub struct BaseError {
-    #[serde(flatten)]
-    pub error: serde_json::Value,
+    pub error: String,
+}
+
+impl ContractErrorTrait for BaseError {
+    fn error_type(&self) -> &'static str {
+        "BASE_ERROR"
+    }
+
+    fn wrap(&self) -> String {
+        self.error.clone()
+    }
 }
 
 impl From<BaseError> for String {
     fn from(value: BaseError) -> Self {
-        value.error.to_string()
+        value.error
     }
 }
 
-pub fn wrap_error<T: ContractErrorTrait>(error: T) -> serde_json::Value {
+pub fn wrap_error<T: ContractErrorTrait>(error: T) -> String {
     error.wrap()
 }
