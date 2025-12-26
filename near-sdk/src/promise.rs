@@ -217,13 +217,19 @@ enum PromiseSingleSubtype {
 
 struct PromiseSingle {
     pub subtype: PromiseSingleSubtype,
+    #[cfg(feature = "deterministic-account-ids")]
     pub refund_to: Option<AccountId>,
     pub actions: Vec<PromiseAction>,
 }
 
 impl PromiseSingle {
     pub const fn new(subtype: PromiseSingleSubtype) -> Self {
-        Self { subtype, refund_to: None, actions: Vec::new() }
+        Self {
+            subtype,
+            #[cfg(feature = "deterministic-account-ids")]
+            refund_to: None,
+            actions: Vec::new(),
+        }
     }
 
     pub fn construct_recursively(&mut self) -> PromiseIndex {
@@ -241,6 +247,7 @@ impl PromiseSingle {
             PromiseSingleSubtype::Yielded(promise_index) => *promise_index,
         };
 
+        #[cfg(feature = "deterministic-account-ids")]
         if let Some(refund_to) = self.refund_to.take() {
             crate::env::promise_set_refund_to(promise_index, &refund_to);
         }
@@ -403,6 +410,11 @@ impl Promise {
         (promise, yield_id)
     }
 
+    /// Set a different [`AccountId`] instead of current one to which refunds
+    /// should go for all failed (e.g. [function_call](Promise::function_call_weight))
+    /// or unused (e.g. [state_init](Promise::state_init)) deposits in
+    /// the created receipt.
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
         let PromiseSubtype::Single(promise) = &mut self.subtype else {
             crate::env::panic_str("Cannot set refund account for a joint promise.");
