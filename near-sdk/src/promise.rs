@@ -1,17 +1,22 @@
 #[cfg(feature = "abi")]
-use borsh::BorshSchema;
-use std::cell::RefCell;
-#[cfg(feature = "abi")]
 use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::io::{Error, Write};
-use std::num::NonZeroU128;
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    collections::VecDeque,
+    io::{Error, Write},
+    mem,
+    num::NonZeroU128,
+    rc::Rc,
+};
 
-use crate::env::migrate_to_allowance;
-use crate::CryptoHash;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
 use near_sdk_macros::near;
+
+use crate::{
+    env::migrate_to_allowance, AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex,
+    PublicKey,
+};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -98,75 +103,73 @@ enum PromiseAction {
 }
 
 impl PromiseAction {
-    pub fn add(&self, promise_index: PromiseIndex) {
+    pub fn add(self, promise_index: PromiseIndex) {
         use PromiseAction::*;
         match self {
             CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
             DeployContract { code } => {
-                crate::env::promise_batch_action_deploy_contract(promise_index, code)
+                crate::env::promise_batch_action_deploy_contract(promise_index, &code)
             }
             FunctionCall { function_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
                     promise_index,
-                    function_name,
-                    arguments,
-                    *amount,
-                    *gas,
+                    &function_name,
+                    &arguments,
+                    amount,
+                    gas,
                 )
             }
             FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
                 crate::env::promise_batch_action_function_call_weight(
                     promise_index,
-                    function_name,
-                    arguments,
-                    *amount,
-                    *gas,
+                    &function_name,
+                    &arguments,
+                    amount,
+                    gas,
                     GasWeight(weight.0),
                 )
             }
-            Transfer { amount } => {
-                crate::env::promise_batch_action_transfer(promise_index, *amount)
-            }
+            Transfer { amount } => crate::env::promise_batch_action_transfer(promise_index, amount),
             Stake { amount, public_key } => {
-                crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
+                crate::env::promise_batch_action_stake(promise_index, amount, &public_key)
             }
             AddFullAccessKey { public_key, nonce } => {
                 crate::env::promise_batch_action_add_key_with_full_access(
                     promise_index,
-                    public_key,
-                    *nonce,
+                    &public_key,
+                    nonce,
                 )
             }
             AddAccessKey { public_key, allowance, receiver_id, function_names, nonce } => {
                 crate::env::promise_batch_action_add_key_allowance_with_function_call(
                     promise_index,
-                    public_key,
-                    *nonce,
-                    *allowance,
-                    receiver_id,
-                    function_names,
+                    &public_key,
+                    nonce,
+                    allowance,
+                    &receiver_id,
+                    &function_names,
                 )
             }
             DeleteKey { public_key } => {
-                crate::env::promise_batch_action_delete_key(promise_index, public_key)
+                crate::env::promise_batch_action_delete_key(promise_index, &public_key)
             }
             DeleteAccount { beneficiary_id } => {
-                crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+                crate::env::promise_batch_action_delete_account(promise_index, &beneficiary_id)
             }
             #[cfg(feature = "global-contracts")]
             DeployGlobalContract { code } => {
-                crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
+                crate::env::promise_batch_action_deploy_global_contract(promise_index, &code)
             }
             #[cfg(feature = "global-contracts")]
             DeployGlobalContractByAccountId { code } => {
                 crate::env::promise_batch_action_deploy_global_contract_by_account_id(
                     promise_index,
-                    code,
+                    &code,
                 )
             }
             #[cfg(feature = "global-contracts")]
             UseGlobalContract { code_hash } => {
-                crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
+                crate::env::promise_batch_action_use_global_contract(promise_index, &code_hash)
             }
             #[cfg(feature = "global-contracts")]
             UseGlobalContractByAccountId { account_id } => {
@@ -186,15 +189,15 @@ impl PromiseAction {
                     GlobalContractId::CodeHash(code_hash) => {
                         crate::env::promise_batch_action_state_init(
                             promise_index,
-                            (*code_hash).into(),
-                            *deposit,
+                            code_hash.into(),
+                            deposit,
                         )
                     }
                     GlobalContractId::AccountId(account_id) => {
                         crate::env::promise_batch_action_state_init_by_account_id(
                             promise_index,
                             account_id,
-                            *deposit,
+                            deposit,
                         )
                     }
                 };
@@ -209,74 +212,76 @@ impl PromiseAction {
 enum PromiseSingleSubtype {
     Regular {
         account_id: AccountId,
-        after: RefCell<Option<Rc<Promise>>>,
+        after: Option<Rc<RefCell<Promise>>>,
         /// Promise index that is computed only once.
-        promise_index: RefCell<Option<PromiseIndex>>,
+        promise_index: Option<PromiseIndex>,
     },
     Yielded(PromiseIndex),
 }
 
 struct PromiseSingle {
     pub subtype: PromiseSingleSubtype,
-    pub actions: RefCell<Vec<PromiseAction>>,
+    #[cfg(feature = "deterministic-account-ids")]
+    pub refund_to: Option<AccountId>,
+    pub actions: Vec<PromiseAction>,
 }
 
 impl PromiseSingle {
-    pub fn construct_recursively(&self) -> PromiseIndex {
-        let promise_index = match &self.subtype {
-            PromiseSingleSubtype::Regular { account_id, after, promise_index } => {
-                let mut promise_lock = promise_index.borrow_mut();
-                if let Some(res) = promise_lock.as_ref() {
-                    return *res;
-                }
-                let idx = if let Some(after) =
-                    after.borrow().as_deref().and_then(Promise::construct_recursively)
-                {
-                    crate::env::promise_batch_then(after, account_id)
-                } else {
-                    crate::env::promise_batch_create(account_id)
-                };
-                let actions_lock = self.actions.borrow();
-                for action in actions_lock.iter() {
-                    action.add(idx);
-                }
-                *promise_lock = Some(idx);
-                idx
-            }
-            PromiseSingleSubtype::Yielded(promise_index) => {
-                // For yielded promises, actions are added to the already-created promise
-                let actions_lock = self.actions.borrow();
-                for action in actions_lock.iter() {
-                    action.add(*promise_index);
-                }
-                *promise_index
-            }
+    pub const fn new(subtype: PromiseSingleSubtype) -> Self {
+        Self {
+            subtype,
+            #[cfg(feature = "deterministic-account-ids")]
+            refund_to: None,
+            actions: Vec::new(),
+        }
+    }
+
+    pub fn construct_recursively(&mut self) -> PromiseIndex {
+        let promise_index = match &mut self.subtype {
+            PromiseSingleSubtype::Regular { account_id, after, promise_index } => *promise_index
+                .get_or_insert_with(|| {
+                    if let Some(after) =
+                        after.as_mut().and_then(|p| p.borrow_mut().construct_recursively())
+                    {
+                        crate::env::promise_batch_then(after, account_id)
+                    } else {
+                        crate::env::promise_batch_create(account_id)
+                    }
+                }),
+            PromiseSingleSubtype::Yielded(promise_index) => *promise_index,
         };
+
+        #[cfg(feature = "deterministic-account-ids")]
+        if let Some(refund_to) = self.refund_to.take() {
+            crate::env::promise_set_refund_to(promise_index, &refund_to);
+        }
+
+        for action in mem::take(&mut self.actions) {
+            action.add(promise_index);
+        }
+
         promise_index
     }
 }
 
 pub struct PromiseJoint {
-    pub promises: RefCell<VecDeque<Promise>>,
+    pub promises: VecDeque<Promise>,
     /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<PromiseIndex>>,
+    pub promise_index: Option<PromiseIndex>,
 }
 
 impl PromiseJoint {
-    pub fn construct_recursively(&self) -> Option<PromiseIndex> {
-        let mut promise_lock = self.promise_index.borrow_mut();
-        if let Some(res) = promise_lock.as_ref() {
-            return Some(*res);
+    pub fn construct_recursively(&mut self) -> Option<PromiseIndex> {
+        if self.promise_index.is_none() {
+            let mut promises = mem::take(&mut self.promises);
+            if promises.is_empty() {
+                return None;
+            }
+            self.promise_index = Some(crate::env::promise_and(
+                &promises.iter_mut().filter_map(Promise::construct_recursively).collect::<Vec<_>>(),
+            ));
         }
-        let promises_lock = self.promises.borrow();
-        if promises_lock.is_empty() {
-            return None;
-        }
-        let res = crate::env::promise_and(
-            &promises_lock.iter().filter_map(Promise::construct_recursively).collect::<Vec<_>>(),
-        );
-        *promise_lock = Some(res);
-        Some(res)
+        self.promise_index
     }
 }
 
@@ -289,7 +294,7 @@ impl PromiseJoint {
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
 /// ```no_run
-/// # use near_sdk::{ext_contract, near, Promise, Gas};
+/// # use near_sdk::{ext_contract, near, AccountId, Promise, Gas};
 /// #[ext_contract]
 /// pub trait ContractB {
 ///     fn b(&mut self);
@@ -341,24 +346,18 @@ impl BorshSchema for Promise {
     }
 }
 
-#[derive(Clone)]
 enum PromiseSubtype {
-    Single(Rc<PromiseSingle>),
-    Joint(Rc<PromiseJoint>),
+    Single(PromiseSingle),
+    Joint(PromiseJoint),
 }
 
 impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
-        Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
-            subtype: PromiseSingleSubtype::Regular {
-                account_id,
-                after: RefCell::new(None),
-                promise_index: RefCell::new(None),
-            },
-            actions: RefCell::new(vec![]),
-        })))
+        Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
+            PromiseSingleSubtype::Regular { account_id, after: None, promise_index: None },
+        )))
     }
 
     const fn new_with_subtype(subtype: PromiseSubtype) -> Self {
@@ -409,16 +408,28 @@ impl Promise {
     ) -> (Self, YieldId) {
         let (promise_index, yield_id) =
             crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
-        let promise = Self::new_with_subtype(PromiseSubtype::Single(Rc::new(PromiseSingle {
-            subtype: PromiseSingleSubtype::Yielded(promise_index),
-            actions: RefCell::new(vec![]),
-        })));
+        let promise = Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
+            PromiseSingleSubtype::Yielded(promise_index),
+        )));
         (promise, yield_id)
     }
 
-    fn add_action(self, action: PromiseAction) -> Self {
-        match &self.subtype {
-            PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
+    /// Set a different [`AccountId`] instead of current one to which refunds
+    /// should go for all failed (e.g. [function_call](Promise::function_call_weight))
+    /// or unused (e.g. [state_init](Promise::state_init)) deposits in
+    /// the created receipt.
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
+        let PromiseSubtype::Single(promise) = &mut self.subtype else {
+            crate::env::panic_str("Cannot set refund account for a joint promise.");
+        };
+        promise.refund_to = Some(account_id.into());
+        self
+    }
+
+    fn add_action(mut self, action: PromiseAction) -> Self {
+        match &mut self.subtype {
+            PromiseSubtype::Single(x) => x.actions.push(action),
             PromiseSubtype::Joint(_) => {
                 crate::env::panic_str("Cannot add action to a joint promise.")
             }
@@ -498,7 +509,7 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken, AccountId};
+    /// use near_sdk::{Promise, NearToken};
     ///
     /// Promise::new("alice.near".parse().unwrap())
     ///     .create_account()
@@ -666,32 +677,32 @@ impl Promise {
     /// following code will panic during the execution of the smart contract:
     ///
     /// ```no_run
-    /// # use near_sdk::{Promise, testing_env};
+    /// # use near_sdk::Promise;
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
     /// Uses low-level [`crate::env::promise_and`]
-    pub fn and(self, other: Promise) -> Promise {
-        match (&self.subtype, &other.subtype) {
+    pub fn and(mut self, mut other: Promise) -> Promise {
+        match (&mut self.subtype, &mut other.subtype) {
             (PromiseSubtype::Joint(x), PromiseSubtype::Joint(o)) => {
-                x.promises.borrow_mut().append(&mut o.promises.borrow_mut());
+                x.promises.append(&mut o.promises);
                 self
             }
             (PromiseSubtype::Joint(x), _) => {
-                x.promises.borrow_mut().push_back(other);
+                x.promises.push_back(other);
                 self
             }
             (_, PromiseSubtype::Joint(o)) => {
-                o.promises.borrow_mut().push_front(self);
+                o.promises.push_front(self);
                 other
             }
             _ => Promise {
-                subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
-                    promises: RefCell::new([self, other].into()),
-                    promise_index: RefCell::new(None),
-                })),
+                subtype: PromiseSubtype::Joint(PromiseJoint {
+                    promises: [self, other].into(),
+                    promise_index: None,
+                }),
                 should_return: RefCell::new(false),
             },
         }
@@ -712,7 +723,7 @@ impl Promise {
     /// ```
     /// Uses low-level [`crate::env::promise_batch_then`]
     pub fn then(self, other: Promise) -> Promise {
-        Rc::new(self).then_impl(other)
+        Promise::then_impl(Rc::new(RefCell::new(self)), other)
     }
 
     /// Shared, private implementation between `then` and `then_concurrent`.
@@ -720,17 +731,15 @@ impl Promise {
     /// This takes self as a reference counted object promise, to allow multiple
     /// dependencies pointing to the same promise without duplicating that
     /// promise.
-    fn then_impl(self: Rc<Self>, other: Promise) -> Promise {
-        match &other.subtype {
-            PromiseSubtype::Single(x) => match &x.subtype {
+    fn then_impl(this: Rc<RefCell<Self>>, mut other: Promise) -> Promise {
+        match &mut other.subtype {
+            PromiseSubtype::Single(x) => match &mut x.subtype {
                 PromiseSingleSubtype::Regular { after, .. } => {
-                    let mut after = after.borrow_mut();
-                    if after.is_some() {
+                    if after.replace(this).is_some() {
                         crate::env::panic_str(
                             "Cannot callback promise which is already scheduled after another",
                         );
                     }
-                    *after = Some(self)
                 }
                 PromiseSingleSubtype::Yielded(_) => {
                     crate::env::panic_str("Cannot callback yielded promise.")
@@ -756,7 +765,7 @@ impl Promise {
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then(p2).then_concurrent(vec![p3, p4]);
+    /// p1.then(p2).then_concurrent([p3, p4]);
     /// ```
     ///
     /// The returned [`ConcurrentPromises`] allows chaining more promises.
@@ -771,15 +780,15 @@ impl Promise {
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
+    /// p1.then_concurrent([p2, p3]).join().then(p4);
     /// ```
     pub fn then_concurrent(
         self,
         promises: impl IntoIterator<Item = Promise>,
     ) -> ConcurrentPromises {
-        let this = Rc::new(self);
+        let this = Rc::new(RefCell::new(self));
         let mapped_promises =
-            promises.into_iter().map(|other| Rc::clone(&this).then_impl(other)).collect();
+            promises.into_iter().map(|other| Promise::then_impl(Rc::clone(&this), other)).collect();
         ConcurrentPromises { promises: mapped_promises }
     }
 
@@ -816,8 +825,8 @@ impl Promise {
         self
     }
 
-    fn construct_recursively(&self) -> Option<PromiseIndex> {
-        let res = match &self.subtype {
+    fn construct_recursively(&mut self) -> Option<PromiseIndex> {
+        let res = match &mut self.subtype {
             PromiseSubtype::Single(x) => x.construct_recursively(),
             PromiseSubtype::Joint(x) => x.construct_recursively()?,
         };
