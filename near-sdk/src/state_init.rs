@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use near_account_id::AccountId;
 use near_sdk_macros::near;
-use serde_with::{base64::Base64, serde_as};
+use serde_with::base64::Base64;
 
 use crate::{env, GlobalContractId};
 
