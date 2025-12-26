@@ -104,7 +104,7 @@ where
         let entry = self.cache.get(index).get_or_init(|| {
             let mut buf = Vec::with_capacity(self.prefix.len() + 4);
             Self::index_to_lookup_key(&self.prefix, index, &mut buf);
-            let storage_bytes = env::storage_read(&buf);
+            let storage_bytes = env::storage_read(buf);
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });
@@ -118,7 +118,7 @@ where
         entry.get_or_init(|| {
             let mut key = Vec::with_capacity(prefix.len() + 4);
             Self::index_to_lookup_key(prefix, index, &mut key);
-            let storage_bytes = env::storage_read(&key);
+            let storage_bytes = env::storage_read(key);
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });

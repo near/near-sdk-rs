@@ -7,18 +7,19 @@
 //! In case of cross-contract calls prefer using higher-level API available
 //! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
 
-use std::convert::TryFrom;
-use std::convert::TryInto;
-use std::mem::{size_of, size_of_val};
+use core::{
+    convert::{TryFrom, TryInto},
+    mem::size_of,
+};
+
 use std::panic as std_panic;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
-#[cfg(feature = "global-contracts")]
-use crate::types::AccountIdRef;
 use crate::types::{
-    AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    AccountId, AccountIdRef, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey,
+    StorageUsage,
 };
 use crate::{CryptoHash, GasWeight, PromiseError};
 
@@ -690,8 +691,8 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
 /// Returns 64 bytes representing the public key if the recovery was successful.
 #[cfg(feature = "unstable")]
 pub fn ecrecover(
-    hash: &[u8],
-    signature: &[u8],
+    hash: &[u8; 32],
+    signature: &[u8; 64],
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
@@ -955,13 +956,14 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 ///
 pub fn promise_create(
-    account_id: AccountId,
-    function_name: &str,
+    account_id: impl AsRef<AccountIdRef>,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_create(
@@ -987,7 +989,7 @@ pub fn promise_create(
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -998,7 +1000,7 @@ pub fn promise_create(
 ///
 /// let chained_promise = promise_then(
 ///     promise,
-///     "greetings.near".parse().unwrap(),
+///     "greetings.near".parse::<AccountId>().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -1012,13 +1014,14 @@ pub fn promise_create(
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 pub fn promise_then(
     promise_idx: PromiseIndex,
-    account_id: AccountId,
-    function_name: &str,
+    account_id: impl AsRef<AccountIdRef>,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_then(
@@ -1045,7 +1048,7 @@ pub fn promise_then(
 /// use std::str::FromStr;
 ///
 /// let promise1 = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1055,7 +1058,7 @@ pub fn promise_then(
 /// );
 ///
 /// let promise2 = promise_create(
-///     "greetings.near".parse().unwrap(),
+///     "greetings.near".parse::<AccountId>().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -1064,16 +1067,12 @@ pub fn promise_then(
 ///     Gas::from_tgas(30)
 /// );
 ///
-/// let chained_promise = promise_and(&[promise1, promise2]);
+/// let chained_promise = promise_and([promise1, promise2]);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
-pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let mut data = vec![0u8; size_of_val(promise_indices)];
-    for i in 0..promise_indices.len() {
-        data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
-            .copy_from_slice(&promise_indices[i].0.to_le_bytes());
-    }
-    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
+pub fn promise_and(promise_indices: impl IntoIterator<Item = PromiseIndex>) -> PromiseIndex {
+    let data = promise_indices.into_iter().map(|idx| idx.0.to_le_bytes()).collect::<Vec<_>>();
+    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, data.len() as _)) }
 }
 
 /// # Examples
@@ -1084,7 +1083,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = env::promise_batch_create(
-///     &"receiver.near".parse().unwrap()
+///     &"receiver.near".parse::<AccountId>().unwrap()
 /// );
 /// ```
 /// Create a NEAR promise which will have multiple promise actions inside.
@@ -1094,7 +1093,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use near_sdk::{env, NearToken, Gas, AccountId};
 ///
 /// let promise_index = env::promise_batch_create(
-///     &"example.near".parse().unwrap()
+///     &"example.near".parse::<AccountId>().unwrap()
 /// );
 ///
 /// // Adding actions to the promise
@@ -1112,8 +1111,8 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/actions)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_batch_create(account_id: impl AsRef<AccountIdRef>) -> PromiseIndex {
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         PromiseIndex(sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _))
     }
@@ -1127,7 +1126,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1138,15 +1137,18 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 ///
 /// let new_promise = promise_batch_then(
 ///     promise,
-///     &"receiver.near".parse().unwrap()
+///     "receiver.near".parse::<AccountId>().unwrap()
 /// );
 /// ```
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_then`]
-pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_batch_then(
+    promise_index: PromiseIndex,
+    account_id: impl AsRef<AccountIdRef>,
+) -> PromiseIndex {
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         PromiseIndex(sys::promise_batch_then(
             promise_index.0,
@@ -1166,17 +1168,17 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
 ///     Gas::from_tgas(1),
 /// );
-/// promise_set_refund_to(promise, &"refund.near".parse().unwrap());
+/// promise_set_refund_to(promise, "refund.near".parse::<AccountId>().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
-pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId) {
-    let account_id: &str = account_id.as_ref();
+pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: impl AsRef<AccountIdRef>) {
+    let account_id = account_id.as_ref().as_str();
     unsafe {
         sys::promise_set_refund_to(promise_index.0, account_id.len() as _, account_id.as_ptr() as _)
     }
@@ -1190,10 +1192,9 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
 /// ```
 /// use near_sdk::env::{promise_batch_action_state_init, promise_create};
 /// use near_sdk::{AccountId, CryptoHash, Gas, NearToken};
-/// use std::str::FromStr;
 ///
-/// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+/// let promise_idx = promise_create(
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
@@ -1226,15 +1227,14 @@ pub fn promise_batch_action_state_init(
 /// use near_sdk::env::{promise_batch_action_state_init_by_account_id, promise_create};
 /// use near_sdk::{AccountId, Gas, NearToken};
 ///
-/// let account_id: AccountId = "account.near".parse().unwrap();
 /// let promise = promise_create(
-///     account_id.clone(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
 ///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
+/// promise_batch_action_state_init_by_account_id(promise, "account.near".parse::<AccountId>().unwrap(), NearToken::from_millinear(1));
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
@@ -1242,7 +1242,7 @@ pub fn promise_batch_action_state_init_by_account_id(
     account_id: impl AsRef<AccountIdRef>,
     amount: NearToken,
 ) -> ActionIndex {
-    let account_id: &str = account_id.as_ref().as_str();
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         sys::promise_batch_action_state_init_by_account_id(
             promise_index.0,
@@ -1260,26 +1260,26 @@ pub fn promise_batch_action_state_init_by_account_id(
 /// ```
 /// use near_sdk::env::{set_state_init_data_entry, promise_batch_action_state_init_by_account_id, promise_create};
 /// use near_sdk::{AccountId, Gas, NearToken};
-/// use std::str::FromStr;
 ///
-/// let account_id: AccountId = "account.near".parse().unwrap();
 /// let promise = promise_create(
-///     account_id.clone(),
+///     "account.near".parse::<AccountId>().unwrap(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
 ///     Gas::from_tgas(1),
 /// );
-/// let action_index = promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
+/// let action_index = promise_batch_action_state_init_by_account_id(promise, "account.near".parse::<AccountId>().unwrap(), NearToken::from_millinear(1));
 /// set_state_init_data_entry(promise, action_index, b"key", b"value");
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn set_state_init_data_entry(
     promise_index: PromiseIndex,
     action_index: ActionIndex,
-    key: &[u8],
-    value: &[u8],
+    key: impl AsRef<[u8]>,
+    value: impl AsRef<[u8]>,
 ) {
+    let key = key.as_ref();
+    let value = value.as_ref();
     unsafe {
         sys::set_state_init_data_entry(
             promise_index.0,
@@ -1332,7 +1332,8 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_deploy_contract`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
+pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: impl AsRef<[u8]>) {
+    let code = code.as_ref();
     unsafe {
         sys::promise_batch_action_deploy_contract(
             promise_index.0,
@@ -1367,11 +1368,13 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call`]
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
-    function_name: &str,
-    arguments: &[u8],
+    function_name: impl AsRef<str>,
+    arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) {
+    let function_name = function_name.as_ref();
+    let arguments = arguments.as_ref();
     unsafe {
         sys::promise_batch_action_function_call(
             promise_index.0,
@@ -1411,12 +1414,14 @@ pub fn promise_batch_action_function_call(
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call_weight`]
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
-    function_name: &str,
-    arguments: &[u8],
+    function_name: impl AsRef<str>,
+    arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
     weight: GasWeight,
 ) {
+    let function_name = function_name.as_ref();
+    let arguments = arguments.as_ref();
     unsafe {
         sys::promise_batch_action_function_call_weight(
             promise_index.0,
@@ -1568,8 +1573,8 @@ pub fn promise_batch_action_add_key_with_function_call(
     public_key: &PublicKey,
     nonce: u64,
     allowance: NearToken,
-    receiver_id: &AccountId,
-    function_names: &str,
+    receiver_id: impl AsRef<AccountIdRef>,
+    function_names: impl AsRef<str>,
 ) {
     let allowance = migrate_to_allowance(allowance);
     promise_batch_action_add_key_allowance_with_function_call(
@@ -1634,10 +1639,11 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     public_key: &PublicKey,
     nonce: u64,
     allowance: Allowance,
-    receiver_id: &AccountId,
-    function_names: &str,
+    receiver_id: impl AsRef<AccountIdRef>,
+    function_names: impl AsRef<str>,
 ) {
-    let receiver_id: &str = receiver_id.as_ref();
+    let receiver_id = receiver_id.as_ref().as_str();
+    let function_names = function_names.as_ref();
     let allowance = match allowance {
         Allowance::Limited(x) => x.get(),
         Allowance::Unlimited => 0,
@@ -1708,9 +1714,9 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_account`]
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
-    beneficiary_id: &AccountId,
+    beneficiary_id: impl AsRef<AccountIdRef>,
 ) {
-    let beneficiary_id: &str = beneficiary_id.as_ref();
+    let beneficiary_id = beneficiary_id.as_ref().as_str();
     unsafe {
         sys::promise_batch_action_delete_account(
             promise_index.0,
@@ -1729,13 +1735,17 @@ pub fn promise_batch_action_delete_account(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create("alice.near".parse::<AccountId>().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
-/// env::promise_batch_action_deploy_global_contract(promise, &code);
+/// env::promise_batch_action_deploy_global_contract(promise, code);
 /// ```
-pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, code: &[u8]) {
+pub fn promise_batch_action_deploy_global_contract(
+    promise_index: PromiseIndex,
+    code: impl AsRef<[u8]>,
+) {
+    let code = code.as_ref();
     unsafe {
         sys::promise_batch_action_deploy_global_contract(
             promise_index.0,
@@ -1754,16 +1764,17 @@ pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, 
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
 /// env::promise_batch_action_deploy_global_contract_by_account_id(promise, &code);
 /// ```
 pub fn promise_batch_action_deploy_global_contract_by_account_id(
     promise_index: PromiseIndex,
-    code: &[u8],
+    code: impl AsRef<[u8]>,
 ) {
+    let code = code.as_ref();
     unsafe {
         sys::promise_batch_action_deploy_global_contract_by_account_id(
             promise_index.0,
@@ -1782,9 +1793,9 @@ pub fn promise_batch_action_deploy_global_contract_by_account_id(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::{env, AccountId, PromiseIndex};
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
 /// env::promise_batch_action_use_global_contract(promise, &code_hash);
 /// ```
@@ -1813,17 +1824,17 @@ pub fn promise_batch_action_use_global_contract(
 /// use near_sdk::{env, PromiseIndex, AccountId};
 /// use std::str::FromStr;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = env::promise_batch_create(&"alice.near".parse::<AccountId>().unwrap());
 /// env::promise_batch_action_use_global_contract_by_account_id(
 ///     promise,
-///     &AccountId::from_str("deployer.near").unwrap()
+///     AccountId::from_str("deployer.near").unwrap()
 /// );
 /// ```
 pub fn promise_batch_action_use_global_contract_by_account_id(
     promise_index: PromiseIndex,
     account_id: impl AsRef<AccountIdRef>,
 ) {
-    let account_id: &str = account_id.as_ref().as_str();
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         sys::promise_batch_action_use_global_contract_by_account_id(
             promise_index.0,
@@ -1978,12 +1989,13 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     gas: Gas,
     weight: GasWeight,
     register_id: u64,
 ) -> PromiseIndex {
+    let function_name = function_name.as_ref();
     let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_yield_create(
@@ -2003,7 +2015,7 @@ pub fn promise_yield_create(
 /// This is a convenience wrapper around [`promise_yield_create`] that automatically reads the
 /// yield ID from the register and returns it as a [`crate::YieldId`].
 pub fn promise_yield_create_id(
-    function_name: &str,
+    function_name: impl AsRef<str>,
     arguments: impl AsRef<[u8]>,
     gas: Gas,
     weight: GasWeight,
@@ -2090,8 +2102,8 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
 ///     NearToken::from_yoctonear(0)
 /// );
 /// ```
-pub fn validator_stake(account_id: &AccountId) -> NearToken {
-    let account_id: &str = account_id.as_ref();
+pub fn validator_stake(account_id: impl AsRef<AccountIdRef>) -> NearToken {
+    let account_id = account_id.as_ref().as_str();
     let mut data = [0u8; size_of::<NearToken>()];
     unsafe {
         sys::validator_stake(
@@ -2158,7 +2170,8 @@ pub fn value_return(value: impl AsRef<[u8]>) {
 /// panic(b"Unexpected error");
 /// ```
 #[deprecated(since = "4.0.0", note = "Use env::panic_str to panic with a message.")]
-pub fn panic(message: &[u8]) -> ! {
+pub fn panic(message: impl AsRef<[u8]>) -> ! {
+    let message = message.as_ref();
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
@@ -2178,7 +2191,8 @@ pub fn panic(message: &[u8]) -> ! {
 /// let account = AccountId::from_str("bob.near").unwrap();
 /// panic_str(format!("Unexpected error happened for account {}", account).as_str());
 /// ```
-pub fn panic_str(message: &str) -> ! {
+pub fn panic_str(message: impl AsRef<str>) -> ! {
+    let message = message.as_ref();
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
@@ -2220,7 +2234,8 @@ pub fn abort() -> ! {
 /// log_str(format!("Number: {}", number).as_str());
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
-pub fn log_str(message: &str) {
+pub fn log_str(message: impl AsRef<str>) {
+    let message = message.as_ref();
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{message}");
 
@@ -2236,7 +2251,9 @@ pub fn log_str(message: &str) {
 /// log(b"Text");
 /// ```
 #[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
-pub fn log(message: &[u8]) {
+pub fn log(message: impl AsRef<[u8]>) {
+    let message = message.as_ref();
+
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", String::from_utf8_lossy(message));
 
@@ -2262,7 +2279,9 @@ pub fn log(message: &[u8]) {
 /// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
-pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
+pub fn storage_write(key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
+    let value = value.as_ref();
     match unsafe {
         sys::storage_write(
             key.len() as _,
@@ -2296,7 +2315,8 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 ///
 /// Another example:
 /// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
-pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
+pub fn storage_read(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let key = key.as_ref();
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
         1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
@@ -2319,7 +2339,8 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// assert_eq!(storage_remove(b"key"), true);
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
-pub fn storage_remove(key: &[u8]) -> bool {
+pub fn storage_remove(key: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
         1 => true,
@@ -2355,7 +2376,8 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_has_key(b"key"), true);
 /// ```
-pub fn storage_has_key(key: &[u8]) -> bool {
+pub fn storage_has_key(key: impl AsRef<[u8]>) -> bool {
+    let key = key.as_ref();
     match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
@@ -3024,10 +3046,10 @@ mod tests {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
 
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise_index = super::promise_batch_create(AccountIdRef::new_or_panic("alice.near"));
         let code = vec![0u8; 100]; // Mock contract bytecode
         let code_hash = [0u8; 32]; // Mock 32-byte hash (CryptoHash)
-        let account_id = crate::AccountIdRef::new_or_panic("deployer.near");
+        let account_id = AccountIdRef::new_or_panic("deployer.near");
 
         // Test deploy_global_contract
         super::promise_batch_action_deploy_global_contract(promise_index, &code);
@@ -3046,11 +3068,11 @@ mod tests {
     #[cfg(feature = "global-contracts")]
     fn test_global_contract_edge_cases() {
         // Test with minimal valid inputs
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise_index = super::promise_batch_create(AccountIdRef::new_or_panic("alice.near"));
 
         // Test with single byte code (minimal size)
-        super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
-        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &[0]);
+        super::promise_batch_action_deploy_global_contract(promise_index, [0]);
+        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, [0]);
 
         // Test with 32-byte hash (standard size for CryptoHash)
         let valid_hash = [0u8; 32];

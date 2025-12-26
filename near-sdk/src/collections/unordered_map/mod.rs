@@ -111,7 +111,7 @@ impl<K, V> UnorderedMap<K, V> {
     /// Returns an index of the given raw key.
     fn get_index_raw(&self, key_raw: &[u8]) -> Option<u64> {
         let index_lookup = self.raw_key_to_index_lookup(key_raw);
-        env::storage_read(&index_lookup).map(|raw_index| Self::deserialize_index(&raw_index))
+        env::storage_read(index_lookup).map(|raw_index| Self::deserialize_index(&raw_index))
     }
 
     /// Returns the serialized value corresponding to the serialized key.
@@ -138,7 +138,7 @@ impl<K, V> UnorderedMap<K, V> {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                env::storage_write(&index_lookup, &next_index_raw);
+                env::storage_write(index_lookup, next_index_raw);
                 self.keys.push_raw(key_raw);
                 self.values.push_raw(value_raw);
                 None
@@ -156,7 +156,7 @@ impl<K, V> UnorderedMap<K, V> {
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
-                    env::storage_remove(&index_lookup);
+                    env::storage_remove(index_lookup);
                 } else {
                     // If there is more than one element then swap remove swaps it with the last
                     // element.
@@ -164,12 +164,12 @@ impl<K, V> UnorderedMap<K, V> {
                         Some(x) => x,
                         None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
-                    env::storage_remove(&index_lookup);
+                    env::storage_remove(index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
                     // reinsert the lookup back.
                     if last_key_raw != key_raw {
                         let last_lookup_key = self.raw_key_to_index_lookup(&last_key_raw);
-                        env::storage_write(&last_lookup_key, &index_raw);
+                        env::storage_write(last_lookup_key, &index_raw);
                     }
                 }
                 let index = Self::deserialize_index(&index_raw);

@@ -20,20 +20,15 @@ struct ParsedData {
     receiver: Option<Receiver>,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 enum ResultHandling {
     // No result handling.
+    #[default]
     None,
     // Attempt to handle the `Result` without performing a heuristic type check.
     NoCheck,
     // Attempt to handle the `Result` with a heuristic type check.
     Check,
-}
-
-impl Default for ResultHandling {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl Default for ParsedData {

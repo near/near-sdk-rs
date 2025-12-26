@@ -20,10 +20,14 @@ const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 const ERR_NOT_FOUND: &str = "No value found for the given key";
 
+#[inline]
+#[track_caller]
 fn expect_key_exists<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_str(ERR_NOT_FOUND))
 }
 
+#[inline]
+#[track_caller]
 fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
 }
@@ -43,7 +47,7 @@ where
     T: BorshSerialize,
 {
     let serialized = to_vec(value).unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
-    env::storage_write(key, &serialized);
+    env::storage_write(key, serialized);
 }
 
 /// An persistent lazily loaded value, that stores a value in the storage.

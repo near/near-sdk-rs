@@ -650,7 +650,7 @@ mod tests {
         assert_eq!(map[&5], 8);
 
         let storage_key = Keccak256::to_key(b"m", &5, &mut Vec::new());
-        assert!(!env::storage_has_key(&storage_key));
+        assert!(!env::storage_has_key(storage_key));
 
         drop(map);
 
