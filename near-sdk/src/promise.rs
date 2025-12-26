@@ -262,7 +262,7 @@ impl PromiseJoint {
                 return None;
             }
             self.promise_index = Some(crate::env::promise_and(
-                &promises.iter_mut().filter_map(Promise::construct_recursively).collect::<Vec<_>>(),
+                promises.iter_mut().filter_map(Promise::construct_recursively),
             ));
         }
         self.promise_index

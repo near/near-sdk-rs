@@ -21,6 +21,13 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
 pub struct PromiseIndex(pub(crate) u64);
 
+impl AsRef<PromiseIndex> for PromiseIndex {
+    #[inline(always)]
+    fn as_ref(&self) -> &PromiseIndex {
+        self
+    }
+}
+
 /// An index of Receipt to append an action
 #[deprecated(since = "4.1.0", note = "type not used within SDK, use u64 directly or another alias")]
 pub type ReceiptIndex = u64;

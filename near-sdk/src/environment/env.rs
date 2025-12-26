@@ -7,9 +7,11 @@
 //! In case of cross-contract calls prefer using higher-level API available
 //! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
 
-use std::convert::TryFrom;
-use std::convert::TryInto;
-use std::mem::size_of;
+use core::{
+    convert::{TryFrom, TryInto},
+    mem::size_of,
+};
+
 use std::panic as std_panic;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
@@ -1065,12 +1067,15 @@ pub fn promise_then(
 ///     Gas::from_tgas(30)
 /// );
 ///
-/// let chained_promise = promise_and(&[promise1, promise2]);
+/// let chained_promise = promise_and([promise1, promise2]);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
-pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let data = promise_indices.iter().map(|idx| idx.0.to_le_bytes()).collect::<Vec<_>>();
-    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
+pub fn promise_and(
+    promise_indices: impl IntoIterator<Item = impl AsRef<PromiseIndex>>,
+) -> PromiseIndex {
+    let data =
+        promise_indices.into_iter().map(|idx| idx.as_ref().0.to_le_bytes()).collect::<Vec<_>>();
+    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, data.len() as _)) }
 }
 
 /// # Examples
