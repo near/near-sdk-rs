@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.24.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.23.0...near-sdk-v5.24.0) - 2025-12-26
+
+### Added
+
+- *(env)* `promise_result_checked()` ([#1456](https://github.com/near/near-sdk-rs/pull/1456))
+- `Promise::refund_to` ([#1458](https://github.com/near/near-sdk-rs/pull/1458))
+- `env::current_global_contract_id()` ([#1455](https://github.com/near/near-sdk-rs/pull/1455))
+
+### Fixed
+
+- **breaking change** for the recently introduced GlobalContractId JSON serialization - now it expects a tagged enum ([#1450](https://github.com/near/near-sdk-rs/pull/1450))
+- *(store)* clarify LookupSet persistence behavior ([#1443](https://github.com/near/near-sdk-rs/pull/1443))
+
+### Other
+
+- Use Base58CryptoHash instead of CryptoHash with base64 encoding (for JSON) in GlobalContractId ([#1454](https://github.com/near/near-sdk-rs/pull/1454))
+
 ## [5.23.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.22.0...near-sdk-v5.23.0) - 2025-12-13
 
 ### Added
