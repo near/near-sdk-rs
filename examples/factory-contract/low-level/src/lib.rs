@@ -1,6 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
-use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
+use near_sdk::{env, near, AccountId, Gas, NearToken};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -58,17 +58,17 @@ impl FactoryContract {
     }
 
     pub fn get_result(&mut self, account_id: AccountId) {
-        match env::promise_result(0) {
-            PromiseResult::Successful(_) => {
-                env::promise_return(env::promise_create(
-                    account_id,
-                    "get_status",
-                    &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
-                    NearToken::from_near(0),
-                    SINGLE_CALL_GAS,
-                ));
-            }
-            _ => env::panic_str("Failed to set status"),
-        };
+        const SET_STATUS_MAX_RESULT_LENGTH: usize = 0; // set_status returns empty result
+
+        env::promise_result_checked(0, SET_STATUS_MAX_RESULT_LENGTH)
+            .unwrap_or_else(|_| env::panic_str("Failed to set status"));
+
+        env::promise_return(env::promise_create(
+            account_id,
+            "get_status",
+            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
+            NearToken::from_near(0),
+            SINGLE_CALL_GAS,
+        ));
     }
 }

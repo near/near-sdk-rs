@@ -44,6 +44,8 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+#[inline]
+#[track_caller]
 fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
 }
@@ -57,10 +59,12 @@ fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>
 
 /// Same as `try_method_into_register` but expects the data.
 #[inline]
+#[track_caller]
 fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
     expect_register(try_method_into_register(method))
 }
 
+#[inline]
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
     let mut buf = [0; N];
     sys::read_register(register_id, buf.as_mut_ptr() as _);
@@ -110,10 +114,24 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
+    read_register_bounded(register_id, usize::MAX).map(|r| {
+        r
+            // vector can't be longer than usize::MAX
+            .unwrap_or_else(|_| unreachable!())
+    })
+}
+
+/// Same as [`read_register`] but bounded: if data in the register is
+/// longer than `max_len`, then `Some(Err(len))` is returned.
+pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<Vec<u8>, usize>> {
     // Get register length and convert to a usize. The max register size in config is much less
     // than the u32 max so the abort should never be hit, but is there for safety because there
     // would be undefined behaviour during `read_register` if the buffer length is truncated.
     let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
+
+    if len > max_len {
+        return Some(Err(len));
+    }
 
     // Initialize buffer with capacity.
     let mut buffer = Vec::with_capacity(len);
@@ -127,7 +145,7 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
         // Set updated length after writing to buffer.
         buffer.set_len(len);
     }
-    Some(buffer)
+    Some(Ok(buffer))
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
@@ -1882,14 +1900,45 @@ pub fn promise_results_count() -> u64 {
 /// - [near-contract-standards/src/non_fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433)
 /// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
 /// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
+#[deprecated = "use `promise_result_checked` to prevent out-of-gas errors"]
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match promise_result_internal(result_idx) {
-        Ok(()) => {
-            let data = expect_register(read_register(ATOMIC_OP_REGISTER));
-            PromiseResult::Successful(data)
-        }
-        Err(PromiseError::Failed) => PromiseResult::Failed,
+    match promise_result_checked(result_idx, usize::MAX) {
+        Ok(data) => PromiseResult::Successful(data),
+        Err(err) => match err {
+            PromiseError::Failed => PromiseResult::Failed,
+            // vector can't be longer than usize::MAX
+            PromiseError::TooLong(_len) => unreachable!(),
+        },
     }
+}
+
+/// Same as [`promise_result`] but bounded: if the result is longer than
+/// `max_len`, then `Err(PromiseResultError::TooLong(len))` is returned.
+///
+/// This should be preferred when reading promise results from unknown
+/// contracts to prevent out-of-gas errors.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_result_checked, promise_results_count, log_str, panic_str};
+/// use near_sdk::PromiseResult;
+///
+/// assert!(promise_results_count() > 0);
+///
+/// // The promise_index will be in the range [0, n)
+/// // where n is the number of promises triggering this callback,
+/// // retrieved from promise_results_count()
+/// let promise_index = 0;
+///
+/// let data = promise_result_checked(promise_index, 100)
+///     .unwrap_or_else(|_| panic_str("Promise failed or returned result is too long!"));
+/// log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
+/// assert!(data.len() <= 100);
+/// ```
+pub fn promise_result_checked(result_idx: u64, max_len: usize) -> Result<Vec<u8>, PromiseError> {
+    promise_result_internal(result_idx)?;
+    expect_register(read_register_bounded(ATOMIC_OP_REGISTER, max_len))
+        .map_err(PromiseError::TooLong)
 }
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {

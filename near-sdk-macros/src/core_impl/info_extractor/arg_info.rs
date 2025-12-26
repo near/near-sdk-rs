@@ -2,24 +2,27 @@ use crate::core_impl::info_extractor::SerializerType;
 use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use syn::{Attribute, Error, Ident, Pat, PatType, Token, Type};
+use syn::{parse_quote, Error, Expr, Ident, Pat, PatType, Token, Type};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
     Regular,
+    /// An argument that we read from one or many `env::promise_result()`.
+    Callback { ty: CallbackBindgenArgType, max_bytes: Expr },
+}
+
+/// An argument that we read from one or many `env::promise_result()`.
+pub enum CallbackBindgenArgType {
     /// An argument that we read from a single `env::promise_result()`.
-    CallbackArg,
+    Arg,
     /// An argument that we read from a single `env::promise_result()` which handles the error.
-    CallbackResultArg,
+    ResultArg,
     /// An argument that we read from all `env::promise_result()`.
-    CallbackArgVec,
+    ArgVec,
 }
 
 /// A single argument of a function after it was processed by the bindgen.
 pub struct ArgInfo {
-    /// Attributes not related to bindgen.
-    #[allow(unused)]
-    pub non_bindgen_attrs: Vec<Attribute>,
     /// The `binding` part of `ref mut binding @ SUBPATTERN: TYPE` argument.
     pub ident: Ident,
     /// Whether pattern has a preceded `ref`.
@@ -45,19 +48,22 @@ pub struct ArgInfo {
 }
 use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
-#[darling(
-    attributes(init, payable, private, result_serializer, serializer, handle_result),
-    forward_attrs(serializer)
-)]
-struct AttributeConfig {
+#[darling(attributes(serializer))]
+struct SerializerAttrConfig {
     borsh: Option<bool>,
     json: Option<bool>,
+}
+
+#[derive(darling::FromAttributes, Clone, Debug)]
+#[darling(attributes(callback, callback_unwrap, callback_result, callback_vec))]
+struct CallbackAttrConfig {
+    #[darling(default)]
+    max_bytes: Option<Expr>,
 }
 
 impl ArgInfo {
     /// Extract near-sdk specific argument info.
     pub fn new(original: &mut PatType, source_type: &TokenStream) -> syn::Result<Self> {
-        let mut non_bindgen_attrs = vec![];
         let pat_info = match original.pat.as_ref() {
             Pat::Ident(pat_ident) => {
                 Ok((pat_ident.by_ref, pat_ident.mutability, pat_ident.ident.clone()))
@@ -80,58 +86,56 @@ impl ArgInfo {
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
         let mut more_errors: Vec<Error> = Vec::new();
-        for attr in &original.attrs {
-            let attr_str = attr.path().to_token_stream().to_string();
-            match attr_str.as_str() {
-                "callback" | "callback_unwrap" => {
-                    bindgen_ty = BindgenArgType::CallbackArg;
-                }
-                "callback_result" => {
-                    bindgen_ty = BindgenArgType::CallbackResultArg;
-                }
-                "callback_vec" => {
-                    bindgen_ty = BindgenArgType::CallbackArgVec;
-                }
-                "serializer" => {
-                    let args = match AttributeConfig::from_attributes(&original.attrs) {
-                        Ok(args) => args,
-                        Err(e) => {
-                            more_errors.push(Error::new(e.span(), e.to_string()));
-                            continue;
-                        }
-                    };
-                    if args.borsh.is_some() && args.json.is_some() {
-                        let spanned_error = syn::Error::new_spanned(
-                            attr,
-                            "Only one of `borsh` or `json` can be specified.",
-                        );
-                        more_errors.push(spanned_error);
-                    };
-
-                    if let Some(borsh) = args.borsh {
-                        if borsh {
-                            serializer_ty = SerializerType::Borsh;
-                        }
-                    }
-                    if let Some(json) = args.json {
-                        if json {
-                            serializer_ty = SerializerType::JSON;
-                        }
-                    }
-                }
-                _ => {
-                    non_bindgen_attrs.push((*attr).clone());
-                }
-            }
-        }
 
         original.attrs.retain(|attr| {
             let attr_str = attr.path().to_token_stream().to_string();
-            attr_str != "callback"
-                && attr_str != "callback_vec"
-                && attr_str != "serializer"
-                && attr_str != "callback_result"
-                && attr_str != "callback_unwrap"
+            match attr_str.as_str() {
+                callback if callback.starts_with("callback") => {
+                    let cb_bindgen_ty = match callback {
+                        "callback" | "callback_unwrap" => CallbackBindgenArgType::Arg,
+                        "callback_result" => CallbackBindgenArgType::ResultArg,
+                        "callback_vec" => CallbackBindgenArgType::ArgVec,
+                        _ => return true,
+                    };
+                    match CallbackAttrConfig::from_attributes(&[attr.clone()]) {
+                        Ok(args) => {
+                            bindgen_ty = BindgenArgType::Callback {
+                                ty: cb_bindgen_ty,
+                                max_bytes: args.max_bytes.unwrap_or(parse_quote!(usize::MAX)),
+                            };
+                        }
+                        Err(e) => more_errors.push(Error::new(e.span(), e.to_string())),
+                    };
+                    false
+                }
+                "serializer" => {
+                    match SerializerAttrConfig::from_attributes(&[attr.clone()]) {
+                        Ok(args) => {
+                            if args.borsh.is_some() && args.json.is_some() {
+                                let spanned_error = syn::Error::new_spanned(
+                                    attr,
+                                    "Only one of `borsh` or `json` can be specified.",
+                                );
+                                more_errors.push(spanned_error);
+                            };
+
+                            if let Some(borsh) = args.borsh {
+                                if borsh {
+                                    serializer_ty = SerializerType::Borsh;
+                                }
+                            }
+                            if let Some(json) = args.json {
+                                if json {
+                                    serializer_ty = SerializerType::JSON;
+                                }
+                            }
+                        }
+                        Err(e) => more_errors.push(Error::new(e.span(), e.to_string())),
+                    };
+                    false
+                }
+                _ => true,
+            }
         });
 
         match (&pat_info, &result_sanitize_and_ty, more_errors.is_empty()) {
@@ -140,7 +144,6 @@ impl ArgInfo {
                 Ok((sanitize_self, (reference, mutability, ty))),
                 true,
             ) => Ok(Self {
-                non_bindgen_attrs,
                 ident: ident.clone(),
                 pat_reference: *pat_reference,
                 pat_mutability: *pat_mutability,

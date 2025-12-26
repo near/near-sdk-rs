@@ -1,20 +1,24 @@
-use super::resolver::NonFungibleTokenResolver;
-use crate::non_fungible_token::core::receiver::ext_nft_receiver;
-use crate::non_fungible_token::core::resolver::ext_nft_resolver;
-use crate::non_fungible_token::core::NonFungibleTokenCore;
-use crate::non_fungible_token::events::{NftMint, NftTransfer};
-use crate::non_fungible_token::metadata::TokenMetadata;
-use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
-use near_sdk::borsh::BorshSerialize;
-use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::json_types::Base64VecU8;
+use std::{collections::HashMap, ops::Deref};
+
 use near_sdk::{
-    assert_one_yocto, env, near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto,
+    borsh::BorshSerialize,
+    collections::{LookupMap, TreeMap, UnorderedSet},
+    env,
+    json_types::Base64VecU8,
+    near, require, serde_json, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
+    StorageUsage,
 };
-use std::collections::HashMap;
-use std::ops::Deref;
+
+use crate::non_fungible_token::{
+    core::{receiver::ext_nft_receiver, resolver::ext_nft_resolver, NonFungibleTokenCore},
+    events::{NftMint, NftTransfer},
+    metadata::TokenMetadata,
+    token::{Token, TokenId},
+    utils::{refund_approved_account_ids, refund_deposit_to_account},
+};
+
+use super::resolver::NonFungibleTokenResolver;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 
@@ -430,13 +434,13 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         token_id: TokenId,
         approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool {
+        const MAX_RESULT_LENGTH: usize = "false".len();
+
         // Get whether token should be returned
-        let must_revert = match env::promise_result(0) {
-            PromiseResult::Successful(value) => {
-                near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true)
-            }
-            PromiseResult::Failed => true,
-        };
+        let must_revert = env::promise_result_checked(0, MAX_RESULT_LENGTH)
+            .ok()
+            .and_then(|value| serde_json::from_slice(&value).ok())
+            .unwrap_or(true);
 
         // if call succeeded, return early
         if !must_revert {
