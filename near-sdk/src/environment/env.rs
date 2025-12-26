@@ -23,7 +23,7 @@ use crate::types::{
 use crate::{CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
-use crate::{AccountContract, ActionIndex};
+use crate::{AccountContract, ActionIndex, GlobalContractId};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -211,6 +211,26 @@ pub fn current_contract_code() -> AccountContract {
             ))),
             _ => panic!("Invalid contract mode"),
         }
+    })
+}
+
+/// Returns global contract identifier of the contract's code currently being
+/// executed. Otherwise, returns `None` if the current contract is not using
+/// globally deployed code.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::current_global_contract_id;
+/// use near_sdk::GlobalContractId;
+///
+/// assert!(matches!(current_global_contract_id(), Some(GlobalContractId::CodeHash(_))));
+/// ```
+#[cfg(feature = "deterministic-account-ids")]
+pub fn current_global_contract_id() -> Option<GlobalContractId> {
+    Some(match current_contract_code() {
+        AccountContract::Global(hash) => GlobalContractId::CodeHash(hash),
+        AccountContract::GlobalByAccount(account_id) => GlobalContractId::AccountId(account_id),
+        _ => return None,
     })
 }
 
