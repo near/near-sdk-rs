@@ -30,10 +30,10 @@ use near_sdk::{
 #[autoimpl(DerefMut using self.0)]
 #[derive(PanicOnDefault)]
 #[repr(transparent)]
-struct SFTWalletContract(SftWalletData);
+struct SftWalletContract(SftWalletData);
 
 #[near]
-impl ShardedFungibleTokenWallet for SFTWalletContract {
+impl ShardedFungibleTokenWallet for SftWalletContract {
     /// View method to get all data at once
     fn sft_wallet_data(self) -> SftWalletData {
         self.0
@@ -281,7 +281,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
 }
 
 #[near]
-impl SFTWalletContract {
+impl SftWalletContract {
     /// Gets result from `sft_receive()`, `sft_on_receive()`
     /// or `sft_on_burn()`, adjusts the balance accordingly
     /// and returns `used_amount`.
@@ -356,7 +356,7 @@ impl SFTWalletContract {
     }
 }
 
-impl SFTWalletContract {
+impl SftWalletContract {
     const ERR_NOT_OWNER: &str = "not owner";
     const ERR_SELF_TRANSFER: &str = "self-transfer";
     const ERR_WRONG_WALLET: &str = "wrong wallet";
@@ -384,7 +384,7 @@ const _: () = {
     use near_contract_standards::sharded_fungible_token::wallet::ShardedFungibleTokenWalletGoverned;
 
     #[near]
-    impl ShardedFungibleTokenWalletGoverned for SFTWalletContract {
+    impl ShardedFungibleTokenWalletGoverned for SftWalletContract {
         /// Set status (only allowed for minter).
         ///
         /// Note: MUST have exactly 1yN attached.
@@ -399,7 +399,7 @@ const _: () = {
         }
     }
 
-    impl SFTWalletContract {
+    impl SftWalletContract {
         const ERR_LOCKED: &str = "wallet is locked";
 
         const OUTGOING_TRANSFERS_LOCKED_FLAG: u8 = 1 << 0;
