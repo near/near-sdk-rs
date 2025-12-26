@@ -312,12 +312,12 @@ impl AttrSigInfo {
         self
             .args
             .iter()
-            .filter_map(|arg| {let BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, ref max_bytes } = arg.bindgen_ty else {
-                return None;
-            };
-            Some((arg, max_bytes))
-        }
-        )
+            .filter_map(|arg| {
+                let BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, ref max_bytes } = arg.bindgen_ty else {
+                    return None;
+                };
+                Some((arg, max_bytes))
+            })
             .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
