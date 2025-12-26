@@ -239,14 +239,8 @@ where
         K: BorshDeserialize + Ord + Clone,
         V: BorshDeserialize,
     {
-        let old_value =
-            self.values.remove(&self.key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-        let last_index = self.keys.len() - 1;
-        self.keys.swap_remove(old_value.key_index);
-
-        IterableMap::remove_entry_helper(self.keys, self.values, old_value.key_index, last_index);
-
-        (self.key, old_value.value)
+        IterableMap::remove_entry_impl(self.keys, self.values, self.key)
+            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
     }
 
     /// Gets a reference to the value in the entry.
