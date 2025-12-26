@@ -22,7 +22,7 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.23.0" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.24.0" }
 near-sys = { path = "../near-sys", version = "0.2.6" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
