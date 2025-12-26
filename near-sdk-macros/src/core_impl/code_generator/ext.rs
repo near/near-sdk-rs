@@ -13,9 +13,9 @@ pub(crate) fn generate_ext_structs(
     let name = format_ident!("{}Ext", ident);
     let mut ext_code = quote! {
         /// API for calling this contract's functions in a subsequent execution.
-        pub fn ext(account_id: impl ::core::convert::Into<::near_sdk::AccountId>) -> #name {
+        pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
             #name {
-                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id.into()),
+                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id),
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),

@@ -109,8 +109,8 @@ impl PromiseAction {
             FunctionCall { function_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
                     promise_index,
-                    function_name,
-                    arguments,
+                    &function_name,
+                    &arguments,
                     amount,
                     gas,
                 )
@@ -118,8 +118,8 @@ impl PromiseAction {
             FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
                 crate::env::promise_batch_action_function_call_weight(
                     promise_index,
-                    function_name,
-                    arguments,
+                    &function_name,
+                    &arguments,
                     amount,
                     gas,
                     GasWeight(weight.0),
@@ -142,19 +142,19 @@ impl PromiseAction {
                     &public_key,
                     nonce,
                     allowance,
-                    receiver_id,
-                    function_names,
+                    &receiver_id,
+                    &function_names,
                 )
             }
             DeleteKey { public_key } => {
                 crate::env::promise_batch_action_delete_key(promise_index, &public_key)
             }
             DeleteAccount { beneficiary_id } => {
-                crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+                crate::env::promise_batch_action_delete_account(promise_index, &beneficiary_id)
             }
             #[cfg(feature = "global-contracts")]
             DeployGlobalContract { code } => {
-                crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
+                crate::env::promise_batch_action_deploy_global_contract(promise_index, &code)
             }
             #[cfg(feature = "global-contracts")]
             DeployGlobalContractByAccountId { code } => {
@@ -262,7 +262,7 @@ impl PromiseJoint {
                 return None;
             }
             self.promise_index = Some(crate::env::promise_and(
-                promises.iter_mut().filter_map(Promise::construct_recursively),
+                &promises.iter_mut().filter_map(Promise::construct_recursively).collect::<Vec<_>>(),
             ));
         }
         self.promise_index
@@ -338,13 +338,9 @@ enum PromiseSubtype {
 impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
-    pub fn new(account_id: impl Into<AccountId>) -> Self {
+    pub fn new(account_id: AccountId) -> Self {
         Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
-            PromiseSingleSubtype::Regular {
-                account_id: account_id.into(),
-                after: None,
-                promise_index: None,
-            },
+            PromiseSingleSubtype::Regular { account_id, after: None, promise_index: None },
         )))
     }
 
@@ -389,7 +385,7 @@ impl Promise {
     ///
     /// Uses low-level [`crate::env::promise_yield_create`]
     pub fn new_yield(
-        function_name: impl AsRef<str>,
+        function_name: &str,
         arguments: impl AsRef<[u8]>,
         gas: Gas,
         weight: GasWeight,

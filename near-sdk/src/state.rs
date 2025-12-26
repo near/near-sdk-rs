@@ -33,7 +33,7 @@ pub trait ContractState {
     {
         env::storage_write(
             Self::state_key(),
-            borsh::to_vec(self)
+            &borsh::to_vec(self)
                 .unwrap_or_else(|_| env::panic_str("Cannot serialize the contract state.")),
         )
     }

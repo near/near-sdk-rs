@@ -44,13 +44,13 @@ impl<K, V> LookupMap<K, V> {
     /// Returns `true` if the serialized key is present in the map.
     fn contains_key_raw(&self, key_raw: &[u8]) -> bool {
         let storage_key = self.raw_key_to_storage_key(key_raw);
-        env::storage_has_key(storage_key)
+        env::storage_has_key(&storage_key)
     }
 
     /// Returns the serialized value corresponding to the serialized key.
     fn get_raw(&self, key_raw: &[u8]) -> Option<Vec<u8>> {
         let storage_key = self.raw_key_to_storage_key(key_raw);
-        env::storage_read(storage_key)
+        env::storage_read(&storage_key)
     }
 
     /// Inserts a serialized key-value pair into the map.
@@ -59,7 +59,7 @@ impl<K, V> LookupMap<K, V> {
     /// prefix). Two keys that serialize to identical bytes will be indistinguishable.
     pub fn insert_raw(&mut self, key_raw: &[u8], value_raw: &[u8]) -> Option<Vec<u8>> {
         let storage_key = self.raw_key_to_storage_key(key_raw);
-        if env::storage_write(storage_key, value_raw) {
+        if env::storage_write(&storage_key, value_raw) {
             Some(env::storage_get_evicted().unwrap())
         } else {
             None
@@ -70,7 +70,7 @@ impl<K, V> LookupMap<K, V> {
     /// was previously in the map.
     pub fn remove_raw(&mut self, key_raw: &[u8]) -> Option<Vec<u8>> {
         let storage_key = self.raw_key_to_storage_key(key_raw);
-        if env::storage_remove(storage_key) {
+        if env::storage_remove(&storage_key) {
             Some(env::storage_get_evicted().unwrap())
         } else {
             None

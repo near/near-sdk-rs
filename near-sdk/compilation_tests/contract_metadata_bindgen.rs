@@ -15,6 +15,6 @@ impl Contract {
 }
 
 fn main() {
-    let ext = Contract::ext(AccountIdRef::new_or_panic("0000"));
+    let ext = Contract::ext(AccountIdRef::new_or_panic("0000").into());
     ext.contract_source_metadata().detach();
 }

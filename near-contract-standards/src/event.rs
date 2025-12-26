@@ -26,6 +26,6 @@ impl<'a> NearEvent<'a> {
     /// Logs the event to the host. This is required to ensure that the event is triggered
     /// and to consume the event.
     pub(crate) fn emit(self) {
-        near_sdk::env::log_str(self.to_json_event_string());
+        near_sdk::env::log_str(&self.to_json_event_string());
     }
 }

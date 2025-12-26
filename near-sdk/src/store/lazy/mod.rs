@@ -47,7 +47,7 @@ where
     T: BorshSerialize,
 {
     let serialized = to_vec(value).unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
-    env::storage_write(key, serialized);
+    env::storage_write(key, &serialized);
 }
 
 /// An persistent lazily loaded value, that stores a value in the storage.

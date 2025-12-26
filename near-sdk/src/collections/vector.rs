@@ -83,7 +83,7 @@ impl<T> Vector<T> {
             return None;
         }
         let lookup_key = self.index_to_lookup_key(index);
-        Some(expect_consistent_state(env::storage_read(lookup_key)))
+        Some(expect_consistent_state(env::storage_read(&lookup_key)))
     }
 
     /// Removes an element from the vector and returns it in serialized form.
@@ -104,7 +104,7 @@ impl<T> Vector<T> {
                 Some(value) => value,
                 None => env::panic_str("checked `index < len` above, so `len > 0`"),
             };
-            if env::storage_write(lookup_key, raw_last_value) {
+            if env::storage_write(&lookup_key, &raw_last_value) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic_str(ERR_INCONSISTENT_STATE)
@@ -116,7 +116,7 @@ impl<T> Vector<T> {
     pub fn push_raw(&mut self, raw_element: &[u8]) {
         let lookup_key = self.index_to_lookup_key(self.len);
         self.len += 1;
-        env::storage_write(lookup_key, raw_element);
+        env::storage_write(&lookup_key, raw_element);
     }
 
     /// Removes the last element from a vector and returns it without deserializing, or `None` if it is empty.
@@ -128,7 +128,7 @@ impl<T> Vector<T> {
             let last_lookup_key = self.index_to_lookup_key(last_index);
 
             self.len -= 1;
-            let raw_last_value = if env::storage_remove(last_lookup_key) {
+            let raw_last_value = if env::storage_remove(&last_lookup_key) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic_str(ERR_INCONSISTENT_STATE)
@@ -147,7 +147,7 @@ impl<T> Vector<T> {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            if env::storage_write(lookup_key, raw_element) {
+            if env::storage_write(&lookup_key, raw_element) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic_str(ERR_INCONSISTENT_STATE);
@@ -173,7 +173,7 @@ impl<T> Vector<T> {
     pub fn clear(&mut self) {
         for i in 0..self.len {
             let lookup_key = self.index_to_lookup_key(i);
-            env::storage_remove(lookup_key);
+            env::storage_remove(&lookup_key);
         }
         self.len = 0;
     }

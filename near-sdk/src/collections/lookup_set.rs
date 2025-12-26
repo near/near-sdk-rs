@@ -45,7 +45,7 @@ impl<T> LookupSet<T> {
     /// Returns `true` if the set contains a serialized element.
     fn contains_raw(&self, element_raw: &[u8]) -> bool {
         let storage_key = self.raw_element_to_storage_key(element_raw);
-        env::storage_has_key(storage_key)
+        env::storage_has_key(&storage_key)
     }
 
     /// Inserts a serialized element into the set.
@@ -53,14 +53,14 @@ impl<T> LookupSet<T> {
     /// If the set did have this value present, `false` is returned.
     pub fn insert_raw(&mut self, element_raw: &[u8]) -> bool {
         let storage_key = self.raw_element_to_storage_key(element_raw);
-        !env::storage_write(storage_key, b"")
+        !env::storage_write(&storage_key, b"")
     }
 
     /// Removes a serialized element from the set.
     /// Returns true if the element was present in the set.
     pub fn remove_raw(&mut self, element_raw: &[u8]) -> bool {
         let storage_key = self.raw_element_to_storage_key(element_raw);
-        env::storage_remove(storage_key)
+        env::storage_remove(&storage_key)
     }
 }
 
