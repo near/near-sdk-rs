@@ -254,7 +254,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
 
         SftEvent::Send(
             [SftSend {
-                receiver_id: (&self.owner_id).into(),
+                receiver_id: (&self.minter_id).into(),
                 amount: amount.0,
                 memo: memo.as_deref().map(Into::into),
             }]

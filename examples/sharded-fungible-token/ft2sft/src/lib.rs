@@ -58,6 +58,7 @@ impl FungibleTokenReceiver for Ft2SftContract {
         msg: String,
     ) -> PromiseOrValue<U128> {
         require!(env::predecessor_account_id() == *self.ft_contract_id, ERR_WRONG_TOKEN);
+        require!(amount.0 > 0, ERR_ZERO_AMOUNT);
 
         let mint: MintMessage = if msg.is_empty() {
             MintMessage::default()
@@ -135,6 +136,7 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
+        require!(amount.0 > 0, ERR_ZERO_AMOUNT);
         let deposit_left = env::attached_deposit()
             // reserve 1yN for `ft_transfer()` / `ft_trnsfer_call()` later
             .checked_sub(NearToken::from_yoctonear(1))
@@ -320,6 +322,7 @@ impl Ft2SftContract {
 
 const ERR_WRONG_TOKEN: &str = "wrong token";
 const ERR_WRONG_WALLET: &str = "wrong wallet";
+const ERR_ZERO_AMOUNT: &str = "zero amount";
 const ERR_SUPPLY_OVERFLOW: &str = "total_supply overflow";
 const ERR_INVALID_JSON: &str = "invalid JSON";
 const ERR_INSUFFICIENT_DEPOSIT: &str = "insufficient attached deposit";
