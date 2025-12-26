@@ -7,7 +7,7 @@ pub(crate) use self::stable_map::StableMap;
 mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 
-use crate::{env, NearToken, PromiseResult};
+use crate::{env, NearToken};
 
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro.
@@ -112,11 +112,7 @@ pub fn promise_result_as_success() -> Option<Vec<u8>> {
         env::promise_results_count() == 1,
         "Contract expected a single result on the callback"
     );
-    #[allow(deprecated)]
-    match env::promise_result(0) {
-        PromiseResult::Successful(result) => Some(result),
-        _ => None,
-    }
+    env::promise_result_bounded(0, usize::MAX).ok()
 }
 
 /// Deprecated helper function which used to generate code to initialize the [`GlobalAllocator`].
