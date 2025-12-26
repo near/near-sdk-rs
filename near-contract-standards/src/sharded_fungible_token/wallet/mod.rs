@@ -1,4 +1,3 @@
-pub mod events;
 pub mod governed;
 
 use std::collections::BTreeMap;

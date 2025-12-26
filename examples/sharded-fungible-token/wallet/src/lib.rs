@@ -1,11 +1,9 @@
 use impl_tools::autoimpl;
 use near_contract_standards::sharded_fungible_token::{
+    events::{SftEvent, SftReceive, SftSend},
     minter::ext_sft_burner,
     receiver::ext_sft_receiver,
-    wallet::{
-        SftWalletData, ShardedFungibleTokenWallet, StateInitArgs, TransferNotification,
-        events::{SftEvent, SftReceive, SftSend},
-    },
+    wallet::{SftWalletData, ShardedFungibleTokenWallet, StateInitArgs, TransferNotification},
 };
 use near_sdk::{
     AccountId, AccountIdRef, NearToken, PanicOnDefault, Promise, PromiseOrValue, env,

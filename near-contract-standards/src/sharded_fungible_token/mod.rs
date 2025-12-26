@@ -20,6 +20,7 @@
 //! and `sft_resolve()`) and their args, while this information combined with
 //! receipt status already contains all necessary info for indexing.
 
+pub mod events;
 pub mod minter;
 pub mod receiver;
 pub mod wallet;

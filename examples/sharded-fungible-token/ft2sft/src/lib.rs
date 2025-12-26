@@ -2,15 +2,12 @@ use impl_tools::autoimpl;
 use near_contract_standards::{
     fungible_token::{core::ext_ft_core, receiver::FungibleTokenReceiver},
     sharded_fungible_token::{
+        events::{SftBurn, SftEvent, SftMint},
         minter::{
             SftMinterData, ShardedFungibleTokenBurner, ShardedFungibleTokenMinter,
             ft2sft::{BurnMessage, Ft2Sft, Ft2SftData, MintMessage},
         },
-        wallet::{
-            SftWalletData,
-            events::{SftBurn, SftEvent, SftMint},
-            ext_sft_wallet,
-        },
+        wallet::{SftWalletData, ext_sft_wallet},
     },
     storage_management::ext_storage_management,
 };
