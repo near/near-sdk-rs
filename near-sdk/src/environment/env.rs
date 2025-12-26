@@ -1070,11 +1070,8 @@ pub fn promise_then(
 /// let chained_promise = promise_and([promise1, promise2]);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
-pub fn promise_and(
-    promise_indices: impl IntoIterator<Item = impl AsRef<PromiseIndex>>,
-) -> PromiseIndex {
-    let data =
-        promise_indices.into_iter().map(|idx| idx.as_ref().0.to_le_bytes()).collect::<Vec<_>>();
+pub fn promise_and(promise_indices: impl IntoIterator<Item = PromiseIndex>) -> PromiseIndex {
+    let data = promise_indices.into_iter().map(|idx| idx.0.to_le_bytes()).collect::<Vec<_>>();
     unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, data.len() as _)) }
 }
 
