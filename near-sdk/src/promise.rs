@@ -1,18 +1,22 @@
 #[cfg(feature = "abi")]
-use borsh::BorshSchema;
-use std::cell::RefCell;
-#[cfg(feature = "abi")]
 use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::io::{Error, Write};
-use std::mem;
-use std::num::NonZeroU128;
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    collections::VecDeque,
+    io::{Error, Write},
+    mem,
+    num::NonZeroU128,
+    rc::Rc,
+};
 
-use crate::env::migrate_to_allowance;
-use crate::CryptoHash;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
 use near_sdk_macros::near;
+
+use crate::{
+    env::migrate_to_allowance, AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex,
+    PublicKey,
+};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -312,7 +316,7 @@ impl PromiseJoint {
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
 /// ```no_run
-/// # use near_sdk::{AccountId, Promise, env, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
+/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
 /// # testing_env!(VMContextBuilder::new().signer_account_id("bob_near".parse().unwrap())
 /// #               .account_balance(NearToken::from_yoctonear(1000)).prepaid_gas(Gas::from_gas(1_000_000)).build());
 /// Promise::new("bob_near".parse().unwrap())
@@ -451,7 +455,7 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{AccountId, Promise, NearToken};
+    /// use near_sdk::{Promise, NearToken};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
     /// Promise::new("alice.near".parse().unwrap())
@@ -469,7 +473,7 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{AccountId, Promise, NearToken};
+    /// use near_sdk::{Promise, NearToken};
     ///
     /// let code = vec![0u8; 100]; // Contract bytecode
     /// Promise::new("alice.near".parse().unwrap())
@@ -487,7 +491,7 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{AccountId, Promise, NearToken};
+    /// use near_sdk::{Promise, NearToken};
     ///
     /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
     /// Promise::new("alice.near".parse().unwrap())
@@ -505,7 +509,7 @@ impl Promise {
     ///
     /// # Examples
     /// ```no_run
-    /// use near_sdk::{Promise, NearToken, AccountId};
+    /// use near_sdk::{Promise, NearToken};
     ///
     /// Promise::new("alice.near".parse().unwrap())
     ///     .create_account()
@@ -673,7 +677,7 @@ impl Promise {
     /// following code will panic during the execution of the smart contract:
     ///
     /// ```no_run
-    /// # use near_sdk::{AccountId, Promise, testing_env};
+    /// # use near_sdk::Promise;
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = p1.and(p2);
@@ -710,7 +714,7 @@ impl Promise {
     /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
     /// and `dave_near` to be created first.
     /// ```no_run
-    /// # use near_sdk::{AccountId, Promise, VMContext, testing_env};
+    /// # use near_sdk::{Promise, VMContext, testing_env};
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
@@ -756,12 +760,12 @@ impl Promise {
     /// and finally `dave_near` and `eva_near` are created concurrently.
     ///
     /// ```no_run
-    /// # use near_sdk::{AccountId, Promise};
+    /// # use near_sdk::Promise;
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then(p2).then_concurrent(vec![p3, p4]);
+    /// p1.then(p2).then_concurrent([p3, p4]);
     /// ```
     ///
     /// The returned [`ConcurrentPromises`] allows chaining more promises.
@@ -771,12 +775,12 @@ impl Promise {
     /// created after all others have been created.
     ///
     /// ```no_run
-    /// # use near_sdk::{AccountId, Promise};
+    /// # use near_sdk::Promise;
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
+    /// p1.then_concurrent([p2, p3]).join().then(p4);
     /// ```
     pub fn then_concurrent(
         self,
@@ -793,7 +797,7 @@ impl Promise {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, Gas, near, Promise, AccountId};
+    /// # use near_sdk::{ext_contract, Gas, near, Promise};
     /// #[ext_contract]
     /// pub trait ContractB {
     ///     fn b(&mut self);
@@ -940,7 +944,7 @@ impl YieldId {
 /// or `PromiseOrValue::Value` to specify which one should be returned.
 /// # Example
 /// ```no_run
-/// # use near_sdk::{ext_contract, near, Gas, PromiseOrValue, AccountId};
+/// # use near_sdk::{ext_contract, near, Gas, PromiseOrValue};
 /// #[ext_contract]
 /// pub trait ContractA {
 ///     fn a(&mut self);
