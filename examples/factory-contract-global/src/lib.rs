@@ -154,7 +154,7 @@ mod tests {
         assert!(stored_hash.is_some());
 
         let expected_hash = near_sdk::env::sha256_array(&code);
-        assert_eq!(stored_hash.unwrap(), expected_hash.into());
+        assert_eq!(stored_hash.unwrap(), expected_hash);
     }
 
     #[test]

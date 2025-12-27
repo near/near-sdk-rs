@@ -14,10 +14,14 @@ use near_sdk_macros::near;
 use crate::utils::{CacheEntry, EntryState};
 use crate::{env, errors, IntoStorageKey};
 
+#[inline]
+#[track_caller]
 fn expect_key_exists<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}.into()))
 }
 
+#[inline]
+#[track_caller]
 fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
 }

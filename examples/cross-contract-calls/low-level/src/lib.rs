@@ -1,5 +1,5 @@
 use near_sdk::serde_json;
-use near_sdk::{env, near, require, Gas, NearToken, PromiseResult};
+use near_sdk::{env, near, require, Gas, NearToken};
 
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
 const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -41,12 +41,16 @@ impl CrossContract {
     /// Used for callbacks only. Multiplies current factorial result by the next value. Panics if
     /// it is not called by the contract itself.
     pub fn factorial_mult(&self, n: u32) {
+        const MAX_RESULT_LENGTH: usize = "\"+4294967295\"".len(); // u32::MAX
+
         require!(env::current_account_id() == env::predecessor_account_id());
         require!(env::promise_results_count() == 1);
-        let cur = match env::promise_result(0) {
-            PromiseResult::Successful(x) => serde_json::from_slice::<u32>(&x).unwrap(),
-            _ => env::panic_str("Promise with index 0 failed"),
-        };
+
+        let data = env::promise_result_checked(0, MAX_RESULT_LENGTH).unwrap_or_else(|_| {
+            env::panic_str("Promise with index 0 failed or returned too long result")
+        });
+        let cur = serde_json::from_slice::<u32>(&data).unwrap();
+
         env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }
 }

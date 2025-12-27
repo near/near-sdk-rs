@@ -2,6 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
 use crate::core_impl::{utils, MethodKind};
+use crate::CallbackBindgenArgType;
 use quote::quote;
 
 impl AttrSigInfo {
@@ -231,7 +232,10 @@ impl AttrSigInfo {
             .filter(|arg| {
                 matches!(
                     arg.bindgen_ty,
-                    BindgenArgType::CallbackArg | BindgenArgType::CallbackResultArg
+                    BindgenArgType::Callback {
+                        ty: CallbackBindgenArgType::Arg | CallbackBindgenArgType::ResultArg,
+                        ..
+                    }
                 )
             })
             .enumerate()
@@ -239,29 +243,34 @@ impl AttrSigInfo {
                 let idx = idx as u64;
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
-                    BindgenArgType::CallbackArg => {
-                        let read_data = quote! {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
-                                ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx).into()),
-                            };
-                        };
+                    BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
+                        let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
-                            #read_data
-                            let #mutability #ident: #ty = #invocation;
+                            let #mutability #ident: #ty = {
+                                let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
+                                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx).into()));
+                                #invocation
+                            };
                         }
                     }
-                    BindgenArgType::CallbackResultArg => {
+                    BindgenArgType::Callback {
+                        ty: CallbackBindgenArgType::ResultArg,
+                        max_bytes,
+                    } => {
                         let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
                             ok_type
                         } else {
-                            return syn::Error::new_spanned(ty, "Function parameters marked with \
-                                #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
+                            return syn::Error::new_spanned(
+                                ty,
+                                "Function parameters marked with \
+                                #[callback_result] should have type Result<T, PromiseError>",
+                            )
+                            .into_compile_error();
                         };
                         let deserialize = deserialize_data(serializer_ty);
-                        let deserialization_branch = match ok_type {
+                        let deserialization_tweak = match ok_type {
                             // The unit type in this context is a bit special because functions
                             // without an explicit return type do not serialize their response.
                             // But when someone tries to refer to their callback result with
@@ -272,29 +281,28 @@ impl AttrSigInfo {
                             // So instead of going through serde, we consider deserialization to be
                             // successful if the byte array is empty or try the normal
                             // deserialization otherwise.
-                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
-                                quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
-                                        ::std::result::Result::Ok(()),
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
-                                },
-                            _ =>
-                                quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
-                                }
+                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
+                                Some(quote! {
+                                    if data.is_empty() {
+                                        return ();
+                                    }
+                                })
+                            }
+                            _ => None,
                         };
                         let result = quote! {
-                            match ::near_sdk::env::promise_result(#idx) {
-                                #deserialization_branch,
-                                ::near_sdk::PromiseResult::Failed => ::std::result::Result::Err(::near_sdk::PromiseError::Failed),
-                            }
+                            ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
+                                .map(|data| {
+                                    #deserialization_tweak
+                                    #deserialize
+                                })
                         };
                         quote! {
                             #acc
                             let #mutability #ident: #ty = #result;
                         }
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             })
     }
@@ -304,8 +312,13 @@ impl AttrSigInfo {
         self
             .args
             .iter()
-            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
-            .fold(TokenStream2::new(), |acc, arg| {
+            .filter_map(|arg| {
+                let BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, ref max_bytes } = arg.bindgen_ty else {
+                    return None;
+                };
+                Some((arg, max_bytes))
+            })
+            .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
@@ -313,10 +326,8 @@ impl AttrSigInfo {
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
-                                ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i).into()),
-                            };
+                            let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
+                                .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i).into()));
                             #invocation
                         }));
                 }
@@ -327,20 +338,12 @@ impl AttrSigInfo {
 fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
-            match ::near_sdk::serde_json::from_slice(&data) {
-                Ok(deserialized) => deserialized,
-                Err(e) => {
-                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`"));
-                },
-            }
+            ::near_sdk::serde_json::from_slice(&data)
+                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`")))
         },
         SerializerType::Borsh => quote! {
-            match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data) {
-                Ok(deserialized) => deserialized,
-                Err(e) => {
-                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`"));
-                }
-            }
+            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
+                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`")))
         },
     }
 }

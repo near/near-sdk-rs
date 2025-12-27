@@ -23,7 +23,7 @@ use crate::types::{
 use crate::{errors, CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
-use crate::{AccountContract, ActionIndex};
+use crate::{AccountContract, ActionIndex, GlobalContractId};
 use near_sys as sys;
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
@@ -41,6 +41,8 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+#[inline]
+#[track_caller]
 fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_err(errors::RegisterEmpty::new().into()))
 }
@@ -54,10 +56,12 @@ fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>
 
 /// Same as `try_method_into_register` but expects the data.
 #[inline]
+#[track_caller]
 fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
     expect_register(try_method_into_register(method))
 }
 
+#[inline]
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
     let mut buf = [0; N];
     sys::read_register(register_id, buf.as_mut_ptr() as _);
@@ -107,10 +111,24 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
+    read_register_bounded(register_id, usize::MAX).map(|r| {
+        r
+            // vector can't be longer than usize::MAX
+            .unwrap_or_else(|_| unreachable!())
+    })
+}
+
+/// Same as [`read_register`] but bounded: if data in the register is
+/// longer than `max_len`, then `Some(Err(len))` is returned.
+pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<Vec<u8>, usize>> {
     // Get register length and convert to a usize. The max register size in config is much less
     // than the u32 max so the abort should never be hit, but is there for safety because there
     // would be undefined behaviour during `read_register` if the buffer length is truncated.
     let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
+
+    if len > max_len {
+        return Some(Err(len));
+    }
 
     // Initialize buffer with capacity.
     let mut buffer = Vec::with_capacity(len);
@@ -124,7 +142,7 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
         // Set updated length after writing to buffer.
         buffer.set_len(len);
     }
-    Some(buffer)
+    Some(Ok(buffer))
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
@@ -171,7 +189,7 @@ pub fn current_account_id() -> AccountId {
 /// The code of the current contract.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use near_sdk::env::current_contract_code;
 /// use near_sdk::AccountContract;
 ///
@@ -183,8 +201,8 @@ pub fn current_contract_code() -> AccountContract {
         let mode = unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) };
         match mode {
             0 => AccountContract::None,
-            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
-            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }),
+            1 => AccountContract::Local(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
+            2 => AccountContract::Global(unsafe { read_register_fixed(ATOMIC_OP_REGISTER) }.into()),
             3 => AccountContract::GlobalByAccount(assert_valid_account_id(method_into_register(
                 sys::current_account_id,
             ))),
@@ -193,12 +211,33 @@ pub fn current_contract_code() -> AccountContract {
     })
 }
 
+/// Returns global contract identifier of the contract's code currently being
+/// executed. Otherwise, returns `None` if the current contract is not using
+/// globally deployed code.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::current_global_contract_id;
+/// use near_sdk::GlobalContractId;
+///
+/// assert!(matches!(current_global_contract_id(), Some(GlobalContractId::CodeHash(_))));
+/// ```
+#[cfg(feature = "deterministic-account-ids")]
+pub fn current_global_contract_id() -> Option<GlobalContractId> {
+    Some(match current_contract_code() {
+        AccountContract::Global(hash) => GlobalContractId::CodeHash(hash),
+        AccountContract::GlobalByAccount(account_id) => GlobalContractId::AccountId(account_id),
+        _ => return None,
+    })
+}
+
 /// The account id that will receive the refund if the contract panics.
 ///
 /// # Examples
 /// ```
+/// use near_sdk::env::refund_to_account_id;
 ///
-/// assert_eq!(refund_to_account_id(), "bob.near".parse::<AccountId>().unwrap());
+/// assert_eq!(refund_to_account_id(), "bob.near".parse::<near_sdk::AccountId>().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn refund_to_account_id() -> AccountId {
@@ -1112,11 +1151,12 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 }
 
 /// Set the account id that will receive the refund if the promise panics.
-/// Uses low-level [`crate::env::promise_set_refund_to`]
+/// Uses low-level [`crate::sys::promise_set_refund_to`]
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_set_refund_to, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::{AccountId, Gas, NearToken};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
@@ -1124,9 +1164,9 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_set_refund_to(promise, "refund.near".parse().unwrap());
+/// promise_set_refund_to(promise, &"refund.near".parse().unwrap());
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId) {
@@ -1137,12 +1177,13 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
 }
 
 /// Appends `DeterministicStateInit` action to the batch of actions for the given promise
-/// pointed by `promise_index`
-/// Uses low-level [`crate::env::promise_batch_action_state_init`]
+/// pointed by `promise_index`.
+/// Uses low-level [`crate::sys::promise_batch_action_state_init`]
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_state_init, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::{AccountId, CryptoHash, Gas, NearToken};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
@@ -1150,9 +1191,10 @@ pub fn promise_set_refund_to(promise_index: PromiseIndex, account_id: &AccountId
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init(promise, CryptoHash::from_str("code_hash").unwrap(), NearToken::from_millinear(1));
+/// promise_batch_action_state_init(promise, [0; 32], NearToken::from_millinear(1));
+/// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init(
     promise_index: PromiseIndex,
@@ -1170,55 +1212,59 @@ pub fn promise_batch_action_state_init(
 }
 
 /// Appends `DeterministicStateInit` action to the batch of actions for the given promise
-/// pointed by `promise_index`
-/// Uses low-level [`crate::env::promise_batch_action_state_init_by_account_id`]
+/// pointed by `promise_index`.
+/// Uses low-level [`crate::sys::promise_batch_action_state_init_by_account_id`]
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_state_init_by_account_id, promise_create};
-/// use near_sdk::AccountId;
-/// use std::str::FromStr;
+/// use near_sdk::{AccountId, Gas, NearToken};
 ///
+/// let account_id: AccountId = "account.near".parse().unwrap();
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     account_id.clone(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// promise_batch_action_state_init_by_account_id(promise, "account.near".parse().unwrap(), NearToken::from_millinear(1));
+/// promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
 pub fn promise_batch_action_state_init_by_account_id(
     promise_index: PromiseIndex,
-    account_id: &AccountIdRef,
+    account_id: impl AsRef<AccountIdRef>,
     amount: NearToken,
 ) -> ActionIndex {
+    let account_id: &str = account_id.as_ref().as_str();
     unsafe {
         sys::promise_batch_action_state_init_by_account_id(
             promise_index.0,
-            account_id.as_bytes().len() as _,
-            account_id.as_bytes().as_ptr() as _,
+            account_id.len() as _,
+            account_id.as_ptr() as _,
             &amount.as_yoctonear() as *const u128 as _,
         )
     }
 }
 
 /// Appends a data entry to an existing `DeterministicStateInit` action.
-/// Uses low-level [`crate::env::set_state_init_data_entry`]
+/// Uses low-level [`crate::sys::set_state_init_data_entry`]
+///
 /// # Examples
 /// ```
-/// use near_sdk::env::{set_state_init_data_entry, promise_create};
-/// use near_sdk::AccountId;
+/// use near_sdk::env::{set_state_init_data_entry, promise_batch_action_state_init_by_account_id, promise_create};
+/// use near_sdk::{AccountId, Gas, NearToken};
 /// use std::str::FromStr;
 ///
+/// let account_id: AccountId = "account.near".parse().unwrap();
 /// let promise = promise_create(
-///     "account.near".parse().unwrap(),
+///     account_id.clone(),
 ///     "method",
 ///     [],
 ///     NearToken::from_millinear(1),
-///     NearGas::from_tgas(1),
+///     Gas::from_tgas(1),
 /// );
-/// let action_index = promise_batch_action_state_init_by_account_id(promise, "account.near".parse().unwrap(), NearToken::from_millinear(1));
+/// let action_index = promise_batch_action_state_init_by_account_id(promise, &account_id, NearToken::from_millinear(1));
 /// set_state_init_data_entry(promise, action_index, b"key", b"value");
 /// ```
 #[cfg(feature = "deterministic-account-ids")]
@@ -1242,6 +1288,7 @@ pub fn set_state_init_data_entry(
 /// Attach a create account promise action to the NEAR promise index with the provided promise index.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_create_account, promise_batch_create};
@@ -1254,6 +1301,7 @@ pub fn set_state_init_data_entry(
 ///
 /// promise_batch_action_create_account(promise);
 /// ```
+///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
@@ -1767,9 +1815,9 @@ pub fn promise_batch_action_use_global_contract(
 /// ```
 pub fn promise_batch_action_use_global_contract_by_account_id(
     promise_index: PromiseIndex,
-    account_id: &AccountIdRef,
+    account_id: impl AsRef<AccountIdRef>,
 ) {
-    let account_id: &str = account_id.as_str();
+    let account_id: &str = account_id.as_ref().as_str();
     unsafe {
         sys::promise_batch_action_use_global_contract_by_account_id(
             promise_index.0,
@@ -1828,14 +1876,45 @@ pub fn promise_results_count() -> u64 {
 /// - [near-contract-standards/src/non_fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433)
 /// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
 /// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
+#[deprecated = "use `promise_result_checked` to prevent out-of-gas errors"]
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match promise_result_internal(result_idx) {
-        Ok(()) => {
-            let data = expect_register(read_register(ATOMIC_OP_REGISTER));
-            PromiseResult::Successful(data)
-        }
-        Err(PromiseError::Failed) => PromiseResult::Failed,
+    match promise_result_checked(result_idx, usize::MAX) {
+        Ok(data) => PromiseResult::Successful(data),
+        Err(err) => match err {
+            PromiseError::Failed => PromiseResult::Failed,
+            // vector can't be longer than usize::MAX
+            PromiseError::TooLong(_len) => unreachable!(),
+        },
     }
+}
+
+/// Same as [`promise_result`] but bounded: if the result is longer than
+/// `max_len`, then `Err(PromiseResultError::TooLong(len))` is returned.
+///
+/// This should be preferred when reading promise results from unknown
+/// contracts to prevent out-of-gas errors.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_result_checked, promise_results_count, log_str, panic_str};
+/// use near_sdk::PromiseResult;
+///
+/// assert!(promise_results_count() > 0);
+///
+/// // The promise_index will be in the range [0, n)
+/// // where n is the number of promises triggering this callback,
+/// // retrieved from promise_results_count()
+/// let promise_index = 0;
+///
+/// let data = promise_result_checked(promise_index, 100)
+///     .unwrap_or_else(|_| panic_str("Promise failed or returned result is too long!"));
+/// log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
+/// assert!(data.len() <= 100);
+/// ```
+pub fn promise_result_checked(result_idx: u64, max_len: usize) -> Result<Vec<u8>, PromiseError> {
+    promise_result_internal(result_idx)?;
+    expect_register(read_register_bounded(ATOMIC_OP_REGISTER, max_len))
+        .map_err(PromiseError::TooLong)
 }
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
@@ -2977,7 +3056,7 @@ mod tests {
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
         let code = vec![0u8; 100]; // Mock contract bytecode
         let code_hash = [0u8; 32]; // Mock 32-byte hash (CryptoHash)
-        let account_id = "deployer.near".try_into().unwrap();
+        let account_id = crate::AccountIdRef::new_or_panic("deployer.near");
 
         // Test deploy_global_contract
         super::promise_batch_action_deploy_global_contract(promise_index, &code);

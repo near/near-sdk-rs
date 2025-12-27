@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.24.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.23.0...near-contract-standards-v5.24.0) - 2025-12-26
+
+### Added
+
+- *(env)* `promise_result_checked()` ([#1456](https://github.com/near/near-sdk-rs/pull/1456))
+
+### Other
+
+- reuse shared TokenId alias in enumeration_impl ([#1445](https://github.com/near/near-sdk-rs/pull/1445))
+
 ## [5.20.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.20.0...near-contract-standards-v5.20.1) - 2025-12-05
 
 ### Fixed

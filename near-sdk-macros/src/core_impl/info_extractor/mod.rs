@@ -4,7 +4,7 @@ mod serializer_attr;
 pub use serializer_attr::SerializerAttr;
 
 mod arg_info;
-pub use arg_info::{ArgInfo, BindgenArgType};
+pub use arg_info::{ArgInfo, BindgenArgType, CallbackBindgenArgType};
 
 mod handle_result_attr;
 pub use handle_result_attr::HandleResultAttr;

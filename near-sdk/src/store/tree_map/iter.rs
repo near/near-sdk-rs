@@ -123,6 +123,7 @@ where
     }
 }
 
+#[allow(clippy::mut_from_ref)]
 fn get_entry_mut<'a, K, V, H>(map: &mut LookupMap<K, V, H>, key: &'a K) -> (&'a K, &'a mut V)
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
