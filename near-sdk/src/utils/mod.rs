@@ -125,7 +125,7 @@ macro_rules! compile_warning {
             fn trigger_warning() {
                 compile_warning;
             }
-        }
+        };
     };
 }
 
