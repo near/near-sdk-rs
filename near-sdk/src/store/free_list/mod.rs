@@ -151,7 +151,7 @@ where
                 // Update pointer on bucket to this next index
                 self.first_free = next_index;
             } else {
-                env::panic_err(errors::InconsistentCollectionState::new().into())
+                env::panic_err(errors::InconsistentCollectionState::new())
             }
         } else {
             // No vacant cells, push and return index of pushed element
@@ -254,7 +254,7 @@ where
                 self.elements.swap(curr_free_index.0, occupied_index);
             } else {
                 //Could not find an occupied slot to fill the free slot
-                env::panic_err(errors::InconsistentCollectionState::new().into())
+                env::panic_err(errors::InconsistentCollectionState::new())
             }
         }
 
@@ -269,7 +269,7 @@ where
                 Some(Slot::Empty { next_free }) => *next_free,
                 Some(Slot::Occupied(_)) => {
                     //The free list chain should not have an occupied slot
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 }
                 _ => None,
             };

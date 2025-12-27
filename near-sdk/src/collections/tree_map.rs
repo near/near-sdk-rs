@@ -372,16 +372,16 @@ where
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => {
-                env::panic_err(errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {})
             }
             (Bound::Excluded(a), Bound::Included(b)) if a > b => {
-                env::panic_err(errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {})
             }
             (Bound::Included(a), Bound::Excluded(b)) if a > b => {
-                env::panic_err(errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {})
             }
             (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => {
-                env::panic_err(errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {})
             }
             (lo, hi) => (lo, hi),
         };

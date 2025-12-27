@@ -48,7 +48,7 @@ impl<K, V> UnorderedMap<K, V> {
         let keys_len = self.keys.len();
         let values_len = self.values.len();
         if keys_len != values_len {
-            env::panic_err(errors::InconsistentCollectionState::new().into())
+            env::panic_err(errors::InconsistentCollectionState::new())
         } else {
             keys_len
         }
@@ -59,7 +59,7 @@ impl<K, V> UnorderedMap<K, V> {
         let keys_is_empty = self.keys.is_empty();
         let values_is_empty = self.values.is_empty();
         if keys_is_empty != values_is_empty {
-            env::panic_err(errors::InconsistentCollectionState::new().into())
+            env::panic_err(errors::InconsistentCollectionState::new())
         } else {
             keys_is_empty
         }
@@ -113,7 +113,7 @@ impl<K, V> UnorderedMap<K, V> {
     fn get_raw(&self, key_raw: &[u8]) -> Option<Vec<u8>> {
         self.get_index_raw(key_raw).map(|index| match self.values.get_raw(index) {
             Some(x) => x,
-            None => env::panic_err(errors::InconsistentCollectionState::new().into()),
+            None => env::panic_err(errors::InconsistentCollectionState::new()),
         })
     }
 
@@ -157,7 +157,7 @@ impl<K, V> UnorderedMap<K, V> {
                     // element.
                     let last_key_raw = match self.keys.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic_err(errors::InconsistentCollectionState::new().into()),
+                        None => env::panic_err(errors::InconsistentCollectionState::new()),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -184,21 +184,21 @@ where
     fn serialize_key(key: &K) -> Vec<u8> {
         match to_vec(key) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("key").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("key")),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> V {
         match V::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value")),
         }
     }
 
     fn serialize_value(value: &V) -> Vec<u8> {
         match to_vec(value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("value")),
         }
     }
 

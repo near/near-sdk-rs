@@ -185,7 +185,7 @@ impl ImplItemMethodInfo {
             let method_name = &self.attr_signature_info.ident.to_string();
             quote! {
                 if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-                    ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new(#method_name).into());
+                    ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new(#method_name));
                 }
             }
         };
@@ -216,7 +216,7 @@ impl ImplItemMethodInfo {
             let method_name = &self.attr_signature_info.ident.to_string();
             quote! {
                 if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
-                    ::near_sdk::env::panic_err(::near_sdk::errors::PrivateMethod::new(#method_name).into());
+                    ::near_sdk::env::panic_err(::near_sdk::errors::PrivateMethod::new(#method_name));
                 }
             }
         } else {
@@ -237,7 +237,7 @@ impl ImplItemMethodInfo {
                     let struct_type = &self.struct_type;
                     quote! {
                         if <#struct_type as ::near_sdk::state::ContractState>::state_exists() {
-                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized{}.into());
+                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized{});
                         }
                     }
                 } else {

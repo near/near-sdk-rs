@@ -44,7 +44,7 @@ const MAX_ACCOUNT_ID_LEN: u64 = 64;
 #[inline]
 #[track_caller]
 fn expect_register<T>(option: Option<T>) -> T {
-    option.unwrap_or_else(|| panic_err(errors::RegisterEmpty::new().into()))
+    option.unwrap_or_else(|| panic_err(errors::RegisterEmpty::new()))
 }
 
 /// A simple helper to read blob value coming from host's method.
@@ -2207,8 +2207,9 @@ pub fn panic_str(message: &str) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
-pub fn panic_err(err: crate::BaseError) -> ! {
-    panic_str(&err.error)
+#[cold]
+pub fn panic_err<E: crate::ContractErrorTrait>(err: E) -> ! {
+    panic_str(&err.wrap())
 }
 
 /// Aborts the current contract execution without a custom message.

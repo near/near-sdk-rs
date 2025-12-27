@@ -524,7 +524,7 @@ where
         match self.index.remove(value) {
             Some(element_index) => {
                 self.elements.remove(element_index).unwrap_or_else(|| {
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 });
                 true
             }

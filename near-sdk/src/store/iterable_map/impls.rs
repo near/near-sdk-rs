@@ -36,6 +36,6 @@ where
     ///
     /// Panics if the key does not exist in the map
     fn index(&self, index: &Q) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}.into()))
+        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}))
     }
 }

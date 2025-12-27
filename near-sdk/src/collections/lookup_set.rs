@@ -69,7 +69,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match to_vec(element) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("element").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("element")),
         }
     }
 
