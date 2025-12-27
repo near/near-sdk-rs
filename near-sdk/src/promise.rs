@@ -14,8 +14,8 @@ use borsh::BorshSchema;
 use near_sdk_macros::near;
 
 use crate::{
-    env::migrate_to_allowance, errors, AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex,
-    PublicKey,
+    env::migrate_to_allowance, errors, AccountId, CryptoHash, Gas, GasWeight, NearToken,
+    PromiseIndex, PublicKey,
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas

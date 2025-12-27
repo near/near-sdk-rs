@@ -244,7 +244,6 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
-                        let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
