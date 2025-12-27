@@ -20,5 +20,3 @@ neardev
 
 # Python
 __pycache__
-
-*.wat
