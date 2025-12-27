@@ -175,7 +175,7 @@ pub struct SanitizeSelfResult {
 pub fn standardized_error_panic_tokens() -> TokenStream2 {
     quote! {
         // Initial error is wrapped into a struct to be able to serialize the type of it.
-        ::near_sdk::env::panic_err(err.into());
+        ::near_sdk::env::panic_err(err);
     }
 }
 

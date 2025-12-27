@@ -601,7 +601,7 @@ where
         let key = self
             .keys
             .remove(old_value.key_index)
-            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
 
         // Return removed value
         Some((key, old_value.value))

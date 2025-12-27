@@ -521,7 +521,7 @@ where
                     // Otherwise update it's index.
                     _ => {
                         let element = self.elements.get(element_index).unwrap_or_else(|| {
-                            env::panic_err(errors::InconsistentCollectionState::new().into())
+                            env::panic_err(errors::InconsistentCollectionState::new())
                         });
                         self.index.set(element.clone(), Some(element_index));
                     }

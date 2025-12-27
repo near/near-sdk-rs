@@ -78,7 +78,7 @@ where
         let entry = self
             .values
             .get(key)
-            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
 
         Some((key, &entry.value))
     }
@@ -122,7 +122,7 @@ where
         let entry = self
             .values
             .get(key)
-            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
 
         Some((key, &entry.value))
     }
@@ -162,7 +162,7 @@ where
         let entry = self
             .values
             .get_mut(key)
-            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
         //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
         //*         will only give out one mutable reference for every individual key in the bucket
         //*         during the iteration, and there is no overlap. This operates under the
@@ -476,7 +476,7 @@ where
         let value = self
             .values
             .remove(&key)
-            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()))
             .value;
 
         (key, value)

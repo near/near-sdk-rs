@@ -610,10 +610,10 @@ where
             // Otherwise update it's index.
             _ => {
                 let swapped_key = keys.get(key_index).unwrap_or_else(|| {
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 });
                 let value = values.get_mut(swapped_key).unwrap_or_else(|| {
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 });
                 value.key_index = key_index;
             }

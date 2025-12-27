@@ -82,21 +82,21 @@ where
     fn serialize_key(key: &K) -> Vec<u8> {
         match to_vec(key) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("key").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("key")),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> V {
         match V::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value")),
         }
     }
 
     fn serialize_value(value: &V) -> Vec<u8> {
         match to_vec(value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("value")),
         }
     }
 

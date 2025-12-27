@@ -65,7 +65,7 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new().into());
+            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {

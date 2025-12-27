@@ -92,14 +92,14 @@ where
     fn serialize_value(value: &T) -> Vec<u8> {
         match to_vec(value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshSerializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("value")),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> T {
         match T::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value").into()),
+            Err(_) => env::panic_err(errors::BorshDeserializeError::new("value")),
         }
     }
 

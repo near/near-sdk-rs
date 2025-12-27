@@ -431,7 +431,7 @@ impl Promise {
         match &mut self.subtype {
             PromiseSubtype::Single(x) => x.actions.push(action),
             PromiseSubtype::Joint(_) => {
-                crate::env::panic_err(errors::ActionInJointPromise::new().into())
+                crate::env::panic_err(errors::ActionInJointPromise::new())
             }
         }
         self
@@ -736,15 +736,15 @@ impl Promise {
             PromiseSubtype::Single(x) => match &mut x.subtype {
                 PromiseSingleSubtype::Regular { after, .. } => {
                     if after.replace(this).is_some() {
-                        crate::env::panic_err(errors::PromiseAlreadyScheduled::new().into());
+                        crate::env::panic_err(errors::PromiseAlreadyScheduled::new());
                     }
                 }
                 PromiseSingleSubtype::Yielded(_) => {
-                    crate::env::panic_err(errors::CallbackYieldPromise::new().into())
+                    crate::env::panic_err(errors::CallbackYieldPromise::new())
                 }
             },
             PromiseSubtype::Joint(_) => {
-                crate::env::panic_err(errors::CallbackJointPromise::new().into())
+                crate::env::panic_err(errors::CallbackJointPromise::new())
             }
         }
         other

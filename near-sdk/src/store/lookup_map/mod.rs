@@ -207,7 +207,7 @@ where
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| {
-            env::panic_err(errors::BorshDeserializeError::new("element").into())
+            env::panic_err(errors::BorshDeserializeError::new("element"))
         })
     }
 
@@ -440,7 +440,7 @@ where
                         Some(modified) => {
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
-                                env::panic_err(errors::BorshSerializeError::new("element").into())
+                                env::panic_err(errors::BorshSerializeError::new("element"))
                             });
                             env::storage_write(key.as_ref(), &buf);
                         }

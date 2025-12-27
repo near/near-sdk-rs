@@ -32,7 +32,7 @@ where
 fn decrement_count(count: &mut u32) {
     *count = count
         .checked_sub(1)
-        .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
+        .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
 }
 
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.
@@ -76,7 +76,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 }
             }
         }
@@ -113,7 +113,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 }
             }
         }
@@ -160,7 +160,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 }
             }
         }
@@ -197,7 +197,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_err(errors::InconsistentCollectionState::new().into())
+                    env::panic_err(errors::InconsistentCollectionState::new())
                 }
             }
         }

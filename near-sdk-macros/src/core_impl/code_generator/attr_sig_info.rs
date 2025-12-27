@@ -249,7 +249,7 @@ impl AttrSigInfo {
                             #acc
                             let #mutability #ident: #ty = {
                                 let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx).into()));
+                                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx)));
                                 #invocation
                             };
                         }
@@ -326,7 +326,7 @@ impl AttrSigInfo {
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
                             let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
-                                .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i).into()));
+                                .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i)));
                             #invocation
                         }));
                 }
