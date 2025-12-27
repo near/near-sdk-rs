@@ -14,8 +14,8 @@ use borsh::BorshSchema;
 use near_sdk_macros::near;
 
 use crate::{
-    env::migrate_to_allowance, AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex,
-    PublicKey,
+    env::migrate_to_allowance, errors, AccountId, CryptoHash, Gas, GasWeight, NearToken,
+    PromiseIndex, PublicKey,
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
@@ -431,7 +431,7 @@ impl Promise {
         match &mut self.subtype {
             PromiseSubtype::Single(x) => x.actions.push(action),
             PromiseSubtype::Joint(_) => {
-                crate::env::panic_str("Cannot add action to a joint promise.")
+                crate::env::panic_err(errors::ActionInJointPromise::new().into())
             }
         }
         self
@@ -736,16 +736,16 @@ impl Promise {
             PromiseSubtype::Single(x) => match &mut x.subtype {
                 PromiseSingleSubtype::Regular { after, .. } => {
                     if after.replace(this).is_some() {
-                        crate::env::panic_str(
-                            "Cannot callback promise which is already scheduled after another",
-                        );
+                        crate::env::panic_err(errors::PromiseAlreadyScheduled::new().into());
                     }
                 }
                 PromiseSingleSubtype::Yielded(_) => {
-                    crate::env::panic_str("Cannot callback yielded promise.")
+                    crate::env::panic_err(errors::CallbackYieldPromise::new().into())
                 }
             },
-            PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_err(errors::CallbackJointPromise::new().into())
+            }
         }
         other
     }
@@ -1579,7 +1579,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot callback yielded promise.")]
+    #[should_panic(expected = "Cannot callback yielded promise")]
     fn test_yielded_promise_cannot_be_continuation() {
         use crate::{Gas, GasWeight};
 
