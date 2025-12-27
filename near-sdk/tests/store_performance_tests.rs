@@ -78,7 +78,7 @@ async fn setup_worker(
 fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u64>) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
     assert!(
-        total_gas < NearGas::from_tgas(120).as_gas(),
+        total_gas < NearGas::from_tgas(115).as_gas(),
         "performance regression {}: {}",
         col,
         NearGas::from_gas(total_gas)
