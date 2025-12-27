@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 181
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -36,8 +35,9 @@ pub extern "C" fn method() {
             0..::near_sdk::env::promise_results_count(),
             |i| {
                 let data = ::near_sdk::env::promise_result_checked(i, usize::MAX)
-                    .unwrap_or_else(|_| ::near_sdk::env::panic_str(
-                        &::std::format!("Callback computation {} was not successful", i),
+                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::CallbackComputationUnsuccessful::new(i)
+                            .into(),
                     ));
                 ::near_sdk::serde_json::from_slice(&data)
                     .unwrap_or_else(|e| ::near_sdk::env::panic_str(

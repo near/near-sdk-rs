@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 148
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -33,8 +32,8 @@ pub extern "C" fn method() {
     };
     let mut x: u64 = {
         let data = ::near_sdk::env::promise_result_checked(0u64, usize::MAX)
-            .unwrap_or_else(|_| ::near_sdk::env::panic_str(
-                "Callback computation 0 was not successful",
+            .unwrap_or_else(|_| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::CallbackComputationUnsuccessful::new(0u64).into(),
             ));
         ::near_sdk::serde_json::from_slice(&data)
             .unwrap_or_else(|e| ::near_sdk::env::panic_str(
@@ -43,8 +42,8 @@ pub extern "C" fn method() {
     };
     let z: ::std::vec::Vec<u8> = {
         let data = ::near_sdk::env::promise_result_checked(1u64, usize::MAX)
-            .unwrap_or_else(|_| ::near_sdk::env::panic_str(
-                "Callback computation 1 was not successful",
+            .unwrap_or_else(|_| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64).into(),
             ));
         ::near_sdk::serde_json::from_slice(&data)
             .unwrap_or_else(|e| ::near_sdk::env::panic_str(
