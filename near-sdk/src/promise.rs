@@ -430,9 +430,7 @@ impl Promise {
     fn add_action(mut self, action: PromiseAction) -> Self {
         match &mut self.subtype {
             PromiseSubtype::Single(x) => x.actions.push(action),
-            PromiseSubtype::Joint(_) => {
-                crate::env::panic_err(errors::ActionInJointPromise::new())
-            }
+            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::ActionInJointPromise::new()),
         }
         self
     }
@@ -743,9 +741,7 @@ impl Promise {
                     crate::env::panic_err(errors::CallbackYieldPromise::new())
                 }
             },
-            PromiseSubtype::Joint(_) => {
-                crate::env::panic_err(errors::CallbackJointPromise::new())
-            }
+            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::CallbackJointPromise::new()),
         }
         other
     }

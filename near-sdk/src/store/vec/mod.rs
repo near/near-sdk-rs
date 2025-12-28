@@ -271,10 +271,8 @@ where
     /// ```
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
-        self.len = self
-            .len
-            .checked_add(1)
-            .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}));
+        self.len =
+            self.len.checked_add(1).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}));
         self.set(last_idx, element)
     }
 }
@@ -485,17 +483,17 @@ where
         R: RangeBounds<u32>,
     {
         let start = match range.start_bound() {
-            Bound::Excluded(i) => i
-                .checked_add(1)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {})),
+            Bound::Excluded(i) => {
+                i.checked_add(1).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}))
+            }
             Bound::Included(i) => *i,
             Bound::Unbounded => 0,
         };
         let end = match range.end_bound() {
             Bound::Excluded(i) => *i,
-            Bound::Included(i) => i
-                .checked_add(1)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {})),
+            Bound::Included(i) => {
+                i.checked_add(1).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}))
+            }
             Bound::Unbounded => self.len(),
         };
 

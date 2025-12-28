@@ -206,9 +206,8 @@ where
     H: ToKey,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
-        V::try_from_slice(bytes).unwrap_or_else(|_| {
-            env::panic_err(errors::BorshDeserializeError::new("element"))
-        })
+        V::try_from_slice(bytes)
+            .unwrap_or_else(|_| env::panic_err(errors::BorshDeserializeError::new("element")))
     }
 
     fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> (H::KeyType, Option<V>)

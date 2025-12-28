@@ -40,8 +40,8 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = to_vec(value)
-        .unwrap_or_else(|_| env::panic_err(errors::BorshSerializeError::new("value")));
+    let serialized =
+        to_vec(value).unwrap_or_else(|_| env::panic_err(errors::BorshSerializeError::new("value")));
     env::storage_write(key, &serialized);
 }
 
@@ -97,9 +97,9 @@ where
             *v.value_mut() = Some(value);
         } else {
             self.cache.set(CacheEntry::new_modified(Some(value))).unwrap_or_else(|_| {
-                env::panic_err(
-                    errors::ContractError::new("cache is checked to not be filled above"),
-                )
+                env::panic_err(errors::ContractError::new(
+                    "cache is checked to not be filled above",
+                ))
             })
         }
     }

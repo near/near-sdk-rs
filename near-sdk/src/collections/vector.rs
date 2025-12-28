@@ -202,9 +202,8 @@ where
     T: BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(raw_element).unwrap_or_else(|_| {
-            env::panic_err(errors::BorshDeserializeError::new("element"))
-        })
+        T::try_from_slice(raw_element)
+            .unwrap_or_else(|_| env::panic_err(errors::BorshDeserializeError::new("element")))
     }
 
     /// Returns the element by index or `None` if it is not present.
