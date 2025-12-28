@@ -900,11 +900,10 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             fn wrap(&self) -> String {
                 let info = #near_sdk_crate ::serde_json::to_string(self).unwrap_or_default();
-                format!(
-                    r#"{{"error":{{"name":"{}","cause":{{"name":"{}","info":{}}}}}}}"#,
+                #near_sdk_crate ::wrap_impl(
                     self.error_type(),
                     std::any::type_name::<#ident #ty_generics>(),
-                    info
+                    &info
                 )
             }
         }

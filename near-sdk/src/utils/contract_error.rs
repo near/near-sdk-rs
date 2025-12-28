@@ -30,3 +30,13 @@ impl From<BaseError> for String {
 pub fn wrap_error<T: ContractErrorTrait>(error: T) -> String {
     error.wrap()
 }
+
+/// Shared implementation for wrapping errors into JSON format.
+/// This function is used by generated `wrap()` methods to avoid code duplication to reduce wasm size.
+#[inline(never)]
+pub fn wrap_impl(error_type: &str, type_name: &str, info: &str) -> String {
+    format!(
+        r#"{{"error":{{"name":"{}","cause":{{"name":"{}","info":{}}}}}}}"#,
+        error_type, type_name, info
+    )
+}
