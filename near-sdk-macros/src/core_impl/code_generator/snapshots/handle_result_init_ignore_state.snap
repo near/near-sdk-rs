@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 391
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -8,9 +7,7 @@ expression: pretty_print_syn_str(&actual).unwrap()
 pub extern "C" fn new() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-        ::near_sdk::env::panic_err(
-            ::near_sdk::errors::DepositNotAccepted::new("new").into(),
-        );
+        ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new("new"));
     }
     let contract = Hello::new();
     match contract {

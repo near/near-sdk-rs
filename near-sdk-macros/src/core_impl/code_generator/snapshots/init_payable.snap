@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 287
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -26,11 +25,8 @@ pub extern "C" fn method() {
         None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
     if <Hello as ::near_sdk::state::ContractState>::state_exists() {
-        ::near_sdk::env::panic_err(
-            ::near_sdk::errors::ContractAlreadyInitialized {
-            }
-                .into(),
-        );
+        ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized {
+        });
     }
     let contract = Hello::method(&mut k);
     <Hello as ::near_sdk::state::ContractState>::state_write(&contract);

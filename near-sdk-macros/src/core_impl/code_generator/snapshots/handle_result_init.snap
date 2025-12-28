@@ -7,16 +7,11 @@ expression: pretty_print_syn_str(&actual).unwrap()
 pub extern "C" fn new() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-        ::near_sdk::env::panic_err(
-            ::near_sdk::errors::DepositNotAccepted::new("new").into(),
-        );
+        ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new("new"));
     }
     if <Hello as ::near_sdk::state::ContractState>::state_exists() {
-        ::near_sdk::env::panic_err(
-            ::near_sdk::errors::ContractAlreadyInitialized {
-            }
-                .into(),
-        );
+        ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized {
+        });
     }
     let contract = Hello::new();
     match contract {

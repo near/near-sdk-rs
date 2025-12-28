@@ -22,7 +22,7 @@ pub extern "C" fn method() {
             ::near_sdk::env::value_return(&result);
         }
         ::std::result::Result::Err(err) => {
-            ::near_sdk::env::panic_err(err.into());
+            ::near_sdk::env::panic_err(err);
         }
     }
 }
