@@ -4,8 +4,6 @@
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
-use near_jsonrpc_primitives::types::transactions::TransactionInfo;
-use near_primitives::views::TxExecutionStatus;
 use near_workspaces::network::Sandbox;
 use near_workspaces::types::{KeyType, SecretKey};
 use near_workspaces::{Account, Worker};
@@ -115,17 +113,6 @@ async fn setup(contract: Contract) -> anyhow::Result<(Account, near_workspaces::
         dev_generate(worker.clone(), Collection::IterableSet, "seed".to_string()).await?;
 
     Ok((account, contract_id))
-}
-
-async fn setup_with_worker(
-    contract: Contract,
-) -> anyhow::Result<(Arc<Worker<Sandbox>>, Account, near_workspaces::AccountId)> {
-    let (worker, contract_id) = setup_worker(contract).await?;
-
-    let (account, _) =
-        dev_generate(worker.clone(), Collection::IterableSet, "seed".to_string()).await?;
-
-    Ok((worker, account, contract_id))
 }
 
 #[tokio::test]
@@ -261,7 +248,7 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::Vector,
     ];
     let element_number = 100;
-    let (worker, account, contract_id) = setup_with_worker(Contract::StoreContract).await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
 
     // pre-populate
     for col in collection_types {
@@ -294,35 +281,15 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::Vector => (col, 1700),
         _ => (col, 0),
     }) {
-        let tx = account
+        let total_gas = account
             .call(&contract_id.clone(), "nth")
             .args_json((col, repeat, element_number))
             .max_gas()
             .transact()
             .await?
-            .unwrap();
-
-        let total_gas = tx.total_gas_burnt.as_gas();
-
-        if col == Collection::UnorderedMap {
-            // Get full gas profile via EXPERIMENTAL_tx_status
-            let tx_hash = tx.outcome().transaction_hash;
-            let full_status = worker
-                .tx_status(
-                    TransactionInfo::TransactionId {
-                        tx_hash: near_primitives::hash::CryptoHash(tx_hash.0),
-                        sender_account_id: account.id().clone(),
-                    },
-                    TxExecutionStatus::Final,
-                )
-                .await?;
-
-            println!(
-                "\n=== Full Gas Profile for {} ===\n{}",
-                col,
-                serde_json::to_string_pretty(&full_status)?
-            );
-        }
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
         perform_asserts(total_gas, col, None);
     }
