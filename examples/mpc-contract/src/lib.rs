@@ -159,7 +159,9 @@ mod tests {
         Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No requests found")))
     }
 
-    async fn alice_part(
+    /// Async version of alice_part for use in concurrent tests (happy_path).
+    /// Uses transact_async() to allow concurrent execution with mpc_loop.
+    async fn alice_part_async(
         workspace: near_workspaces::Worker<Sandbox>,
         contract: near_workspaces::Contract,
     ) -> Result<ExecutionFinalResult, Box<dyn std::error::Error>> {
@@ -187,6 +189,30 @@ mod tests {
         }
     }
 
+    /// Sync version of alice_part for use in non-concurrent tests (negative_path).
+    /// Uses transact() which blocks until all receipts are processed, ensuring
+    /// that callback logs from yield promise timeouts are properly collected.
+    async fn alice_part_sync(
+        workspace: near_workspaces::Worker<Sandbox>,
+        contract: near_workspaces::Contract,
+    ) -> Result<ExecutionFinalResult, Box<dyn std::error::Error>> {
+        let alice = workspace.dev_create_account().await?;
+        let message = "Hello, world!";
+        let block_init = workspace.view_block().await?.height();
+
+        let result = alice
+            .call(contract.id(), "sign")
+            .args_json(serde_json::json!({ "message": message }))
+            .gas(Gas::from_tgas(300))
+            .transact()
+            .await?;
+
+        let block_final = workspace.view_block().await?.height();
+        println!("Alice waited for ~{} blocks", block_final - block_init);
+        println!("Alice result: {:?}", result);
+        Ok(result)
+    }
+
     #[tokio::test]
     async fn happy_path() -> Result<(), Box<dyn std::error::Error>> {
         let wasm = near_workspaces::compile_project("./").await?;
@@ -197,7 +223,7 @@ mod tests {
 
         let (alice_result, mpc_result) = tokio::join!(
             // Alice starts the signing process
-            alice_part(workspace.clone(), contract.clone()),
+            alice_part_async(workspace.clone(), contract.clone()),
             // The yield process is some service that waits for the user request and responds to it
             mpc_loop(workspace.clone(), contract.clone())
         );
@@ -229,7 +255,12 @@ mod tests {
         // Alice starts the signing process, but the MPC server does not respond
         // for quite some time, so the transaction times out.
         // This is managed by protocol-level parameter `yield_timeout_length_in_blocks`.
-        let alice_result = alice_part(workspace, contract).await?;
+        //
+        // We use alice_part_sync here (which uses transact() instead of transact_async())
+        // to ensure all receipt outcomes are properly collected before checking logs.
+        // The transact_async() + polling approach can sometimes return before all
+        // callback receipts from yield promise timeouts are processed.
+        let alice_result = alice_part_sync(workspace, contract).await?;
 
         let logs = alice_result.logs();
         assert!(alice_result.is_success());
