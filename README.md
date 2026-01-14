@@ -329,7 +329,7 @@ State breaking changes (low-level serialization format of any data type) will be
 
 ### MSRV
 
-The minimum supported Rust version is currently `1.85`. There are no guarantees that this will be upheld if a security patch release needs to come in that requires a Rust toolchain increase.
+The minimum supported Rust version is currently `1.86`. There are no guarantees that this will be upheld if a security patch release needs to come in that requires a Rust toolchain increase.
 
 ## Contributing
 
