@@ -15,11 +15,7 @@ jobs:
       matrix:
         platform:
           - os: ubuntu-latest
-            rs: 1.85.0
-          - os: ubuntu-latest
             rs: 1.86.0
-          - os: macos-latest
-            rs: 1.85.0
           - os: macos-latest
             rs: 1.86.0
         features: ["", "--features unstable,legacy,__abi-generate,deterministic-account-ids"]
