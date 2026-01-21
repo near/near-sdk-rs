@@ -108,6 +108,8 @@ jobs:
           rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
           rustup override set 1.86
 
+      # Note: Windows runs on GitHub-hosted runners, not WarpBuild, so we don't use
+      # cache-provider: warpbuild here. WarpBuild cache is only for WarpBuild runners.
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "windows-1.86"
@@ -121,7 +123,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -133,6 +135,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
+          cache-provider: warpbuild
           shared-key: "linux-audit"
           cache-all-crates: true
 
