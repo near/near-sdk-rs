@@ -38,3 +38,4 @@ pub use self::core::MultiTokenCore;
 pub use self::core::MultiTokenReceiver;
 pub use self::core::MultiTokenResolver;
 pub use self::enumeration::MultiTokenEnumeration;
+pub use self::enumeration::MultiTokenEnumerationMetadata;
