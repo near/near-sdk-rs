@@ -49,7 +49,7 @@ jobs:
         run: rustc --version --verbose
 
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --lcov --output-path llvm-cov-output.lcov
+        run: cargo llvm-cov --lcov --output-path llvm-cov-output.lcov
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
