@@ -53,7 +53,7 @@ jobs:
           cache-all-crates: true
 
       - name: Run tests with nextest
-        run: cargo +${{ matrix.toolchain }} nextest run --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace --profile ci
+        run: cargo +${{ matrix.toolchain }} nextest run --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace --config-file .config/nextest.toml --profile ci
 
       # Run doctests separately (nextest doesn't support doctests yet)
       - name: Run doctests
