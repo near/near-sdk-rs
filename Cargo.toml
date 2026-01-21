@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://docs.near.org/"
+rust-version = "1.86"
 
 # Special triple # comment for ci.
 [patch.crates-io]

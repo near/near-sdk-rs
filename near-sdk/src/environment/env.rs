@@ -101,9 +101,7 @@ pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
 
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
-// TODO: replace with std::panic::PanicHookInfo when MSRV becomes >= 1.81.0
-#[allow(deprecated)]
-fn panic_hook_impl(info: &std_panic::PanicInfo) {
+fn panic_hook_impl(info: &std_panic::PanicHookInfo) {
     panic_str(info.to_string().as_str());
 }
 
