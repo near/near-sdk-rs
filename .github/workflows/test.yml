@@ -6,118 +6,161 @@ on:
   pull_request:
 env:
   RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: short
+
 jobs:
   test:
     runs-on: ${{ matrix.platform.os }}
-    name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
+    name: "${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - os: ubuntu-latest
-            rs: 1.86.0
-          - os: macos-latest
-            rs: 1.86.0
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "1.86.0"
+            name: linux
+          - os: warp-macos-latest-arm64-6x
+            rs: "1.86.0"
+            name: macos
         features: ["", "--features unstable,legacy,__abi-generate,deterministic-account-ids"]
     steps:
       - uses: actions/checkout@v4
-      - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.platform.rs }}
-          default: true
-          target: wasm32-unknown-unknown
-      - name: Install cargo-near CLI (dependency for build with near-workspaces)
+
+      - name: Install Rust ${{ matrix.platform.rs }} with wasm32 target
+        run: |
+          rustup toolchain install ${{ matrix.platform.rs }} --profile minimal --target wasm32-unknown-unknown
+          rustup override set ${{ matrix.platform.rs }}
+
+      - name: Install cargo-near CLI
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
       - uses: Swatinem/rust-cache@v2
-      #- name: Downgrade dependencies
-      #  run: |
-      #    cargo update -p clap@4.5.4 --precise 4.4.18
-      #    cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
-      - name: print rustc && rustdoc version
+        with:
+          cache-provider: warpbuild
+          shared-key: "${{ matrix.platform.name }}-${{ matrix.platform.rs }}"
+          cache-all-crates: true
+
+      - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
-      - name: test
-        run: cargo test --all ${{ matrix.features }}
+
+      - name: Run tests with nextest
+        run: cargo nextest run --all ${{ matrix.features }} --profile ci
+
+      # Run doctests separately (nextest doesn't support doctests yet)
+      - name: Run doctests
+        run: cargo test --all ${{ matrix.features }} --doc
+
   lint:
     name: Clippy and fmt
-    runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       - uses: actions/checkout@v4
-      - name: Install 1.86 toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.86
-          default: true
-          components: rustfmt, clippy
+
+      - name: Install Rust 1.86 with components
+        run: |
+          rustup toolchain install 1.86 --profile minimal --component rustfmt,clippy
+          rustup override set 1.86
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "linux-1.86-lint"
+          cache-all-crates: true
+
       - name: Test Format
         run: cargo fmt -- --check
+
       - run: cargo clippy --tests --all-features -- -Dclippy::all
+
   compilation:
     name: Compilation tests
-    runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       - uses: actions/checkout@v4
-      - name: Install 1.86 toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.86
-          default: true
+
+      - name: Install Rust 1.86
+        run: |
+          rustup toolchain install 1.86 --profile minimal
+          rustup override set 1.86
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "linux-1.86-compilation"
+          cache-all-crates: true
+
       - name: Compilation tests
         run: cargo test --package near-sdk --test compilation_tests --features __abi-generate --features unstable -- compilation_tests --exact --nocapture
+
   windows:
     name: Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Setup Windows toolchain"
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.86
-          default: true
-          target: wasm32-unknown-unknown
+
+      - name: Setup Windows toolchain
+        run: |
+          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.86
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "windows-1.86"
+          cache-all-crates: true
+
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --features unstable,legacy
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features legacy
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features unstable
       - run: cargo check -p near-contract-standards --target wasm32-unknown-unknown
+
   audit:
     name: Audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.89
-          default: true
+
+      - name: Install Rust 1.89
+        run: |
+          rustup toolchain install 1.89 --profile minimal
+          rustup override set 1.89
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "linux-audit"
+          cache-all-crates: true
+
       - name: Install Audit
         run: cargo install cargo-audit
+
       - name: Run Audit
         run: cargo audit
+
   # there're sometimes warnings, which signal, that the generated doc
   # won't look as expected, when rendered, and sometimes errors, which will prevent doc from being
   # generated at release time altogether.
   cargo-doc:
-    runs-on: ubuntu-latest
-
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       - uses: actions/checkout@v4
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
+
+      - name: Install Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup override set stable
+
+      - uses: Swatinem/rust-cache@v2
         with:
-          profile: minimal
-          toolchain: stable
-          default: true
+          cache-provider: warpbuild
+          shared-key: "linux-stable-doc"
+          cache-all-crates: true
+
       - name: run cargo doc
         env:
           RUSTDOCFLAGS: -D warnings
