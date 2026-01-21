@@ -15,7 +15,7 @@
 
   <p>
     <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg?style=flat-square" alt="Reference Documentation" /></a>
-    <a href="https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/"><img src="https://img.shields.io/badge/rustc-1.85+-lightgray.svg?style=flat-square" alt="MSRV" /></a>
+    <a href="https://blog.rust-lang.org/2025/04/03/Rust-1.86.0/"><img src="https://img.shields.io/badge/rustc-1.86-lightgray.svg?style=flat-square" alt="MSRV" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="http://near.chat"><img src="https://img.shields.io/discord/490367152054992913?style=flat-square&label=discord&color=lightgreen" alt="Join the community on Discord" /></a>

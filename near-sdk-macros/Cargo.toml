@@ -7,6 +7,7 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
+rust-version.workspace = true
 description = """
 Main macro of the library for writing NEAR smart contracts.
 """
