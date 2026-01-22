@@ -6,7 +6,6 @@ on:
   pull_request:
 env:
   RUSTFLAGS: -D warnings
-  RUST_BACKTRACE: short
   NEAR_RPC_TIMEOUT_SECS: 100
 
 jobs:
@@ -53,4 +52,4 @@ jobs:
           cache-all-crates: true
 
       - name: Run tests with nextest
-        run: cargo +${{ matrix.toolchain }} nextest run --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace --config-file .config/nextest.toml --profile ci
+        run: cargo nextest run --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace --config-file .config/nextest.toml --profile ci
