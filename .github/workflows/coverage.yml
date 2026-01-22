@@ -9,45 +9,48 @@ env:
 
 jobs:
   coverage:
-    runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.example }} - ${{ matrix.platform }}"
-    strategy:
-      matrix:
-        platform: [macos-latest]
-        toolchain: [1.86]
+    runs-on: warp-ubuntu-latest-x64-4x
+    name: "Code Coverage"
     steps:
       - uses: actions/checkout@v4
-      - name: Install Homebrew
-        run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
       - name: Install LLVM
-        run: brew install llvm
-      - name: Add LLVM to PATH
-        run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm lld
+
+      - name: Install Rust 1.86 with rust-src component
+        run: |
+          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.86
+          rustup component add rust-src --toolchain 1.86
+
       - name: Install cargo-llvm-cov
-        run: brew install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "linux-1.86-coverage"
+          cache-all-crates: true
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
       - name: Llvm version
         run: llvm-config --version
+
       - name: Clang version
         run: clang --version
-      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
-      - name: Set Default Toolchain
-        run: rustup override set ${{ matrix.toolchain }}
+
       - name: Rust version
         run: rustc --version --verbose
-      - name: Add rust-src component
-        run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
-      - name: Verify Rust Toolchain
-        run: rustup show
-      - name: Install cargo-near CLI (dependency for build with near-workspaces)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
+
       - name: Generate code coverage
-        run: cargo +${{ matrix.toolchain }} llvm-cov --lcov --output-path llvm-cov-output.lcov
+        run: cargo llvm-cov --lcov --output-path llvm-cov-output.lcov
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
