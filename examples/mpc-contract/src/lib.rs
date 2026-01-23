@@ -122,7 +122,7 @@ impl MpcContract {
 
 #[cfg(test)]
 mod tests {
-    use std::{task::Poll, time::Duration};
+    use std::time::Duration;
 
     use super::*;
 
@@ -130,6 +130,11 @@ mod tests {
     use near_workspaces::{network::Sandbox, result::ExecutionFinalResult};
 
     const SIGNATURE_TEXT: &str = "I'm a cool signature, Kolo?";
+
+    /// Maximum blocks to wait for yield promise timeout + callback processing.
+    /// The yield_timeout_length_in_blocks is 200, plus ~20 blocks buffer for
+    /// callback receipt processing and polling interval timing.
+    const MAX_YIELD_TIMEOUT_BLOCKS: u64 = 220;
 
     async fn mpc_loop(
         workspace: near_workspaces::Worker<Sandbox>,
@@ -163,26 +168,52 @@ mod tests {
         workspace: near_workspaces::Worker<Sandbox>,
         contract: near_workspaces::Contract,
     ) -> Result<ExecutionFinalResult, Box<dyn std::error::Error>> {
+        use std::task::Poll;
+
         let alice = workspace.dev_create_account().await?;
-        let mut interval = tokio::time::interval(Duration::from_secs(2));
         let message = "Hello, world!";
         let block_init = workspace.view_block().await?.height();
-        let result = alice
+
+        let tx_status = alice
             .call(contract.id(), "sign")
             .args_json(serde_json::json!({ "message": message }))
             .gas(Gas::from_tgas(300))
             .transact_async()
             .await?;
 
+        // Poll for transaction completion.
+        // WORKAROUND: TransactionStatus::status() uses TxExecutionStatus::Included which
+        // returns before yield promise callbacks are fully processed. We need to keep
+        // polling until logs are present (indicating callback receipts are processed).
+        let mut interval = tokio::time::interval(Duration::from_secs(2));
+        let mut last_result: Option<ExecutionFinalResult> = None;
+
         loop {
             interval.tick().await;
             let block = workspace.view_block().await?.height();
-            println!("Alice waiting for ~{} blocks", block - block_init);
+            let blocks_elapsed = block - block_init;
+            println!("Alice waiting for ~{} blocks", blocks_elapsed);
 
-            let status = result.status().await?;
+            // Query status - once Ready, subsequent calls will also return Ready
+            // with the same (or updated) result as more receipts are processed
+            let status = tx_status.status().await?;
             if let Poll::Ready(result) = status {
-                println!("Alice result: {:?}", result);
-                return Ok(result);
+                // Check if logs are present (callback receipts processed) or timeout exceeded
+                if !result.logs().is_empty() || blocks_elapsed > MAX_YIELD_TIMEOUT_BLOCKS {
+                    println!("Alice result: {:?}", result);
+                    return Ok(result);
+                }
+                // Store result and keep polling for logs
+                println!("Transaction included but logs not yet available, continuing to wait...");
+                last_result = Some(result);
+            }
+
+            // Safety: if we've waited too long and have a result, return it
+            if blocks_elapsed > MAX_YIELD_TIMEOUT_BLOCKS {
+                if let Some(result) = last_result {
+                    println!("Timeout reached, returning last result: {:?}", result);
+                    return Ok(result);
+                }
             }
         }
     }
