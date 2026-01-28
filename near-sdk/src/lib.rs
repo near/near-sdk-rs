@@ -221,6 +221,11 @@ compile_error!(
 ///
 /// ### Reference to [Implementation of `#[near(contract_state)]` attribute](near#implementation-of-nearcontract_state-attribute-and-host-functions-calls-used) (How does it work?)
 ///
+/// ### Auto-generated [`<ContractType>Ext`](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) struct
+///
+/// This attribute also generates the `<ContractType>Ext` struct definition for cross-contract calls.
+/// See [`<ContractType>Ext` documentation](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) for details.
+///
 /// ## `#[near]` (annotates impl blocks)
 ///
 /// This macro is used to define the code for view-only and mutating methods for contract types,
@@ -250,6 +255,139 @@ compile_error!(
 /// ```
 ///
 /// ### Reference to [Implementation of `#[near]` macro](near#implementation-of-near-macro-and-host-functions-calls-used) (How does it work?)
+///
+/// ### Auto-generated method wrappers on [`<ContractType>Ext`](near#contracttypeext-struct-auto-generated-for-cross-contract-calls)
+///
+/// This macro also generates method wrappers on the `<ContractType>Ext` struct for each public method,
+/// enabling cross-contract calls.
+/// See [`<ContractType>Ext` documentation](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) for details.
+///
+/// ## `<ContractType>Ext` struct (auto-generated for cross-contract calls)
+///
+/// When you annotate a struct with [`#[near(contract_state)]`](near#nearcontract_state-annotates-structsenums)
+/// and define methods in an [`#[near]` impl block](near#near-annotates-impl-blocks), the macro automatically
+/// generates a companion struct called `<ContractType>Ext` (e.g., `ContractExt` for a contract named `Contract`).
+///
+/// This struct provides a **builder pattern API for making cross-contract calls** to your contract's methods,
+/// returning a [`Promise`] that can be chained with other promises.
+///
+/// ### Generated structure
+///
+/// For a contract like:
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// pub struct CrossContract {
+///     greeting: String,
+/// }
+///
+/// #[near]
+/// impl CrossContract {
+///     pub fn method_one(&self, n: u32) -> u32 { n }
+///     pub fn method_two(&mut self, message: String) { }
+/// }
+/// ```
+///
+/// The macro generates (approximately):
+///
+/// ```rust,ignore
+/// #[must_use]
+/// pub struct CrossContractExt {
+///     pub(crate) promise_or_create_on: PromiseOrValue<AccountId>,
+///     pub(crate) deposit: NearToken,
+///     pub(crate) static_gas: Gas,
+///     pub(crate) gas_weight: GasWeight,
+/// }
+///
+/// impl CrossContract {
+///     /// API for calling this contract's functions in a subsequent execution.
+///     pub fn ext(account_id: AccountId) -> CrossContractExt { /* ... */ }
+///
+///     /// API for calling this contract's functions as a callback on a promise.
+///     pub fn ext_on(promise: Promise) -> CrossContractExt { /* ... */ }
+/// }
+///
+/// impl CrossContractExt {
+///     /// Attach NEAR tokens to the cross-contract call.
+///     pub fn with_attached_deposit(mut self, amount: NearToken) -> Self { /* ... */ }
+///
+///     /// Specify the amount of static gas to attach to this call.
+///     pub fn with_static_gas(mut self, static_gas: Gas) -> Self { /* ... */ }
+///
+///     /// Specify the weight for distributing unused gas to this call.
+///     pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self { /* ... */ }
+///
+///     // Methods mirroring contract methods:
+///     pub fn method_one(self, n: u32) -> Promise { /* ... */ }
+///     pub fn method_two(self, message: String) -> Promise { /* ... */ }
+/// }
+/// ```
+///
+/// ### What gets generated where
+///
+/// - **`#[near(contract_state)]`** generates the `<ContractType>Ext` struct definition
+///   with its fields and the `ext()` / `ext_on()` constructor methods.
+/// - **`#[near]` on impl blocks** generates method wrappers on `<ContractType>Ext`
+///   that mirror each public method in the impl block, returning a [`Promise`].
+///
+/// ### Usage example: Cross-contract calls
+///
+/// ```rust
+/// use near_sdk::{near, env, Promise};
+///
+/// # #[near(contract_state)]
+/// # pub struct Contract {
+/// #     other_contract_id: near_sdk::AccountId,
+/// # }
+///
+/// #[near]
+/// impl Contract {
+///     pub fn some_method(&self) -> u32 { 42 }
+///
+///     pub fn call_other_contract(&self) -> Promise {
+///         // Call another contract's method using the Ext struct
+///         Self::ext(self.other_contract_id.clone())
+///             .with_attached_deposit(near_sdk::NearToken::from_near(1))
+///             .with_static_gas(near_sdk::Gas::from_tgas(5))
+///             .some_method()
+///     }
+///
+///     pub fn call_with_callback(&self) -> Promise {
+///         // Chain multiple calls: call self, then callback
+///         Self::ext(env::current_account_id())
+///             .some_method()
+///             .then(
+///                 Self::ext(env::current_account_id())
+///                     .callback_method()
+///             )
+///     }
+///
+///     #[private]
+///     pub fn callback_method(&self, #[callback_unwrap] result: u32) {
+///         // Handle the result from the previous call
+///     }
+/// }
+/// ```
+///
+/// ### Discovering method signatures
+///
+/// To explore all available methods on your `<ContractType>Ext` struct, run:
+///
+/// ```bash,ignore
+/// cargo doc --lib --open
+/// ```
+///
+/// This generates documentation for your contract, including the auto-generated
+/// `<ContractType>Ext` struct with all its methods and their signatures.
+///
+/// ### See also
+///
+/// - [`Promise`] - The type returned by `<ContractType>Ext` methods
+/// - [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments) - For handling results from cross-contract calls
+/// - [`#[private]`](near#private-annotates-methods-of-a-type-in-its-impl-block) - For restricting callback methods
+/// - [NEAR Cross-Contract Calls Documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
