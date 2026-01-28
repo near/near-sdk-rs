@@ -244,13 +244,12 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
-                        let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
                             let #mutability #ident: #ty = {
                                 let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                    .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
+                                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx)));
                                 #invocation
                             };
                         }
@@ -327,7 +326,7 @@ impl AttrSigInfo {
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
                             let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
-                                .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
+                                .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i)));
                             #invocation
                         }));
                 }

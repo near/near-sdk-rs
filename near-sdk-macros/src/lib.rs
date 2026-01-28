@@ -351,11 +351,14 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
+    let error_methods = item_impl_info.generate_error_method();
+
     Ok(TokenStream::from(quote! {
         #ext_generated_code
         #input
         #generated_code
         #abi_generated
+        #error_methods
     })
     .into())
 }
@@ -620,7 +623,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl ::std::default::Default for #ident {
                         fn default() -> Self {
-                            ::near_sdk::env::panic_str("The contract is not initialized");
+                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractNotInitialized{});
                         }
                     }
                 };
@@ -682,7 +685,7 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl ::near_sdk::FunctionError for #name {
             fn panic(&self) -> ! {
-                ::near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
+                ::near_sdk::env::panic_err(::near_sdk::errors::ContractError::new(&::std::string::ToString::to_string(&self)))
             }
         }
     })
@@ -789,4 +792,138 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+#[derive(FromMeta)]
+struct ContractErrorArgs {
+    sdk: Option<bool>,
+    inside_nearsdk: Option<bool>,
+}
+
+/// This attribute macro is used on a struct or enum to generate the necessary code for an error
+///  returned from a contract method call.
+///
+/// # Example:
+///  
+/// For the error:
+/// ```ignore
+/// #[contract_error]
+/// pub struct MyError {
+///    field1: String,
+///    field2: String,
+/// }
+/// ```
+///
+/// And the function:
+/// ```ignore
+/// pub fn my_method(&self) -> Result<(), MyError>;
+/// ```
+///
+/// The error is serialized as a JSON object with the following structure:
+/// ```text
+/// {
+///    "error": {
+///       // this name can be "SDK_CONTRACT_ERROR" and "CUSTOM_CONTRACT_ERROR"
+///       // To generate "SDK_CONTRACT_ERROR", use sdk attribute `#[contract_error(sdk)]`.
+///       // Otherwise, it will generate "CUSTOM_CONTRACT_ERROR"
+///       "name": "CUSTOM_CONTRACT_ERROR",
+///       "cause": {
+///         // this name is the name of error struct
+///         "name": "MyError",
+///         "info": {
+///             /// fields of the error struct
+///             "field1": "value1",
+///             "field2": "value2"
+///         }
+///    }
+/// }
+/// ```
+///
+/// Note: you can assign any error defined like that to BaseError:
+/// ```ignore
+/// let base_error: BaseError = MyError { field1: "value1".to_string(), field2: "value2".to_string() }.into();
+/// ```
+///
+/// Use inside_nearsdk attribute (#[contract_error(inside_nearsdk)]) if the error struct is defined inside near-sdk.
+/// Don't use if it is defined outside.
+///
+/// Internally, it makes error struct to:
+///  - implement `near_sdk::ContractErrorTrait` so that it becomes correct error, which can be returned from contract method with defined structure.
+///  - implement `From<ErrorStruct> for near_sdk::BaseError` as a polymorphic solution
+///  - implement `From<ErrorStruct> for String` to convert the error to a string
+#[proc_macro_attribute]
+pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
+    };
+
+    let contract_error_args = match ContractErrorArgs::from_list(&meta_list) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
+    };
+
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let ident = &input.ident;
+    let generics = &input.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let error_type = if contract_error_args.sdk.unwrap_or(false) {
+        quote! {"SDK_CONTRACT_ERROR"}
+    } else {
+        quote! {"CUSTOM_CONTRACT_ERROR"}
+    };
+
+    let near_sdk_crate: proc_macro2::TokenStream;
+    let mut bool_inside_nearsdk_for_macro = quote! {false};
+
+    if contract_error_args.inside_nearsdk.unwrap_or(false) {
+        near_sdk_crate = quote! {crate};
+        bool_inside_nearsdk_for_macro = quote! {true};
+    } else {
+        near_sdk_crate = quote! {::near_sdk};
+    };
+
+    let mut expanded = quote! {
+        #[#near_sdk_crate ::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
+        #[derive(Debug)]
+        #input
+
+        impl #impl_generics #near_sdk_crate ::ContractErrorTrait for #ident #ty_generics #where_clause {
+            fn error_type(&self) -> &'static str {
+                #error_type
+            }
+
+            fn wrap(&self) -> String {
+                let info = #near_sdk_crate ::serde_json::to_string(self).unwrap_or_default();
+                #near_sdk_crate ::wrap_impl(
+                    self.error_type(),
+                    std::any::type_name::<#ident #ty_generics>(),
+                    &info
+                )
+            }
+        }
+    };
+    if *ident != "BaseError" {
+        expanded.extend(quote! {
+            impl #impl_generics From<#ident #ty_generics> for String #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
+                    #near_sdk_crate ::wrap_error(err)
+                }
+            }
+
+            impl #impl_generics From<#ident #ty_generics> for #near_sdk_crate ::BaseError #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
+                    #near_sdk_crate ::BaseError{
+                        error: #near_sdk_crate ::wrap_error(err),
+                    }
+                }
+            }
+        });
+    }
+    TokenStream::from(expanded)
 }

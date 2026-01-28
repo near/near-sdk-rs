@@ -991,6 +991,9 @@ pub use near_sdk_macros::near;
 /// ```
 pub use near_sdk_macros::near_bindgen;
 
+/// TODO: add docs
+pub use near_sdk_macros::contract_error;
+
 /// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
 /// Each of these static methods takes positional arguments defined by the Trait,
 /// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
@@ -1162,6 +1165,8 @@ pub mod state;
 
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
+
+pub mod errors;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
