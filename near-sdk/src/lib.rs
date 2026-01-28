@@ -1110,7 +1110,7 @@ pub use near_sdk_macros::near_bindgen;
 /// Use `ext_on` to chain a cross-contract call after an existing promise:
 ///
 /// ```rust
-/// use near_sdk::{env, ext_contract, near, AccountId, Promise};
+/// use near_sdk::{ext_contract, near, AccountId, Promise};
 ///
 /// #[ext_contract(ext_other)]
 /// trait OtherContract {
