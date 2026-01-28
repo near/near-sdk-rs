@@ -23,3 +23,6 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[workspace]
+resolver = "3"

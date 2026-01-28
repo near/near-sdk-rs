@@ -46,3 +46,6 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
+
+[workspace]
+resolver = "3"
