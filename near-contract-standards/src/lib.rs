@@ -3,6 +3,7 @@
 #![allow(clippy::needless_lifetimes)]
 
 pub mod fungible_token;
+pub mod sharded_fungible_token;
 
 /// Non-fungible tokens as described in [by the spec](https://nomicon.io/Standards/Tokens/NonFungibleToken).
 pub mod non_fungible_token;
