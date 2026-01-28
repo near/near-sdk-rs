@@ -339,6 +339,18 @@ where
     }
 }
 
+impl<'a, T, H> Drop for Drain<'a, T, H>
+where
+    T: BorshSerialize + BorshDeserialize + Ord,
+    H: ToKey,
+{
+    fn drop(&mut self) {
+        for element in &mut self.elements {
+            self.index.set(element, None);
+        }
+    }
+}
+
 impl<'a, T, H> ExactSizeIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
