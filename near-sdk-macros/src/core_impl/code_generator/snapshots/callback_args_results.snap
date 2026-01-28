@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 170
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -10,6 +9,9 @@ pub extern "C" fn method() {
     if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id()
     {
         ::near_sdk::env::panic_str("Method method is private");
+    }
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
     }
     let mut x: Result<u64, PromiseError> = ::near_sdk::env::promise_result_checked(
             0u64,

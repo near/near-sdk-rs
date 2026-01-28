@@ -6,8 +6,10 @@ expression: pretty_print_syn_str(&actual).unwrap()
 #[no_mangle]
 pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
+    }
     let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
     Hello::method(contract);
 }
-
