@@ -18,6 +18,8 @@
 //! ## Quick Start
 //!
 //! Add `near-sdk` to your `Cargo.toml`:
+// Allow test attribute in doctest since it's showing example testing code
+#![allow(clippy::test_attr_in_doctest)]
 //!
 //! ```toml
 //! [dependencies]

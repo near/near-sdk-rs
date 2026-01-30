@@ -267,8 +267,7 @@ where
             let _ = entry.hash.set(key);
             CacheEntry::new_cached(value)
         });
-        let entry = entry.value.get_mut().unwrap_or_else(|| env::abort());
-        entry
+        entry.value.get_mut().unwrap_or_else(|| env::abort())
     }
 
     /// Returns a mutable reference to the value corresponding to the key.

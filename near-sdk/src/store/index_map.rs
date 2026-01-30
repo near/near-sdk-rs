@@ -122,8 +122,7 @@ where
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });
-        let entry = entry.get_mut().unwrap();
-        entry
+        entry.get_mut().unwrap()
     }
 
     /// Returns a mutable reference to the element at the `index` provided.

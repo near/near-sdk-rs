@@ -97,7 +97,7 @@ impl ArgInfo {
                         "callback_vec" => CallbackBindgenArgType::ArgVec,
                         _ => return true,
                     };
-                    match CallbackAttrConfig::from_attributes(&[attr.clone()]) {
+                    match CallbackAttrConfig::from_attributes(std::slice::from_ref(attr)) {
                         Ok(args) => {
                             bindgen_ty = BindgenArgType::Callback {
                                 ty: cb_bindgen_ty,
@@ -109,7 +109,7 @@ impl ArgInfo {
                     false
                 }
                 "serializer" => {
-                    match SerializerAttrConfig::from_attributes(&[attr.clone()]) {
+                    match SerializerAttrConfig::from_attributes(std::slice::from_ref(attr)) {
                         Ok(args) => {
                             if args.borsh.is_some() && args.json.is_some() {
                                 let spanned_error = syn::Error::new_spanned(
