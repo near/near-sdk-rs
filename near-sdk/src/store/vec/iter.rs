@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::{iter::FusedIterator, ops::Range};
 
-use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
+use super::{ERR_INDEX_OUT_OF_BOUNDS, Vector};
 use crate::env;
 
 /// An iterator over references to each element in the stored vector.

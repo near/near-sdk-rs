@@ -8,9 +8,9 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::ops::Bound;
 
-use crate::collections::UnorderedMap;
-use crate::collections::{append, Vector};
 use crate::IntoStorageKey;
+use crate::collections::UnorderedMap;
+use crate::collections::{Vector, append};
 
 /// TreeMap based on AVL-tree
 ///
@@ -147,20 +147,12 @@ where
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
     pub fn ceil_key(&self, key: &K) -> Option<K> {
-        if self.contains_key(key) {
-            Some(key.clone())
-        } else {
-            self.higher(key)
-        }
+        if self.contains_key(key) { Some(key.clone()) } else { self.higher(key) }
     }
 
     /// Returns the largest key that is less or equal to key given as the parameter
     pub fn floor_key(&self, key: &K) -> Option<K> {
-        if self.contains_key(key) {
-            Some(key.clone())
-        } else {
-            self.lower(key)
-        }
+        if self.contains_key(key) { Some(key.clone()) } else { self.lower(key) }
     }
 
     /// Iterate all entries in ascending order: min to max, both inclusive
@@ -636,12 +628,12 @@ where
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
     (match lo {
-        Bound::Included(ref x) => key >= x,
-        Bound::Excluded(ref x) => key > x,
+        Bound::Included(x) => key >= x,
+        Bound::Excluded(x) => key > x,
         Bound::Unbounded => true,
     }) && (match hi {
-        Bound::Included(ref x) => key <= x,
-        Bound::Excluded(ref x) => key < x,
+        Bound::Included(x) => key <= x,
+        Bound::Excluded(x) => key < x,
         Bound::Unbounded => true,
     })
 }

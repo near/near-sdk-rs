@@ -2,7 +2,7 @@
 name = "factory-contract-wrapper"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]

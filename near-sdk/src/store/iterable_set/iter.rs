@@ -1,7 +1,7 @@
 use super::IterableSet;
 use crate::store::iterable_set::VecIndex;
 use crate::store::key::ToKey;
-use crate::store::{vec, LookupMap};
+use crate::store::{LookupMap, vec};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
 

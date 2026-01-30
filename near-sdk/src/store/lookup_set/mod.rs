@@ -1,7 +1,7 @@
 mod impls;
 
 use crate::store::key::{Identity, ToKey};
-use crate::{env, IntoStorageKey};
+use crate::{IntoStorageKey, env};
 use borsh::BorshSerialize;
 use std::borrow::Borrow;
 use std::fmt;
@@ -149,8 +149,8 @@ mod tests {
     use crate::store::key::{Identity, Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use rand::seq::SliceRandom;
     use rand::RngCore;
+    use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashSet;
 
@@ -160,13 +160,13 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut baseline = HashSet::new();
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             set.insert(value);
             baseline.insert(value);
         }
         // Non existing
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             assert_eq!(set.contains(&value), baseline.contains(&value));
         }
         // Existing
@@ -181,7 +181,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut values = vec![];
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             values.push(value);
             set.insert(value);
         }
@@ -225,14 +225,14 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut values = vec![];
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             values.push(value);
             set.insert(value);
         }
         for _ in 0..10 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let value = rng.r#gen::<u64>();
                 tmp.push(value);
             }
             values.extend(tmp.iter().cloned());

@@ -1,5 +1,5 @@
 use near_sdk::test_utils::get_logs;
-use near_sdk::{near, AccountId, AsNep297Event};
+use near_sdk::{AccountId, AsNep297Event, near};
 
 #[near(event_json(standard = "test_standard"))]
 #[derive(Debug)]

@@ -43,7 +43,7 @@ arbitrary = { version = "1.4", optional = true }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8.8", optional = true }
+schemars = { version = "0.8.22", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }

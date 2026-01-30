@@ -3,10 +3,10 @@ use proc_macro2::Span;
 
 use quote::quote;
 
-use darling::ast::NestedMeta;
 use darling::Error;
 use darling::FromMeta;
-use syn::{parse_quote, ItemEnum, LitStr};
+use darling::ast::NestedMeta;
+use syn::{ItemEnum, LitStr, parse_quote};
 
 #[derive(Default, FromMeta, Clone, Debug)]
 pub struct MacroConfig {

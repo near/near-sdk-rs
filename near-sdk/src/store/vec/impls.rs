@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::iter::{Iter, IterMut};
-use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
+use super::{ERR_INDEX_OUT_OF_BOUNDS, Vector};
 use crate::env;
 
 impl<T> Drop for Vector<T>

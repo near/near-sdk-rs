@@ -28,7 +28,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov
+          tool: cargo-llvm-cov@0.6.24
 
       - uses: Swatinem/rust-cache@v2
         with:
