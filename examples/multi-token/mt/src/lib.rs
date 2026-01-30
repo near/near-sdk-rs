@@ -16,13 +16,22 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
-use near_contract_standards::multi_token::approval::MultiTokenApproval;
-use near_contract_standards::multi_token::core::{MultiTokenCore, MultiTokenResolver};
-use near_contract_standards::multi_token::enumeration::MultiTokenEnumeration;
-use near_contract_standards::multi_token::metadata::{
-    MTContractMetadata, MTTokenMetadata, MultiTokenMetadataProvider, MT_METADATA_SPEC,
+use near_contract_standards::multi_token::{
+    // Metadata
+    MTContractMetadata,
+    MTTokenMetadata,
+    // Core types
+    MultiToken,
+    // Extensions
+    MultiTokenApproval,
+    MultiTokenCore,
+    MultiTokenEnumeration,
+    MultiTokenMetadataProvider,
+    MultiTokenResolver,
+    Token,
+    TokenId,
+    MT_METADATA_SPEC,
 };
-use near_contract_standards::multi_token::{MultiToken, Token, TokenId};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{

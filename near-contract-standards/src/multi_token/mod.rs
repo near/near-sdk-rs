@@ -7,9 +7,10 @@
 //! # Example Usage
 //!
 //! ```ignore
-//! use near_contract_standards::multi_token::{MultiToken, Token, TokenId};
-//! use near_contract_standards::multi_token::core::MultiTokenCore;
-//! use near_contract_standards::multi_token::metadata::{MTContractMetadata, MTTokenMetadata};
+//! use near_contract_standards::multi_token::{
+//!     MultiToken, MultiTokenCore, Token, TokenId,
+//!     MTContractMetadata, MT_METADATA_SPEC,
+//! };
 //! use near_sdk::{near, AccountId, PanicOnDefault, BorshStorageKey};
 //! use near_sdk::collections::LazyOption;
 //!
@@ -87,6 +88,15 @@ pub use self::enumeration::MultiTokenEnumerationMetadata;
 
 // Re-export approval types
 pub use self::approval::MultiTokenApproval;
+pub use self::approval::MultiTokenApprovalReceiver;
+
+// Re-export metadata types for convenience
+pub use self::metadata::MTBaseTokenMetadata;
+pub use self::metadata::MTContractMetadata;
+pub use self::metadata::MTTokenMetadata;
+pub use self::metadata::MTTokenMetadataAll;
+pub use self::metadata::MultiTokenMetadataProvider;
+pub use self::metadata::MT_METADATA_SPEC;
 
 // Re-export utilities
 pub use self::utils::*;

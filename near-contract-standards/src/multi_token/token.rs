@@ -35,7 +35,13 @@ pub struct Approval {
 }
 
 /// Cleared approval info stored during cross-contract calls for potential rollback.
-/// Contains (owner_id, approval_id, amount).
+///
+/// This is a tuple of `(account_id, approval_id, amount)` where:
+/// - `account_id`: The account that was approved to transfer tokens
+/// - `approval_id`: The unique approval ID for this grant
+/// - `amount`: The amount that was approved for transfer
+///
+/// This format matches the NEP-245 spec for the `approvals` parameter in `mt_resolve_transfer`.
 pub type ClearedApproval = (AccountId, u64, u128);
 
 /// The Token struct returned by view methods.
