@@ -1,10 +1,7 @@
-use crate::multi_token::token::TokenId;
+use crate::multi_token::token::{ClearedApproval, TokenId};
 use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
-
-/// Approval data for a cleared approval: (owner_id, approval_id, amount)
-pub type ClearedApproval = (AccountId, u64, U128);
 
 /// Used when a multi token is transferred using `mt_transfer_call` or `mt_batch_transfer_call`.
 /// This is the method that's called after `mt_on_transfer`.
