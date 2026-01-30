@@ -21,7 +21,7 @@ jobs:
       - name: Generate report
         id: generate
         run: |
-          pip install GitPython
+          pip install -q GitPython
           # Capture output to temp file first to avoid corrupting GITHUB_ENV if script fails
           if ci/compare_sizes/compare_sizes.py > /tmp/report.txt 2> /tmp/report_err.txt; then
             {
