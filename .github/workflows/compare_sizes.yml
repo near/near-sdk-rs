@@ -19,12 +19,25 @@ jobs:
       - name: Install cargo-near CLI (dependency for docker builds in generate report)
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
       - name: Generate report
+        id: generate
         run: |
-          yes | pip install GitPython
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          ci/compare_sizes/compare_sizes.py >> "$GITHUB_ENV"
-          echo "$EOF" >> "$GITHUB_ENV"
+          pip install GitPython
+          # Capture output to temp file first to avoid corrupting GITHUB_ENV if script fails
+          if ci/compare_sizes/compare_sizes.py > /tmp/report.txt 2> /tmp/report_err.txt; then
+            {
+              echo 'REPORT<<EOF'
+              cat /tmp/report.txt
+              echo 'EOF'
+            } >> "$GITHUB_ENV"
+          else
+            # Capture error output for the failure notification
+            {
+              echo 'ERROR_OUTPUT<<EOF'
+              tail -50 /tmp/report_err.txt
+              echo 'EOF'
+            } >> "$GITHUB_ENV"
+            exit 1
+          fi
       - name: Submit report
         if: ${{ success() }}
         uses: actions/github-script@v4
@@ -37,13 +50,26 @@ jobs:
               body: process.env.REPORT,
             });
       - name: Notify about failure
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.generate.outcome == 'failure' }}
         uses: actions/github-script@v4
         with:
           script: |
+            const errorOutput = process.env.ERROR_OUTPUT || 'No error output captured';
+            const body = `Failed to generate size comparison report!
+
+<details>
+<summary>Error details</summary>
+
+\`\`\`
+${errorOutput}
+\`\`\`
+
+</details>
+
+See the [failed CI job](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.`;
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Failed to generate size comparison report! See the failed CI job for more details.',
+              body: body,
             });
