@@ -33,7 +33,12 @@ jobs:
             # Capture error output for the failure notification
             {
               echo 'ERROR_OUTPUT<<EOF'
-              tail -50 /tmp/report_err.txt
+              if [ -s /tmp/report_err.txt ]; then
+                tail -n 50 /tmp/report_err.txt
+              else
+                echo 'No stderr captured, showing last 50 lines of stdout instead:'
+                tail -n 50 /tmp/report.txt
+              fi
               echo 'EOF'
             } >> "$GITHUB_ENV"
             exit 1
