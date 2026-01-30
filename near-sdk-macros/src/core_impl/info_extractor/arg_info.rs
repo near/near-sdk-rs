@@ -2,7 +2,7 @@ use crate::core_impl::info_extractor::SerializerType;
 use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use syn::{parse_quote, Error, Expr, Ident, Pat, PatType, Token, Type};
+use syn::{Error, Expr, Ident, Pat, PatType, Token, Type, parse_quote};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.

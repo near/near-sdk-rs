@@ -14,9 +14,9 @@
 //! or [`FtBurn::emit_many`] respectively.
 
 use crate::event::NearEvent;
+use near_sdk::AccountIdRef;
 use near_sdk::json_types::U128;
 use near_sdk::serde::Serialize;
-use near_sdk::AccountIdRef;
 
 /// Data to log for an FT mint event. To log this event, call [`.emit()`](FtMint::emit).
 #[must_use]
@@ -125,7 +125,7 @@ fn new_141_v1(event_kind: Nep141EventKind) -> NearEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::{test_utils, AccountIdRef};
+    use near_sdk::{AccountIdRef, test_utils};
 
     #[test]
     fn ft_mint() {

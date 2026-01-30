@@ -1,5 +1,5 @@
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::{ext_contract, AccountId};
+use near_sdk::{AccountId, ext_contract};
 
 /// Approval receiver is the trait for the method called (or attempted to be called) when an NFT contract adds an approval for an account.
 #[ext_contract(ext_nft_approval_receiver)]

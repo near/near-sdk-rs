@@ -12,9 +12,9 @@ expression: pretty_print_fn_body_syn_str(actual)
         params: ::near_sdk::__private::AbiParameters::Json {
             args: ::std::vec![
                 ::near_sdk::__private::AbiJsonParameter { name :
-                ::std::string::String::from("arg0"), type_schema : gen.subschema_for:: <
+                ::std::string::String::from("arg0"), type_schema : schema_generator.subschema_for:: <
                 FancyStruct > (), }, ::near_sdk::__private::AbiJsonParameter { name :
-                ::std::string::String::from("arg1"), type_schema : gen.subschema_for:: <
+                ::std::string::String::from("arg1"), type_schema : schema_generator.subschema_for:: <
                 u64 > (), }
             ],
         },

@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{FreeList, Slot, ERR_INCONSISTENT_STATE};
+use super::{ERR_INCONSISTENT_STATE, FreeList, Slot};
 use crate::{env, store::vec};
 
 impl<'a, T> IntoIterator for &'a FreeList<T>

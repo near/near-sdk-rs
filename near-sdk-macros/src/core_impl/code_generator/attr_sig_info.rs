@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream as TokenStream2;
 
-use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
-use crate::core_impl::{utils, MethodKind};
 use crate::CallbackBindgenArgType;
+use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
+use crate::core_impl::{MethodKind, utils};
 use quote::quote;
 
 impl AttrSigInfo {
