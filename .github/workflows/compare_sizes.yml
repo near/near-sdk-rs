@@ -52,21 +52,27 @@ jobs:
       - name: Notify about failure
         if: ${{ failure() && steps.generate.outcome == 'failure' }}
         uses: actions/github-script@v4
+        env:
+          ERROR_OUTPUT: ${{ env.ERROR_OUTPUT }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const errorOutput = process.env.ERROR_OUTPUT || 'No error output captured';
-            const body = `Failed to generate size comparison report!
-
-<details>
-<summary>Error details</summary>
-
-\`\`\`
-${errorOutput}
-\`\`\`
-
-</details>
-
-See the [failed CI job](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.`;
+            const runUrl = process.env.RUN_URL;
+            const body = [
+              'Failed to generate size comparison report!',
+              '',
+              '<details>',
+              '<summary>Error details</summary>',
+              '',
+              '```',
+              errorOutput,
+              '```',
+              '',
+              '</details>',
+              '',
+              `See the [failed CI job](${runUrl}) for more details.`
+            ].join('\n');
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
