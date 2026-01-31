@@ -1,5 +1,5 @@
 use near_sdk::store::IterableMap;
-use near_sdk::{env, log, near, AccountId, NearToken};
+use near_sdk::{AccountId, NearToken, env, log, near};
 
 /// An example of a versioned contract. This is a simple contract that tracks how much
 /// each account deposits into the contract. In v1, a nonce is added to state which increments
@@ -98,15 +98,17 @@ impl VersionedContract {
 mod tests {
     use super::*;
     use near_abi::AbiRoot;
-    use near_sdk::test_utils::test_env::{alice, bob};
     use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::test_utils::test_env::{alice, bob};
     use near_sdk::{serde_json, testing_env};
 
     fn set_predecessor_and_deposit(predecessor: AccountId, deposit: NearToken) {
-        testing_env!(VMContextBuilder::new()
-            .predecessor_account_id(predecessor)
-            .attached_deposit(deposit)
-            .build())
+        testing_env!(
+            VMContextBuilder::new()
+                .predecessor_account_id(predecessor)
+                .attached_deposit(deposit)
+                .build()
+        )
     }
 
     #[test]
@@ -155,8 +157,7 @@ mod tests {
 
         let res = contract.view("__contract_abi").await?;
 
-        let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
 
         assert_eq!(abi_root.schema_version, "0.4.0");
         assert_eq!(abi_root.metadata.name, Some("versioned".to_string()));

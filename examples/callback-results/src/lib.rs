@@ -1,5 +1,5 @@
 use near_sdk::require;
-use near_sdk::{env, near, Promise, PromiseError};
+use near_sdk::{Promise, PromiseError, env, near};
 
 const A_VALUE: u8 = 8;
 

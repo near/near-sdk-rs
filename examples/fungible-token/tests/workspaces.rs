@@ -4,7 +4,7 @@ use near_sdk::json_types::U128;
 use near_workspaces::cargo_near_build;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
-use near_workspaces::{types::NearToken, Account, AccountId, Contract};
+use near_workspaces::{Account, AccountId, Contract, types::NearToken};
 use rstest::{fixture, rstest};
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
@@ -358,8 +358,10 @@ async fn test_close_account_non_empty_balance(
         .deposit(ONE_YOCTO)
         .transact()
         .await;
-    assert!(format!("{:?}", res)
-        .contains("Can't unregister the account with the positive balance without force"));
+    assert!(
+        format!("{:?}", res)
+            .contains("Can't unregister the account with the positive balance without force")
+    );
 
     let res = contract
         .call("storage_unregister")
@@ -368,8 +370,10 @@ async fn test_close_account_non_empty_balance(
         .deposit(ONE_YOCTO)
         .transact()
         .await;
-    assert!(format!("{:?}", res)
-        .contains("Can't unregister the account with the positive balance without force"));
+    assert!(
+        format!("{:?}", res)
+            .contains("Can't unregister the account with the positive balance without force")
+    );
 
     Ok(())
 }

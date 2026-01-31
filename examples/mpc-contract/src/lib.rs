@@ -1,6 +1,6 @@
 use near_sdk::{
-    env, log, near, serde_json, store::IterableMap, AccountId, CryptoHash, Gas, GasWeight,
-    NearToken, PromiseError,
+    AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseError, env, log, near, serde_json,
+    store::IterableMap,
 };
 
 // Register used to receive data id from `promise_await_data`.

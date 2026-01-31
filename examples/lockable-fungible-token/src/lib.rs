@@ -1,5 +1,5 @@
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, json_types::U128, near, AccountId, PanicOnDefault};
+use near_sdk::{AccountId, PanicOnDefault, env, json_types::U128, near};
 use std::collections::HashMap;
 
 type Balance = u128;
@@ -271,9 +271,9 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_sdk::test_utils::test_env::{alice, bob, carol};
     use near_sdk::test_utils::VMContextBuilder;
-    use near_sdk::{testing_env, VMContext};
+    use near_sdk::test_utils::test_env::{alice, bob, carol};
+    use near_sdk::{VMContext, testing_env};
 
     use super::*;
 

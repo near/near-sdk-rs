@@ -1,4 +1,4 @@
-use near_sdk::{env, near, Promise};
+use near_sdk::{Promise, env, near};
 
 #[derive(Debug, PartialEq, Eq)]
 #[near(serializers=[borsh, json])]

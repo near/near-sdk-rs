@@ -16,7 +16,7 @@ NOTES:
     keys on its account.
 */
 use near_contract_standards::fungible_token::metadata::{
-    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
+    FT_METADATA_SPEC, FungibleTokenMetadata, FungibleTokenMetadataProvider,
 };
 use near_contract_standards::fungible_token::{
     FungibleToken, FungibleTokenCore, FungibleTokenResolver,
@@ -28,7 +28,7 @@ use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
+    AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue, env, log, near, require,
 };
 
 #[derive(PanicOnDefault)]
@@ -183,7 +183,7 @@ impl FungibleTokenMetadataProvider for Contract {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use near_contract_standards::fungible_token::Balance;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::test_utils::{VMContextBuilder, accounts};
     use near_sdk::testing_env;
 
     use super::*;
@@ -222,28 +222,34 @@ mod tests {
         let mut context = get_context(accounts(2));
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY.into());
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(contract.storage_balance_bounds().min.into())
-            .predecessor_account_id(accounts(1))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(contract.storage_balance_bounds().min.into())
+                .predecessor_account_id(accounts(1))
+                .build()
+        );
         // Paying for account registration, aka storage deposit
         contract.storage_deposit(None, None);
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(1))
-            .predecessor_account_id(accounts(2))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(1))
+                .predecessor_account_id(accounts(2))
+                .build()
+        );
         let transfer_amount = TOTAL_SUPPLY / 3;
         contract.ft_transfer(accounts(1), transfer_amount.into(), None);
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
-            .is_view(true)
-            .attached_deposit(NearToken::from_near(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .account_balance(env::account_balance())
+                .is_view(true)
+                .attached_deposit(NearToken::from_near(0))
+                .build()
+        );
         assert_eq!(contract.ft_balance_of(accounts(2)).0, (TOTAL_SUPPLY - transfer_amount));
         assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount);
     }

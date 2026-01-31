@@ -1,5 +1,5 @@
 use near_sdk::PromiseError;
-use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
+use near_sdk::{AccountId, NearToken, Promise, env, ext_contract, near};
 
 #[derive(Default)]
 #[near(contract_state)]
