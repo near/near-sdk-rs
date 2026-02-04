@@ -77,8 +77,9 @@ async fn setup_worker(
 #[track_caller]
 fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u64>) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
+    println!("GAS {}: {}", col, NearGas::from_gas(total_gas));
     assert!(
-        total_gas < NearGas::from_tgas(140).as_gas(),
+        total_gas < NearGas::from_tgas(115).as_gas(),
         "performance regression {}: {}",
         col,
         NearGas::from_gas(total_gas)
@@ -481,7 +482,7 @@ async fn test_lazy() -> anyhow::Result<()> {
         .unwrap();
 
     // Override min gas to avoid constant tuning, it's pretty clear this is performant.
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get", Some(25));
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get", Some(70));
 
     let res = account
         .call(&contract_id, "insert_flush")
