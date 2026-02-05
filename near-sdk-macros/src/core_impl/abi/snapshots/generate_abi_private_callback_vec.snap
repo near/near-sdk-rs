@@ -12,10 +12,10 @@ expression: pretty_print_fn_body_syn_str(actual)
         },
         callbacks: ::std::vec![],
         callbacks_vec: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
-            type_schema: gen.subschema_for::<String>(),
+            type_schema: schema_generator.subschema_for::<String>(),
         }),
         result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
-            type_schema: gen.subschema_for::<bool>(),
+            type_schema: schema_generator.subschema_for::<bool>(),
         }),
     }
 

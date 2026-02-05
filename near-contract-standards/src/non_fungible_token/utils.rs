@@ -1,4 +1,4 @@
-use near_sdk::{env, require, AccountId, NearToken, Promise};
+use near_sdk::{AccountId, NearToken, Promise, env, require};
 use std::collections::HashMap;
 use std::mem::size_of;
 

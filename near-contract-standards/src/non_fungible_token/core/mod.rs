@@ -5,13 +5,13 @@ mod resolver;
 
 pub use self::core_impl::*;
 
-pub use self::receiver::{ext_nft_receiver, NonFungibleTokenReceiver};
-pub use self::resolver::{ext_nft_resolver, NonFungibleTokenResolver};
+pub use self::receiver::{NonFungibleTokenReceiver, ext_nft_receiver};
+pub use self::resolver::{NonFungibleTokenResolver, ext_nft_resolver};
 
 use crate::non_fungible_token::token::{Token, TokenId};
-use near_sdk::ext_contract;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
+use near_sdk::ext_contract;
 
 /// Used for all non-fungible tokens. The specification for the
 /// [core non-fungible token standard] lays out the reasoning for each method.

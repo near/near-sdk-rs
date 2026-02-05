@@ -7,7 +7,7 @@ mod vector;
 use crate::types::{AccountId, PublicKey};
 
 pub use hash::Base58CryptoHash;
-pub use integers::{I128, I64, U128, U64};
+pub use integers::{I64, I128, U64, U128};
 pub use vector::Base64VecU8;
 
 #[deprecated(

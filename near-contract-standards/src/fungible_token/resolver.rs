@@ -1,4 +1,4 @@
-use near_sdk::{ext_contract, json_types::U128, AccountId};
+use near_sdk::{AccountId, ext_contract, json_types::U128};
 
 /// [`FungibleTokenResolver`] provides token transfer resolve functionality.
 ///

@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{IterableMap, LookupMap, ToKey, ValueAndIndex, ERR_INCONSISTENT_STATE};
+use super::{ERR_INCONSISTENT_STATE, IterableMap, LookupMap, ToKey, ValueAndIndex};
 use crate::env;
 use crate::store::vec;
 

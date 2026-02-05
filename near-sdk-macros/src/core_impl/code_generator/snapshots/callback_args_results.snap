@@ -1,10 +1,9 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 170
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id()
