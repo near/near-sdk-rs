@@ -5,15 +5,7 @@ use std::ops;
 
 use near_sdk::near;
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Hash,
-    Clone,
-    Copy,
-    Debug,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Debug)]
 #[near(serializers = [json, borsh])]
 pub struct Quantity(pub i32);
 
@@ -56,11 +48,7 @@ impl Account {
                 }
             }
         }
-        if success {
-            Tranx::Approved(buyer, seller)
-        } else {
-            Tranx::Denied(deficit)
-        }
+        if success { Tranx::Approved(buyer, seller) } else { Tranx::Denied(deficit) }
     }
 
     pub fn map(&self) -> &HashMap<Asset, Quantity> {
