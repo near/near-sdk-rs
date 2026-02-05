@@ -18,23 +18,25 @@ pub fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
 }
 
 /// Refund storage deposit for cleared approvals to the specified account.
-pub fn refund_approved_account_ids_iter<'a, I>(account_id: AccountId, approved_account_ids: I)
+/// Returns a Promise for the refund transfer, allowing the caller to chain or detach.
+pub fn refund_approved_account_ids_iter<'a, I>(
+    account_id: AccountId,
+    approved_account_ids: I,
+) -> Promise
 where
     I: Iterator<Item = &'a AccountId>,
 {
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    if storage_released > 0 {
-        Promise::new(account_id)
-            .transfer(env::storage_byte_cost().saturating_mul(storage_released.into()))
-            .detach();
-    }
+    Promise::new(account_id)
+        .transfer(env::storage_byte_cost().saturating_mul(storage_released.into()))
 }
 
 /// Refund storage deposit for cleared approvals to the specified account.
+/// Returns a Promise for the refund transfer, allowing the caller to chain or detach.
 pub fn refund_approved_account_ids(
     account_id: AccountId,
     approved_account_ids: &HashMap<AccountId, Approval>,
-) {
+) -> Promise {
     refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }
 

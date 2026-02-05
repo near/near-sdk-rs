@@ -3,7 +3,9 @@
 use crate::multi_token::approval::MultiTokenApproval;
 use crate::multi_token::core::MultiToken;
 use crate::multi_token::token::{Approval, TokenId};
-use crate::multi_token::utils::{assert_at_least_one_yocto, refund_deposit};
+use crate::multi_token::utils::{
+    assert_at_least_one_yocto, refund_approved_account_ids_iter, refund_deposit,
+};
 use near_sdk::json_types::U128;
 use near_sdk::{env, require, AccountId, Gas, Promise};
 
@@ -87,23 +89,31 @@ impl MultiTokenApproval for MultiToken {
             self.approvals_by_id.as_mut().expect("Approval extension not enabled");
 
         let owner_id = env::predecessor_account_id();
+        let mut revoked_any = false;
 
         for token_id in token_ids {
             if let Some(mut token_approvals) = approvals_by_id.get(&token_id) {
                 if let Some(mut owner_approvals) = token_approvals.get(&owner_id).cloned() {
-                    owner_approvals.remove(&account_id);
-                    if owner_approvals.is_empty() {
-                        token_approvals.remove(&owner_id);
-                    } else {
-                        token_approvals.insert(owner_id.clone(), owner_approvals);
-                    }
-                    if token_approvals.is_empty() {
-                        approvals_by_id.remove(&token_id);
-                    } else {
-                        approvals_by_id.insert(&token_id, &token_approvals);
+                    if owner_approvals.remove(&account_id).is_some() {
+                        revoked_any = true;
+                        if owner_approvals.is_empty() {
+                            token_approvals.remove(&owner_id);
+                        } else {
+                            token_approvals.insert(owner_id.clone(), owner_approvals);
+                        }
+                        if token_approvals.is_empty() {
+                            approvals_by_id.remove(&token_id);
+                        } else {
+                            approvals_by_id.insert(&token_id, &token_approvals);
+                        }
                     }
                 }
             }
+        }
+
+        // Refund storage costs for the removed approval
+        if revoked_any {
+            refund_approved_account_ids_iter(owner_id, core::iter::once(&account_id)).detach();
         }
     }
 
@@ -114,16 +124,25 @@ impl MultiTokenApproval for MultiToken {
             self.approvals_by_id.as_mut().expect("Approval extension not enabled");
 
         let owner_id = env::predecessor_account_id();
+        let mut all_revoked_accounts: Vec<AccountId> = Vec::new();
 
         for token_id in token_ids {
             if let Some(mut token_approvals) = approvals_by_id.get(&token_id) {
-                token_approvals.remove(&owner_id);
+                if let Some(owner_approvals) = token_approvals.remove(&owner_id) {
+                    // Collect all revoked account IDs for refund
+                    all_revoked_accounts.extend(owner_approvals.keys().cloned());
+                }
                 if token_approvals.is_empty() {
                     approvals_by_id.remove(&token_id);
                 } else {
                     approvals_by_id.insert(&token_id, &token_approvals);
                 }
             }
+        }
+
+        // Refund storage costs for all removed approvals
+        if !all_revoked_accounts.is_empty() {
+            refund_approved_account_ids_iter(owner_id, all_revoked_accounts.iter()).detach();
         }
     }
 
