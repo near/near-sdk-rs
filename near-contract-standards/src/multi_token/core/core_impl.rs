@@ -391,7 +391,8 @@ impl MultiToken {
 
     /// Internal transfer implementation.
     ///
-    /// Returns the previous owner's approvals (for potential refund).
+    /// Returns the previous owner and the cleared approval (if any) for potential rollback.
+    /// The cleared approval only contains the single approval that was consumed, not all approvals.
     pub fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
@@ -400,7 +401,7 @@ impl MultiToken {
         amount: u128,
         approval_id: Option<u64>,
         memo: Option<String>,
-    ) -> (AccountId, Option<HashMap<AccountId, Approval>>) {
+    ) -> (AccountId, Option<ClearedApproval>) {
         require!(self.token_exists(token_id), "Token does not exist");
         require!(sender_id != receiver_id, "Cannot transfer to self");
         require!(amount > 0, "Amount must be positive");
@@ -408,7 +409,7 @@ impl MultiToken {
         let predecessor_id = env::predecessor_account_id();
 
         // Check authorization
-        let mut cleared_approval: Option<HashMap<AccountId, Approval>> = None;
+        let mut cleared_approval: Option<ClearedApproval> = None;
         if &predecessor_id != sender_id {
             // Check if predecessor is approved
             if let Some(approvals_by_id) = &mut self.approvals_by_id {
@@ -424,11 +425,19 @@ impl MultiToken {
                             }
                             require!(approval.amount >= amount, "Approved amount insufficient");
 
-                            // Update or remove approval
+                            // Store the cleared approval info BEFORE modifying
+                            // Only store the specific approval that was consumed
                             if approval.amount == amount {
-                                cleared_approval = Some(owner_approvals.clone());
+                                // Full approval consumed - store it for potential restoration
+                                cleared_approval = Some((
+                                    predecessor_id.clone(),
+                                    approval.approval_id,
+                                    approval.amount,
+                                ));
                                 owner_approvals.remove(&predecessor_id);
                             } else {
+                                // Partial approval - no need to store for restoration
+                                // since we're just reducing the amount
                                 owner_approvals.insert(
                                     predecessor_id.clone(),
                                     Approval {
@@ -526,7 +535,7 @@ impl MultiToken {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<Vec<U128>> {
-        let (old_owner, old_approvals) = self.internal_transfer(
+        let (old_owner, old_approval) = self.internal_transfer(
             &sender_id,
             &receiver_id,
             &token_id,
@@ -540,18 +549,9 @@ impl MultiToken {
         let amounts = vec![amount];
         let previous_owner_ids = vec![old_owner.clone()];
 
-        // Convert approvals to ClearedApproval format
+        // Convert approval to ClearedApproval format for resolver
         let cleared_approvals: Option<Vec<Option<Vec<ClearedApproval>>>> =
-            old_approvals.map(|approvals| {
-                vec![Some(
-                    approvals
-                        .into_iter()
-                        .map(|(account_id, approval)| {
-                            (account_id, approval.approval_id, approval.amount)
-                        })
-                        .collect(),
-                )]
-            });
+            old_approval.map(|approval| vec![Some(vec![approval])]);
 
         // Call receiver
         ext_mt_receiver::ext(receiver_id.clone())
@@ -700,7 +700,7 @@ impl MultiTokenCore for MultiToken {
                 .unwrap_or_else(|| predecessor_id.clone());
             let approval_id = approval.map(|(_, id)| id);
 
-            let (old_owner, old_approvals) = self.internal_transfer(
+            let (old_owner, old_approval) = self.internal_transfer(
                 &sender_id,
                 &receiver_id,
                 token_id,
@@ -710,14 +710,8 @@ impl MultiTokenCore for MultiToken {
             );
 
             previous_owner_ids.push(old_owner);
-            all_cleared_approvals.push(old_approvals.map(|approvals| {
-                approvals
-                    .into_iter()
-                    .map(|(account_id, approval)| {
-                        (account_id, approval.approval_id, approval.amount)
-                    })
-                    .collect()
-            }));
+            // Convert single ClearedApproval to Vec for the resolver
+            all_cleared_approvals.push(old_approval.map(|approval| vec![approval]));
         }
 
         let cleared_approvals = if all_cleared_approvals.iter().any(|a| a.is_some()) {
@@ -841,11 +835,10 @@ impl MultiTokenResolver for MultiToken {
             self.internal_set_balance(token_id, &receiver_id, receiver_balance - actual_refund);
 
             let previous_balance = self.internal_balance_of(previous_owner_id, token_id);
-            self.internal_set_balance(
-                token_id,
-                previous_owner_id,
-                previous_balance + actual_refund,
-            );
+            let new_balance = previous_balance.checked_add(actual_refund).unwrap_or_else(|| {
+                env::panic_str("Balance overflow when refunding to previous owner")
+            });
+            self.internal_set_balance(token_id, previous_owner_id, new_balance);
 
             // Update enumeration
             if let Some(tokens_per_owner) = &mut self.tokens_per_owner {

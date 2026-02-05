@@ -18,6 +18,16 @@ use near_sdk::json_types::U128;
 use near_sdk::serde::Serialize;
 use near_sdk::AccountIdRef;
 
+/// Maximum total log length allowed by NEAR protocol (16KB).
+pub const TOTAL_LOG_LENGTH_LIMIT: usize = 16 * 1024;
+
+/// Standard memo used for refund events.
+pub const REFUND_MEMO: &str = "refund";
+
+/// Extra bytes overhead when adding a memo field to an event.
+/// This accounts for the JSON structure: `,"memo":"refund"`
+pub const REFUND_MEMO_EXTRA_BYTES: usize = 10 + REFUND_MEMO.len(); // `,"memo":"` + `refund` + `"`
+
 /// Data to log for an MT mint event. To log this event, call [`.emit()`](MtMint::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
@@ -71,6 +81,70 @@ impl MtTransfer<'_> {
     /// where each [`MtTransfer`] represents the data of each transfer.
     pub fn emit_many(data: &[MtTransfer<'_>]) {
         new_245_v1(Nep245EventKind::MtTransfer(data)).emit()
+    }
+
+    /// Calculates the approximate log length if this event were emitted.
+    /// This is useful for checking if a refund event would exceed the log limit.
+    pub fn estimate_log_length(&self) -> usize {
+        // Calculate base event overhead
+        let base_overhead = r#"EVENT_JSON:{"standard":"nep245","version":"1.0.0","event":"mt_transfer","data":[{}]}"#.len();
+
+        // Calculate this event's content length
+        let mut content_len = 0;
+
+        // old_owner_id: "old_owner_id":"..."
+        content_len += 15 + self.old_owner_id.len();
+
+        // new_owner_id: ,"new_owner_id":"..."
+        content_len += 17 + self.new_owner_id.len();
+
+        // token_ids: ,"token_ids":[...]
+        content_len += 14;
+        for (i, token_id) in self.token_ids.iter().enumerate() {
+            if i > 0 {
+                content_len += 1; // comma
+            }
+            content_len += 2 + token_id.len(); // quotes + content
+        }
+
+        // amounts: ,"amounts":[...]
+        content_len += 12;
+        for (i, amount) in self.amounts.iter().enumerate() {
+            if i > 0 {
+                content_len += 1; // comma
+            }
+            content_len += 2 + amount.0.to_string().len(); // quotes + number as string
+        }
+
+        // authorized_id if present
+        if let Some(auth_id) = &self.authorized_id {
+            content_len += 18 + auth_id.len(); // ,"authorized_id":"..."
+        }
+
+        // memo if present
+        if let Some(memo) = &self.memo {
+            content_len += 10 + memo.len(); // ,"memo":"..."
+        }
+
+        base_overhead + content_len
+    }
+
+    /// Calculates the extra bytes needed if a refund memo would be added to events without memos.
+    /// Returns the overhead that would be added when converting this to a refund event.
+    pub fn refund_overhead(&self) -> usize {
+        if self.memo.is_none() {
+            REFUND_MEMO_EXTRA_BYTES
+        } else if self.memo.map(|m| m.len()).unwrap_or(0) < REFUND_MEMO.len() {
+            REFUND_MEMO.len() - self.memo.map(|m| m.len()).unwrap_or(0)
+        } else {
+            0
+        }
+    }
+
+    /// Checks if this transfer event (when used as a refund) would fit within the log limit.
+    /// This accounts for the additional memo field that would be added during refunds.
+    pub fn would_refund_fit_in_log(&self) -> bool {
+        self.estimate_log_length() + self.refund_overhead() <= TOTAL_LOG_LENGTH_LIMIT
     }
 }
 
