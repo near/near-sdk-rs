@@ -1,5 +1,5 @@
 use near_sdk::store::LookupMap;
-use near_sdk::{env, log, near, AccountId, BorshStorageKey};
+use near_sdk::{AccountId, BorshStorageKey, env, log, near};
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -35,10 +35,10 @@ impl StatusMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{get_logs, VMContextBuilder};
-    use near_sdk::{testing_env, VMContext};
-    use near_sdk::serde_json;
     use near_abi::AbiRoot;
+    use near_sdk::serde_json;
+    use near_sdk::test_utils::{VMContextBuilder, get_logs};
+    use near_sdk::{VMContext, testing_env};
 
     fn get_context(is_view: bool) -> VMContext {
         VMContextBuilder::new()
@@ -83,8 +83,7 @@ mod tests {
 
         let res = contract.view("__contract_abi").await?;
 
-        let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
 
         assert_eq!(abi_root.schema_version, "0.4.0");
         assert_eq!(abi_root.metadata.name, Some("status-message".to_string()));

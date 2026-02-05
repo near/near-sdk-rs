@@ -1,5 +1,5 @@
 use near_sdk::env;
-use near_sdk::{log, near, PromiseOrValue};
+use near_sdk::{PromiseOrValue, log, near};
 
 #[derive(Default)]
 #[near(contract_state)]
