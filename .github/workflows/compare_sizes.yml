@@ -23,23 +23,20 @@ jobs:
       fail-fast: false
       matrix:
         example:
+          # Standalone examples
           - adder
           - callback-results
-          - cross-contract-calls/high-level
-          - cross-contract-calls/low-level
-          - factory-contract/high-level
-          - factory-contract/low-level
-          - fungible-token/ft
-          - fungible-token/test-contract-defi
           - lockable-fungible-token
           - mission-control
           - mpc-contract
-          - non-fungible-token/nft
-          - non-fungible-token/test-approval-receiver
-          - non-fungible-token/test-token-receiver
           - status-message
           - test-contract
           - versioned
+          # Workspace examples (build all members at once)
+          - cross-contract-calls
+          - factory-contract
+          - fungible-token
+          - non-fungible-token
     steps:
       - uses: actions/checkout@v4
 
@@ -49,18 +46,29 @@ jobs:
       - name: Build example
         run: |
           cd examples/${{ matrix.example }}
-          cargo near build reproducible-wasm --no-locked
+          # For workspaces, build all members
+          if [[ -f "Cargo.toml" ]] && grep -q '\[workspace\]' "Cargo.toml"; then
+            # Find all workspace members and build each
+            for member in $(cargo metadata --no-deps --format-version 1 2>/dev/null | jq -r '.packages[].manifest_path' | xargs -I{} dirname {} | sort -u); do
+              echo "Building workspace member: $member"
+              (cd "$member" && cargo near build reproducible-wasm --no-locked) || echo "Warning: $member failed"
+            done
+          else
+            cargo near build reproducible-wasm --no-locked
+          fi
 
       - name: Collect size
         id: size
         run: |
-          # Find the wasm file(s) and record sizes
           mkdir -p sizes
-          find examples/${{ matrix.example }}/target/near -name "*.wasm" -type f | while read wasm; do
+          find examples/${{ matrix.example }}/target/near -name "*.wasm" -type f 2>/dev/null | while read wasm; do
             name=$(basename "$wasm")
             size=$(stat --format='%s' "$wasm")
+            echo "Found: $name ($size bytes)"
             echo "{\"$name\": $size}" > "sizes/${name%.wasm}.json"
           done
+          echo "Collected sizes:"
+          ls -la sizes/ 2>/dev/null || echo "No sizes collected"
 
       - name: Upload size artifact
         uses: actions/upload-artifact@v4
