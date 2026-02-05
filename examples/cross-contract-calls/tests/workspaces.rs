@@ -6,8 +6,7 @@ use test_case::test_case;
 async fn test_factorial(contract_path: &str) -> anyhow::Result<()> {
     let wasm = near_workspaces::compile_project(contract_path).await?;
     let worker = near_workspaces::sandbox().await?;
-    let contract =
-        worker.dev_deploy(&wasm).await?;
+    let contract = worker.dev_deploy(&wasm).await?;
 
     let res = contract.call("factorial").args_json((1,)).max_gas().transact().await?;
     assert!(res.is_success());
