@@ -1,0 +1,105 @@
+name: Contract Size Baseline
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "near-sdk/**"
+      - "near-sdk-macros/**"
+      - "near-contract-standards/**"
+      - "examples/**"
+      - "ci/**"
+      - ".github/workflows/sizes_baseline.yml"
+
+jobs:
+  build-baseline:
+    runs-on: warp-ubuntu-latest-x64-4x
+    name: "Build baseline: ${{ matrix.example }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - adder
+          - callback-results
+          - cross-contract-calls/high-level
+          - cross-contract-calls/low-level
+          - factory-contract/high-level
+          - factory-contract/low-level
+          - factory-contract-global
+          - fungible-token/ft
+          - fungible-token/test-contract-defi
+          - lockable-fungible-token
+          - mission-control
+          - mpc-contract
+          - non-fungible-token/nft
+          - non-fungible-token/test-approval-receiver
+          - non-fungible-token/test-token-receiver
+          - status-message
+          - test-contract
+          - versioned
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust with wasm32 target
+        run: |
+          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.86
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          workspaces: "./examples/${{ matrix.example }} -> target"
+          shared-key: "sizes-${{ matrix.example }}"
+          cache-all-crates: true
+
+      - name: Build contract
+        run: cargo near build reproducible-wasm --no-locked
+        working-directory: ./examples/${{ matrix.example }}
+
+      - name: Collect size
+        id: size
+        run: |
+          EXAMPLE_NAME="${{ matrix.example }}"
+          SAFE_NAME="${EXAMPLE_NAME//\//-}"
+          WASM_FILE=$(find ./examples/${{ matrix.example }}/target/near -name "*.wasm" | head -1)
+          if [ -n "$WASM_FILE" ]; then
+            SIZE=$(stat -c%s "$WASM_FILE")
+            FILENAME=$(basename "$WASM_FILE")
+            echo "${SAFE_NAME}:${FILENAME}:${SIZE}" > size_${SAFE_NAME}.txt
+          fi
+
+      - name: Upload size artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: size-${{ strategy.job-index }}
+          path: size_*.txt
+          retention-days: 1
+
+  aggregate-baseline:
+    runs-on: ubuntu-latest
+    needs: build-baseline
+    steps:
+      - name: Download all size artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: size-*
+          merge-multiple: true
+
+      - name: Aggregate sizes
+        run: |
+          cat size_*.txt | sort > baseline_sizes.json
+
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-sizes-baseline
+          path: baseline_sizes.json
+          retention-days: 90
+
+      - name: Cleanup individual artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: size-*

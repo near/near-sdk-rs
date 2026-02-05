@@ -1,49 +1,219 @@
-name: Compare contract sizes with master
+name: Compare Contract Sizes
 on:
-  issue_comment:
-    types:
-      - created
+  pull_request:
+    paths:
+      - "near-sdk/**"
+      - "near-sdk-macros/**"
+      - "near-contract-standards/**"
+      - "examples/**"
+      - "ci/**"
+      - ".github/workflows/compare_sizes.yml"
+
 jobs:
-  generate_report:
+  build-pr:
+    runs-on: warp-ubuntu-latest-x64-4x
+    name: "Build PR: ${{ matrix.example }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - adder
+          - callback-results
+          - cross-contract-calls/high-level
+          - cross-contract-calls/low-level
+          - factory-contract/high-level
+          - factory-contract/low-level
+          - factory-contract-global
+          - fungible-token/ft
+          - fungible-token/test-contract-defi
+          - lockable-fungible-token
+          - mission-control
+          - mpc-contract
+          - non-fungible-token/nft
+          - non-fungible-token/test-approval-receiver
+          - non-fungible-token/test-token-receiver
+          - status-message
+          - test-contract
+          - versioned
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust with wasm32 target
+        run: |
+          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.86
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          workspaces: "./examples/${{ matrix.example }} -> target"
+          shared-key: "sizes-${{ matrix.example }}"
+          cache-all-crates: true
+
+      - name: Build contract
+        run: cargo near build reproducible-wasm --no-locked
+        working-directory: ./examples/${{ matrix.example }}
+
+      - name: Collect size
+        id: size
+        run: |
+          EXAMPLE_NAME="${{ matrix.example }}"
+          SAFE_NAME="${EXAMPLE_NAME//\//-}"
+          WASM_FILE=$(find ./examples/${{ matrix.example }}/target/near -name "*.wasm" | head -1)
+          if [ -n "$WASM_FILE" ]; then
+            SIZE=$(stat -c%s "$WASM_FILE")
+            FILENAME=$(basename "$WASM_FILE")
+            echo "${SAFE_NAME}:${FILENAME}:${SIZE}" > size_${SAFE_NAME}.txt
+          fi
+
+      - name: Upload size artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-size-${{ strategy.job-index }}
+          path: size_*.txt
+          retention-days: 1
+
+  build-base:
+    runs-on: warp-ubuntu-latest-x64-4x
+    name: "Build base: ${{ matrix.example }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - adder
+          - callback-results
+          - cross-contract-calls/high-level
+          - cross-contract-calls/low-level
+          - factory-contract/high-level
+          - factory-contract/low-level
+          - factory-contract-global
+          - fungible-token/ft
+          - fungible-token/test-contract-defi
+          - lockable-fungible-token
+          - mission-control
+          - mpc-contract
+          - non-fungible-token/nft
+          - non-fungible-token/test-approval-receiver
+          - non-fungible-token/test-token-receiver
+          - status-message
+          - test-contract
+          - versioned
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Install Rust with wasm32 target
+        run: |
+          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.86
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          workspaces: "./examples/${{ matrix.example }} -> target"
+          shared-key: "sizes-base-${{ matrix.example }}"
+          cache-all-crates: true
+
+      - name: Build contract
+        run: cargo near build reproducible-wasm --no-locked
+        working-directory: ./examples/${{ matrix.example }}
+
+      - name: Collect size
+        id: size
+        run: |
+          EXAMPLE_NAME="${{ matrix.example }}"
+          SAFE_NAME="${EXAMPLE_NAME//\//-}"
+          WASM_FILE=$(find ./examples/${{ matrix.example }}/target/near -name "*.wasm" | head -1)
+          if [ -n "$WASM_FILE" ]; then
+            SIZE=$(stat -c%s "$WASM_FILE")
+            FILENAME=$(basename "$WASM_FILE")
+            echo "${SAFE_NAME}:${FILENAME}:${SIZE}" > size_${SAFE_NAME}.txt
+          fi
+
+      - name: Upload size artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-size-${{ strategy.job-index }}
+          path: size_*.txt
+          retention-days: 1
+
+  compare:
     runs-on: ubuntu-latest
-    if: ${{ (github.event.issue.pull_request) && (github.event.comment.body == '/compare') }}
+    needs: [build-pr, build-base]
     permissions:
       pull-requests: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Checkout Pull Request
-        run: gh pr checkout ${{ github.event.issue.number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install cargo-near CLI (dependency for docker builds in generate report)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
-      - name: Generate report
+      - uses: actions/checkout@v4
+
+      - name: Download PR size artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pr-size-*
+          path: pr-sizes
+          merge-multiple: true
+
+      - name: Download base size artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: base-size-*
+          path: base-sizes
+          merge-multiple: true
+
+      - name: Generate comparison report
+        id: report
         run: |
-          yes | pip install GitPython
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          ci/compare_sizes/compare_sizes.py >> "$GITHUB_ENV"
-          echo "$EOF" >> "$GITHUB_ENV"
-      - name: Submit report
-        if: ${{ success() }}
-        uses: actions/github-script@v4
+          python3 ci/compare_sizes.py pr-sizes base-sizes > report.md
+          if [ -s report.md ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post comment
+        if: steps.report.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
         with:
           script: |
-            github.issues.createComment({
-              issue_number: context.issue.number,
+            const fs = require('fs');
+            const report = fs.readFileSync('report.md', 'utf8');
+
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: process.env.REPORT,
+              issue_number: context.issue.number,
             });
-      - name: Notify about failure
-        if: ${{ failure() }}
-        uses: actions/github-script@v4
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Contract size report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report,
+              });
+            }
+
+      - name: Cleanup artifacts
+        uses: geekyeggo/delete-artifact@v5
         with:
-          script: |
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Failed to generate size comparison report! See the failed CI job for more details.',
-            });
+          name: |
+            pr-size-*
+            base-size-*
