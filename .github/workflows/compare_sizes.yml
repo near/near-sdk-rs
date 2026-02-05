@@ -35,6 +35,7 @@ jobs:
           # Workspace examples (build all members at once)
           - cross-contract-calls
           - factory-contract
+          - factory-contract-global
           - fungible-token
           - non-fungible-token
     steps:

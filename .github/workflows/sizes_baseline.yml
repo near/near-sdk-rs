@@ -10,6 +10,7 @@ on:
       - 'examples/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'ci/compare_sizes.py'
   workflow_dispatch: # Allow manual trigger for initial baseline
 
 jobs:
@@ -32,6 +33,7 @@ jobs:
           # Workspace examples (build all members at once)
           - cross-contract-calls
           - factory-contract
+          - factory-contract-global
           - fungible-token
           - non-fungible-token
     steps:
