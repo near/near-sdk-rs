@@ -132,12 +132,10 @@ impl MtTransfer<'_> {
     /// Calculates the extra bytes needed if a refund memo would be added to events without memos.
     /// Returns the overhead that would be added when converting this to a refund event.
     pub fn refund_overhead(&self) -> usize {
-        if self.memo.is_none() {
-            REFUND_MEMO_EXTRA_BYTES
-        } else if self.memo.map(|m| m.len()).unwrap_or(0) < REFUND_MEMO.len() {
-            REFUND_MEMO.len() - self.memo.map(|m| m.len()).unwrap_or(0)
-        } else {
-            0
+        match self.memo {
+            None => REFUND_MEMO_EXTRA_BYTES,
+            Some(m) if m.len() < REFUND_MEMO.len() => REFUND_MEMO.len() - m.len(),
+            Some(_) => 0,
         }
     }
 
