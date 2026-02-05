@@ -2,7 +2,8 @@
 name = "mission-control"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.86"
 repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
@@ -47,3 +48,6 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
+
+[workspace]
+resolver = "3"
