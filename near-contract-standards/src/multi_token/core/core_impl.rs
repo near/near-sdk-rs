@@ -77,6 +77,7 @@ pub struct MultiToken {
     pub tokens_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
 
     /// Required by approval extension: TokenId -> (OwnerAccountId -> (ApprovedAccountId -> Approval))
+    #[allow(clippy::type_complexity)]
     pub approvals_by_id:
         Option<LookupMap<TokenId, HashMap<AccountId, HashMap<AccountId, Approval>>>>,
 
@@ -514,6 +515,7 @@ impl MultiToken {
     }
 
     /// Internal transfer and call implementation.
+    #[allow(clippy::too_many_arguments)]
     pub fn internal_transfer_call(
         &mut self,
         sender_id: AccountId,
