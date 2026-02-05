@@ -100,3 +100,8 @@ pub use self::metadata::MT_METADATA_SPEC;
 
 // Re-export utilities
 pub use self::utils::*;
+
+// Re-export event types
+pub use self::events::MtBurn;
+pub use self::events::MtMint;
+pub use self::events::MtTransfer;
