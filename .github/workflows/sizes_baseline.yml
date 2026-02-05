@@ -97,3 +97,9 @@ jobs:
         with:
           path: sizes-baseline.json
           key: contract-sizes-baseline-master
+
+      - name: Cleanup artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: size-*
+          failOnError: false

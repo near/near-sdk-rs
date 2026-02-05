@@ -112,7 +112,7 @@ jobs:
       - name: Compare sizes and generate report
         id: compare
         run: |
-          python3 ci/compare_sizes.py compare sizes-baseline.json sizes-current.json \
+          python3 ci/compare_sizes.py sizes-baseline.json sizes-current.json \
             --threshold $SIZE_THRESHOLD \
             --output size-report.md
 
@@ -148,3 +148,9 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body-path: size-report.md
+
+      - name: Cleanup artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: size-*
+          failOnError: false
