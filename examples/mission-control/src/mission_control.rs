@@ -4,9 +4,8 @@ use crate::asset::*;
 use crate::rate::*;
 use near_sdk::AccountId;
 use near_sdk::env;
-use std::collections::HashMap;
 use near_sdk::near;
-
+use std::collections::HashMap;
 
 #[near(serializers=[json, borsh], contract_state)]
 pub struct MissionControl {
@@ -82,8 +81,8 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::env;
     use near_abi::AbiRoot;
+    use near_sdk::env;
     use near_sdk::serde_json;
 
     #[test]
@@ -109,8 +108,7 @@ mod tests {
 
         let res = contract.view("__contract_abi").await?;
 
-        let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
 
         assert_eq!(abi_root.schema_version, "0.4.0");
         assert_eq!(abi_root.metadata.name, Some("mission-control".to_string()));
