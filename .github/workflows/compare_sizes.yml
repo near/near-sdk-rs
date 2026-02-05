@@ -13,19 +13,87 @@ on:
       - 'ci/compare_sizes.py'
 
 env:
-  # Threshold percentage for reporting size changes (changes below this are considered insignificant)
   SIZE_THRESHOLD: 1
 
 jobs:
-  compare-sizes:
+  # Build examples in parallel
+  build-example:
+    runs-on: warp-ubuntu-latest-x64-4x
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - adder
+          - callback-results
+          - cross-contract-calls/high-level
+          - cross-contract-calls/low-level
+          - factory-contract/high-level
+          - factory-contract/low-level
+          - fungible-token/ft
+          - fungible-token/test-contract-defi
+          - lockable-fungible-token
+          - mission-control
+          - mpc-contract
+          - non-fungible-token/nft
+          - non-fungible-token/test-approval-receiver
+          - non-fungible-token/test-token-receiver
+          - status-message
+          - test-contract
+          - versioned
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.1/cargo-near-installer.sh | sh
+
+      - name: Build example
+        run: |
+          cd examples/${{ matrix.example }}
+          cargo near build reproducible-wasm --no-locked
+
+      - name: Collect size
+        id: size
+        run: |
+          # Find the wasm file(s) and record sizes
+          mkdir -p sizes
+          find examples/${{ matrix.example }}/target/near -name "*.wasm" -type f | while read wasm; do
+            name=$(basename "$wasm")
+            size=$(stat --format='%s' "$wasm")
+            echo "{\"$name\": $size}" > "sizes/${name%.wasm}.json"
+          done
+
+      - name: Upload size artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: size-${{ strategy.job-index }}
+          path: sizes/
+          retention-days: 1
+
+  # Combine sizes and compare
+  compare:
+    needs: build-example
     runs-on: warp-ubuntu-latest-x64-4x
     permissions:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install cargo-near CLI
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.1/cargo-near-installer.sh | sh
+      - name: Download all size artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-sizes
+          pattern: size-*
+
+      - name: Combine sizes into JSON
+        run: |
+          # Merge all JSON files into one
+          echo '{}' > sizes-current.json
+          find all-sizes -name "*.json" -type f | while read f; do
+            # Merge each file into the combined JSON
+            jq -s '.[0] * .[1]' sizes-current.json "$f" > tmp.json && mv tmp.json sizes-current.json
+          done
+          echo "Current sizes:"
+          cat sizes-current.json
 
       - name: Restore baseline sizes from cache
         id: restore-baseline
@@ -40,9 +108,6 @@ jobs:
           echo "::warning::No baseline sizes found. This is expected for the first run."
           echo "Creating empty baseline..."
           echo '{}' > sizes-baseline.json
-
-      - name: Build examples and collect sizes
-        run: python3 ci/compare_sizes.py build --output sizes-current.json
 
       - name: Compare sizes and generate report
         id: compare
@@ -64,7 +129,6 @@ jobs:
       - name: Prepend marker to report
         if: steps.compare.outputs.has_changes == 'true'
         run: |
-          # Add hidden marker for comment identification
           echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
 
       - name: Find existing comment
@@ -84,11 +148,3 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body-path: size-report.md
-
-      # Optional: fail the job if sizes increased significantly
-      # Uncomment the following to enforce size limits
-      # - name: Fail if sizes increased
-      #   if: steps.compare.outputs.exit_code == '1'
-      #   run: |
-      #     echo "::error::Contract sizes increased beyond threshold!"
-      #     exit 1
