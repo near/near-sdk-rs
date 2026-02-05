@@ -1,8 +1,8 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
-use crate::collections::{append, append_slice, Vector};
-use crate::{env, IntoStorageKey};
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use crate::collections::{Vector, append, append_slice};
+use crate::{IntoStorageKey, env};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use near_sdk_macros::near;
 use std::mem::size_of;
 
@@ -276,7 +276,7 @@ mod tests {
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             set.insert(&key);
         }
     }
@@ -287,7 +287,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             keys.push(key);
             set.insert(&key);
         }
@@ -318,7 +318,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             keys.push(key);
             set.insert(&key);
         }
@@ -338,12 +338,12 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
+            let key = rng.r#gen::<u64>() % 20_000;
             set_tmp.insert(key);
             set.insert(&key);
         }
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
+            let key = rng.r#gen::<u64>() % 20_000;
             assert_eq!(set.contains(&key), set_tmp.contains(&key));
         }
     }
@@ -354,7 +354,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             keys.insert(key);
             set.insert(&key);
         }
@@ -367,8 +367,8 @@ mod tests {
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
                 set.insert(&key);
             }
             assert!(!set.to_vec().is_empty());
@@ -383,7 +383,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             keys.insert(key);
             set.insert(&key);
         }
@@ -397,14 +397,14 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             keys.insert(key);
             set.insert(&key);
         }
         for _ in 0..10 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
                 tmp.push(key);
             }
             keys.extend(tmp.iter().cloned());

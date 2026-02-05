@@ -1,6 +1,6 @@
 #![no_std]
 
-extern "C" {
+unsafe extern "C" {
     // #############
     // # Registers #
     // #############
@@ -239,7 +239,7 @@ extern "C" {
     pub fn storage_iter_prefix(prefix_len: u64, prefix_ptr: u64) -> u64;
     pub fn storage_iter_range(start_len: u64, start_ptr: u64, end_len: u64, end_ptr: u64) -> u64;
     pub fn storage_iter_next(iterator_id: u64, key_register_id: u64, value_register_id: u64)
-        -> u64;
+    -> u64;
     // ###############
     // # Validator API #
     // ###############
@@ -273,5 +273,5 @@ extern "C" {
 /// This function relies on the external implementation of [`block_index`].
 #[inline]
 pub unsafe fn block_height() -> u64 {
-    block_index()
+    unsafe { block_index() }
 }

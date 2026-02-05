@@ -1,7 +1,7 @@
-use near_sdk::ext_contract;
-use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
+use near_sdk::ext_contract;
+use near_sdk::json_types::U128;
 /// The core methods for a basic fungible token. Extension standards may be
 /// added in addition to this trait.
 ///

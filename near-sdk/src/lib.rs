@@ -18,6 +18,8 @@
 //! ## Quick Start
 //!
 //! Add `near-sdk` to your `Cargo.toml`:
+// Allow test attribute in doctest since it's showing example testing code
+#![allow(clippy::test_attr_in_doctest)]
 //!
 //! ```toml
 //! [dependencies]
@@ -842,7 +844,7 @@ compile_error!(
 /// 2. Macro defines a global `CONTRACT_SOURCE_METADATA` variable, which is a string of json serialization of [`near_contract_standards::contract_metadata::ContractSourceMetadata`](https://docs.rs/near-contract-standards/latest/near_contract_standards/contract_metadata/struct.ContractSourceMetadata.html).
 /// 3. Macro defines `contract_source_metadata` function:
 ///     ```rust,no_run
-///     #[no_mangle]
+///     #[unsafe(no_mangle)]
 ///     pub extern "C" fn contract_source_metadata() { /* .. */ }
 ///     ```
 ///    which
@@ -884,7 +886,7 @@ compile_error!(
 /// ##### for above **view** method `#[near]` macro defines the following function:
 ///
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn view_method() { /* .. */ }
 /// ```
 /// which
@@ -902,7 +904,7 @@ compile_error!(
 ///
 /// ##### for above **mutating** method `#[near]` macro defines the following function:
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn mutating_method() { /* ..*/ }
 /// ```
 /// which
@@ -945,7 +947,7 @@ compile_error!(
 /// For above `method` using the attribute on arguments, changes the body of function generated in  [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)
 ///
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn method() { /* .. */ }
 /// ```
 ///
@@ -1166,10 +1168,10 @@ pub mod state_init;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
-pub use environment::mock::test_vm_config;
-#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
+pub use environment::mock::test_vm_config;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use test_utils::context::VMContext;
 

@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{ToKey, UnorderedMap, ERR_NOT_EXIST};
+use super::{ERR_NOT_EXIST, ToKey, UnorderedMap};
 use crate::env;
 
 impl<K, V, H> Extend<(K, V)> for UnorderedMap<K, V, H>
@@ -26,7 +26,6 @@ where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

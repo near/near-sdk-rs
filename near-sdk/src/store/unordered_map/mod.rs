@@ -13,13 +13,13 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, IntoStorageKey};
+use crate::{IntoStorageKey, env};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 pub use self::iter::{Drain, Iter, IterMut, Keys, Values, ValuesMut};
 use super::free_list::FreeListIndex;
-use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
+use super::{ERR_INCONSISTENT_STATE, ERR_NOT_EXIST, FreeList, LookupMap};
 
 /// A lazily loaded storage map that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
@@ -696,7 +696,7 @@ mod tests {
     use super::UnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashMap;

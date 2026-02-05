@@ -5,7 +5,7 @@ pub mod test_env;
 pub(crate) mod context;
 use crate::mock::Receipt;
 #[allow(deprecated)]
-pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
+pub use context::{VMContextBuilder, accounts, testing_env_with_promise_results};
 
 /// Initializes a testing environment to mock interactions which would otherwise go through a
 /// validator node. This macro will initialize or overwrite the [`MockedBlockchain`]

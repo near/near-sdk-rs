@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ToKey, ERR_NOT_EXIST};
+use super::{ERR_NOT_EXIST, LookupMap, ToKey};
 use crate::env;
 
 impl<K, V, H> Extend<(K, V)> for LookupMap<K, V, H>
@@ -26,7 +26,6 @@ where
     K: BorshSerialize + Ord + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;
