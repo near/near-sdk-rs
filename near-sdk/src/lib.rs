@@ -800,7 +800,7 @@ compile_error!(
 /// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
 /// any arguments.
 ///
-/// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+/// All fields(version, link) are optional and will be populated with defaults from the environment variables (NEP330_VERSION and NEP330_LINK respectively), falling back to the Cargo.toml file if not specified.
 /// The `standard` will be populated with `nep330` by default.
 ///
 /// **Any additional standards can be added and should be specified using the `standard` attribute.**
@@ -816,8 +816,8 @@ compile_error!(
 /// use near_sdk::near;
 ///
 /// #[near(contract_state, contract_metadata(
-///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
-///     link = "https://github.com/near-examples/nft-tutorial",
+///     version = "NEP330_VERSION_VAR",
+///     link = "NEP330_LINK_VAR",
 ///     standard(standard = "nep171", version = "1.0.0"),
 ///     standard(standard = "nep177", version = "2.0.0"),
 /// ))]
