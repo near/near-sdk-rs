@@ -1096,7 +1096,7 @@ pub use near_sdk_macros::near_bindgen;
 /// #[ext_contract]
 /// pub trait ExtStatusMessage {
 ///     fn set_status(&mut self, message: String);
-///     fn get_status(&self, account_id: AccountId) -> Option<String>;
+///     fn get_status(&self, account_id: near_sdk::AccountId) -> Option<String>;
 /// }
 ///
 /// fn example(account_id: AccountId) -> Promise {
@@ -1139,7 +1139,7 @@ pub use near_sdk_macros::near_bindgen;
 ///
 /// #[ext_contract(ext_ft)]
 /// trait FungibleToken {
-///     fn ft_transfer(&mut self, receiver_id: AccountId, amount: String, memo: Option<String>);
+///     fn ft_transfer(&mut self, receiver_id: near_sdk::AccountId, amount: String, memo: Option<String>);
 /// }
 ///
 /// fn transfer_tokens(token_contract: AccountId, receiver: AccountId) -> Promise {
