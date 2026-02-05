@@ -210,6 +210,7 @@ impl MultiToken {
 
     /// Get the balance of an account for a specific token.
     /// Panics if the token doesn't exist or account has no balance.
+    #[allow(dead_code)]
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId, token_id: &TokenId) -> u128 {
         self.balances.get(token_id).and_then(|balances| balances.get(account_id)).unwrap_or_else(
             || {

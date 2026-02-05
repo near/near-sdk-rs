@@ -1,9 +1,8 @@
 //! Utility functions for the multi-token standard.
 
-use crate::multi_token::token::{Approval, TokenId};
+use crate::multi_token::token::TokenId;
 use near_sdk::json_types::U128;
 use near_sdk::{env, require, AccountId, NearToken, Promise};
-use std::collections::HashMap;
 use std::mem::size_of;
 
 /// Calculate the storage bytes required for an approval entry.
@@ -29,15 +28,6 @@ where
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
     Promise::new(account_id)
         .transfer(env::storage_byte_cost().saturating_mul(storage_released.into()))
-}
-
-/// Refund storage deposit for cleared approvals to the specified account.
-/// Returns a Promise for the refund transfer, allowing the caller to chain or detach.
-pub fn refund_approved_account_ids(
-    account_id: AccountId,
-    approved_account_ids: &HashMap<AccountId, Approval>,
-) -> Promise {
-    refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }
 
 /// Refund excess deposit after storage is paid.
