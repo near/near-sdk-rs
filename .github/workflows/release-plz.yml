@@ -29,8 +29,12 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned to last version using taiki-e/install-action for binary installation.
+      # Newer versions use cargo-binstall which compiles from source and fails with
+      # CARGO_BUILD_TARGET=wasm32-unknown-unknown (gix-sec uses Unix APIs).
+      # See: https://github.com/release-plz/action/pull/239
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@5ab144c9d67d4346240190d0f95ed08668677928
         env:
           # https://marcoieni.github.io/release-plz/github-action.html#triggering-further-workflow-runs
           GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
