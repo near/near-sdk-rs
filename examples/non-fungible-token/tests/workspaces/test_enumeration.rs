@@ -104,12 +104,8 @@ async fn simulate_enum_nft_supply_for_owner(
     let (nft_contract, alice, _, _) = initialized_contracts.await?;
 
     // Get number from account with no NFTs
-    let owner_num_tokens: U128 = nft_contract
-        .call("nft_supply_for_owner")
-        .args_json((alice.id(),))
-        .view()
-        .await?
-        .json()?;
+    let owner_num_tokens: U128 =
+        nft_contract.call("nft_supply_for_owner").args_json((alice.id(),)).view().await?.json()?;
     assert_eq!(owner_num_tokens, U128::from(0));
 
     let owner_num_tokens: U128 = nft_contract
