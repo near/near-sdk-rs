@@ -3,6 +3,7 @@ name = "non-fungible-token"
 version = "1.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
+rust-version = "1.86"
 repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
@@ -12,8 +13,8 @@ crate-type = ["cdylib"]
 near-sdk = { path = "../../../near-sdk" }
 near-contract-standards = { path = "../../../near-contract-standards" }
 
-[dev-dependencies] 
-near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] } 
+[dev-dependencies]
+near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] }
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment

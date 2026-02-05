@@ -28,6 +28,8 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
+          # Pin to 0.6.24 - version 0.7.0+ has breaking changes that cause coverage
+          # instrumentation flags to leak into wasm subprocess builds
           tool: cargo-llvm-cov@0.6.24
 
       - uses: Swatinem/rust-cache@v2

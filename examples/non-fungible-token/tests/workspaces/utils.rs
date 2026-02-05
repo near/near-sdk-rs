@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
+use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 
 use near_workspaces::cargo_near_build;
 use near_workspaces::types::NearToken;

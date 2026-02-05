@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use near_sdk::json_types::U128;
 use near_workspaces::cargo_near_build;
-use near_workspaces::{types::NearToken, Account, Contract};
+use near_workspaces::{Account, Contract, types::NearToken};
 use rstest::{fixture, rstest};
 
 #[fixture]

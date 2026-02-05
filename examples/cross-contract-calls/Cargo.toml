@@ -3,6 +3,7 @@ name = "cross-contract-wrapper"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
+rust-version = "1.86"
 repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]
@@ -24,4 +25,7 @@ debug = false
 panic = "abort"
 
 [workspace]
+resolver = "3"
+package.edition = "2024"
+package.rust-version = "1.86"
 members = ["high-level", "low-level"]

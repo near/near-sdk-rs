@@ -3,13 +3,17 @@ name = "cross-contract-low-level"
 version = "1.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
+rust-version = "1.86"
 repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../../near-sdk" , features = ["default", "unit-testing"] }
+near-sdk = { path = "../../../near-sdk", features = [
+    "default",
+    "unit-testing",
+] }
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
