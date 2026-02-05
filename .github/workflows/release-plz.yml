@@ -24,10 +24,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.86
         with:
           targets: wasm32-unknown-unknown
-      - name: Install Rust toolchain stable for release-plz
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
 
       # Pinned to last version using taiki-e/install-action for binary installation.
       # Newer versions use cargo-binstall which compiles from source and fails with
