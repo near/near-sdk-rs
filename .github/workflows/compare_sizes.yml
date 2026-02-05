@@ -8,6 +8,9 @@ on:
       - 'examples/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - '.github/workflows/compare_sizes.yml'
+      - '.github/workflows/sizes_baseline.yml'
+      - 'ci/compare_sizes.py'
 
 env:
   # Threshold percentage for reporting size changes (changes below this are considered insignificant)
