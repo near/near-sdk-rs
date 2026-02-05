@@ -46,6 +46,7 @@ impl GlobalFactoryContract {
     }
 
     /// Use an existing global contract by its code hash
+    #[payable]
     pub fn use_global_contract_by_hash(
         &self,
         code_hash: Base58CryptoHash,
@@ -59,6 +60,7 @@ impl GlobalFactoryContract {
     }
 
     /// Use an existing global contract by referencing the account that deployed it
+    #[payable]
     pub fn use_global_contract_by_account(
         &self,
         deployer_account_id: AccountId,

@@ -15,6 +15,7 @@ pub trait ExtStatusMessage {
 
 #[near]
 impl FactoryContract {
+    #[payable]
     pub fn deploy_status_message(&self, account_id: AccountId, amount: NearToken) {
         Promise::new(account_id)
             .create_account()
