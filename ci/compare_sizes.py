@@ -14,13 +14,13 @@ import sys
 
 
 def format_size(size_bytes: int) -> str:
-    """Format bytes as human-readable size."""
+    """Format bytes with thousands separator and human-readable suffix."""
+    human = ""
     if size_bytes >= 1_048_576:
-        return f"{size_bytes / 1_048_576:.2f}MB"
+        human = f" ({size_bytes / 1_048_576:.2f} MB)"
     elif size_bytes >= 1024:
-        return f"{size_bytes / 1024:.1f}KB"
-    else:
-        return f"{size_bytes}B"
+        human = f" ({size_bytes / 1024:.1f} KB)"
+    return f"{size_bytes:,}{human}"
 
 
 def format_diff_percent(percent: float) -> str:

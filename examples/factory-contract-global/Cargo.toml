@@ -24,5 +24,13 @@ debug = false
 panic = "abort"
 overflow-checks = true
 
+[package.metadata.near.reproducible_build]
+# docker image, descriptor of build environment
+image = "sourcescan/cargo-near:0.14.2-rust-1.86.0"
+# tag after colon above serves only descriptive purpose; image is identified by digest
+image_digest = "sha256:2320519772d04dd960c2c5c0172c0887ca4407e1c7c04e3be246b07cc5b21db0"
+# passed_env: list of environment variable names whose values will be passed to the build
+passed_env = []
+
 [workspace]
 resolver = "3"
