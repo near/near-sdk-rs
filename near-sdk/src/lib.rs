@@ -1004,8 +1004,8 @@ compile_error!(
 /// The `#[near(contract_metadata(...))]` attribute works in conjunction with `#[near(contract_state)]`:
 ///
 /// 1. The metadata is extracted from the attribute arguments or defaults from `Cargo.toml`:
-///    - `version`: Defaults to the `CARGO_PKG_REPOSITORY` environment variable with git commit hash
-///    - `link`: Defaults to the `CARGO_PKG_REPOSITORY` environment variable
+///    - `version`: Defaults to the `NEP330_VERSION` environment variable, or if unset, to `CARGO_PKG_VERSION`
+///    - `link`: Defaults to the `NEP330_LINK` environment variable, falling back to `CARGO_PKG_REPOSITORY` if unset
 ///    - `standard`: Additional standards the contract implements (e.g., NEP-171, NEP-177)
 /// 2. A `CONTRACT_SOURCE_METADATA` constant is generated containing the JSON-serialized metadata
 /// 3. A `contract_source_metadata()` view function is generated that:
