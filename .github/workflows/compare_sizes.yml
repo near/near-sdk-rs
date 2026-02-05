@@ -1,49 +1,91 @@
-name: Compare contract sizes with master
+name: Compare Contract Sizes
 on:
-  issue_comment:
-    types:
-      - created
+  pull_request:
+    paths:
+      - 'near-sdk/**'
+      - 'near-sdk-macros/**'
+      - 'near-contract-standards/**'
+      - 'examples/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+env:
+  # Threshold percentage for reporting size changes (changes below this are considered insignificant)
+  SIZE_THRESHOLD: 1
+
 jobs:
-  generate_report:
-    runs-on: ubuntu-latest
-    if: ${{ (github.event.issue.pull_request) && (github.event.comment.body == '/compare') }}
+  compare-sizes:
+    runs-on: warp-ubuntu-latest-x64-4x
     permissions:
       pull-requests: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Checkout Pull Request
-        run: gh pr checkout ${{ github.event.issue.number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install cargo-near CLI (dependency for docker builds in generate report)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
-      - name: Generate report
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.1/cargo-near-installer.sh | sh
+
+      - name: Restore baseline sizes from cache
+        id: restore-baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: sizes-baseline.json
+          key: contract-sizes-baseline-master
+
+      - name: Handle missing baseline
+        if: steps.restore-baseline.outputs.cache-hit != 'true'
         run: |
-          yes | pip install GitPython
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          ci/compare_sizes/compare_sizes.py >> "$GITHUB_ENV"
-          echo "$EOF" >> "$GITHUB_ENV"
-      - name: Submit report
-        if: ${{ success() }}
-        uses: actions/github-script@v4
+          echo "::warning::No baseline sizes found. This is expected for the first run."
+          echo "Creating empty baseline..."
+          echo '{}' > sizes-baseline.json
+
+      - name: Build examples and collect sizes
+        run: python3 ci/compare_sizes.py build --output sizes-current.json
+
+      - name: Compare sizes and generate report
+        id: compare
+        run: |
+          python3 ci/compare_sizes.py compare sizes-baseline.json sizes-current.json \
+            --threshold $SIZE_THRESHOLD \
+            --output size-report.md
+
+          # Extract markers from report for CI decisions
+          HAS_CHANGES=$(grep -oP '(?<=CONTRACT_SIZES_HAS_CHANGES:)\w+' size-report.md || echo "false")
+          EXIT_CODE=$(grep -oP '(?<=CONTRACT_SIZES_EXIT_CODE:)\d+' size-report.md || echo "0")
+
+          echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          echo "## Size Comparison Report"
+          cat size-report.md
+
+      - name: Prepend marker to report
+        if: steps.compare.outputs.has_changes == 'true'
+        run: |
+          # Add hidden marker for comment identification
+          echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
+
+      - name: Find existing comment
+        if: steps.compare.outputs.has_changes == 'true'
+        uses: peter-evans/find-comment@v3
+        id: find-comment
         with:
-          script: |
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: process.env.REPORT,
-            });
-      - name: Notify about failure
-        if: ${{ failure() }}
-        uses: actions/github-script@v4
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- contract-size-report -->'
+
+      - name: Create or update comment
+        if: steps.compare.outputs.has_changes == 'true'
+        uses: peter-evans/create-or-update-comment@v4
         with:
-          script: |
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Failed to generate size comparison report! See the failed CI job for more details.',
-            });
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body-path: size-report.md
+
+      # Optional: fail the job if sizes increased significantly
+      # Uncomment the following to enforce size limits
+      # - name: Fail if sizes increased
+      #   if: steps.compare.outputs.exit_code == '1'
+      #   run: |
+      #     echo "::error::Contract sizes increased beyond threshold!"
+      #     exit 1

@@ -1,0 +1,41 @@
+name: Contract Sizes Baseline
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'near-sdk/**'
+      - 'near-sdk-macros/**'
+      - 'near-contract-standards/**'
+      - 'examples/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch: # Allow manual trigger for initial baseline
+
+jobs:
+  build-baseline:
+    runs-on: warp-ubuntu-latest-x64-4x
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.1/cargo-near-installer.sh | sh
+
+      - name: Build examples and collect sizes
+        run: python3 ci/compare_sizes.py build --output sizes-baseline.json
+
+      - name: Show baseline sizes
+        run: cat sizes-baseline.json
+
+      - name: Save baseline to cache
+        uses: actions/cache/save@v4
+        with:
+          path: sizes-baseline.json
+          key: contract-sizes-baseline-${{ github.sha }}
+
+      # Also save with a stable key that PRs can fetch
+      - name: Save baseline with stable key
+        uses: actions/cache/save@v4
+        with:
+          path: sizes-baseline.json
+          key: contract-sizes-baseline-master
