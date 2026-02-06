@@ -1,6 +1,8 @@
-name: Compare Contract Sizes
+name: Contract Sizes Baseline
 on:
-  pull_request:
+  push:
+    branches:
+      - master
     paths:
       - 'near-sdk/**'
       - 'near-sdk-macros/**'
@@ -8,12 +10,8 @@ on:
       - 'examples/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
-      - '.github/workflows/compare_sizes.yml'
-      - '.github/workflows/sizes_baseline.yml'
       - 'ci/compare_sizes.py'
-
-env:
-  SIZE_THRESHOLD: 1
+  workflow_dispatch: # Allow manual trigger for initial baseline
 
 jobs:
   # Build examples in parallel
@@ -49,7 +47,6 @@ jobs:
           cd examples/${{ matrix.example }}
           # For workspaces, build all members
           if [[ -f "Cargo.toml" ]] && grep -q '\[workspace\]' "Cargo.toml"; then
-            # Find all workspace members and build each
             for member in $(cargo metadata --no-deps --format-version 1 2>/dev/null | jq -r '.packages[].manifest_path' | xargs -I{} dirname {} | sort -u); do
               echo "Building workspace member: $member"
               (cd "$member" && cargo near build reproducible-wasm --no-locked) || echo "Warning: $member failed"
@@ -59,7 +56,6 @@ jobs:
           fi
 
       - name: Collect size
-        id: size
         run: |
           mkdir -p sizes
           find examples/${{ matrix.example }}/target/near -name "*.wasm" -type f 2>/dev/null | while read wasm; do
@@ -78,12 +74,10 @@ jobs:
           path: sizes/
           retention-days: 1
 
-  # Combine sizes and compare
-  compare:
+  # Combine and cache baseline
+  save-baseline:
     needs: build-example
     runs-on: warp-ubuntu-latest-x64-4x
-    permissions:
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -95,68 +89,24 @@ jobs:
 
       - name: Combine sizes into JSON
         run: |
-          # Merge all JSON files into one
-          echo '{}' > sizes-current.json
+          echo '{}' > sizes-baseline.json
           find all-sizes -name "*.json" -type f | while read f; do
-            # Merge each file into the combined JSON
-            jq -s '.[0] * .[1]' sizes-current.json "$f" > tmp.json && mv tmp.json sizes-current.json
+            jq -s '.[0] * .[1]' sizes-baseline.json "$f" > tmp.json && mv tmp.json sizes-baseline.json
           done
-          echo "Current sizes:"
-          cat sizes-current.json
+          echo "Baseline sizes:"
+          cat sizes-baseline.json
 
-      - name: Restore baseline sizes from cache
-        id: restore-baseline
-        uses: actions/cache/restore@v4
+      - name: Save baseline to cache
+        uses: actions/cache/save@v4
+        with:
+          path: sizes-baseline.json
+          key: contract-sizes-baseline-${{ github.sha }}
+
+      - name: Save baseline with stable key
+        uses: actions/cache/save@v4
         with:
           path: sizes-baseline.json
           key: contract-sizes-baseline-master
-
-      - name: Handle missing baseline
-        if: steps.restore-baseline.outputs.cache-hit != 'true'
-        run: |
-          echo "::warning::No baseline sizes found. This is expected for the first run."
-          echo "Creating empty baseline..."
-          echo '{}' > sizes-baseline.json
-
-      - name: Compare sizes and generate report
-        id: compare
-        run: |
-          python3 ci/compare_sizes.py sizes-baseline.json sizes-current.json \
-            --threshold $SIZE_THRESHOLD \
-            --output size-report.md
-
-          # Extract markers from report for CI decisions
-          HAS_CHANGES=$(grep -oP '(?<=CONTRACT_SIZES_HAS_CHANGES:)\w+' size-report.md || echo "false")
-          EXIT_CODE=$(grep -oP '(?<=CONTRACT_SIZES_EXIT_CODE:)\d+' size-report.md || echo "0")
-
-          echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          echo "## Size Comparison Report"
-          cat size-report.md
-
-      - name: Prepend marker to report
-        if: steps.compare.outputs.has_changes == 'true'
-        run: |
-          echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
-
-      - name: Find existing comment
-        if: steps.compare.outputs.has_changes == 'true'
-        uses: peter-evans/find-comment@v3
-        id: find-comment
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: '<!-- contract-size-report -->'
-
-      - name: Create or update comment
-        if: steps.compare.outputs.has_changes == 'true'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          comment-id: ${{ steps.find-comment.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          edit-mode: replace
-          body-path: size-report.md
 
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5

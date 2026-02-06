@@ -18,3 +18,8 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 status-level = "pass"
 # Final status output
 final-status-level = "flaky"
+
+# Compilation tests (trybuild) need more time - they compile code during the test
+[[profile.ci.overrides]]
+filter = "test(compilation_tests)"
+slow-timeout = { period = "120s", terminate-after = 3 }
