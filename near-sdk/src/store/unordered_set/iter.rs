@@ -1,7 +1,7 @@
 use super::UnorderedSet;
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::ToKey;
-use crate::store::{free_list, LookupMap};
+use crate::store::{LookupMap, free_list};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
 

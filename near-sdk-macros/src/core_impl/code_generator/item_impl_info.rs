@@ -1,8 +1,8 @@
-use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::ItemImplInfo;
+use crate::core_impl::ext::generate_ext_function_wrappers;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
-use syn::{spanned::Spanned, Ident};
+use syn::{Ident, spanned::Spanned};
 
 impl ItemImplInfo {
     /// Generate the code that wraps

@@ -1,7 +1,7 @@
-use crate::core_impl::{serializer, AttrSigInfo};
+use crate::core_impl::{AttrSigInfo, serializer};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, Attribute, Generics, Path, Signature};
+use quote::{ToTokens, format_ident, quote};
+use syn::{Attribute, Generics, Path, Signature, parse_quote};
 
 /// Generates inner ext code for structs and modules. If intended for a struct, generic details
 /// for the struct should be passed in through `generic_details` and the `ext` method will be

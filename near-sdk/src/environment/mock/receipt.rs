@@ -249,7 +249,9 @@ impl From<LogicMockAction> for MockAction {
             #[cfg(not(feature = "deterministic-account-ids"))]
             LogicMockAction::DeterministicStateInit { .. }
             | LogicMockAction::SetRefundTo { .. } => {
-                panic!("Deterministic AccountIds functionality requires the 'deterministic-account-ids' feature flag")
+                panic!(
+                    "Deterministic AccountIds functionality requires the 'deterministic-account-ids' feature flag"
+                )
             }
         }
     }

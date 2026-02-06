@@ -4,10 +4,10 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
+use crate::IntoStorageKey;
 use crate::env;
 use crate::store::lazy::{load_and_deserialize, serialize_and_store};
 use crate::utils::{CacheEntry, EntryState};
-use crate::IntoStorageKey;
 
 /// An persistent lazily loaded option, that stores a `value` in the storage when `Some(value)`
 /// is set, and not when `None` is set. `LazyOption` also [`Deref`]s into [`Option`] so we get
