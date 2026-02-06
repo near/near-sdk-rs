@@ -1131,14 +1131,78 @@ pub use near_sdk_macros::near;
 /// ```
 pub use near_sdk_macros::near_bindgen;
 
-/// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
-/// Each of these static methods takes positional arguments defined by the Trait,
-/// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
+/// `ext_contract` takes a Rust Trait and converts it to a module with a struct and methods
+/// for making cross-contract calls to an external contract. This enables asynchronous
+/// communication between NEAR smart contracts.
 ///
-/// ## Examples
+/// # Module Name
+///
+/// - If no argument is provided (e.g., `#[ext_contract]`), the generated module name is the
+///   trait name converted to snake_case (e.g., `ExtStatusMessage` becomes `ext_status_message`).
+/// - If an argument is provided (e.g., `#[ext_contract(ext_calculator)]`), that name is used
+///   as the module name.
+///
+/// # Generated Code
+///
+/// For a trait named `Calculator` with `#[ext_contract(ext_calculator)]`, the macro generates:
+///
+/// ## Module `ext_calculator`
+///
+/// A module containing the following:
+///
+/// ### Struct `CalculatorExt`
+///
+/// A builder struct for constructing cross-contract calls. This struct holds configuration
+/// for the call (deposit, gas, etc.) and is marked with `#[must_use]` to ensure the call
+/// is actually executed.
+///
+/// ### Functions
+///
+/// - **`ext(account_id: AccountId) -> CalculatorExt`** - Creates a new cross-contract call
+///   builder targeting the specified `account_id`. This is the entry point for making calls
+///   to an external contract.
+///
+/// - **`ext_on(promise: Promise) -> CalculatorExt`** - Creates a cross-contract call builder
+///   that will be chained onto an existing [`Promise`]. Use this when you want to execute
+///   the external call only after a previous promise completes (`.then()` semantics).
+///
+/// ### Builder Methods on `CalculatorExt`
+///
+/// These methods configure the cross-contract call and return `Self` for method chaining:
+///
+/// - **`with_attached_deposit(amount: NearToken) -> Self`** - Sets the amount of NEAR tokens
+///   to attach to the call. Default is 0.
+///
+/// - **`with_static_gas(static_gas: Gas) -> Self`** - Sets the amount of gas to attach to
+///   the call. This is the guaranteed minimum gas for the call. Default is 0.
+///
+/// - **`with_unused_gas_weight(gas_weight: u64) -> Self`** - Sets the weight for distributing
+///   leftover gas from the current execution among scheduled calls. Higher weight means more
+///   unused gas will be allocated to this call. Default uses [`GasWeight::default()`].
+///
+/// ### Trait Method Wrappers
+///
+/// For each method defined in the trait, a corresponding method is generated on `CalculatorExt`
+/// that:
+/// 1. Takes the same arguments as the trait method (excluding `&self`/`&mut self`).
+/// 2. Serializes the arguments (JSON by default, or borsh if specified with `#[serializer(borsh)]`).
+/// 3. Returns a [`Promise`] that represents the scheduled cross-contract call.
+///
+/// # Viewing Generated Method Signatures
+///
+/// To see the full signatures of generated methods in your contract's documentation, run
+/// `cargo doc --open` in your contract crate. The generated module and its methods will
+/// appear in your crate's documentation.
+///
+/// Note that the trait itself is preserved in the output, so the original trait methods
+/// are also visible in the documentation.
+///
+/// # Examples
+///
+/// ## Basic Usage
 ///
 /// ```rust
-/// use near_sdk::{AccountId,ext_contract, near, Promise, Gas};
+/// use near_sdk::{AccountId, ext_contract, near, Promise, Gas};
 ///
 /// #[near(contract_state)]
 /// struct Contract {
@@ -1153,16 +1217,79 @@ pub use near_sdk_macros::near_bindgen;
 ///
 /// #[near]
 /// impl Contract {
-///    pub fn multiply_by_five(&mut self, number: u64) -> Promise {
-///        ext_calculator::ext(self.calculator_account.clone())
-///            .with_static_gas(Gas::from_tgas(5))
-///            .mult(number, 5)
-///    }
+///     pub fn multiply_by_five(&mut self, number: u64) -> Promise {
+///         ext_calculator::ext(self.calculator_account.clone())
+///             .with_static_gas(Gas::from_tgas(5))
+///             .mult(number, 5)
+///     }
 /// }
-///
 /// ```
 ///
-/// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
+/// ## Default Module Name (Snake Case)
+///
+/// If no module name is provided, the trait name is converted to snake_case:
+///
+/// ```rust
+/// use near_sdk::{AccountId, ext_contract, Promise};
+///
+/// // Module name will be `ext_status_message`
+/// #[ext_contract]
+/// pub trait ExtStatusMessage {
+///     fn set_status(&mut self, message: String);
+///     fn get_status(&self, account_id: near_sdk::AccountId) -> Option<String>;
+/// }
+///
+/// fn example(account_id: AccountId) -> Promise {
+///     ext_status_message::ext(account_id)
+///         .set_status("Hello".to_string())
+/// }
+/// ```
+///
+/// ## Chaining Calls with `ext_on`
+///
+/// Use `ext_on` to chain a cross-contract call after an existing promise:
+///
+/// ```rust
+/// use near_sdk::{ext_contract, near, AccountId, Promise};
+///
+/// #[ext_contract(ext_other)]
+/// trait OtherContract {
+///     fn step_one(&self);
+///     fn step_two(&self);
+/// }
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     pub fn chained_calls(&self, other_account: AccountId) -> Promise {
+///         let first_call = ext_other::ext(other_account.clone()).step_one();
+///         // step_two will only execute after step_one completes
+///         ext_other::ext_on(first_call).step_two()
+///     }
+/// }
+/// ```
+///
+/// ## Attaching Deposit
+///
+/// ```rust
+/// use near_sdk::{ext_contract, AccountId, NearToken, Promise};
+///
+/// #[ext_contract(ext_ft)]
+/// trait FungibleToken {
+///     fn ft_transfer(&mut self, receiver_id: near_sdk::AccountId, amount: String, memo: Option<String>);
+/// }
+///
+/// fn transfer_tokens(token_contract: AccountId, receiver: AccountId) -> Promise {
+///     ext_ft::ext(token_contract)
+///         .with_attached_deposit(NearToken::from_yoctonear(1)) // 1 yoctoNEAR for security
+///         .ft_transfer(receiver, "1000000".to_string(), None)
+/// }
+/// ```
+///
+/// See more information about cross-contract calls in the [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract).
 pub use near_sdk_macros::ext_contract;
 
 /// `BorshStorageKey` generates implementation for [BorshIntoStorageKey](crate::__private::BorshIntoStorageKey) trait.
