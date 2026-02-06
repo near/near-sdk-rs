@@ -600,6 +600,23 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[init]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For a method annotated with `#[init]`:
+///
+/// 1. Before invoking the constructor, the macro checks if the contract state already exists by calling
+///    [`state::ContractState::state_exists`](crate::state::ContractState::state_exists), which internally uses
+///    [`env::storage_has_key`] to check for the state key
+/// 2. If the state already exists, [`env::panic_str`] host function is called with the message
+///    `"The contract has already been initialized"`
+/// 3. Otherwise, the constructor method is called to create the contract instance
+/// 4. The newly created contract state is written using [`env::state_write`] host function
+///
+/// The `#[init(ignore_state)]` variant skips the state existence check in step 1-2, allowing
+/// re-initialization of the contract.
+///
 /// ## `#[payable]` (annotates methods of a type in its `impl` block)
 ///
 /// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#payable-functions)
@@ -628,6 +645,20 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[payable]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods **without** the `#[payable]` attribute, the macro generates a deposit check at the beginning
+/// of the method:
+///
+/// 1. [`env::attached_deposit`] host function is called to get the amount of NEAR tokens attached to the call
+/// 2. If the attached deposit is not zero, [`env::panic_str`] host function is called with the message
+///    `"Method {method_name} doesn't accept deposit"`
+///
+/// When a method is annotated with `#[payable]`, this deposit check is skipped, allowing the method
+/// to accept NEAR token transfers along with the function call.
+///
 /// ## `#[private]` (annotates methods of a type in its `impl` block)]
 ///
 /// The attribute forbids to call the method except from within the contract.
@@ -654,6 +685,21 @@ compile_error!(
 ///     }
 /// }
 /// ```
+///
+/// ### Implementation of `#[private]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods annotated with `#[private]`, the macro generates a caller check at the beginning
+/// of the method:
+///
+/// 1. [`env::current_account_id`] host function is called to get the contract's own account ID
+/// 2. [`env::predecessor_account_id`] host function is called to get the caller's account ID
+/// 3. If the caller's account ID does not match the contract's account ID, [`env::panic_str`] host function
+///    is called with the message `"Method {method_name} is private"`
+///
+/// This ensures that only the contract itself (through cross-contract calls from its own methods)
+/// can invoke the private method.
 ///
 /// ## `#[deny_unknown_arguments]` (annotates methods of a type in its `impl` block)]
 ///
@@ -802,6 +848,21 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[handle_result]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods annotated with `#[handle_result]`, the macro modifies how the return value is processed:
+///
+/// 1. The method is expected to return `Result<T, E>` where `E` implements [`FunctionError`]
+/// 2. After the method executes, the macro checks if the result is:
+///    - [`Result::Ok`]: The inner value is serialized and returned via [`env::value_return`] host function
+///    - [`Result::Err`]: The error's [`FunctionError::panic`] method is called, which typically
+///      calls [`env::panic_str`] host function with the error message converted via [`ToString`]
+///
+/// The `#[handle_result(aliased)]` variant allows using type aliases for `Result` types, enabling
+/// custom result type definitions while maintaining the same behavior.
+///
 /// ## `#[callback_unwrap]` (annotates function arguments)
 ///
 /// Automatically unwraps the successful result of a callback from a cross-contract call.
@@ -890,6 +951,100 @@ compile_error!(
 ///
 /// ### Reference to  [Implementation of `#[callback_unwrap]` attribute](near#implementation-of-callback_unwrap-attribute-and-host-functions-calls-used)
 ///
+/// ## `#[callback_result]` (annotates function arguments)
+///
+/// Similar to [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments), but instead of panicking on promise failure,
+/// it wraps the result in a `Result<T, PromiseError>`, allowing the callback to handle both success and failure cases.
+///
+/// This is useful when you want to handle failed cross-contract calls gracefully instead of panicking.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::{near, PromiseError};
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     #[private]
+///     pub fn callback_method(&self, #[callback_result] result: Result<String, PromiseError>) {
+///         match result {
+///             Ok(value) => {
+///                 // Handle successful cross-contract call
+///                 near_sdk::log!("Received value: {}", value);
+///             }
+///             Err(_) => {
+///                 // Handle failed cross-contract call
+///                 near_sdk::log!("Cross-contract call failed");
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// ### Implementation of `#[callback_result]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For arguments annotated with `#[callback_result]`:
+///
+/// 1. Arguments are not expected to be included in the regular input deserialization
+/// 2. For each `#[callback_result]` argument:
+///    1. [`env::promise_result_checked`] host function is called with the corresponding index
+///       (0 for the first callback argument, 1 for the second, etc.)
+///    2. If successful, the data is deserialized and wrapped in [`Result::Ok`]
+///    3. If the promise failed, [`Result::Err(PromiseError)`](crate::PromiseError) is returned
+///       (no panic occurs, unlike `#[callback_unwrap]`)
+/// 3. The resulting `Result<T, PromiseError>` is passed to the method, allowing error handling
+///
+/// The optional `max_bytes` parameter (e.g., `#[callback_result(max_bytes = 100)]`) limits the
+/// maximum size of the callback data to prevent excessive memory usage.
+///
+/// ## `#[callback_vec]` (annotates function arguments)
+///
+/// Collects results from multiple promises into a `Vec<T>`. This is useful when you have
+/// multiple cross-contract calls via [`Promise::and`] and want to process all their results.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     #[private]
+///     pub fn aggregate_callback(&self, #[callback_vec] results: Vec<u64>) -> u64 {
+///         // Sum all results from multiple cross-contract calls
+///         results.iter().sum()
+///     }
+/// }
+/// ```
+///
+/// ### Implementation of `#[callback_vec]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For the argument annotated with `#[callback_vec]`:
+///
+/// 1. [`env::promise_results_count`] host function is called to get the total number of promise results
+/// 2. For each promise result (from index 0 to count-1):
+///    1. [`env::promise_result_checked`] host function is called with the index
+///    2. If successful, the data is deserialized and added to the vector
+///    3. If any promise failed, [`env::panic_str`] host function is called with the message
+///       `"Callback computation {index} was not successful"`
+/// 3. The collected `Vec<T>` is passed to the method
+///
+/// **Note:** Only one `#[callback_vec]` parameter is allowed per method.
+///
+/// The optional `max_bytes` parameter limits the maximum size of each callback result.
+///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
@@ -934,6 +1089,24 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[near(event_json(...))]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// The `#[near(event_json(standard = "..."))]` macro transforms an enum into a NEP-297 compliant event:
+///
+/// 1. The macro adds `#[derive(Serialize, EventMetadata)]` to the enum
+/// 2. Serde attributes are added for proper JSON serialization:
+///    - `#[serde(tag = "event", content = "data")]` for the NEP-297 format
+///    - `#[serde(rename_all = "snake_case")]` for event name formatting
+/// 3. A constant `{EnumName}_event_standard` is generated with the standard name
+/// 4. The [`EventMetadata`](crate::EventMetadata) derive macro generates:
+///    - `emit()` method: Serializes the event to JSON and calls [`env::log_str`] with the format
+///      `EVENT_JSON:{json}` as specified by [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
+///    - `to_json()` method: Returns the event as a [`serde_json::Value`]
+///    - `standard()`, `version()`, `event()` methods for accessing metadata
+/// 5. Each variant must have `#[event_version("x.x.x")]` to specify the version
+///
 /// ## `#[near(contract_metadata(...))]` (annotates structs/enums)
 ///
 /// By using `contract_metadata` as an argument `near` will populate the contract metadata
@@ -963,6 +1136,24 @@ compile_error!(
 /// ))]
 /// struct Contract {}
 /// ```
+///
+/// ### Implementation of `#[near(contract_metadata(...))]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// The `#[near(contract_metadata(...))]` attribute works in conjunction with `#[near(contract_state)]`:
+///
+/// 1. The metadata is extracted from the attribute arguments or defaults from `Cargo.toml`:
+///    - `version`: Defaults to the `NEP330_VERSION` environment variable, or if unset, to `CARGO_PKG_VERSION`
+///    - `link`: Defaults to the `NEP330_LINK` environment variable, falling back to `CARGO_PKG_REPOSITORY` if unset
+///    - `standard`: Additional standards the contract implements (e.g., NEP-171, NEP-177)
+/// 2. A `CONTRACT_SOURCE_METADATA` constant is generated containing the JSON-serialized metadata
+/// 3. A `contract_source_metadata()` view function is generated that:
+///    1. Calls [`env::setup_panic_hook`] host function
+///    2. Calls [`env::value_return`] host function with the `CONTRACT_SOURCE_METADATA` bytes
+///
+/// This follows the [NEP-330](https://github.com/near/NEPs/blob/master/neps/nep-0330.md) standard for
+/// contract source metadata, allowing tools and users to discover information about the deployed contract.
 ///
 /// ---
 ///
