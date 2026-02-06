@@ -960,7 +960,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L28> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L23>
 ///
 pub fn promise_create(
     account_id: AccountId,
@@ -1017,7 +1017,7 @@ pub fn promise_create(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L49> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L30>
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
@@ -1963,7 +1963,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
 ///
-/// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
+/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L38), [two](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L57)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }

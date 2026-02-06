@@ -748,7 +748,7 @@ compile_error!(
 ///
 /// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
 ///   - same example as [above](near#example-with-cross-contract-factorial), but uses [`Promise::then`] instead of [`env`](mod@env) host functions calls to set up a callback of `factorial_mult`
-/// - [examples/callback-results](https://github.com/near/near-sdk-rs/tree/master/examples/callback-results/src/lib.rs?plain=1#L51)
+/// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/callback-results/src/lib.rs?plain=1#L60)
 ///
 /// ### Reference to  [Implementation of `#[callback_unwrap]` attribute](near#implementation-of-callback_unwrap-attribute-and-host-functions-calls-used)
 ///
