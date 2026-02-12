@@ -147,7 +147,7 @@ impl InconsistentCollectionState<'_> {
     pub fn new() -> Self {
         Self {
             message: Cow::Borrowed(
-                "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?",
+                "The collection is in an inconsistent state. Did previous smart contract execution terminate unexpectedly?",
             ),
         }
     }
