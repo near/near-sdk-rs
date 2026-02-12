@@ -6,8 +6,10 @@ pub use near_abi::{
     AbiParameters, AbiType,
 };
 
+#[cfg(feature = "abi")]
 mod result_type_ext;
 
+#[cfg(feature = "abi")]
 pub use result_type_ext::ResultTypeExt;
 
 use crate::IntoStorageKey;
