@@ -4,7 +4,7 @@ use crate::core_impl::ReturnKind;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
-use syn::{spanned::Spanned, Ident};
+use syn::{Ident, spanned::Spanned};
 
 impl ItemImplInfo {
     /// Generate the code that wraps

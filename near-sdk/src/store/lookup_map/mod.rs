@@ -10,7 +10,7 @@ use once_cell::unsync::OnceCell;
 
 use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
-use crate::{env, errors, CacheEntry, IntoStorageKey};
+use crate::{CacheEntry, IntoStorageKey, env, errors};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
@@ -264,8 +264,7 @@ where
             let _ = entry.hash.set(key);
             CacheEntry::new_cached(value)
         });
-        let entry = entry.value.get_mut().unwrap_or_else(|| env::abort());
-        entry
+        entry.value.get_mut().unwrap_or_else(|| env::abort())
     }
 
     /// Returns a mutable reference to the value corresponding to the key.
@@ -466,8 +465,8 @@ mod tests {
     use crate::store::key::{Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use rand::seq::SliceRandom;
     use rand::RngCore;
+    use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashMap;
 
@@ -476,8 +475,8 @@ mod tests {
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             map.insert(key, value);
             assert_eq!(*map.get(&key).unwrap(), value);
         }
@@ -489,14 +488,14 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             map.insert(key, value);
             key_to_value.insert(key, value);
         }
         // Non existing
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             assert_eq!(map.contains_key(&key), key_to_value.contains_key(&key));
         }
         // Existing
@@ -512,8 +511,8 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(key, value);
@@ -549,15 +548,15 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(key, value);
         }
         keys.shuffle(&mut rng);
         for key in &keys {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             let actual = map.insert(*key, value).unwrap();
             assert_eq!(actual, key_to_value[key]);
             key_to_value.insert(*key, value);
@@ -575,13 +574,13 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>() % 20_000;
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(key, value);
         }
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
+            let key = rng.r#gen::<u64>() % 20_000;
             assert_eq!(map.get(&key), key_to_value.get(&key));
         }
     }
@@ -616,16 +615,16 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(key, value);
         }
         for _ in 0..10 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
+                let value = rng.r#gen::<u64>();
                 tmp.push((key, value));
             }
             key_to_value.extend(tmp.iter().cloned());

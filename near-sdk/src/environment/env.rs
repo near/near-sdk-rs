@@ -64,7 +64,7 @@ fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
 #[inline]
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
     let mut buf = [0; N];
-    sys::read_register(register_id, buf.as_mut_ptr() as _);
+    unsafe { sys::read_register(register_id, buf.as_mut_ptr() as _) };
     buf
 }
 
@@ -146,11 +146,7 @@ pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = unsafe { sys::register_len(register_id) };
-    if len == u64::MAX {
-        None
-    } else {
-        Some(len)
-    }
+    if len == u64::MAX { None } else { Some(len) }
 }
 
 macro_rules! maybe_cached {
@@ -718,11 +714,7 @@ pub fn ecrecover(
             malleability_flag as u64,
             ATOMIC_OP_REGISTER,
         );
-        if return_code == 0 {
-            None
-        } else {
-            Some(read_register_fixed(ATOMIC_OP_REGISTER))
-        }
+        if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
     }
 }
 
@@ -944,7 +936,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L28> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L23>
 ///
 pub fn promise_create(
     account_id: AccountId,
@@ -1001,7 +993,7 @@ pub fn promise_create(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L49> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L30>
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
@@ -1947,7 +1939,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
 ///
-/// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
+/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L38), [two](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L57)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }
@@ -2597,9 +2589,9 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn random_seed_smoke_test() {
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .random_seed([8; 32])
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().random_seed([8; 32]).build()
+        );
 
         assert_eq!(super::random_seed(), [8; 32]);
     }
@@ -2652,9 +2644,9 @@ mod tests {
         let key: PublicKey =
             "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
 
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .signer_account_pk(key.clone())
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().signer_account_pk(key.clone()).build()
+        );
         assert_eq!(super::signer_account_pk(), key);
     }
 

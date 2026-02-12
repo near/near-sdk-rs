@@ -1,17 +1,17 @@
 use std::{collections::HashMap, ops::Deref};
 
 use near_sdk::{
+    AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, StorageUsage,
     assert_one_yocto,
     borsh::BorshSerialize,
     collections::{LookupMap, TreeMap, UnorderedSet},
     env,
     json_types::Base64VecU8,
-    near, require, serde_json, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
-    StorageUsage,
+    near, require, serde_json,
 };
 
 use crate::non_fungible_token::{
-    core::{receiver::ext_nft_receiver, resolver::ext_nft_resolver, NonFungibleTokenCore},
+    core::{NonFungibleTokenCore, receiver::ext_nft_receiver, resolver::ext_nft_resolver},
     events::{NftMint, NftTransfer},
     metadata::TokenMetadata,
     token::{Token, TokenId},

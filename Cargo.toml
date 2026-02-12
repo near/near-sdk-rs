@@ -1,11 +1,11 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["near-sdk", "near-sdk-macros", "near-contract-standards", "near-sys"]
 exclude = ["examples/"]
 
 [workspace.package]
-version = "5.24.0"
-edition = "2021"
+version = "5.24.1"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"

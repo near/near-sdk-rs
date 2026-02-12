@@ -6,9 +6,9 @@ mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
 use super::LookupMap;
-use crate::store::key::{Sha256, ToKey};
 use crate::store::Vector;
-use crate::{env, errors, IntoStorageKey};
+use crate::store::key::{Sha256, ToKey};
+use crate::{IntoStorageKey, env, errors};
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::borrow::Borrow;
@@ -378,11 +378,7 @@ where
     where
         T: BorshDeserialize + Clone,
     {
-        if self.len() <= other.len() {
-            self.iter().all(|v| other.contains(v))
-        } else {
-            false
-        }
+        if self.len() <= other.len() { self.iter().all(|v| other.contains(v)) } else { false }
     }
 
     /// Returns `true` if the set is a superset of another, i.e., `self` contains at least all the
@@ -548,7 +544,7 @@ mod tests {
     use crate::store::IterableSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashSet;

@@ -92,7 +92,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
 ///             .unwrap();
 ///
 /// // Uncompressed secp256k1 key
-/// let secp256k1: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj"
+/// let secp256k1: PublicKey = "secp256k1:5r22SrjrDvgY3wdQsnjgxkeAbU1VcM71FYvALEQWihjM3Xk4Be1CpETTqFccChQr4iJwDroSDVmgaWZv2AcXvYeL"
 ///             .parse()
 ///             .unwrap();
 /// ```
@@ -206,8 +206,8 @@ impl schemars::JsonSchema for PublicKey {
         String::schema_name()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 

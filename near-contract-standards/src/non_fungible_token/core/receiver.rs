@@ -1,5 +1,5 @@
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::{ext_contract, AccountId, PromiseOrValue};
+use near_sdk::{AccountId, PromiseOrValue, ext_contract};
 
 /// Used when an NFT is transferred using `nft_transfer_call`. This trait is implemented on the receiving contract, not on the NFT contract.
 #[ext_contract(ext_nft_receiver)]

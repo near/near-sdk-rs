@@ -4,9 +4,9 @@
 mod iter;
 pub use iter::Iter;
 
-use crate::collections::{append, append_slice, Vector};
-use crate::{env, errors, IntoStorageKey};
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use crate::collections::{Vector, append, append_slice};
+use crate::{IntoStorageKey, env, errors};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use near_sdk_macros::near;
 use std::mem::size_of;
 
@@ -355,8 +355,8 @@ mod tests {
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             map.insert(&key, &value);
         }
     }
@@ -368,8 +368,8 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(&key, &value);
@@ -405,15 +405,15 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         keys.shuffle(&mut rng);
         for key in &keys {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             let actual = map.insert(key, &value).unwrap();
             assert_eq!(actual, key_to_value[key]);
             key_to_value.insert(*key, value);
@@ -431,13 +431,13 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>() % 20_000;
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
+            let key = rng.r#gen::<u64>() % 20_000;
             assert_eq!(map.get(&key), key_to_value.get(&key).cloned());
         }
     }
@@ -448,8 +448,8 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..400 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
@@ -462,9 +462,9 @@ mod tests {
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
+                let value = rng.r#gen::<u64>();
                 map.insert(&key, &value);
             }
             assert!(!map.to_vec().is_empty());
@@ -479,8 +479,8 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..400 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
@@ -501,8 +501,8 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..400 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
@@ -549,16 +549,16 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         for _ in 0..10 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
+                let value = rng.r#gen::<u64>();
                 tmp.push((key, value));
             }
             key_to_value.extend(tmp.iter().cloned());

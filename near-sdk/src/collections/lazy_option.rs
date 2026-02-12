@@ -5,11 +5,11 @@
 //! `LazyOption` and it will not be deserialized until requested.
 use std::marker::PhantomData;
 
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
-use crate::env;
 use crate::errors;
 use crate::IntoStorageKey;
+use crate::env;
 use near_sdk_macros::near;
 
 /// An persistent lazy option, that stores a value in the storage.
@@ -44,11 +44,7 @@ impl<T> LazyOption<T> {
 
     /// Removes the raw value from the storage and returns it as an option.
     fn take_raw(&mut self) -> Option<Vec<u8>> {
-        if self.remove_raw() {
-            Some(env::storage_get_evicted().unwrap())
-        } else {
-            None
-        }
+        if self.remove_raw() { Some(env::storage_get_evicted().unwrap()) } else { None }
     }
 
     fn set_raw(&mut self, raw_value: &[u8]) -> bool {
@@ -56,11 +52,7 @@ impl<T> LazyOption<T> {
     }
 
     fn replace_raw(&mut self, raw_value: &[u8]) -> Option<Vec<u8>> {
-        if self.set_raw(raw_value) {
-            Some(env::storage_get_evicted().unwrap())
-        } else {
-            None
-        }
+        if self.set_raw(raw_value) { Some(env::storage_get_evicted().unwrap()) } else { None }
     }
 }
 

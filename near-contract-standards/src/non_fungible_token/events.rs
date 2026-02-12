@@ -14,8 +14,8 @@
 //! or [`NftBurn::emit_many`] respectively.
 
 use crate::event::NearEvent;
-use near_sdk::serde::Serialize;
 use near_sdk::AccountIdRef;
+use near_sdk::serde::Serialize;
 
 /// Data to log for an NFT mint event. To log this event, call [`.emit()`](NftMint::emit).
 #[must_use]

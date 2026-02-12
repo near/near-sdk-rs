@@ -2,8 +2,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
 
 use crate::collections::LookupMap;
-use crate::collections::{append, Vector};
-use crate::{env, errors, IntoStorageKey};
+use crate::collections::{Vector, append};
+use crate::{IntoStorageKey, env, errors};
 use near_sdk_macros::near;
 
 /// TreeMap based on AVL-tree
@@ -254,11 +254,7 @@ where
     /// assert_eq!(map.ceil_key(&51), None);
     /// ```
     pub fn ceil_key(&self, key: &K) -> Option<K> {
-        if self.contains_key(key) {
-            Some(key.clone())
-        } else {
-            self.higher(key)
-        }
+        if self.contains_key(key) { Some(key.clone()) } else { self.higher(key) }
     }
 
     /// Returns the largest key that is less or equal to key given as the parameter
@@ -283,11 +279,7 @@ where
     /// assert_eq!(map.floor_key(&51), Some(50));
     /// ```
     pub fn floor_key(&self, key: &K) -> Option<K> {
-        if self.contains_key(key) {
-            Some(key.clone())
-        } else {
-            self.lower(key)
-        }
+        if self.contains_key(key) { Some(key.clone()) } else { self.lower(key) }
     }
 
     /// Iterate all entries in ascending order: min to max, both inclusive
@@ -871,12 +863,12 @@ where
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
     (match lo {
-        Bound::Included(ref x) => key >= x,
-        Bound::Excluded(ref x) => key > x,
+        Bound::Included(x) => key >= x,
+        Bound::Excluded(x) => key > x,
         Bound::Unbounded => true,
     }) && (match hi {
-        Bound::Included(ref x) => key <= x,
-        Bound::Excluded(ref x) => key < x,
+        Bound::Included(x) => key <= x,
+        Bound::Excluded(x) => key < x,
         Bound::Unbounded => true,
     })
 }
@@ -1774,10 +1766,11 @@ mod tests {
             vec![(10, 1), (20, 1), (30, 1)]
         );
 
-        assert!(map
-            .range((Bound::Unbounded, Bound::Included(5)))
-            .collect::<Vec<(u32, u32)>>()
-            .is_empty());
+        assert!(
+            map.range((Bound::Unbounded, Bound::Included(5)))
+                .collect::<Vec<(u32, u32)>>()
+                .is_empty()
+        );
 
         assert_eq!(
             map.range((Bound::Unbounded, Bound::Included(50))).collect::<Vec<(u32, u32)>>(),
@@ -1801,10 +1794,11 @@ mod tests {
             vec![(10, 1), (20, 1)]
         );
 
-        assert!(map
-            .range((Bound::Unbounded, Bound::Excluded(10)))
-            .collect::<Vec<(u32, u32)>>()
-            .is_empty());
+        assert!(
+            map.range((Bound::Unbounded, Bound::Excluded(10)))
+                .collect::<Vec<(u32, u32)>>()
+                .is_empty()
+        );
 
         assert_eq!(
             map.range((Bound::Unbounded, Bound::Excluded(60))).collect::<Vec<(u32, u32)>>(),
@@ -1828,10 +1822,11 @@ mod tests {
             vec![(30, 1), (40, 1), (50, 1)]
         );
 
-        assert!(map
-            .range((Bound::Included(55), Bound::Unbounded))
-            .collect::<Vec<(u32, u32)>>()
-            .is_empty());
+        assert!(
+            map.range((Bound::Included(55), Bound::Unbounded))
+                .collect::<Vec<(u32, u32)>>()
+                .is_empty()
+        );
 
         assert_eq!(
             map.range((Bound::Included(10), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
@@ -1855,10 +1850,11 @@ mod tests {
             vec![(40, 1), (50, 1)]
         );
 
-        assert!(map
-            .range((Bound::Excluded(50), Bound::Unbounded))
-            .collect::<Vec<(u32, u32)>>()
-            .is_empty());
+        assert!(
+            map.range((Bound::Excluded(50), Bound::Unbounded))
+                .collect::<Vec<(u32, u32)>>()
+                .is_empty()
+        );
 
         assert_eq!(
             map.range((Bound::Excluded(0), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),

@@ -3,10 +3,10 @@ mod impls;
 mod iter;
 
 use super::lookup_map as lm;
+use crate::store::LookupMap;
 use crate::store::free_list::{FreeList, FreeListIndex};
 use crate::store::key::{Sha256, ToKey};
-use crate::store::LookupMap;
-use crate::{env, IntoStorageKey};
+use crate::{IntoStorageKey, env};
 use borsh::{BorshDeserialize, BorshSerialize};
 pub use entry::Entry;
 pub use iter::{Iter, IterMut, Keys, Range, RangeMut, Values, ValuesMut};
@@ -339,11 +339,7 @@ where
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        if let Some(key) = self.equal_key(key) {
-            Some(key)
-        } else {
-            self.lower(key)
-        }
+        if let Some(key) = self.equal_key(key) { Some(key) } else { self.lower(key) }
     }
 
     fn ceil_key<Q>(&self, key: &Q) -> Option<&K>
@@ -351,11 +347,7 @@ where
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        if let Some(key) = self.equal_key(key) {
-            Some(key)
-        } else {
-            self.higher(key)
-        }
+        if let Some(key) = self.equal_key(key) { Some(key) } else { self.higher(key) }
     }
 
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
@@ -798,7 +790,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    /// An iterator visiting all key-value pairs in arbitrary order.
+    /// An iterator visiting all key-value pairs in sorted order by key.
     /// The iterator element type is `(&'a K, &'a V)`.
     pub fn iter(&self) -> Iter<'_, K, V, H>
     where
@@ -807,7 +799,7 @@ where
         Iter::new(self)
     }
 
-    /// An iterator visiting all key-value pairs in arbitrary order,
+    /// An iterator visiting all key-value pairs in sorted order by key,
     /// with exclusive references to the values.
     /// The iterator element type is `(&'a K, &'a mut V)`.
     pub fn iter_mut(&mut self) -> IterMut<'_, K, V, H>
@@ -817,7 +809,7 @@ where
         IterMut::new(self)
     }
 
-    /// An iterator visiting all keys in arbitrary order.
+    /// An iterator visiting all keys in sorted order.
     /// The iterator element type is `&'a K`.
     pub fn keys(&self) -> Keys<'_, K>
     where
@@ -826,7 +818,7 @@ where
         Keys::new(&self.tree)
     }
 
-    /// An iterator visiting all values in arbitrary order.
+    /// An iterator visiting all values in order by key.
     /// The iterator element type is `&'a V`.
     pub fn values(&self) -> Values<'_, K, V, H>
     where
@@ -835,7 +827,7 @@ where
         Values::new(self)
     }
 
-    /// A mutable iterator visiting all values in arbitrary order.
+    /// A mutable iterator visiting all values in order by key.
     /// The iterator element type is `&'a mut V`.
     pub fn values_mut(&mut self) -> ValuesMut<'_, K, V, H>
     where

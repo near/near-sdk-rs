@@ -3,10 +3,10 @@
 //! makes this map more efficient in the number of reads and writes.
 use std::marker::PhantomData;
 
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
 use crate::collections::append_slice;
-use crate::{env, errors, IntoStorageKey};
+use crate::{IntoStorageKey, env, error};
 use near_sdk_macros::near;
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
@@ -226,8 +226,8 @@ mod tests {
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             map.insert(&key, &value);
         }
     }
@@ -238,14 +238,14 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             map.insert(&key, &value);
             key_to_value.insert(key, value);
         }
         // Non existing
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
             assert_eq!(map.contains_key(&key), key_to_value.contains_key(&key));
         }
         // Existing
@@ -261,8 +261,8 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(&key, &value);
@@ -298,15 +298,15 @@ mod tests {
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             keys.push(key);
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         keys.shuffle(&mut rng);
         for key in &keys {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             let actual = map.insert(key, &value).unwrap();
             assert_eq!(actual, key_to_value[key]);
             key_to_value.insert(*key, value);
@@ -324,13 +324,13 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>() % 20_000;
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         for _ in 0..500 {
-            let key = rng.gen::<u64>() % 20_000;
+            let key = rng.r#gen::<u64>() % 20_000;
             assert_eq!(map.get(&key), key_to_value.get(&key).cloned());
         }
     }
@@ -341,16 +341,16 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
-            let key = rng.gen::<u64>();
-            let value = rng.gen::<u64>();
+            let key = rng.r#gen::<u64>();
+            let value = rng.r#gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
         for _ in 0..10 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let key = rng.gen::<u64>();
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let key = rng.r#gen::<u64>();
+                let value = rng.r#gen::<u64>();
                 tmp.push((key, value));
             }
             key_to_value.extend(tmp.iter().cloned());

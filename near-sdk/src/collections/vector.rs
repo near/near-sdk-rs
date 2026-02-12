@@ -4,11 +4,16 @@ use core::ops::Range;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use near_sdk_macros::near;
 
 use crate::collections::append_slice;
-use crate::{env, errors, IntoStorageKey};
+use crate::{IntoStorageKey, env, errors};
+
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()))
@@ -385,7 +390,7 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }
@@ -402,13 +407,13 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }
         for _ in 0..500 {
-            let index = rng.gen::<u64>() % vec.len();
-            let value = rng.gen::<u64>();
+            let index = rng.r#gen::<u64>() % vec.len();
+            let value = rng.r#gen::<u64>();
             let old_value0 = vec.get(index).unwrap();
             let old_value1 = vec.replace(index, &value);
             let old_value2 = baseline[index as usize];
@@ -426,12 +431,12 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }
         for _ in 0..500 {
-            let index = rng.gen::<u64>() % vec.len();
+            let index = rng.r#gen::<u64>() % vec.len();
             let old_value0 = vec.get(index).unwrap();
             let old_value1 = vec.swap_remove(index);
             let old_value2 = baseline[index as usize];
@@ -450,8 +455,8 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
-            for _ in 0..(rng.gen::<u64>() % 20 + 1) {
-                let value = rng.gen::<u64>();
+            for _ in 0..(rng.r#gen::<u64>() % 20 + 1) {
+                let value = rng.r#gen::<u64>();
                 vec.push(&value);
             }
             assert!(!vec.is_empty());
@@ -466,15 +471,15 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }
 
         for _ in 0..100 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let value = rng.r#gen::<u64>();
                 tmp.push(value);
             }
             baseline.extend(tmp.clone());
@@ -491,7 +496,7 @@ mod tests {
         let mut vec = Vector::new(prefix.clone());
         let mut baseline = vec![];
         for _ in 0..10 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }

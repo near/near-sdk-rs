@@ -2,7 +2,7 @@ use super::visitor::Visitor;
 use super::{
     ArgInfo, BindgenArgType, HandleResultAttr, InitAttr, MethodKind, SerializerAttr, SerializerType,
 };
-use crate::core_impl::{utils, Returns};
+use crate::core_impl::{Returns, utils};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -54,7 +54,7 @@ impl AttrSigInfo {
                     *ty = res.ty.into();
                     Ok(res.self_occurrences)
                 }
-                Type::Reference(ref mut r) => {
+                Type::Reference(r) => {
                     let res = utils::sanitize_self(&r.elem, source_type)?;
                     r.elem = res.ty.into();
                     Ok(res.self_occurrences)

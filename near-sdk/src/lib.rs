@@ -18,6 +18,8 @@
 //! ## Quick Start
 //!
 //! Add `near-sdk` to your `Cargo.toml`:
+// Allow test attribute in doctest since it's showing example testing code
+#![allow(clippy::test_attr_in_doctest)]
 //!
 //! ```toml
 //! [dependencies]
@@ -221,6 +223,11 @@ compile_error!(
 ///
 /// ### Reference to [Implementation of `#[near(contract_state)]` attribute](near#implementation-of-nearcontract_state-attribute-and-host-functions-calls-used) (How does it work?)
 ///
+/// ### Auto-generated [`<ContractType>Ext`](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) struct
+///
+/// This attribute also generates the `<ContractType>Ext` struct definition for cross-contract calls.
+/// See [`<ContractType>Ext` documentation](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) for details.
+///
 /// ## `#[near]` (annotates impl blocks)
 ///
 /// This macro is used to define the code for view-only and mutating methods for contract types,
@@ -250,6 +257,139 @@ compile_error!(
 /// ```
 ///
 /// ### Reference to [Implementation of `#[near]` macro](near#implementation-of-near-macro-and-host-functions-calls-used) (How does it work?)
+///
+/// ### Auto-generated method wrappers on [`<ContractType>Ext`](near#contracttypeext-struct-auto-generated-for-cross-contract-calls)
+///
+/// This macro also generates method wrappers on the `<ContractType>Ext` struct for each public method,
+/// enabling cross-contract calls.
+/// See [`<ContractType>Ext` documentation](near#contracttypeext-struct-auto-generated-for-cross-contract-calls) for details.
+///
+/// ## `<ContractType>Ext` struct (auto-generated for cross-contract calls)
+///
+/// When you annotate a struct with [`#[near(contract_state)]`](near#nearcontract_state-annotates-structsenums)
+/// and define methods in an [`#[near]` impl block](near#near-annotates-impl-blocks), the macro automatically
+/// generates a companion struct called `<ContractType>Ext` (e.g., `ContractExt` for a contract named `Contract`).
+///
+/// This struct provides a **builder pattern API for making cross-contract calls** to your contract's methods,
+/// returning a [`Promise`] that can be chained with other promises.
+///
+/// ### Generated structure
+///
+/// For a contract like:
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// pub struct CrossContract {
+///     greeting: String,
+/// }
+///
+/// #[near]
+/// impl CrossContract {
+///     pub fn method_one(&self, n: u32) -> u32 { n }
+///     pub fn method_two(&mut self, message: String) { }
+/// }
+/// ```
+///
+/// The macro generates (approximately):
+///
+/// ```rust,ignore
+/// #[must_use]
+/// pub struct CrossContractExt {
+///     pub(crate) promise_or_create_on: PromiseOrValue<AccountId>,
+///     pub(crate) deposit: NearToken,
+///     pub(crate) static_gas: Gas,
+///     pub(crate) gas_weight: GasWeight,
+/// }
+///
+/// impl CrossContract {
+///     /// API for calling this contract's functions in a subsequent execution.
+///     pub fn ext(account_id: AccountId) -> CrossContractExt { /* ... */ }
+///
+///     /// API for calling this contract's functions as a callback on a promise.
+///     pub fn ext_on(promise: Promise) -> CrossContractExt { /* ... */ }
+/// }
+///
+/// impl CrossContractExt {
+///     /// Attach NEAR tokens to the cross-contract call.
+///     pub fn with_attached_deposit(mut self, amount: NearToken) -> Self { /* ... */ }
+///
+///     /// Specify the amount of static gas to attach to this call.
+///     pub fn with_static_gas(mut self, static_gas: Gas) -> Self { /* ... */ }
+///
+///     /// Specify the weight for distributing unused gas to this call.
+///     pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self { /* ... */ }
+///
+///     // Methods mirroring contract methods:
+///     pub fn method_one(self, n: u32) -> Promise { /* ... */ }
+///     pub fn method_two(self, message: String) -> Promise { /* ... */ }
+/// }
+/// ```
+///
+/// ### What gets generated where
+///
+/// - **`#[near(contract_state)]`** generates the `<ContractType>Ext` struct definition
+///   with its fields and the `ext()` / `ext_on()` constructor methods.
+/// - **`#[near]` on impl blocks** generates method wrappers on `<ContractType>Ext`
+///   that mirror each public method in the impl block, returning a [`Promise`].
+///
+/// ### Usage example: Cross-contract calls
+///
+/// ```rust
+/// use near_sdk::{near, env, Promise};
+///
+/// # #[near(contract_state)]
+/// # pub struct Contract {
+/// #     other_contract_id: near_sdk::AccountId,
+/// # }
+///
+/// #[near]
+/// impl Contract {
+///     pub fn some_method(&self) -> u32 { 42 }
+///
+///     pub fn call_other_contract(&self) -> Promise {
+///         // Call another contract's method using the Ext struct
+///         Self::ext(self.other_contract_id.clone())
+///             .with_attached_deposit(near_sdk::NearToken::from_near(1))
+///             .with_static_gas(near_sdk::Gas::from_tgas(5))
+///             .some_method()
+///     }
+///
+///     pub fn call_with_callback(&self) -> Promise {
+///         // Chain multiple calls: call self, then callback
+///         Self::ext(env::current_account_id())
+///             .some_method()
+///             .then(
+///                 Self::ext(env::current_account_id())
+///                     .callback_method()
+///             )
+///     }
+///
+///     #[private]
+///     pub fn callback_method(&self, #[callback_unwrap] result: u32) {
+///         // Handle the result from the previous call
+///     }
+/// }
+/// ```
+///
+/// ### Discovering method signatures
+///
+/// To explore all available methods on your `<ContractType>Ext` struct, run:
+///
+/// ```bash,ignore
+/// cargo doc --lib --open
+/// ```
+///
+/// This generates documentation for your contract, including the auto-generated
+/// `<ContractType>Ext` struct with all its methods and their signatures.
+///
+/// ### See also
+///
+/// - [`Promise`] - The type returned by `<ContractType>Ext` methods
+/// - [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments) - For handling results from cross-contract calls
+/// - [`#[private]`](near#private-annotates-methods-of-a-type-in-its-impl-block) - For restricting callback methods
+/// - [NEAR Cross-Contract Calls Documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
@@ -460,6 +600,23 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[init]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For a method annotated with `#[init]`:
+///
+/// 1. Before invoking the constructor, the macro checks if the contract state already exists by calling
+///    [`state::ContractState::state_exists`](crate::state::ContractState::state_exists), which internally uses
+///    [`env::storage_has_key`] to check for the state key
+/// 2. If the state already exists, [`env::panic_str`] host function is called with the message
+///    `"The contract has already been initialized"`
+/// 3. Otherwise, the constructor method is called to create the contract instance
+/// 4. The newly created contract state is written using [`env::state_write`] host function
+///
+/// The `#[init(ignore_state)]` variant skips the state existence check in step 1-2, allowing
+/// re-initialization of the contract.
+///
 /// ## `#[payable]` (annotates methods of a type in its `impl` block)
 ///
 /// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#payable-functions)
@@ -488,6 +645,20 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[payable]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods **without** the `#[payable]` attribute, the macro generates a deposit check at the beginning
+/// of the method:
+///
+/// 1. [`env::attached_deposit`] host function is called to get the amount of NEAR tokens attached to the call
+/// 2. If the attached deposit is not zero, [`env::panic_str`] host function is called with the message
+///    `"Method {method_name} doesn't accept deposit"`
+///
+/// When a method is annotated with `#[payable]`, this deposit check is skipped, allowing the method
+/// to accept NEAR token transfers along with the function call.
+///
 /// ## `#[private]` (annotates methods of a type in its `impl` block)]
 ///
 /// The attribute forbids to call the method except from within the contract.
@@ -514,6 +685,21 @@ compile_error!(
 ///     }
 /// }
 /// ```
+///
+/// ### Implementation of `#[private]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods annotated with `#[private]`, the macro generates a caller check at the beginning
+/// of the method:
+///
+/// 1. [`env::current_account_id`] host function is called to get the contract's own account ID
+/// 2. [`env::predecessor_account_id`] host function is called to get the caller's account ID
+/// 3. If the caller's account ID does not match the contract's account ID, [`env::panic_str`] host function
+///    is called with the message `"Method {method_name} is private"`
+///
+/// This ensures that only the contract itself (through cross-contract calls from its own methods)
+/// can invoke the private method.
 ///
 /// ## `#[deny_unknown_arguments]` (annotates methods of a type in its `impl` block)]
 ///
@@ -662,6 +848,21 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[handle_result]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For methods annotated with `#[handle_result]`, the macro modifies how the return value is processed:
+///
+/// 1. The method is expected to return `Result<T, E>` where `E` implements [`FunctionError`]
+/// 2. After the method executes, the macro checks if the result is:
+///    - [`Result::Ok`]: The inner value is serialized and returned via [`env::value_return`] host function
+///    - [`Result::Err`]: The error's [`FunctionError::panic`] method is called, which typically
+///      calls [`env::panic_str`] host function with the error message converted via [`ToString`]
+///
+/// The `#[handle_result(aliased)]` variant allows using type aliases for `Result` types, enabling
+/// custom result type definitions while maintaining the same behavior.
+///
 /// ## `#[callback_unwrap]` (annotates function arguments)
 ///
 /// Automatically unwraps the successful result of a callback from a cross-contract call.
@@ -746,9 +947,103 @@ compile_error!(
 ///
 /// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
 ///   - same example as [above](near#example-with-cross-contract-factorial), but uses [`Promise::then`] instead of [`env`](mod@env) host functions calls to set up a callback of `factorial_mult`
-/// - [examples/callback-results](https://github.com/near/near-sdk-rs/tree/master/examples/callback-results/src/lib.rs?plain=1#L51)
+/// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/callback-results/src/lib.rs?plain=1#L60)
 ///
 /// ### Reference to  [Implementation of `#[callback_unwrap]` attribute](near#implementation-of-callback_unwrap-attribute-and-host-functions-calls-used)
+///
+/// ## `#[callback_result]` (annotates function arguments)
+///
+/// Similar to [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments), but instead of panicking on promise failure,
+/// it wraps the result in a `Result<T, PromiseError>`, allowing the callback to handle both success and failure cases.
+///
+/// This is useful when you want to handle failed cross-contract calls gracefully instead of panicking.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::{near, PromiseError};
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     #[private]
+///     pub fn callback_method(&self, #[callback_result] result: Result<String, PromiseError>) {
+///         match result {
+///             Ok(value) => {
+///                 // Handle successful cross-contract call
+///                 near_sdk::log!("Received value: {}", value);
+///             }
+///             Err(_) => {
+///                 // Handle failed cross-contract call
+///                 near_sdk::log!("Cross-contract call failed");
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// ### Implementation of `#[callback_result]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For arguments annotated with `#[callback_result]`:
+///
+/// 1. Arguments are not expected to be included in the regular input deserialization
+/// 2. For each `#[callback_result]` argument:
+///    1. [`env::promise_result_checked`] host function is called with the corresponding index
+///       (0 for the first callback argument, 1 for the second, etc.)
+///    2. If successful, the data is deserialized and wrapped in [`Result::Ok`]
+///    3. If the promise failed, [`Result::Err(PromiseError)`](crate::PromiseError) is returned
+///       (no panic occurs, unlike `#[callback_unwrap]`)
+/// 3. The resulting `Result<T, PromiseError>` is passed to the method, allowing error handling
+///
+/// The optional `max_bytes` parameter (e.g., `#[callback_result(max_bytes = 100)]`) limits the
+/// maximum size of the callback data to prevent excessive memory usage.
+///
+/// ## `#[callback_vec]` (annotates function arguments)
+///
+/// Collects results from multiple promises into a `Vec<T>`. This is useful when you have
+/// multiple cross-contract calls via [`Promise::and`] and want to process all their results.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     #[private]
+///     pub fn aggregate_callback(&self, #[callback_vec] results: Vec<u64>) -> u64 {
+///         // Sum all results from multiple cross-contract calls
+///         results.iter().sum()
+///     }
+/// }
+/// ```
+///
+/// ### Implementation of `#[callback_vec]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// For the argument annotated with `#[callback_vec]`:
+///
+/// 1. [`env::promise_results_count`] host function is called to get the total number of promise results
+/// 2. For each promise result (from index 0 to count-1):
+///    1. [`env::promise_result_checked`] host function is called with the index
+///    2. If successful, the data is deserialized and added to the vector
+///    3. If any promise failed, [`env::panic_str`] host function is called with the message
+///       `"Callback computation {index} was not successful"`
+/// 3. The collected `Vec<T>` is passed to the method
+///
+/// **Note:** Only one `#[callback_vec]` parameter is allowed per method.
+///
+/// The optional `max_bytes` parameter limits the maximum size of each callback result.
 ///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
@@ -794,6 +1089,24 @@ compile_error!(
 /// }
 /// ```
 ///
+/// ### Implementation of `#[near(event_json(...))]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// The `#[near(event_json(standard = "..."))]` macro transforms an enum into a NEP-297 compliant event:
+///
+/// 1. The macro adds `#[derive(Serialize, EventMetadata)]` to the enum
+/// 2. Serde attributes are added for proper JSON serialization:
+///    - `#[serde(tag = "event", content = "data")]` for the NEP-297 format
+///    - `#[serde(rename_all = "snake_case")]` for event name formatting
+/// 3. A constant `{EnumName}_event_standard` is generated with the standard name
+/// 4. The [`EventMetadata`](crate::EventMetadata) derive macro generates:
+///    - `emit()` method: Serializes the event to JSON and calls [`env::log_str`] with the format
+///      `EVENT_JSON:{json}` as specified by [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
+///    - `to_json()` method: Returns the event as a [`serde_json::Value`]
+///    - `standard()`, `version()`, `event()` methods for accessing metadata
+/// 5. Each variant must have `#[event_version("x.x.x")]` to specify the version
+///
 /// ## `#[near(contract_metadata(...))]` (annotates structs/enums)
 ///
 /// By using `contract_metadata` as an argument `near` will populate the contract metadata
@@ -824,6 +1137,24 @@ compile_error!(
 /// struct Contract {}
 /// ```
 ///
+/// ### Implementation of `#[near(contract_metadata(...))]` attribute and **host functions** calls used
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// The `#[near(contract_metadata(...))]` attribute works in conjunction with `#[near(contract_state)]`:
+///
+/// 1. The metadata is extracted from the attribute arguments or defaults from `Cargo.toml`:
+///    - `version`: Defaults to the `NEP330_VERSION` environment variable, or if unset, to `CARGO_PKG_VERSION`
+///    - `link`: Defaults to the `NEP330_LINK` environment variable, falling back to `CARGO_PKG_REPOSITORY` if unset
+///    - `standard`: Additional standards the contract implements (e.g., NEP-171, NEP-177)
+/// 2. A `CONTRACT_SOURCE_METADATA` constant is generated containing the JSON-serialized metadata
+/// 3. A `contract_source_metadata()` view function is generated that:
+///    1. Calls [`env::setup_panic_hook`] host function
+///    2. Calls [`env::value_return`] host function with the `CONTRACT_SOURCE_METADATA` bytes
+///
+/// This follows the [NEP-330](https://github.com/near/NEPs/blob/master/neps/nep-0330.md) standard for
+/// contract source metadata, allowing tools and users to discover information about the deployed contract.
+///
 /// ---
 ///
 /// ## Implementation of `#[near(contract_state)]` attribute and **host functions** calls used
@@ -842,7 +1173,7 @@ compile_error!(
 /// 2. Macro defines a global `CONTRACT_SOURCE_METADATA` variable, which is a string of json serialization of [`near_contract_standards::contract_metadata::ContractSourceMetadata`](https://docs.rs/near-contract-standards/latest/near_contract_standards/contract_metadata/struct.ContractSourceMetadata.html).
 /// 3. Macro defines `contract_source_metadata` function:
 ///     ```rust,no_run
-///     #[no_mangle]
+///     #[unsafe(no_mangle)]
 ///     pub extern "C" fn contract_source_metadata() { /* .. */ }
 ///     ```
 ///    which
@@ -884,7 +1215,7 @@ compile_error!(
 /// ##### for above **view** method `#[near]` macro defines the following function:
 ///
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn view_method() { /* .. */ }
 /// ```
 /// which
@@ -902,7 +1233,7 @@ compile_error!(
 ///
 /// ##### for above **mutating** method `#[near]` macro defines the following function:
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn mutating_method() { /* ..*/ }
 /// ```
 /// which
@@ -945,7 +1276,7 @@ compile_error!(
 /// For above `method` using the attribute on arguments, changes the body of function generated in  [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)
 ///
 /// ```rust,no_run
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// pub extern "C" fn method() { /* .. */ }
 /// ```
 ///
@@ -994,14 +1325,78 @@ pub use near_sdk_macros::near_bindgen;
 /// TODO: add docs
 pub use near_sdk_macros::contract_error;
 
-/// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
-/// Each of these static methods takes positional arguments defined by the Trait,
-/// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
+/// `ext_contract` takes a Rust Trait and converts it to a module with a struct and methods
+/// for making cross-contract calls to an external contract. This enables asynchronous
+/// communication between NEAR smart contracts.
 ///
-/// ## Examples
+/// # Module Name
+///
+/// - If no argument is provided (e.g., `#[ext_contract]`), the generated module name is the
+///   trait name converted to snake_case (e.g., `ExtStatusMessage` becomes `ext_status_message`).
+/// - If an argument is provided (e.g., `#[ext_contract(ext_calculator)]`), that name is used
+///   as the module name.
+///
+/// # Generated Code
+///
+/// For a trait named `Calculator` with `#[ext_contract(ext_calculator)]`, the macro generates:
+///
+/// ## Module `ext_calculator`
+///
+/// A module containing the following:
+///
+/// ### Struct `CalculatorExt`
+///
+/// A builder struct for constructing cross-contract calls. This struct holds configuration
+/// for the call (deposit, gas, etc.) and is marked with `#[must_use]` to ensure the call
+/// is actually executed.
+///
+/// ### Functions
+///
+/// - **`ext(account_id: AccountId) -> CalculatorExt`** - Creates a new cross-contract call
+///   builder targeting the specified `account_id`. This is the entry point for making calls
+///   to an external contract.
+///
+/// - **`ext_on(promise: Promise) -> CalculatorExt`** - Creates a cross-contract call builder
+///   that will be chained onto an existing [`Promise`]. Use this when you want to execute
+///   the external call only after a previous promise completes (`.then()` semantics).
+///
+/// ### Builder Methods on `CalculatorExt`
+///
+/// These methods configure the cross-contract call and return `Self` for method chaining:
+///
+/// - **`with_attached_deposit(amount: NearToken) -> Self`** - Sets the amount of NEAR tokens
+///   to attach to the call. Default is 0.
+///
+/// - **`with_static_gas(static_gas: Gas) -> Self`** - Sets the amount of gas to attach to
+///   the call. This is the guaranteed minimum gas for the call. Default is 0.
+///
+/// - **`with_unused_gas_weight(gas_weight: u64) -> Self`** - Sets the weight for distributing
+///   leftover gas from the current execution among scheduled calls. Higher weight means more
+///   unused gas will be allocated to this call. Default uses [`GasWeight::default()`].
+///
+/// ### Trait Method Wrappers
+///
+/// For each method defined in the trait, a corresponding method is generated on `CalculatorExt`
+/// that:
+/// 1. Takes the same arguments as the trait method (excluding `&self`/`&mut self`).
+/// 2. Serializes the arguments (JSON by default, or borsh if specified with `#[serializer(borsh)]`).
+/// 3. Returns a [`Promise`] that represents the scheduled cross-contract call.
+///
+/// # Viewing Generated Method Signatures
+///
+/// To see the full signatures of generated methods in your contract's documentation, run
+/// `cargo doc --open` in your contract crate. The generated module and its methods will
+/// appear in your crate's documentation.
+///
+/// Note that the trait itself is preserved in the output, so the original trait methods
+/// are also visible in the documentation.
+///
+/// # Examples
+///
+/// ## Basic Usage
 ///
 /// ```rust
-/// use near_sdk::{AccountId,ext_contract, near, Promise, Gas};
+/// use near_sdk::{AccountId, ext_contract, near, Promise, Gas};
 ///
 /// #[near(contract_state)]
 /// struct Contract {
@@ -1016,16 +1411,79 @@ pub use near_sdk_macros::contract_error;
 ///
 /// #[near]
 /// impl Contract {
-///    pub fn multiply_by_five(&mut self, number: u64) -> Promise {
-///        ext_calculator::ext(self.calculator_account.clone())
-///            .with_static_gas(Gas::from_tgas(5))
-///            .mult(number, 5)
-///    }
+///     pub fn multiply_by_five(&mut self, number: u64) -> Promise {
+///         ext_calculator::ext(self.calculator_account.clone())
+///             .with_static_gas(Gas::from_tgas(5))
+///             .mult(number, 5)
+///     }
 /// }
-///
 /// ```
 ///
-/// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
+/// ## Default Module Name (Snake Case)
+///
+/// If no module name is provided, the trait name is converted to snake_case:
+///
+/// ```rust
+/// use near_sdk::{AccountId, ext_contract, Promise};
+///
+/// // Module name will be `ext_status_message`
+/// #[ext_contract]
+/// pub trait ExtStatusMessage {
+///     fn set_status(&mut self, message: String);
+///     fn get_status(&self, account_id: near_sdk::AccountId) -> Option<String>;
+/// }
+///
+/// fn example(account_id: AccountId) -> Promise {
+///     ext_status_message::ext(account_id)
+///         .set_status("Hello".to_string())
+/// }
+/// ```
+///
+/// ## Chaining Calls with `ext_on`
+///
+/// Use `ext_on` to chain a cross-contract call after an existing promise:
+///
+/// ```rust
+/// use near_sdk::{ext_contract, near, AccountId, Promise};
+///
+/// #[ext_contract(ext_other)]
+/// trait OtherContract {
+///     fn step_one(&self);
+///     fn step_two(&self);
+/// }
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     pub fn chained_calls(&self, other_account: AccountId) -> Promise {
+///         let first_call = ext_other::ext(other_account.clone()).step_one();
+///         // step_two will only execute after step_one completes
+///         ext_other::ext_on(first_call).step_two()
+///     }
+/// }
+/// ```
+///
+/// ## Attaching Deposit
+///
+/// ```rust
+/// use near_sdk::{ext_contract, AccountId, NearToken, Promise};
+///
+/// #[ext_contract(ext_ft)]
+/// trait FungibleToken {
+///     fn ft_transfer(&mut self, receiver_id: near_sdk::AccountId, amount: String, memo: Option<String>);
+/// }
+///
+/// fn transfer_tokens(token_contract: AccountId, receiver: AccountId) -> Promise {
+///     ext_ft::ext(token_contract)
+///         .with_attached_deposit(NearToken::from_yoctonear(1)) // 1 yoctoNEAR for security
+///         .ft_transfer(receiver, "1000000".to_string(), None)
+/// }
+/// ```
+///
+/// See more information about cross-contract calls in the [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract).
 pub use near_sdk_macros::ext_contract;
 
 /// `BorshStorageKey` generates implementation for [BorshIntoStorageKey](crate::__private::BorshIntoStorageKey) trait.
@@ -1171,10 +1629,10 @@ pub mod errors;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
-pub use environment::mock::test_vm_config;
-#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
+pub use environment::mock::test_vm_config;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use test_utils::context::VMContext;
 

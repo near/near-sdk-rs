@@ -26,7 +26,6 @@ where
     K: BorshSerialize + Ord + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

@@ -11,7 +11,7 @@ mod result_type_ext;
 pub use result_type_ext::ResultTypeExt;
 
 use crate::IntoStorageKey;
-use borsh::{to_vec, BorshSerialize};
+use borsh::{BorshSerialize, to_vec};
 
 /// Converts a Borsh serializable object into a `Vec<u8>` that is used for a storage key.
 ///

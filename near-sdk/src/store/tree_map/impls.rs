@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::store::{key::ToKey, TreeMap};
+use crate::store::{TreeMap, key::ToKey};
 use crate::{env, errors};
 
 impl<K, V, H> Extend<(K, V)> for TreeMap<K, V, H>
@@ -26,7 +26,6 @@ where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

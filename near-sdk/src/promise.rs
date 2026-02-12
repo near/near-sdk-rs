@@ -14,8 +14,8 @@ use borsh::BorshSchema;
 use near_sdk_macros::near;
 
 use crate::{
-    env::migrate_to_allowance, errors, AccountId, CryptoHash, Gas, GasWeight, NearToken,
-    PromiseIndex, PublicKey,
+    AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex, PublicKey,
+    env::migrate_to_allowance, errors
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
@@ -869,7 +869,7 @@ impl schemars::JsonSchema for Promise {
         "Promise".to_string()
     }
 
-    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(_gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
         // Since promises are untyped, for now we represent Promise results with the schema
         // `true` which matches everything (i.e. always passes validation)
         schemars::schema::Schema::Bool(true)
@@ -928,11 +928,7 @@ impl YieldId {
     ///
     /// Uses low-level [`crate::env::promise_yield_resume`]
     pub fn resume(self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
-        if crate::env::promise_yield_resume(&self.0, data) {
-            Ok(())
-        } else {
-            Err(ResumeError)
-        }
+        if crate::env::promise_yield_resume(&self.0, data) { Ok(()) } else { Err(ResumeError) }
     }
 }
 
@@ -1006,8 +1002,8 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
         format!("PromiseOrValue{}", T::schema_name())
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        T::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        T::json_schema(r#gen)
     }
 }
 
@@ -1062,8 +1058,8 @@ mod tests {
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
     use crate::{
-        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, NearToken, Promise,
-        PublicKey,
+        AccountId, Allowance, NearToken, Promise, PublicKey, test_utils::VMContextBuilder,
+        testing_env,
     };
 
     fn pk() -> PublicKey {

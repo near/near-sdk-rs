@@ -13,7 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, errors, IntoStorageKey};
+use crate::{IntoStorageKey, env, errors};
 
 use crate::store::Vector;
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -669,7 +669,7 @@ mod tests {
     use super::IterableMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashMap;
@@ -798,7 +798,7 @@ mod test_map {
     use super::Entry::{Occupied, Vacant};
     use crate::store::IterableMap;
     use borsh::{BorshDeserialize, BorshSerialize};
-    use rand::{rngs::SmallRng, Rng, SeedableRng};
+    use rand::{Rng, SeedableRng, rngs::SmallRng};
     use std::cell::RefCell;
     use std::vec::Vec;
 
@@ -1152,8 +1152,14 @@ mod test_map {
 
         let map_str = format!("{:?}", map);
 
-        assert_eq!(map_str, "IterableMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }");
-        assert_eq!(format!("{:?}", empty), "IterableMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }");
+        assert_eq!(
+            map_str,
+            "IterableMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }"
+        );
+        assert_eq!(
+            format!("{:?}", empty),
+            "IterableMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }"
+        );
     }
 
     #[test]

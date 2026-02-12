@@ -6,13 +6,15 @@
 
 mod impls;
 
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use once_cell::unsync::OnceCell;
 
 use near_sdk_macros::near;
 
+use crate::IntoStorageKey;
+use crate::env;
+use crate::errors;
 use crate::utils::{CacheEntry, EntryState};
-use crate::{env, errors, IntoStorageKey};
 
 #[inline]
 #[track_caller]
@@ -206,12 +208,18 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy), "8");
         } else {
-            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Modified }) }");
+            assert_eq!(
+                format!("{:?}", lazy),
+                "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Modified }) }"
+            );
         }
 
         lazy.flush();
         if !cfg!(feature = "expensive-debug") {
-            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Cached }) }");
+            assert_eq!(
+                format!("{:?}", lazy),
+                "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Cached }) }"
+            );
         }
 
         // Serialize and deserialize to simulate storing and loading.

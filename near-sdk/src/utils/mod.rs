@@ -11,7 +11,7 @@ pub use contract_error::{
     check_contract_error_trait, wrap_error, wrap_impl, BaseError, ContractErrorTrait,
 };
 
-use crate::{env, NearToken};
+use crate::{NearToken, env};
 
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro.

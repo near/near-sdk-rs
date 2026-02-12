@@ -12,9 +12,9 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use inflector::Inflector;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse_quote, Expr, ImplItem, Item, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause,
+    Expr, ImplItem, Item, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause, parse_quote,
 };
 
 #[derive(Debug, Clone)]
@@ -124,8 +124,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             attr2.vec.iter().for_each(|old_expr| {
                 let new_expr = &mut old_expr.clone();
                 match &mut *new_expr {
-                    Expr::Call(ref mut call_expr) => {
-                        if let Expr::Path(ref mut path) = &mut *call_expr.func {
+                    Expr::Call(call_expr) => {
+                        if let Expr::Path(path) = &mut *call_expr.func {
                             if let Some(ident) = path.path.get_ident() {
                                 if *ident == "json" {
                                     has_json = true;
@@ -140,7 +140,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                         borsh_attr = quote! {#[#new_expr]};
                     }
-                    Expr::Path(ref mut path_expr) => {
+                    Expr::Path(path_expr) => {
                         if let Some(ident) = path_expr.path.get_ident() {
                             if *ident == "json" {
                                 has_json = true;
@@ -378,7 +378,7 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                             format!("Failed to parse mod name for ext_contract: {err}"),
                         )
                         .to_compile_error(),
-                    )
+                    );
                 }
             }
         };
@@ -476,7 +476,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                         "`NearSchema` does not support derive for unions",
                     )
                     .to_compile_error(),
-                )
+                );
             }
         }
 
@@ -509,8 +509,8 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                         <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::schema_name()
                     }
 
-                    fn json_schema(gen: &mut #near_sdk_crate::schemars::gen::SchemaGenerator) -> #near_sdk_crate::schemars::schema::Schema {
-                        <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::json_schema(gen)
+                    fn json_schema(r#gen: &mut #near_sdk_crate::schemars::r#gen::SchemaGenerator) -> #near_sdk_crate::schemars::schema::Schema {
+                        <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::json_schema(r#gen)
                     }
                 }
             }

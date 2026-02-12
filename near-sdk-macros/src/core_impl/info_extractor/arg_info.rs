@@ -2,7 +2,7 @@ use crate::core_impl::info_extractor::SerializerType;
 use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use syn::{parse_quote, Error, Expr, Ident, Pat, PatType, Token, Type};
+use syn::{Error, Expr, Ident, Pat, PatType, Token, Type, parse_quote};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
@@ -97,7 +97,7 @@ impl ArgInfo {
                         "callback_vec" => CallbackBindgenArgType::ArgVec,
                         _ => return true,
                     };
-                    match CallbackAttrConfig::from_attributes(&[attr.clone()]) {
+                    match CallbackAttrConfig::from_attributes(std::slice::from_ref(attr)) {
                         Ok(args) => {
                             bindgen_ty = BindgenArgType::Callback {
                                 ty: cb_bindgen_ty,
@@ -109,7 +109,7 @@ impl ArgInfo {
                     false
                 }
                 "serializer" => {
-                    match SerializerAttrConfig::from_attributes(&[attr.clone()]) {
+                    match SerializerAttrConfig::from_attributes(std::slice::from_ref(attr)) {
                         Ok(args) => {
                             if args.borsh.is_some() && args.json.is_some() {
                                 let spanned_error = syn::Error::new_spanned(
