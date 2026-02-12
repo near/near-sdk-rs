@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["wallet", "ft2sft"]
+
+[workspace.package]
+edition = "2024"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+repository = "https://github.com/near/near-sdk-rs"
+
+[workspace.dependencies]
+near-sdk = { path = "../../near-sdk" }
+near-contract-standards = { path = "../../near-contract-standards" }
+
+impl-tools = "0.11"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+as_conversions = { level = "deny", priority = -1 }
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+lto = true
+debug = false
+strip = "symbols"
+panic = "abort"
+overflow-checks = true
