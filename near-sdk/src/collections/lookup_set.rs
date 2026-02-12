@@ -9,8 +9,6 @@ use near_sdk_macros::near;
 use crate::collections::append_slice;
 use crate::{IntoStorageKey, env, errors};
 
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
-
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///
 /// This set stores values under a concatenation of the set's `prefix` and the value's

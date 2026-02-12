@@ -10,11 +10,6 @@ use near_sdk_macros::near;
 use crate::collections::append_slice;
 use crate::{IntoStorageKey, env, errors};
 
-const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
-
 fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()))
 }
