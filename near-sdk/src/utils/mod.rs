@@ -8,7 +8,7 @@ mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 mod contract_error;
 pub use contract_error::{
-    check_contract_error_trait, wrap_error, wrap_impl, BaseError, ContractErrorTrait,
+    BaseError, ContractErrorTrait, check_contract_error_trait, wrap_error, wrap_impl,
 };
 
 use crate::{NearToken, env};

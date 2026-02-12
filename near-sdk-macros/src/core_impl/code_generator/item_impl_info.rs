@@ -1,9 +1,9 @@
+use crate::ItemImplInfo;
+use crate::core_impl::ReturnKind;
 use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::core_impl::utils;
-use crate::core_impl::ReturnKind;
-use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote, ToTokens};
+use quote::{ToTokens, format_ident, quote};
 use syn::{Ident, spanned::Spanned};
 
 impl ItemImplInfo {

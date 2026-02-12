@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
 use crate::collections::append_slice;
-use crate::{IntoStorageKey, env, error};
+use crate::{IntoStorageKey, env, errors};
 use near_sdk_macros::near;
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.

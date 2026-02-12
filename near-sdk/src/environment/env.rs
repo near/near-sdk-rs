@@ -20,7 +20,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{errors, CryptoHash, GasWeight, PromiseError};
+use crate::{CryptoHash, GasWeight, PromiseError, errors};
 
 #[cfg(feature = "deterministic-account-ids")]
 use crate::{AccountContract, ActionIndex, GlobalContractId};

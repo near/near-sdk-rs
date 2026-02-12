@@ -15,7 +15,7 @@ use near_sdk_macros::near;
 
 use crate::{
     AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex, PublicKey,
-    env::migrate_to_allowance, errors
+    env::migrate_to_allowance, errors,
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
