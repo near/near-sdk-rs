@@ -47,7 +47,7 @@ impl From<PromiseResult> for VmPromiseResult {
 
 /// All error variants which can occur with promise results.
 #[non_exhaustive]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PromiseError {
     /// Promise result failed.
     Failed,
@@ -56,4 +56,57 @@ pub enum PromiseError {
         /// The length (in bytes) of the result occurred
         usize,
     ),
+}
+
+impl std::fmt::Display for PromiseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PromiseError::Failed => write!(f, "promise result failed"),
+            PromiseError::TooLong(len) => {
+                write!(f, "promise result too long: {len} bytes")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PromiseError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_promise_error_display_failed() {
+        let err = PromiseError::Failed;
+        assert_eq!(err.to_string(), "promise result failed");
+    }
+
+    #[test]
+    fn test_promise_error_display_too_long() {
+        let err = PromiseError::TooLong(1024);
+        assert_eq!(err.to_string(), "promise result too long: 1024 bytes");
+    }
+
+    #[test]
+    fn test_promise_error_implements_std_error() {
+        let err = PromiseError::Failed;
+        // Verify it can be used as a &dyn std::error::Error
+        let _: &dyn std::error::Error = &err;
+    }
+
+    #[test]
+    fn test_promise_error_clone() {
+        let err = PromiseError::TooLong(512);
+        let cloned = err.clone();
+        assert_eq!(err, cloned);
+    }
+
+    #[test]
+    fn test_promise_error_debug() {
+        let err = PromiseError::Failed;
+        assert_eq!(format!("{:?}", err), "Failed");
+
+        let err = PromiseError::TooLong(256);
+        assert_eq!(format!("{:?}", err), "TooLong(256)");
+    }
 }
