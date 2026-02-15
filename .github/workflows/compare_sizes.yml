@@ -83,6 +83,7 @@ jobs:
     needs: build-example
     runs-on: warp-ubuntu-latest-x64-4x
     permissions:
+      issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
@@ -141,7 +142,7 @@ jobs:
           echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
 
       - name: Find existing comment
-        if: steps.compare.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
@@ -150,13 +151,17 @@ jobs:
           body-includes: '<!-- contract-size-report -->'
 
       - name: Create or update comment
-        if: steps.compare.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body-path: size-report.md
+
+      - name: Skip comment on fork PRs
+        if: steps.compare.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork == true
+        run: echo "Skipping PR comment because this workflow runs on a fork PR with read-only token permissions."
 
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5
