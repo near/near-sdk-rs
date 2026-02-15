@@ -5,6 +5,7 @@ pub use near_abi::{
     AbiBorshParameter, AbiFunction, AbiFunctionKind, AbiFunctionModifier, AbiJsonParameter,
     AbiParameters, AbiType,
 };
+
 #[cfg(feature = "abi")]
 mod result_type_ext;
 

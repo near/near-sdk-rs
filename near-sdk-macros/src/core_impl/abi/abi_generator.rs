@@ -205,8 +205,14 @@ impl ImplItemMethodInfo {
         match &self.attr_signature_info.returns.kind {
             Default => quote! { ::std::option::Option::None },
             General(ty) => self.abi_result_tokens_with_return_value(ty),
-            HandlesResult(ty) => {
+            HandlesResultExplicit(explicit_result) => {
+                let ty = &explicit_result.result_type;
                 // extract the `Ok` type from the result
+                let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
+                self.abi_result_tokens_with_return_value(&ty)
+            }
+            HandlesResultImplicit(status_result) => {
+                let ty = &status_result.result_type;
                 let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
                 self.abi_result_tokens_with_return_value(&ty)
             }
@@ -318,7 +324,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Test").unwrap();
         let mut method = parse_quote! {
             /// I am a function.
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -333,7 +339,7 @@ mod tests {
         let mut method = parse_quote! {
             #[result_serializer(borsh)]
             #[payable]
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn f3(&mut self, #[serializer(borsh)] arg0: FancyStruct) -> Result<IsOk, Error> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();

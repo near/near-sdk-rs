@@ -8,7 +8,7 @@ pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id()
     {
-        ::near_sdk::env::panic_str("Method method is private");
+        ::near_sdk::env::panic_err(::near_sdk::errors::PrivateMethod::new("method"));
     }
     #[derive(::near_sdk::serde::Deserialize)]
     #[serde(crate = "::near_sdk::serde")]
@@ -33,8 +33,8 @@ pub extern "C" fn method() {
             0..::near_sdk::env::promise_results_count(),
             |i| {
                 let data = ::near_sdk::env::promise_result_checked(i, usize::MAX)
-                    .unwrap_or_else(|_| ::near_sdk::env::panic_str(
-                        &::std::format!("Callback computation {} was not successful", i),
+                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::CallbackComputationUnsuccessful::new(i),
                     ));
                 ::near_sdk::serde_json::from_slice(&data)
                     .unwrap_or_else(|e| ::near_sdk::env::panic_str(

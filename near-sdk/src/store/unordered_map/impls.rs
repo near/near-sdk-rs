@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{ERR_NOT_EXIST, ToKey, UnorderedMap};
-use crate::env;
+use super::{ToKey, UnorderedMap};
+use crate::{env, errors};
 
 impl<K, V, H> Extend<(K, V)> for UnorderedMap<K, V, H>
 where
@@ -26,7 +26,7 @@ where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    Q: BorshSerialize + ToOwned<Owned = K>,
+    Q: BorshSerialize + ToOwned<Owned = K> + std::fmt::Debug,
 {
     type Output = V;
 
@@ -36,6 +36,6 @@ where
     ///
     /// Panics if the key does not exist in the map
     fn index(&self, index: &Q) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_str(ERR_NOT_EXIST))
+        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound::new(index)))
     }
 }

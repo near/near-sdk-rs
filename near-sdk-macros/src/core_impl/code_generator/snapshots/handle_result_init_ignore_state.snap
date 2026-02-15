@@ -7,13 +7,15 @@ expression: pretty_print_syn_str(&actual).unwrap()
 pub extern "C" fn new() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-        ::near_sdk::env::panic_str("Method new doesn't accept deposit");
+        ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new("new"));
     }
     let contract = Hello::new();
     match contract {
         ::std::result::Result::Ok(contract) => {
             <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(err) => {
+            ::near_sdk::FunctionError::panic(&err);
+        }
     }
 }

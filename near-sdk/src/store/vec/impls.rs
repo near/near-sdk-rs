@@ -1,8 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
+use super::Vector;
 use super::iter::{Iter, IterMut};
-use super::{ERR_INDEX_OUT_OF_BOUNDS, Vector};
-use crate::env;
+use crate::{env, errors};
 
 impl<T> Drop for Vector<T>
 where
@@ -58,7 +58,7 @@ where
     type Output = T;
 
     fn index(&self, index: u32) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
+        self.get(index).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}))
     }
 }
 
@@ -67,6 +67,6 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn index_mut(&mut self, index: u32) -> &mut Self::Output {
-        self.get_mut(index).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
+        self.get_mut(index).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}))
     }
 }

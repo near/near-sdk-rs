@@ -6,6 +6,10 @@ mod stable_map;
 pub(crate) use self::stable_map::StableMap;
 mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
+mod contract_error;
+pub use contract_error::{
+    BaseError, ContractErrorTrait, check_contract_error_trait, wrap_error, wrap_impl,
+};
 
 use crate::{NearToken, env};
 
@@ -44,6 +48,8 @@ macro_rules! log {
 /// This macro can be used similarly to [`assert!`] but will reduce code size by not including
 /// file and rust specific data in the panic message.
 ///
+/// Panics with near_sdk::errors::RequireFailed unless error message provided
+///
 /// # Examples
 ///
 /// ```no_run
@@ -61,7 +67,7 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_str("require! assertion failed");
+            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
@@ -72,6 +78,56 @@ macro_rules! require {
         } else if !$cond {
             $crate::env::panic_str(&$message)
         }
+    };
+}
+
+/// Helper macro to create assertions that will return an error.
+///
+/// This macro can be used similarly to [`require!`] but will return an error instead of panicking.
+///
+/// Returns Err(near_sdk::errors::RequireFailed) unless error message provided
+///
+/// # Examples
+///
+/// ```no_run
+/// use near_sdk::require_or_err;
+/// use near_sdk::BaseError;
+/// use near_sdk::errors::ContractError;
+///
+/// # fn f() -> Result<(), BaseError> {
+/// let a = 2;
+/// require_or_err!(a > 0);
+/// require_or_err!("test" != "other", ContractError::new("Some custom error message if false"));
+/// Ok(())
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require_or_err {
+    ($cond:expr $(,)?) => {
+        if !$cond {
+            return Err(::near_sdk::errors::RequireFailed::new().into());
+        }
+    };
+    ($cond:expr, $err:expr $(,)?) => {
+        if !$cond {
+            return Err($err.into());
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! compile_warning {
+    (
+    $name:ident, $message:expr $(,)*
+) => {
+        const _: () = {
+            #[must_use = $message]
+            struct compile_warning;
+            #[allow(dead_code)]
+            fn trigger_warning() {
+                compile_warning;
+            }
+        };
     };
 }
 

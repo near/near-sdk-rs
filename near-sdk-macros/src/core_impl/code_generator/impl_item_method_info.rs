@@ -1,4 +1,5 @@
 use crate::core_impl::info_extractor::{ImplItemMethodInfo, SerializerType};
+use crate::core_impl::utils;
 use crate::core_impl::{MethodKind, ReturnKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -28,7 +29,8 @@ impl ImplItemMethodInfo {
             // here.
             ReturnKind::Default => self.void_return_body_tokens(),
             ReturnKind::General(_) => self.value_return_body_tokens(),
-            ReturnKind::HandlesResult { .. } => self.result_return_body_tokens(),
+            ReturnKind::HandlesResultExplicit { .. } => self.result_return_body_tokens(),
+            ReturnKind::HandlesResultImplicit { .. } => self.result_return_body_tokens(),
         };
 
         quote! {
@@ -84,6 +86,7 @@ impl ImplItemMethodInfo {
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
         let result_identifier = self.result_identifier();
+        let handle_error = self.error_handling_tokens();
 
         quote! {
             #contract_init
@@ -94,8 +97,34 @@ impl ImplItemMethodInfo {
                     #value_return
                     #contract_ser
                 }
-                ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
+                ::std::result::Result::Err(err) => {
+                    #handle_error
+                }
             }
+        }
+    }
+
+    fn error_handling_tokens(&self) -> TokenStream2 {
+        match &self.attr_signature_info.returns.kind {
+            ReturnKind::HandlesResultImplicit(status_result) => {
+                if status_result.unsafe_persist_on_error {
+                    let contract_ser = self.contract_ser_tokens();
+                    let struct_type = &self.struct_type;
+                    quote! {
+                        #contract_ser
+                        let __base_err: ::near_sdk::BaseError = err.into();
+                        let __promise = #struct_type::ext(::near_sdk::env::current_account_id())
+                            .__near_sdk_panic_callback(__base_err)
+                            .as_return();
+                    }
+                } else {
+                    utils::standardized_error_panic_tokens()
+                }
+            }
+            ReturnKind::HandlesResultExplicit { .. } => quote! {
+                ::near_sdk::FunctionError::panic(&err);
+            },
+            _ => quote! {},
         }
     }
 
@@ -153,10 +182,10 @@ impl ImplItemMethodInfo {
 
         let reject_deposit_code = || {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
-            let error = format!("Method {} doesn't accept deposit", self.attr_signature_info.ident);
+            let method_name = &self.attr_signature_info.ident.to_string();
             quote! {
                 if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-                    ::near_sdk::env::panic_str(#error);
+                    ::near_sdk::env::panic_err(::near_sdk::errors::DepositNotAccepted::new(#method_name));
                 }
             }
         };
@@ -184,10 +213,10 @@ impl ImplItemMethodInfo {
 
     fn private_check_tokens(&self) -> TokenStream2 {
         if self.attr_signature_info.is_private() {
-            let error = format!("Method {} is private", self.attr_signature_info.ident);
+            let method_name = &self.attr_signature_info.ident.to_string();
             quote! {
                 if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
-                    ::near_sdk::env::panic_str(#error);
+                    ::near_sdk::env::panic_err(::near_sdk::errors::PrivateMethod::new(#method_name));
                 }
             }
         } else {
@@ -208,7 +237,7 @@ impl ImplItemMethodInfo {
                     let struct_type = &self.struct_type;
                     quote! {
                         if <#struct_type as ::near_sdk::state::ContractState>::state_exists() {
-                            ::near_sdk::env::panic_str("The contract has already been initialized");
+                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized{});
                         }
                     }
                 } else {
@@ -370,13 +399,13 @@ impl ImplItemMethodInfo {
             SerializerType::JSON => quote! {
                 let result = match near_sdk::serde_json::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
+                    Err(_) => ::near_sdk::env::panic_err(::near_sdk::errors::JsonSerializeError::new("return value")),
                 };
             },
             SerializerType::Borsh => quote! {
                 let result = match near_sdk::borsh::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
+                    Err(_) => ::near_sdk::env::panic_err(::near_sdk::errors::BorshSerializeError::new("return value")),
                 };
             },
         };

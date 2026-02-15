@@ -1,0 +1,11 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[near]
+impl Contract {
+    #[private]
+    pub fn __near_sdk_panic_callback(&self, err: ::near_sdk::BaseError) {
+        ::near_sdk::env::panic_err(err);
+    }
+}

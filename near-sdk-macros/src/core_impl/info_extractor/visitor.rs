@@ -14,6 +14,8 @@ struct ParsedData {
     handles_result: ResultHandling,
     is_payable: bool,
     is_private: bool,
+    unsafe_persist_on_error: bool,
+    suppress_handle_result_warnings: bool,
     ignores_state: bool,
     deny_unknown_arguments: bool,
     result_serializer: SerializerType,
@@ -37,6 +39,8 @@ impl Default for ParsedData {
             handles_result: Default::default(),
             is_payable: Default::default(),
             is_private: Default::default(),
+            unsafe_persist_on_error: Default::default(),
+            suppress_handle_result_warnings: Default::default(),
             ignores_state: Default::default(),
             deny_unknown_arguments: Default::default(),
             result_serializer: SerializerType::JSON,
@@ -130,7 +134,13 @@ impl Visitor {
 
     pub fn visit_handle_result_attr(&mut self, params: &HandleResultAttr) {
         self.parsed_data.handles_result =
-            if params.check { ResultHandling::NoCheck } else { ResultHandling::Check }
+            if params.check { ResultHandling::NoCheck } else { ResultHandling::Check };
+        self.parsed_data.suppress_handle_result_warnings = params.suppress_warnings;
+    }
+
+    pub fn visit_unsafe_persist_on_error_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.unsafe_persist_on_error = true;
+        Ok(())
     }
 
     pub fn visit_receiver(&mut self, receiver: &Receiver) -> syn::Result<()> {
@@ -165,7 +175,12 @@ impl Visitor {
             },
             ReturnType::Type(_, typ) => Ok(Returns {
                 original: self.return_type.clone(),
-                kind: parse_return_kind(typ, self.parsed_data.handles_result)?,
+                kind: parse_return_kind(
+                    typ,
+                    self.parsed_data.handles_result,
+                    self.parsed_data.unsafe_persist_on_error,
+                    self.parsed_data.suppress_handle_result_warnings,
+                )?,
             }),
         }
     }
@@ -231,9 +246,17 @@ fn is_view(sig: &Signature) -> bool {
     }
 }
 
-fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<ReturnKind> {
+fn parse_return_kind(
+    typ: &Type,
+    handles_result: ResultHandling,
+    unsafe_persist_on_error: bool,
+    suppress_warnings: bool,
+) -> syn::Result<ReturnKind> {
     match handles_result {
-        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResult(typ.clone())),
+        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult {
+            result_type: typ.clone(),
+            suppress_warnings,
+        })),
         ResultHandling::Check => {
             if !utils::type_is_result(typ) {
                 Err(Error::new(
@@ -241,19 +264,18 @@ fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<
                     "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`.",
                 ))
             } else {
-                Ok(ReturnKind::HandlesResult(typ.clone()))
+                Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult {
+                    result_type: typ.clone(),
+                    suppress_warnings,
+                }))
             }
         }
         ResultHandling::None => {
             if utils::type_is_result(typ) {
-                Err(Error::new(
-                    typ.span(),
-                    "Serializing Result<T, E> has been deprecated. Consider marking your method \
-                    with #[handle_result] if the second generic represents a panicable error or \
-                replacing Result with another two type sum enum otherwise. If you really want \
-                to keep the legacy behavior, mark the method with #[handle_result] and make \
-                it return Result<Result<T, E>, near_sdk::Abort>.",
-                ))
+                Ok(ReturnKind::HandlesResultImplicit(crate::StatusResult {
+                    result_type: typ.clone(),
+                    unsafe_persist_on_error,
+                }))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
             }

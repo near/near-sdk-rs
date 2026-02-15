@@ -25,7 +25,8 @@ pub extern "C" fn method() {
         None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
     if <Hello as ::near_sdk::state::ContractState>::state_exists() {
-        ::near_sdk::env::panic_str("The contract has already been initialized");
+        ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized {
+        });
     }
     let contract = Hello::method(&mut k);
     <Hello as ::near_sdk::state::ContractState>::state_write(&contract);

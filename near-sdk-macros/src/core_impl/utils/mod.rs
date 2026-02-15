@@ -47,6 +47,26 @@ pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
     }
 }
 
+pub(crate) fn extract_error_type(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Path(type_path) if type_path.qself.is_none() && path_is_result(&type_path.path) => {
+            // Get the first segment of the path (there should be only one, in fact: "Result"):
+            let type_params = &type_path.path.segments.first()?.arguments;
+            // We are interested in the first angle-bracketed param responsible for Ok type ("<String, _>"):
+            let generic_arg = match type_params {
+                PathArguments::AngleBracketed(params) => Some(params.args.last()?),
+                _ => None,
+            }?;
+            // This argument must be a type:
+            match generic_arg {
+                GenericArgument::Type(ty) => Some(ty),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
 /// Checks whether the given path is literally "Vec".
 /// Note that it won't match a fully qualified name `std::vec::Vec` or a type alias like
 /// `type MyVec = Vec<String>`.
@@ -150,6 +170,13 @@ pub fn sanitize_self(typ: &Type, replace_with: &TokenStream2) -> syn::Result<San
 pub struct SanitizeSelfResult {
     pub ty: Type,
     pub self_occurrences: Vec<Span>,
+}
+
+pub fn standardized_error_panic_tokens() -> TokenStream2 {
+    quote! {
+        // Initial error is wrapped into a struct to be able to serialize the type of it.
+        ::near_sdk::env::panic_err(err);
+    }
 }
 
 #[cfg(test)]

@@ -5,10 +5,10 @@ mod impls;
 mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
-use super::{ERR_INCONSISTENT_STATE, FreeList, LookupMap};
+use super::{FreeList, LookupMap};
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::{Sha256, ToKey};
-use crate::{IntoStorageKey, env};
+use crate::{IntoStorageKey, env, errors};
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::borrow::Borrow;
@@ -521,7 +521,7 @@ where
             Some(element_index) => {
                 self.elements
                     .remove(element_index)
-                    .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                    .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new()));
                 true
             }
             None => false,

@@ -10,7 +10,7 @@ struct Contract {
 
 #[near]
 impl Contract {
-    #[handle_result(aliased)]
+    #[handle_result(suppress_warnings, aliased)]
     pub fn fun(&self) -> MyResult {
         Err("error")
     }

@@ -1322,6 +1322,56 @@ pub use near_sdk_macros::near;
 /// ```
 pub use near_sdk_macros::near_bindgen;
 
+/// Attribute macro for defining structured contract errors.
+///
+/// Annotate a struct or enum with `#[contract_error]` to generate a well-defined
+/// error type that can be returned from contract methods via `Result`.
+///
+/// # Example
+///
+/// ```ignore
+/// #[contract_error]
+/// pub struct InsufficientFunds {
+///     pub required: u128,
+///     pub available: u128,
+/// }
+///
+/// #[near]
+/// impl MyContract {
+///     pub fn withdraw(&mut self, amount: u128) -> Result<(), InsufficientFunds> {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// When the method returns `Err`, the error is serialized as a structured JSON object:
+///
+/// ```text
+/// {
+///     "error": {
+///         "name": "CUSTOM_CONTRACT_ERROR",
+///         "cause": {
+///             "name": "InsufficientFunds",
+///             "info": {
+///                 "required": 100,
+///                 "available": 50
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// # Generated implementations
+///
+/// - [`ContractErrorTrait`] — enables structured error formatting
+/// - `From<ErrorStruct> for BaseError` — allows conversion to a polymorphic error type
+/// - `From<ErrorStruct> for String` — converts the error to its JSON string representation
+///
+/// # Attributes
+///
+/// - `#[contract_error(sdk)]` — sets the error name to `"SDK_CONTRACT_ERROR"` instead of `"CUSTOM_CONTRACT_ERROR"`
+pub use near_sdk_macros::contract_error;
+
 /// `ext_contract` takes a Rust Trait and converts it to a module with a struct and methods
 /// for making cross-contract calls to an external contract. This enables asynchronous
 /// communication between NEAR smart contracts.
@@ -1620,6 +1670,8 @@ pub mod state;
 
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
+
+pub mod errors;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
