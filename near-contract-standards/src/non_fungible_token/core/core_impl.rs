@@ -263,7 +263,7 @@ impl NonFungibleToken {
             old_owner_id: owner_id,
             new_owner_id: receiver_id,
             token_ids: &[token_id],
-            authorized_id: sender_id.filter(|sender_id| *sender_id == owner_id).map(|f| f.deref()),
+            authorized_id: sender_id.map(|f| f.deref()),
             memo: memo.as_deref(),
         }
         .emit();
@@ -479,5 +479,24 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         }
         NonFungibleToken::emit_transfer(&receiver_id, &previous_owner_id, &token_id, None, None);
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emits_authorized_id_for_approved_transfer() {
+        let owner_id: AccountId = "owner.near".parse().unwrap();
+        let receiver_id: AccountId = "receiver.near".parse().unwrap();
+        let approved: AccountId = "thirdparty.near".parse().unwrap();
+
+        NonFungibleToken::emit_transfer(&owner_id, &receiver_id, "1", Some(&approved), None);
+
+        assert_eq!(
+            near_sdk::test_utils::get_logs()[0],
+            r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"owner.near","new_owner_id":"receiver.near","token_ids":["1"],"authorized_id":"thirdparty.near"}]}"#
+        );
     }
 }
