@@ -18,8 +18,8 @@ use crate::utils::{CacheEntry, EntryState};
 
 #[inline]
 #[track_caller]
-fn expect_key_exists<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}))
+fn expect_key_exists<T>(val: Option<T>, key: &[u8]) -> T {
+    val.unwrap_or_else(|| env::panic_err(errors::KeyNotFound::new(String::from_utf8_lossy(key))))
 }
 
 #[inline]
@@ -32,7 +32,7 @@ pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
 where
     T: BorshDeserialize,
 {
-    let bytes = expect_key_exists(env::storage_read(key));
+    let bytes = expect_key_exists(env::storage_read(key), key);
     let val = T::try_from_slice(&bytes)
         .unwrap_or_else(|_| env::panic_err(errors::BorshDeserializeError::new("value")));
     CacheEntry::new_cached(Some(val))

@@ -26,7 +26,7 @@ where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    Q: BorshSerialize + ToOwned<Owned = K>,
+    Q: BorshSerialize + ToOwned<Owned = K> + std::fmt::Debug,
 {
     type Output = V;
 
@@ -36,6 +36,6 @@ where
     ///
     /// Panics if the key does not exist in the map
     fn index(&self, index: &Q) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}))
+        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound::new(index)))
     }
 }

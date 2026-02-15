@@ -163,7 +163,15 @@ impl Default for InconsistentCollectionState<'_> {
 pub struct IndexOutOfBounds {}
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct KeyNotFound {}
+pub struct KeyNotFound<'a> {
+    pub key: Cow<'a, str>,
+}
+
+impl KeyNotFound<'_> {
+    pub fn new(key: impl std::fmt::Debug) -> Self {
+        Self { key: Cow::Owned(format!("{:?}", key)) }
+    }
+}
 
 #[contract_error(inside_nearsdk, sdk)]
 pub struct RegisterEmpty<'a> {
