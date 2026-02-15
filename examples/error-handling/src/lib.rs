@@ -60,7 +60,7 @@ impl Contract {
     // Failed transaction
     // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
-    // ExecutionError("Smart contract panicked: {\"error\":{\"error_type\":\"error_handling::MyErrorEnum\",\"value\":\"X\"}}")
+    // ExecutionError("Smart contract panicked: {\"error\":{\"name\":\"CUSTOM_CONTRACT_ERROR\",\"cause\":{\"name\":\"error_handling::MyErrorEnum\",\"info\":\"X\"}}}")
     // (changes value from 2 to 3)
     #[unsafe_persist_on_error]
     pub fn inc_persist_on_err(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
@@ -83,7 +83,7 @@ impl Contract {
     // Failed transaction
     // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
-    //  ExecutionError("Smart contract panicked: {\"error\":{\"error_type\":\"error_handling::MyErrorStruct\",\"value\":{\"x\":5}}}")
+    //  ExecutionError("Smart contract panicked: {\"error\":{\"name\":\"SDK_CONTRACT_ERROR\",\"cause\":{\"name\":\"error_handling::MyErrorStruct\",\"info\":{\"x\":5}}}}")
     // (does not change value)
     pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyErrorStruct> {
         self.value += 1;
@@ -127,7 +127,7 @@ impl Contract {
     // Failed transaction
     // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
-    //  ExecutionError("Smart contract panicked: {\\\"error\\\":{\\\"name\\\":\\\"SDK_CONTRACT_ERROR\\\",\\\"cause\\\":{\\\"name\\\":\\\"error_handling::MyErrorStruct\\\",\\\"info\\\":{\\\"x\\\":5}}}}")
+    //  ExecutionError("Smart contract panicked: {\"error\":{\"name\":\"SDK_CONTRACT_ERROR\",\"cause\":{\"name\":\"error_handling::MyErrorStruct\",\"info\":{\"x\":5}}}}")
     // (does not change value)
     pub fn inc_base(&mut self, is_error: bool) -> Result<u32, BaseError> {
         self.value += 1;
