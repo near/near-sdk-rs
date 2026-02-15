@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.25.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.24.1...near-contract-standards-v5.25.0) - 2026-02-15
+
+### Other
+
+- update to Rust edition 2024 ([#1480](https://github.com/near/near-sdk-rs/pull/1480))
+
 ## [5.24.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.24.0...near-contract-standards-v5.24.1) - 2026-02-05
 
 ### Other
