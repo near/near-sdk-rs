@@ -125,6 +125,17 @@ impl BorshSerializeError<'_> {
 }
 
 #[contract_error(inside_nearsdk, sdk)]
+pub struct JsonSerializeError<'a> {
+    subject: Cow<'a, str>,
+}
+
+impl JsonSerializeError<'_> {
+    pub fn new(subject: &str) -> Self {
+        Self { subject: Cow::Owned(subject.to_string()) }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
 pub struct BorshDeserializeError<'a> {
     subject: Cow<'a, str>,
 }

@@ -14,8 +14,8 @@ pub extern "C" fn method() {
             let result = match near_sdk::serde_json::to_vec(&result) {
                 Ok(v) => v,
                 Err(_) => {
-                    ::near_sdk::env::panic_str(
-                        "Failed to serialize the return value using JSON.",
+                    ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::JsonSerializeError::new("return value"),
                     )
                 }
             };

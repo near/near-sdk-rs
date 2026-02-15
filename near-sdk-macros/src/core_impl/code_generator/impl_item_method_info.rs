@@ -399,13 +399,13 @@ impl ImplItemMethodInfo {
             SerializerType::JSON => quote! {
                 let result = match near_sdk::serde_json::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
+                    Err(_) => ::near_sdk::env::panic_err(::near_sdk::errors::JsonSerializeError::new("return value")),
                 };
             },
             SerializerType::Borsh => quote! {
                 let result = match near_sdk::borsh::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
+                    Err(_) => ::near_sdk::env::panic_err(::near_sdk::errors::BorshSerializeError::new("return value")),
                 };
             },
         };
