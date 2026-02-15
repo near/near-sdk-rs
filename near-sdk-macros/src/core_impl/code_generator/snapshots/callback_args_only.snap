@@ -10,6 +10,9 @@ pub extern "C" fn method() {
     {
         ::near_sdk::env::panic_str("Method method is private");
     }
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
+    }
     let mut x: u64 = {
         let data = ::near_sdk::env::promise_result_checked(0u64, usize::MAX)
             .unwrap_or_else(|_| ::near_sdk::env::panic_str(

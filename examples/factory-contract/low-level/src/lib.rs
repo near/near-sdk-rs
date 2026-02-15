@@ -11,6 +11,7 @@ pub struct FactoryContract {}
 
 #[near]
 impl FactoryContract {
+    #[payable]
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
