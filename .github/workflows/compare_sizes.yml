@@ -136,12 +136,10 @@ jobs:
           cat size-report.md
 
       - name: Prepend marker to report
-        if: steps.compare.outputs.has_changes == 'true'
         run: |
           echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
 
       - name: Find existing comment
-        if: steps.compare.outputs.has_changes == 'true'
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
@@ -150,7 +148,6 @@ jobs:
           body-includes: '<!-- contract-size-report -->'
 
       - name: Create or update comment
-        if: steps.compare.outputs.has_changes == 'true'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
