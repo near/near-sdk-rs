@@ -102,12 +102,6 @@ jobs:
           path: sizes-baseline.json
           key: contract-sizes-baseline-${{ github.sha }}
 
-      - name: Save baseline with stable key
-        uses: actions/cache/save@v4
-        with:
-          path: sizes-baseline.json
-          key: contract-sizes-baseline-master
-
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5
         with:

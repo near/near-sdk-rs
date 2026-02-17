@@ -109,7 +109,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: sizes-baseline.json
-          key: contract-sizes-baseline-master
+          key: contract-sizes-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: |
+            contract-sizes-baseline-
 
       - name: Handle missing baseline
         if: steps.restore-baseline.outputs.cache-hit != 'true'
