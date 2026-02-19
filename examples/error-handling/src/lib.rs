@@ -8,7 +8,7 @@ pub enum MyErrorEnum {
     X,
 }
 
-#[contract_error(sdk)]
+#[contract_error]
 pub struct MyErrorStruct {
     x: u32,
 }
@@ -83,7 +83,7 @@ impl Contract {
     // Failed transaction
     // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
-    //  ExecutionError("Smart contract panicked: {\"error\":{\"name\":\"SDK_CONTRACT_ERROR\",\"cause\":{\"name\":\"error_handling::MyErrorStruct\",\"info\":{\"x\":5}}}}")
+    //  ExecutionError("Smart contract panicked: {\"error\":{\"name\":\"CUSTOM_CONTRACT_ERROR\",\"cause\":{\"name\":\"error_handling::MyErrorStruct\",\"info\":{\"x\":5}}}}")
     // (does not change value)
     pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyErrorStruct> {
         self.value += 1;
