@@ -23,6 +23,8 @@ use near_sdk::ext_contract;
 ///
 /// # Examples
 ///
+/// ## Implementing the trait
+///
 /// ```
 /// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near};
 /// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, TokenId, Token};
@@ -48,6 +50,23 @@ use near_sdk::ext_contract;
 ///        self.tokens.nft_token(token_id)
 ///    }
 ///}
+/// ```
+///
+/// ## Cross-contract calls
+///
+/// The `#[ext_contract]` annotation on this trait also generates the [`ext_nft_core`] module,
+/// which can be used to make type-safe cross-contract calls to **any** contract that
+/// implements this interface:
+///
+/// ```ignore
+/// use near_contract_standards::non_fungible_token::core::ext_nft_core;
+/// use near_sdk::{Gas, NearToken};
+///
+/// // Transfer an NFT on an external contract
+/// ext_nft_core::ext(nft_contract_id)
+///     .with_attached_deposit(NearToken::from_yoctonear(1))
+///     .with_static_gas(Gas::from_tgas(5))
+///     .nft_transfer(receiver_id, token_id, None, None);
 /// ```
 ///
 #[ext_contract(ext_nft_core)]

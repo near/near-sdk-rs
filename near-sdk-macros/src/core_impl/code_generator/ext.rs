@@ -31,11 +31,33 @@ pub(crate) fn generate_ext_structs(
             }
         }
     };
+    // `ext_self` is only generated for contract structs, not for ext_contract modules,
+    // since it calls env::current_account_id() which only makes sense for self-callbacks.
+    let ext_self_code = if generic_details.is_some() {
+        quote! {
+            /// Convenience method for creating a cross-contract call to the current contract.
+            ///
+            /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
+            pub fn ext_self() -> #name {
+                #name {
+                    promise_or_create_on: ::near_sdk::PromiseOrValue::Value(
+                        ::near_sdk::env::current_account_id(),
+                    ),
+                    deposit: ::near_sdk::NearToken::from_near(0),
+                    static_gas: ::near_sdk::Gas::from_gas(0),
+                    gas_weight: ::near_sdk::GasWeight::default(),
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
     if let Some(generics) = generic_details {
         // If ext generation is on struct, make ext function associated with struct not module
         ext_code = quote! {
             impl #generics #ident #generics {
                 #ext_code
+                #ext_self_code
             }
         };
     }
