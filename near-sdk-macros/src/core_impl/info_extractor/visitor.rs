@@ -261,7 +261,7 @@ fn parse_return_kind(
             if !utils::type_is_result(typ) {
                 Err(Error::new(
                     typ.span(),
-                    "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`.",
+                    "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError) or be used with #[handle_result(aliased)]. Note that #[handle_result] is deprecated, you don't have to use the attribute.",
                 ))
             } else {
                 Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult {
