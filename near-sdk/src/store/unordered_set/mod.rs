@@ -5,10 +5,10 @@ mod impls;
 mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
-use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
+use super::{ERR_INCONSISTENT_STATE, FreeList, LookupMap};
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, IntoStorageKey};
+use crate::{IntoStorageKey, env};
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::borrow::Borrow;
@@ -386,11 +386,7 @@ where
     where
         T: BorshDeserialize + Clone,
     {
-        if self.len() <= other.len() {
-            self.iter().all(|v| other.contains(v))
-        } else {
-            false
-        }
+        if self.len() <= other.len() { self.iter().all(|v| other.contains(v)) } else { false }
     }
 
     /// Returns `true` if the set is a superset of another, i.e., `self` contains at least all the
@@ -583,11 +579,11 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::store::free_list::FreeListIndex;
     use crate::store::UnorderedSet;
+    use crate::store::free_list::FreeListIndex;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashSet;
@@ -977,5 +973,57 @@ mod tests {
         );
 
         insta::assert_snapshot!(format!("{:#?}", defs));
+    }
+
+    #[test]
+    fn test_drain_next_back_removes_from_index() {
+        let mut set = UnorderedSet::new(b"t");
+
+        // Insert elements
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        // Drain from the back using next_back()
+        let mut drain = set.drain();
+        let elem = drain.next_back().unwrap();
+        drop(drain);
+
+        // If the bug exists: contains() will return true (stale index entry)
+        // If bug is fixed: contains() will return false
+        assert!(
+            !set.contains(&elem),
+            "Element {} was drained but contains() returns true (stale index)",
+            elem
+        );
+
+        // If the bug exists: insert should fail silently or panic
+        // If bug is fixed: insert should succeed
+        assert!(
+            set.insert(elem),
+            "Cannot re-insert element {} after draining it (stale index)",
+            elem
+        );
+    }
+
+    #[test]
+    fn test_drain_bidirectional() {
+        let mut set = UnorderedSet::new(b"t");
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        let mut drain = set.drain();
+        let first = drain.next().unwrap();
+        let last = drain.next_back().unwrap();
+        drop(drain);
+
+        // Both should be gone
+        assert!(!set.contains(&first), "Element {} from next() still in index", first);
+        assert!(!set.contains(&last), "Element {} from next_back() still in index", last);
+
+        // Should be able to re-insert both
+        assert!(set.insert(first));
+        assert!(set.insert(last));
     }
 }

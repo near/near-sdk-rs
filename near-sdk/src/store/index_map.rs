@@ -5,7 +5,7 @@ use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
 use crate::utils::StableMap;
-use crate::{env, CacheEntry, EntryState, IntoStorageKey};
+use crate::{CacheEntry, EntryState, IntoStorageKey, env};
 
 const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
@@ -122,8 +122,7 @@ where
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });
-        let entry = entry.get_mut().unwrap();
-        entry
+        entry.get_mut().unwrap()
     }
 
     /// Returns a mutable reference to the element at the `index` provided.

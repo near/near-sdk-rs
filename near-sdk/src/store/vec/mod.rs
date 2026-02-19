@@ -65,7 +65,7 @@ use near_sdk_macros::near;
 
 pub use self::iter::{Drain, Iter, IterMut};
 use super::ERR_INCONSISTENT_STATE;
-use crate::{env, IntoStorageKey};
+use crate::{IntoStorageKey, env};
 
 use super::IndexMap;
 
@@ -528,7 +528,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::{Rng, RngCore, SeedableRng};
     use std::ops::{Bound, IndexMut};
 
@@ -541,7 +541,7 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(value);
             baseline.push(value);
         }
@@ -600,13 +600,13 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(value);
             baseline.push(value);
         }
         for _ in 0..500 {
-            let index = rng.gen::<u32>() % vec.len();
-            let value = rng.gen::<u64>();
+            let index = rng.r#gen::<u32>() % vec.len();
+            let value = rng.r#gen::<u64>();
             let old_value0 = vec[index];
             let old_value1 = core::mem::replace(vec.get_mut(index).unwrap(), value);
             let old_value2 = baseline[index as usize];
@@ -624,12 +624,12 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(value);
             baseline.push(value);
         }
         for _ in 0..500 {
-            let index = rng.gen::<u32>() % vec.len();
+            let index = rng.r#gen::<u32>() % vec.len();
             let old_value0 = vec[index];
             let old_value1 = vec.swap_remove(index);
             let old_value2 = baseline[index as usize];
@@ -662,8 +662,8 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
-            for _ in 0..(rng.gen::<u64>() % 20 + 1) {
-                let value = rng.gen::<u64>();
+            for _ in 0..(rng.r#gen::<u64>() % 20 + 1) {
+                let value = rng.r#gen::<u64>();
                 vec.push(value);
             }
             assert!(!vec.is_empty());
@@ -678,15 +678,15 @@ mod tests {
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..100 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(value);
             baseline.push(value);
         }
 
         for _ in 0..100 {
             let mut tmp = vec![];
-            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-                let value = rng.gen::<u64>();
+            for _ in 0..=(rng.r#gen::<u64>() % 20 + 1) {
+                let value = rng.r#gen::<u64>();
                 tmp.push(value);
             }
             baseline.extend(tmp.clone());
@@ -703,7 +703,7 @@ mod tests {
         let mut vec = Vector::new(prefix.clone());
         let mut baseline = vec![];
         for _ in 0..10 {
-            let value = rng.gen::<u64>();
+            let value = rng.r#gen::<u64>();
             vec.push(value);
             baseline.push(value);
         }

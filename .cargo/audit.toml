@@ -5,4 +5,7 @@ ignore = [
     "RUSTSEC-2024-0344", # security audit error in ed25519-dalek which is not relevant for near-sdk-rs
     "RUSTSEC-2021-0145", # this needs to be investigated, `atty` has not been updated for 4 years
     "RUSTSEC-2022-0054", # unmaintained, perhaps needs to be replaced
+    # time has a DoS vulnerability (stack exhaustion), fixed in 0.3.47+ which requires Rust 1.88
+    # TODO(#1492): Remove this when rust-toolchain.toml is updated to >= 1.88
+    "RUSTSEC-2026-0009",
 ]

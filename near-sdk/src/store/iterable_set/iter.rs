@@ -1,7 +1,7 @@
 use super::IterableSet;
 use crate::store::iterable_set::VecIndex;
 use crate::store::key::ToKey;
-use crate::store::{vec, LookupMap};
+use crate::store::{LookupMap, vec};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
 
@@ -359,6 +359,8 @@ where
     H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.elements.next_back()
+        let key = self.elements.next_back()?;
+        self.index.remove(&key);
+        Some(key)
     }
 }

@@ -14,13 +14,13 @@ use borsh::BorshSchema;
 use near_sdk_macros::near;
 
 use crate::{
-    env::migrate_to_allowance, AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex,
-    PublicKey,
+    AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex, PublicKey,
+    env::migrate_to_allowance,
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Allowance {
     Unlimited,
     Limited(NonZeroU128),
@@ -873,7 +873,7 @@ impl schemars::JsonSchema for Promise {
         "Promise".to_string()
     }
 
-    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(_gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
         // Since promises are untyped, for now we represent Promise results with the schema
         // `true` which matches everything (i.e. always passes validation)
         schemars::schema::Schema::Bool(true)
@@ -932,11 +932,7 @@ impl YieldId {
     ///
     /// Uses low-level [`crate::env::promise_yield_resume`]
     pub fn resume(self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
-        if crate::env::promise_yield_resume(&self.0, data) {
-            Ok(())
-        } else {
-            Err(ResumeError)
-        }
+        if crate::env::promise_yield_resume(&self.0, data) { Ok(()) } else { Err(ResumeError) }
     }
 }
 
@@ -1010,8 +1006,8 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
         format!("PromiseOrValue{}", T::schema_name())
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        T::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        T::json_schema(r#gen)
     }
 }
 
@@ -1066,8 +1062,8 @@ mod tests {
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
     use crate::{
-        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, NearToken, Promise,
-        PublicKey,
+        AccountId, Allowance, NearToken, Promise, PublicKey, test_utils::VMContextBuilder,
+        testing_env,
     };
 
     fn pk() -> PublicKey {
@@ -1386,6 +1382,61 @@ mod tests {
             )
         });
         assert!(has_action);
+    }
+
+    #[test]
+    fn test_allowance_debug() {
+        let unlimited = Allowance::Unlimited;
+        assert_eq!(format!("{:?}", unlimited), "Unlimited");
+
+        let limited = Allowance::Limited(100.try_into().unwrap());
+        assert_eq!(format!("{:?}", limited), "Limited(100)");
+    }
+
+    #[test]
+    fn test_allowance_eq() {
+        assert_eq!(Allowance::Unlimited, Allowance::Unlimited);
+        assert_eq!(
+            Allowance::Limited(100.try_into().unwrap()),
+            Allowance::Limited(100.try_into().unwrap())
+        );
+        assert_ne!(Allowance::Unlimited, Allowance::Limited(100.try_into().unwrap()));
+        assert_ne!(
+            Allowance::Limited(100.try_into().unwrap()),
+            Allowance::Limited(200.try_into().unwrap())
+        );
+    }
+
+    #[test]
+    fn test_allowance_copy() {
+        let a = Allowance::Unlimited;
+        let b = a; // Copy
+        assert_eq!(a, b);
+
+        let c = Allowance::Limited(500.try_into().unwrap());
+        let d = c; // Copy
+        assert_eq!(c, d);
+    }
+
+    #[test]
+    fn test_allowance_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(Allowance::Unlimited);
+        set.insert(Allowance::Limited(100.try_into().unwrap()));
+        set.insert(Allowance::Unlimited); // duplicate
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_allowance_limited_zero_returns_none() {
+        assert!(Allowance::limited(NearToken::from_yoctonear(0)).is_none());
+    }
+
+    #[test]
+    fn test_allowance_limited_nonzero() {
+        let allowance = Allowance::limited(NearToken::from_yoctonear(100));
+        assert_eq!(allowance, Some(Allowance::Limited(100.try_into().unwrap())));
     }
 
     #[test]

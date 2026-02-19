@@ -3,7 +3,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::ValueAndIndex;
 use crate::store::key::ToKey;
-use crate::store::{IterableMap, LookupMap, Vector, ERR_INCONSISTENT_STATE};
+use crate::store::{ERR_INCONSISTENT_STATE, IterableMap, LookupMap, Vector};
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a, H: 'a>

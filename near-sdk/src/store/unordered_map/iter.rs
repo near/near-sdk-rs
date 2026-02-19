@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ToKey, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
+use super::{ERR_INCONSISTENT_STATE, LookupMap, ToKey, UnorderedMap, ValueAndIndex};
 use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>

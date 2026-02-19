@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.24.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.24.0...near-sdk-v5.24.1) - 2026-02-05
+
+### Other
+
+- fix invalid secp256k1 public key in documentation example ([#1469](https://github.com/near/near-sdk-rs/pull/1469))
+- clarify TreeMap iterator order ([#1461](https://github.com/near/near-sdk-rs/pull/1461))
+- enabling msrv in workspace crates via Cargo.toml ([#1467](https://github.com/near/near-sdk-rs/pull/1467))
+- update MSRV to 1.86 ([#1465](https://github.com/near/near-sdk-rs/pull/1465))
+
 ## [5.24.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.23.0...near-sdk-v5.24.0) - 2025-12-26
 
 ### Added

@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::ValueAndIndex;
-use crate::store::{lookup_map as lm, FreeList};
+use crate::store::{FreeList, lookup_map as lm};
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a>

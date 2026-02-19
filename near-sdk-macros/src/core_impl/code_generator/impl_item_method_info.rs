@@ -34,7 +34,7 @@ impl ImplItemMethodInfo {
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
-            #[no_mangle]
+            #[unsafe(no_mangle)]
             pub extern "C" fn #ident() {
                 #panic_hook
                 #is_private_check

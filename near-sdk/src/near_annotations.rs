@@ -10,6 +10,8 @@
 //! * `deny_unknown_arguments`
 //! * `handle_result`
 //! * `callback_unwrap`
+//! * `callback_result`
+//! * `callback_vec`
 //! * `event_json`
 //! * `contract_metadata`
 //! * `serializer`
@@ -39,6 +41,12 @@ pub fn handle_result() {}
 
 /// See [`near_sdk::near #[callback_unwrap]`](crate::near#callback_unwrap-annotates-function-arguments)
 pub fn callback_unwrap() {}
+
+/// See [`near_sdk::near #[callback_result]`](crate::near#callback_result-annotates-function-arguments)
+pub fn callback_result() {}
+
+/// See [`near_sdk::near #[callback_vec]`](crate::near#callback_vec-annotates-function-arguments)
+pub fn callback_vec() {}
 
 /// See [`near_sdk::near #[near(event_json(...))]`](crate::near#nearevent_json-annotates-enums)
 pub fn event_json() {}
