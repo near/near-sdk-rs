@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use near_sdk_macros::contract_error;
+use near_sdk_macros::near;
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InvalidArgument<'a> {
     pub message: Cow<'a, str>,
 }
@@ -13,7 +13,7 @@ impl InvalidArgument<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InvalidContractState<'a> {
     pub message: Cow<'a, str>,
 }
@@ -24,7 +24,7 @@ impl InvalidContractState<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct PermissionDenied<'a> {
     message: Option<Cow<'a, str>>,
 }
@@ -35,7 +35,7 @@ impl PermissionDenied<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct ContractUpgradeError<'a> {
     pub message: Cow<'a, str>,
 }
@@ -46,7 +46,7 @@ impl ContractUpgradeError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct RequireFailed<'a> {
     pub message: Cow<'a, str>,
 }
@@ -67,7 +67,7 @@ impl Default for RequireFailed<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct PromiseFailed<'a> {
     pub promise_index: Option<u64>,
     pub message: Option<Cow<'a, str>>,
@@ -79,7 +79,7 @@ impl PromiseFailed<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InvalidPromiseReturn<'a> {
     pub message: Cow<'a, str>,
 }
@@ -90,7 +90,7 @@ impl InvalidPromiseReturn<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InsufficientBalance<'a> {
     message: Option<Cow<'a, str>>,
 }
@@ -103,18 +103,18 @@ impl InsufficientBalance<'_> {
 
 // Note: We use InsufficientGas {} rather than unit type InsufficientGas;
 // The latter serializes to null and OpenAPI spec 3.0 (for example progenitor uses it) doesn't support it. Though 3.1 does.
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InsufficientGas {}
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct TotalSupplyOverflow {}
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct UnexpectedFailure<'a> {
     pub message: Cow<'a, str>,
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct ContractError<'a> {
     pub message: Cow<'a, str>,
 }
@@ -125,7 +125,7 @@ impl ContractError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk)]
+#[near(contract_error, inside_nearsdk)]
 pub struct InvalidHashLength {
     pub expected: usize,
 }

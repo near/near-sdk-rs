@@ -1297,6 +1297,84 @@ compile_error!(
 ///    as defined in `#[near]` annotated impl block
 ///
 /// ---
+///
+/// # `#[near(contract_error)]`
+///
+/// Annotate a struct or enum with `#[near(contract_error)]` to generate a well-defined
+/// error type that can be returned from contract methods via `Result`.
+///
+/// ## Struct example
+///
+/// ```ignore
+/// #[near(contract_error)]
+/// pub struct InsufficientFunds {
+///     pub required: u128,
+///     pub available: u128,
+/// }
+///
+/// #[near]
+/// impl MyContract {
+///     pub fn withdraw(&mut self, amount: u128) -> Result<(), InsufficientFunds> {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// ## Enum example
+///
+/// ```ignore
+/// #[near(contract_error)]
+/// pub enum MyError {
+///     InsufficientFunds { required: u128, available: u128 },
+///     Unauthorized,
+/// }
+/// ```
+///
+/// ## Serialization format
+///
+/// When the method returns `Err`, the error is serialized as a structured JSON object:
+///
+/// ```text
+/// {
+///     "error": {
+///         "name": "CUSTOM_CONTRACT_ERROR",
+///         "cause": {
+///             "name": "InsufficientFunds",
+///             "info": {
+///                 "required": 100,
+///                 "available": 50
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// ## Polymorphic errors with `BaseError`
+///
+/// Any error annotated with `#[near(contract_error)]` can be converted to [`BaseError`],
+/// allowing different error types to be returned from the same method:
+///
+/// ```ignore
+/// pub fn transfer(&mut self) -> Result<(), BaseError> {
+///     if !self.authorized {
+///         return Err(Unauthorized {}.into());
+///     }
+///     if self.balance < amount {
+///         return Err(InsufficientFunds { required: amount, available: self.balance }.into());
+///     }
+///     Ok(())
+/// }
+/// ```
+///
+/// ## Generated implementations
+///
+/// - [`ContractErrorTrait`] — enables structured error formatting
+/// - `From<YourError> for BaseError` — allows conversion to a polymorphic error type
+/// - `From<YourError> for String` — converts the error to its JSON string representation
+///
+/// ## Attributes
+///
+/// - `#[near(contract_error, sdk)]` — sets the error name to `"SDK_CONTRACT_ERROR"` instead of `"CUSTOM_CONTRACT_ERROR"`
 pub use near_sdk_macros::near;
 
 /// This macro is deprecated. Use [near] instead. The difference between `#[near]` and `#[near_bindgen]` is that
@@ -1321,56 +1399,6 @@ pub use near_sdk_macros::near;
 /// }
 /// ```
 pub use near_sdk_macros::near_bindgen;
-
-/// Attribute macro for defining structured contract errors.
-///
-/// Annotate a struct or enum with `#[contract_error]` to generate a well-defined
-/// error type that can be returned from contract methods via `Result`.
-///
-/// # Example
-///
-/// ```ignore
-/// #[contract_error]
-/// pub struct InsufficientFunds {
-///     pub required: u128,
-///     pub available: u128,
-/// }
-///
-/// #[near]
-/// impl MyContract {
-///     pub fn withdraw(&mut self, amount: u128) -> Result<(), InsufficientFunds> {
-///         // ...
-///     }
-/// }
-/// ```
-///
-/// When the method returns `Err`, the error is serialized as a structured JSON object:
-///
-/// ```text
-/// {
-///     "error": {
-///         "name": "CUSTOM_CONTRACT_ERROR",
-///         "cause": {
-///             "name": "InsufficientFunds",
-///             "info": {
-///                 "required": 100,
-///                 "available": 50
-///             }
-///         }
-///     }
-/// }
-/// ```
-///
-/// # Generated implementations
-///
-/// - [`ContractErrorTrait`] — enables structured error formatting
-/// - `From<ErrorStruct> for BaseError` — allows conversion to a polymorphic error type
-/// - `From<ErrorStruct> for String` — converts the error to its JSON string representation
-///
-/// # Attributes
-///
-/// - `#[contract_error(sdk)]` — sets the error name to `"SDK_CONTRACT_ERROR"` instead of `"CUSTOM_CONTRACT_ERROR"`
-pub use near_sdk_macros::contract_error;
 
 /// `ext_contract` takes a Rust Trait and converts it to a module with a struct and methods
 /// for making cross-contract calls to an external contract. This enables asynchronous

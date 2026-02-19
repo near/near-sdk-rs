@@ -71,6 +71,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         return core_impl::near_events(attr, item);
     }
 
+    if attr.to_string().contains("contract_error") {
+        return contract_error_inner(attr, item);
+    }
+
     let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
@@ -795,84 +799,41 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 }
 
 #[derive(FromMeta)]
-struct ContractErrorArgs {
+#[allow(dead_code)]
+struct NearContractErrorArgs {
+    contract_error: bool,
     sdk: Option<bool>,
     inside_nearsdk: Option<bool>,
 }
 
-/// This attribute macro is used on a struct or enum to generate the necessary code for an error
-///  returned from a contract method call.
-///
-/// # Example:
-///  
-/// For the error:
-/// ```ignore
-/// #[contract_error]
-/// pub struct MyError {
-///    field1: String,
-///    field2: String,
-/// }
-/// ```
-///
-/// And the function:
-/// ```ignore
-/// pub fn my_method(&self) -> Result<(), MyError>;
-/// ```
-///
-/// The error is serialized as a JSON object with the following structure:
-/// ```text
-/// {
-///    "error": {
-///       // this name can be "SDK_CONTRACT_ERROR" and "CUSTOM_CONTRACT_ERROR"
-///       // To generate "SDK_CONTRACT_ERROR", use sdk attribute `#[contract_error(sdk)]`.
-///       // Otherwise, it will generate "CUSTOM_CONTRACT_ERROR"
-///       "name": "CUSTOM_CONTRACT_ERROR",
-///       "cause": {
-///         // this name is the name of error struct
-///         "name": "MyError",
-///         "info": {
-///             /// fields of the error struct
-///             "field1": "value1",
-///             "field2": "value2"
-///         }
-///    }
-/// }
-/// ```
-///
-/// Note: you can assign any error defined like that to BaseError:
-/// ```ignore
-/// let base_error: BaseError = MyError { field1: "value1".to_string(), field2: "value2".to_string() }.into();
-/// ```
-///
-/// Use inside_nearsdk attribute (#[contract_error(inside_nearsdk)]) if the error struct is defined inside near-sdk.
-/// Don't use if it is defined outside.
-///
-/// Internally, it makes error struct to:
-///  - implement `near_sdk::ContractErrorTrait` so that it becomes correct error, which can be returned from contract method with defined structure.
-///  - implement `From<ErrorStruct> for near_sdk::BaseError` as a polymorphic solution
-///  - implement `From<ErrorStruct> for String` to convert the error to a string
-#[proc_macro_attribute]
-pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
+fn contract_error_inner(attr: TokenStream, item: TokenStream) -> TokenStream {
     let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
             return TokenStream::from(Error::from(e).write_errors());
         }
     };
-
-    let contract_error_args = match ContractErrorArgs::from_list(&meta_list) {
+    let args = match NearContractErrorArgs::from_list(&meta_list) {
         Ok(v) => v,
         Err(e) => {
             return TokenStream::from(e.write_errors());
         }
     };
+    contract_error_generate(args.sdk.unwrap_or(false), args.inside_nearsdk.unwrap_or(false), item)
+}
 
-    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+fn contract_error_generate(sdk: bool, inside_nearsdk: bool, item: TokenStream) -> TokenStream {
+    let input = match syn::parse::<syn::DeriveInput>(item) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.to_compile_error());
+        }
+    };
     let ident = &input.ident;
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let error_type = if contract_error_args.sdk.unwrap_or(false) {
+    let error_type = if sdk {
         quote! {"SDK_CONTRACT_ERROR"}
     } else {
         quote! {"CUSTOM_CONTRACT_ERROR"}
@@ -881,7 +842,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     let near_sdk_crate: proc_macro2::TokenStream;
     let mut bool_inside_nearsdk_for_macro = quote! {false};
 
-    if contract_error_args.inside_nearsdk.unwrap_or(false) {
+    if inside_nearsdk {
         near_sdk_crate = quote! {crate};
         bool_inside_nearsdk_for_macro = quote! {true};
     } else {
@@ -935,3 +896,4 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     TokenStream::from(expanded)
 }
+

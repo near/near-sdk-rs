@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use near_sdk_macros::contract_error;
+use near_sdk_macros::near;
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct DepositNotAccepted<'a> {
     pub method: Cow<'a, str>,
 }
@@ -13,13 +13,13 @@ impl DepositNotAccepted<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct ContractNotInitialized {}
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct ContractAlreadyInitialized {}
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct CallbackComputationUnsuccessful {
     pub index: u64,
 }
@@ -30,7 +30,7 @@ impl CallbackComputationUnsuccessful {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct ActionInJointPromise<'a> {
     pub message: Cow<'a, str>,
 }
@@ -47,7 +47,7 @@ impl Default for ActionInJointPromise<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct PromiseAlreadyScheduled<'a> {
     pub message: Cow<'a, str>,
 }
@@ -68,7 +68,7 @@ impl Default for PromiseAlreadyScheduled<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct CallbackYieldPromise<'a> {
     pub message: Cow<'a, str>,
 }
@@ -85,7 +85,7 @@ impl Default for CallbackYieldPromise<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct CallbackJointPromise<'a> {
     pub message: Cow<'a, str>,
 }
@@ -102,7 +102,7 @@ impl Default for CallbackJointPromise<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct PrivateMethod<'a> {
     pub method_name: Cow<'a, str>,
 }
@@ -113,7 +113,7 @@ impl PrivateMethod<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct BorshSerializeError<'a> {
     subject: Cow<'a, str>,
 }
@@ -124,7 +124,7 @@ impl BorshSerializeError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct JsonSerializeError<'a> {
     subject: Cow<'a, str>,
 }
@@ -135,7 +135,7 @@ impl JsonSerializeError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct BorshDeserializeError<'a> {
     subject: Cow<'a, str>,
 }
@@ -146,7 +146,7 @@ impl BorshDeserializeError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct JsonDeserializeError<'a> {
     subject: Cow<'a, str>,
 }
@@ -157,10 +157,10 @@ impl JsonDeserializeError<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct InvalidTreeMapRange {}
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct InconsistentCollectionState<'a> {
     pub message: Cow<'a, str>,
 }
@@ -181,10 +181,10 @@ impl Default for InconsistentCollectionState<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct IndexOutOfBounds {}
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct KeyNotFound<'a> {
     pub key: Cow<'a, str>,
 }
@@ -195,7 +195,7 @@ impl KeyNotFound<'_> {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
+#[near(contract_error, inside_nearsdk, sdk)]
 pub struct RegisterEmpty<'a> {
     pub message: Cow<'a, str>,
 }

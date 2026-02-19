@@ -1,14 +1,13 @@
 // Find all our documentation at https://docs.near.org
-use near_sdk::contract_error;
 use near_sdk::near;
 use near_sdk::BaseError;
 
-#[contract_error]
+#[near(contract_error)]
 pub enum MyErrorEnum {
     X,
 }
 
-#[contract_error]
+#[near(contract_error)]
 pub struct MyErrorStruct {
     x: u32,
 }
