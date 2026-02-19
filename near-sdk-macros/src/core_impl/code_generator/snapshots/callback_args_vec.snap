@@ -20,13 +20,21 @@ pub extern "C" fn method() {
             match ::near_sdk::serde_json::from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
+                    ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::JsonDeserializeError::new(
+                            &format!("input: {e}"),
+                        ),
                     );
                 }
             }
         }
-        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
+        None => {
+            ::near_sdk::env::panic_err(
+                ::near_sdk::errors::InvalidArgument::new(
+                    "Expected input since method has arguments.",
+                ),
+            )
+        }
     };
     let x: Vec<String> = ::std::iter::Iterator::collect(
         ::std::iter::Iterator::map(
@@ -37,9 +45,9 @@ pub extern "C" fn method() {
                         ::near_sdk::errors::CallbackComputationUnsuccessful::new(i),
                     ));
                 ::near_sdk::serde_json::from_slice(&data)
-                    .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                        &format!(
-                            "Failed to deserialize callback using JSON. Error: `{e}`"
+                    .unwrap_or_else(|e| ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::JsonDeserializeError::new(
+                            &format!("callback: {e}"),
                         ),
                     ))
             },

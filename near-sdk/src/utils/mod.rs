@@ -72,11 +72,12 @@ macro_rules! require {
     };
     ($cond:expr, $message:expr $(,)?) => {
         if cfg!(debug_assertions) {
-            // Error message must be &str to match panic_str signature
             let msg: &str = &$message;
             assert!($cond, "{}", msg)
         } else if !$cond {
-            $crate::env::panic_str(&$message)
+            $crate::env::panic_err($crate::errors::RequireFailed {
+                message: ::std::borrow::Cow::Owned((&$message).to_string()),
+            })
         }
     };
 }

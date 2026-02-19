@@ -20,13 +20,21 @@ pub extern "C" fn method() {
             match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from Borsh. Error: `{e}`"),
+                    ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::BorshDeserializeError::new(
+                            &format!("input: {e}"),
+                        ),
                     );
                 }
             }
         }
-        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
+        None => {
+            ::near_sdk::env::panic_err(
+                ::near_sdk::errors::InvalidArgument::new(
+                    "Expected input since method has arguments.",
+                ),
+            )
+        }
     };
     let mut x: u64 = {
         let data = ::near_sdk::env::promise_result_checked(0u64, usize::MAX)
@@ -34,8 +42,8 @@ pub extern "C" fn method() {
                 ::near_sdk::errors::CallbackComputationUnsuccessful::new(0u64),
             ));
         ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
-            .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                &format!("Failed to deserialize callback using Borsh. Error: `{e}`"),
+            .unwrap_or_else(|e| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::BorshDeserializeError::new(&format!("callback: {e}")),
             ))
     };
     let z: ::std::vec::Vec<u8> = {
@@ -44,8 +52,8 @@ pub extern "C" fn method() {
                 ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64),
             ));
         ::near_sdk::serde_json::from_slice(&data)
-            .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                &format!("Failed to deserialize callback using JSON. Error: `{e}`"),
+            .unwrap_or_else(|e| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::JsonDeserializeError::new(&format!("callback: {e}")),
             ))
     };
     let contract = <Hello as ::near_sdk::state::ContractState>::state_read()

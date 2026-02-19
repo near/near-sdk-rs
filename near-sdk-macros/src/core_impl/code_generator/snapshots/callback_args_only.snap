@@ -16,8 +16,8 @@ pub extern "C" fn method() {
                 ::near_sdk::errors::CallbackComputationUnsuccessful::new(0u64),
             ));
         ::near_sdk::serde_json::from_slice(&data)
-            .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                &format!("Failed to deserialize callback using JSON. Error: `{e}`"),
+            .unwrap_or_else(|e| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::JsonDeserializeError::new(&format!("callback: {e}")),
             ))
     };
     let y: ::std::string::String = {
@@ -26,8 +26,8 @@ pub extern "C" fn method() {
                 ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64),
             ));
         ::near_sdk::serde_json::from_slice(&data)
-            .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                &format!("Failed to deserialize callback using JSON. Error: `{e}`"),
+            .unwrap_or_else(|e| ::near_sdk::env::panic_err(
+                ::near_sdk::errors::JsonDeserializeError::new(&format!("callback: {e}")),
             ))
     };
     let contract = <Hello as ::near_sdk::state::ContractState>::state_read()

@@ -421,7 +421,11 @@ impl Promise {
     #[cfg(feature = "deterministic-account-ids")]
     pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
         let PromiseSubtype::Single(promise) = &mut self.subtype else {
-            crate::env::panic_str("Cannot set refund account for a joint promise.");
+            crate::env::panic_err(crate::errors::ActionInJointPromise {
+                message: std::borrow::Cow::Borrowed(
+                    "Cannot set refund account for a joint promise.",
+                ),
+            });
         };
         promise.refund_to = Some(account_id.into());
         self

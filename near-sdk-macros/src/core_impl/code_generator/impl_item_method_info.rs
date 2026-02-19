@@ -151,10 +151,10 @@ impl ImplItemMethodInfo {
                         Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"));
+                                ::near_sdk::env::panic_err(::near_sdk::errors::JsonDeserializeError::new(&format!("input: {e}")));
                             }
                         },
-                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => ::near_sdk::env::panic_err(::near_sdk::errors::InvalidArgument::new("Expected input since method has arguments."))
                     };
                 },
                 SerializerType::Borsh => quote! {
@@ -162,10 +162,10 @@ impl ImplItemMethodInfo {
                         Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"));
+                                ::near_sdk::env::panic_err(::near_sdk::errors::BorshDeserializeError::new(&format!("input: {e}")));
                             }
                         },
-                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => ::near_sdk::env::panic_err(::near_sdk::errors::InvalidArgument::new("Expected input since method has arguments."))
                     };
                 },
             };

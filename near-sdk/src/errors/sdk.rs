@@ -147,6 +147,17 @@ impl BorshDeserializeError<'_> {
 }
 
 #[contract_error(inside_nearsdk, sdk)]
+pub struct JsonDeserializeError<'a> {
+    subject: Cow<'a, str>,
+}
+
+impl JsonDeserializeError<'_> {
+    pub fn new(subject: &str) -> Self {
+        Self { subject: Cow::Owned(subject.to_string()) }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
 pub struct InvalidTreeMapRange {}
 
 #[contract_error(inside_nearsdk, sdk)]
