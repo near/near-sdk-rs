@@ -106,7 +106,7 @@ impl VMContextBuilder {
                 account_locked_balance: NearToken::from_near(0),
                 storage_usage: 1024 * 300,
                 attached_deposit: NearToken::from_near(0),
-                prepaid_gas: Gas::from_tgas(300),
+                prepaid_gas: Gas::from_tgas(1_000),
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],
