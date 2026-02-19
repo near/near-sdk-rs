@@ -896,4 +896,3 @@ fn contract_error_generate(sdk: bool, inside_nearsdk: bool, item: TokenStream) -
     }
     TokenStream::from(expanded)
 }
-
