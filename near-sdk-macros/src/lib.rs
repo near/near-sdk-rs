@@ -888,9 +888,17 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         near_sdk_crate = quote! {::near_sdk};
     };
 
+    let serde_enum_attr = match &input.data {
+        syn::Data::Enum(_) => {
+            quote! { #[serde(tag = "tag", content = "content", rename_all = "SCREAMING_SNAKE_CASE")] }
+        }
+        _ => quote! {},
+    };
+
     let mut expanded = quote! {
         #[#near_sdk_crate ::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
         #[derive(Debug)]
+        #serde_enum_attr
         #input
 
         impl #impl_generics #near_sdk_crate ::ContractErrorTrait for #ident #ty_generics #where_clause {
