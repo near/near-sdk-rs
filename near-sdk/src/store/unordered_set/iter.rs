@@ -359,6 +359,8 @@ where
     H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.elements.next_back()
+        let key = self.elements.next_back()?;
+        self.index.remove(&key);
+        Some(key)
     }
 }
