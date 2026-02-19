@@ -5,7 +5,7 @@ use crate::CryptoHash;
 use crate::json_types::Base58CryptoHash;
 
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccountContract {
     None,
     Local(Base58CryptoHash),

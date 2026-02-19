@@ -12,7 +12,7 @@ use crate::{GlobalContractId, env};
     borsh(use_discriminant = true),
 ])]
 #[serde(tag = "version", rename_all = "snake_case")]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum StateInit {
     V1(StateInitV1) = 0,
@@ -31,7 +31,7 @@ impl StateInit {
 
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [json, borsh])]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
     #[serde_as(as = "BTreeMap<Base64, Base64>")]

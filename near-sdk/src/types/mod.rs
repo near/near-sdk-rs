@@ -41,12 +41,57 @@ pub type CryptoHash = [u8; 32];
 /// using up all remaining available gas.
 ///
 /// [`promise_batch_action_function_call_weight`]: `crate::env::promise_batch_action_function_call_weight`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct GasWeight(pub u64);
 
 impl Default for GasWeight {
     fn default() -> Self {
         Self(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gas_weight_clone() {
+        let weight = GasWeight(42);
+        // Deliberately test Clone on a Copy type
+        #[allow(clippy::clone_on_copy)]
+        let cloned = weight.clone();
+        assert_eq!(weight, cloned);
+    }
+
+    #[test]
+    fn test_gas_weight_copy() {
+        let weight = GasWeight(42);
+        let copied = weight; // Copy
+        assert_eq!(weight.0, copied.0);
+        // `weight` is still usable after copy
+        assert_eq!(weight.0, 42);
+    }
+
+    #[test]
+    fn test_gas_weight_default() {
+        let weight = GasWeight::default();
+        assert_eq!(weight.0, 1);
+    }
+
+    #[test]
+    fn test_gas_weight_debug() {
+        let weight = GasWeight(100);
+        assert_eq!(format!("{:?}", weight), "GasWeight(100)");
+    }
+
+    #[test]
+    fn test_gas_weight_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(GasWeight(1));
+        set.insert(GasWeight(2));
+        set.insert(GasWeight(1)); // duplicate
+        assert_eq!(set.len(), 2);
     }
 }
