@@ -177,7 +177,7 @@ mod tests {
         let tx_status = alice
             .call(contract.id(), "sign")
             .args_json(serde_json::json!({ "message": message }))
-            .gas(Gas::from_tgas(300))
+            .gas(Gas::from_tgas(1_000))
             .transact_async()
             .await?;
 

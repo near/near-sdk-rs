@@ -445,7 +445,7 @@ pub fn attached_deposit() -> NearToken {
 /// use near_sdk::env::prepaid_gas;
 /// use near_sdk::Gas;
 ///
-/// assert_eq!(prepaid_gas(), Gas::from_tgas(300));
+/// assert_eq!(prepaid_gas(), Gas::from_tgas(1_000));
 /// ```
 pub fn prepaid_gas() -> Gas {
     maybe_cached!(Gas: { Gas::from_gas(unsafe { sys::prepaid_gas() }) })
