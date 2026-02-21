@@ -435,7 +435,6 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
     // #########################
     // # Global Contract API   #
     // #########################
@@ -450,7 +449,6 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_global_contract_by_account_id(
         promise_index: u64,
@@ -466,7 +464,6 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract(
         promise_index: u64,
@@ -478,7 +475,6 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract_by_account_id(
         promise_index: u64,

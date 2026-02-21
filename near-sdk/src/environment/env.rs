@@ -15,7 +15,6 @@ use std::panic as std_panic;
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
-#[cfg(feature = "global-contracts")]
 use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
@@ -1728,7 +1727,6 @@ pub fn promise_batch_action_delete_account(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract using the provided contract code.
 ///
 /// # Arguments
@@ -1753,7 +1751,6 @@ pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, 
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract by referencing another account's deployed code.
 ///
 /// # Arguments
@@ -1781,7 +1778,6 @@ pub fn promise_batch_action_deploy_global_contract_by_account_id(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by code hash.
 ///
 /// # Arguments
@@ -1809,7 +1805,6 @@ pub fn promise_batch_action_use_global_contract(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by referencing the account that deployed it.
 ///
 /// # Arguments
@@ -3058,7 +3053,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
     fn test_global_contract_functions() {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
@@ -3082,7 +3076,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
     fn test_global_contract_edge_cases() {
         // Test with minimal valid inputs
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
