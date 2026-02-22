@@ -1151,14 +1151,28 @@ mod test_map {
 
         let map_str = format!("{:?}", map);
 
-        assert_eq!(
-            map_str,
-            "IterableMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }"
-        );
-        assert_eq!(
-            format!("{:?}", empty),
-            "IterableMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }"
-        );
+        #[cfg(feature = "expensive-debug")]
+        {
+            assert_eq!(
+                map_str,
+                "IterableMap { keys: [1, 3], values: LookupMap { prefix: [98, 109] } }"
+            );
+            assert_eq!(
+                format!("{:?}", empty),
+                "IterableMap { keys: [], values: LookupMap { prefix: [99, 109] } }"
+            );
+        }
+        #[cfg(not(feature = "expensive-debug"))]
+        {
+            assert_eq!(
+                map_str,
+                "IterableMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }"
+            );
+            assert_eq!(
+                format!("{:?}", empty),
+                "IterableMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }"
+            );
+        }
     }
 
     #[test]
