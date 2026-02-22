@@ -282,5 +282,4 @@ mod tests {
         let mock_use = MockAction::from(logic_use);
         assert!(matches!(mock_use, MockAction::UseGlobalContract { .. }));
     }
-
 }
