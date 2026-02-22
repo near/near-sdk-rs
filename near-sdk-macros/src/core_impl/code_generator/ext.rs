@@ -75,7 +75,7 @@ pub(crate) fn generate_ext_structs(
 /// However, some attributes should be forwarded and they are defined here.
 ///
 /// [#959]: https://github.com/near/near-sdk-rs/pull/959
-const FN_ATTRIBUTES_TO_FORWARD: [&str; 1] = [
+const FN_ATTRIBUTES_TO_FORWARD: [&str; 2] = [
     // Allow some contract methods to be feature gated, for example:
     //
     // ```
@@ -88,6 +88,16 @@ const FN_ATTRIBUTES_TO_FORWARD: [&str; 1] = [
     // In that scenario `ContractExt::test_method` should be included only if
     // `integration_tests` is enabled.
     "cfg",
+    // `#[allow(...)]` is a built-in compiler attribute that only ever suppresses
+    // lints — it never causes compilation errors or unexpected behavior. Since the
+    // generated ext wrapper shares the same function signature as the original
+    // method, lint suppressions like `#[allow(clippy::too_many_arguments)]` should
+    // carry over. See https://github.com/near/near-sdk-rs/issues/1505.
+    //
+    // Note: `#[expect(...)]` is intentionally NOT forwarded because it warns when
+    // the lint is not triggered, and the ext wrapper may not trigger the same lints
+    // as the original method.
+    "allow",
 ];
 
 /// Returns whether `attribute` should be forwarded to `_Ext` methods, see
@@ -189,6 +199,7 @@ mod tests {
             #[cfg(target_os = "linux")]
             #[inline]
             #[warn(unused)]
+            #[allow(clippy::too_many_arguments)]
             pub fn method(&self) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();

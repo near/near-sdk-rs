@@ -43,4 +43,5 @@ fn compilation_tests() {
     t.pass("compilation_tests/contract_metadata_bindgen.rs");
     t.pass("compilation_tests/types.rs");
     t.compile_fail("compilation_tests/nested_near_error.rs");
+    t.pass("compilation_tests/allow_attr_forwarding.rs");
 }
