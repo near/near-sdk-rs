@@ -974,4 +974,56 @@ mod tests {
 
         insta::assert_snapshot!(format!("{:#?}", defs));
     }
+
+    #[test]
+    fn test_drain_next_back_removes_from_index() {
+        let mut set = UnorderedSet::new(b"t");
+
+        // Insert elements
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        // Drain from the back using next_back()
+        let mut drain = set.drain();
+        let elem = drain.next_back().unwrap();
+        drop(drain);
+
+        // If the bug exists: contains() will return true (stale index entry)
+        // If bug is fixed: contains() will return false
+        assert!(
+            !set.contains(&elem),
+            "Element {} was drained but contains() returns true (stale index)",
+            elem
+        );
+
+        // If the bug exists: insert should fail silently or panic
+        // If bug is fixed: insert should succeed
+        assert!(
+            set.insert(elem),
+            "Cannot re-insert element {} after draining it (stale index)",
+            elem
+        );
+    }
+
+    #[test]
+    fn test_drain_bidirectional() {
+        let mut set = UnorderedSet::new(b"t");
+        for i in 0..5 {
+            set.insert(i);
+        }
+
+        let mut drain = set.drain();
+        let first = drain.next().unwrap();
+        let last = drain.next_back().unwrap();
+        drop(drain);
+
+        // Both should be gone
+        assert!(!set.contains(&first), "Element {} from next() still in index", first);
+        assert!(!set.contains(&last), "Element {} from next_back() still in index", last);
+
+        // Should be able to re-insert both
+        assert!(set.insert(first));
+        assert!(set.insert(last));
+    }
 }
