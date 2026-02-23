@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `u64: ContractErrorTrait` is not satisfied
-  --> compilation_tests/error_handling_incorrect_result.rs:21:1
+  --> compilation_tests/error_handling_incorrect_result.rs:20:1
    |
-21 | #[near]
+20 | #[near]
    | ^^^^^^^ the trait `ContractErrorTrait` is not implemented for `u64`
    |
    = help: the following other types implement trait `ContractErrorTrait`:
