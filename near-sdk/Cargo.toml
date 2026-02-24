@@ -82,13 +82,12 @@ default = ["wee_alloc"]
 arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 expensive-debug = []
 deterministic-account-ids = [
-    "global-contracts",
     "dep:hex",
     "near-sys/deterministic-account-ids",
 ]
 unstable = []
 legacy = []
-global-contracts = ["near-sys/global-contracts"]
+global-contracts = []
 abi = [
     "borsh/unstable__schema",
     "near-abi",
@@ -115,7 +114,6 @@ __macro-docs = []
 
 [package.metadata.docs.rs]
 features = [
-    "global-contracts",
     "unstable",
     "legacy",
     "unit-testing",
