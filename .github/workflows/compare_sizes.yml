@@ -83,6 +83,7 @@ jobs:
     needs: build-example
     runs-on: warp-ubuntu-latest-x64-4x
     permissions:
+      issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +110,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: sizes-baseline.json
-          key: contract-sizes-baseline-master
+          key: contract-sizes-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: |
+            contract-sizes-baseline-
 
       - name: Handle missing baseline
         if: steps.restore-baseline.outputs.cache-hit != 'true'
@@ -136,12 +139,11 @@ jobs:
           cat size-report.md
 
       - name: Prepend marker to report
-        if: steps.compare.outputs.has_changes == 'true'
         run: |
           echo '<!-- contract-size-report -->' | cat - size-report.md > temp && mv temp size-report.md
 
       - name: Find existing comment
-        if: steps.compare.outputs.has_changes == 'true'
+        if: github.event.pull_request.head.repo.fork == false
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
@@ -150,13 +152,17 @@ jobs:
           body-includes: '<!-- contract-size-report -->'
 
       - name: Create or update comment
-        if: steps.compare.outputs.has_changes == 'true'
+        if: github.event.pull_request.head.repo.fork == false
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body-path: size-report.md
+
+      - name: Skip comment on fork PRs
+        if: github.event.pull_request.head.repo.fork == true
+        run: echo "Skipping PR comment because this workflow runs on a fork PR with read-only token permissions."
 
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5
