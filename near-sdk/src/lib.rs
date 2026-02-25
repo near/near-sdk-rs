@@ -330,7 +330,7 @@ compile_error!(
 /// ### What gets generated where
 ///
 /// - **`#[near(contract_state)]`** generates the `<ContractType>Ext` struct definition
-///   with its fields and the `ext()` / `ext_on()` constructor methods.
+///   with its fields and the `ext()` / `ext_self()` / `ext_on()` constructor methods.
 /// - **`#[near]` on impl blocks** generates method wrappers on `<ContractType>Ext`
 ///   that mirror each public method in the impl block, returning a [`Promise`].
 ///
@@ -357,11 +357,12 @@ compile_error!(
 ///     }
 ///
 ///     pub fn call_with_callback(&self) -> Promise {
-///         // Chain multiple calls: call self, then callback
-///         Self::ext(env::current_account_id())
+///         // Chain multiple calls: call self, then callback.
+///         // `ext_self()` is a shorthand for `ext(env::current_account_id())`.
+///         Self::ext_self()
 ///             .some_method()
 ///             .then(
-///                 Self::ext(env::current_account_id())
+///                 Self::ext_self()
 ///                     .callback_method()
 ///             )
 ///     }

@@ -5,6 +5,11 @@
 //! # Examples
 //! See [`FungibleTokenCore`] and [`FungibleTokenResolver`] for example usage and [`FungibleToken`]
 //! for core standard implementation.
+//!
+//! # Cross-contract calls
+//! The traits in this module are annotated with `#[ext_contract]`, which means they can also be
+//! used for type-safe cross-contract calls to external contracts that implement these interfaces.
+//! See the documentation on [`FungibleTokenCore`] for examples.
 
 pub mod core;
 pub mod core_impl;

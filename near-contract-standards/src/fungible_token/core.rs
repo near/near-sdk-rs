@@ -7,6 +7,8 @@ use near_sdk::json_types::U128;
 ///
 /// # Examples
 ///
+/// ## Implementing the trait
+///
 /// ```
 /// use near_sdk::{near, PanicOnDefault, AccountId, PromiseOrValue};
 /// use near_sdk::collections::LazyOption;
@@ -47,6 +49,34 @@ use near_sdk::json_types::U128;
 ///         self.token.ft_balance_of(account_id)
 ///     }
 /// }
+/// ```
+///
+/// ## Cross-contract calls
+///
+/// The `#[ext_contract]` annotation on this trait also generates the [`ext_ft_core`] module,
+/// which can be used to make type-safe cross-contract calls to **any** contract that
+/// implements this interface (e.g. `wrap.near`):
+///
+/// ```ignore
+/// use near_contract_standards::fungible_token::core::ext_ft_core;
+/// use near_sdk::{Gas, NearToken};
+///
+/// // Transfer tokens on an external FT contract
+/// ext_ft_core::ext("wrap.near".parse().unwrap())
+///     .with_attached_deposit(NearToken::from_yoctonear(1))
+///     .with_static_gas(Gas::from_tgas(5))
+///     .ft_transfer(receiver_id, amount, memo);
+///
+/// // Chain with a callback to the current contract
+/// ext_ft_core::ext("wrap.near".parse().unwrap())
+///     .with_attached_deposit(NearToken::from_yoctonear(1))
+///     .with_static_gas(Gas::from_tgas(10))
+///     .ft_transfer(receiver_id, amount, memo)
+///     .then(
+///         Self::ext_self()
+///             .with_static_gas(Gas::from_tgas(5))
+///             .on_ft_transfer_complete()
+///     );
 /// ```
 ///
 #[ext_contract(ext_ft_core)]
