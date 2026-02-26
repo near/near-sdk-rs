@@ -16,6 +16,7 @@ NEAR smart contracts standard library.
 [dependencies]
 near-sdk = { path = "../near-sdk", version = "~5.24.1", default-features = false, features = [
     "legacy",
+    "deterministic-account-ids",
 ] }
 
 [dev-dependencies]
