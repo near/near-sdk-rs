@@ -37,7 +37,7 @@ impl FactoryContract {
             .then(Self::ext_self().get_result(account_id))
     }
 
-    #[handle_result]
+    #[handle_result(suppress_warnings)]
     pub fn get_result(
         &self,
         account_id: AccountId,

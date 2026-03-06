@@ -7,7 +7,9 @@ expression: pretty_print_syn_str(&actual).unwrap()
 pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
+        ::near_sdk::env::panic_err(
+            ::near_sdk::errors::DepositNotAccepted::new("method"),
+        );
     }
     let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
@@ -17,14 +19,16 @@ pub extern "C" fn method() {
             let result = match near_sdk::serde_json::to_vec(&result) {
                 Ok(v) => v,
                 Err(_) => {
-                    ::near_sdk::env::panic_str(
-                        "Failed to serialize the return value using JSON.",
+                    ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::JsonSerializeError::new("return value"),
                     )
                 }
             };
             ::near_sdk::env::value_return(&result);
             <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(err) => {
+            ::near_sdk::FunctionError::panic(&err);
+        }
     }
 }

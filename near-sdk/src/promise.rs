@@ -15,7 +15,7 @@ use near_sdk_macros::near;
 
 use crate::{
     AccountId, CryptoHash, Gas, GasWeight, NearToken, PromiseIndex, PublicKey,
-    env::migrate_to_allowance,
+    env::migrate_to_allowance, errors,
 };
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
@@ -413,7 +413,11 @@ impl Promise {
     #[cfg(feature = "deterministic-account-ids")]
     pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
         let PromiseSubtype::Single(promise) = &mut self.subtype else {
-            crate::env::panic_str("Cannot set refund account for a joint promise.");
+            crate::env::panic_err(crate::errors::ActionInJointPromise {
+                message: std::borrow::Cow::Borrowed(
+                    "Cannot set refund account for a joint promise.",
+                ),
+            });
         };
         promise.refund_to = Some(account_id.into());
         self
@@ -422,9 +426,7 @@ impl Promise {
     fn add_action(mut self, action: PromiseAction) -> Self {
         match &mut self.subtype {
             PromiseSubtype::Single(x) => x.actions.push(action),
-            PromiseSubtype::Joint(_) => {
-                crate::env::panic_str("Cannot add action to a joint promise.")
-            }
+            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::ActionInJointPromise::new()),
         }
         self
     }
@@ -724,16 +726,14 @@ impl Promise {
             PromiseSubtype::Single(x) => match &mut x.subtype {
                 PromiseSingleSubtype::Regular { after, .. } => {
                     if after.replace(this).is_some() {
-                        crate::env::panic_str(
-                            "Cannot callback promise which is already scheduled after another",
-                        );
+                        crate::env::panic_err(errors::PromiseAlreadyScheduled::new());
                     }
                 }
                 PromiseSingleSubtype::Yielded(_) => {
-                    crate::env::panic_str("Cannot callback yielded promise.")
+                    crate::env::panic_err(errors::CallbackYieldPromise::new())
                 }
             },
-            PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            PromiseSubtype::Joint(_) => crate::env::panic_err(errors::CallbackJointPromise::new()),
         }
         other
     }
@@ -1614,7 +1614,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot callback yielded promise.")]
+    #[should_panic(expected = "Cannot callback yielded promise")]
     fn test_yielded_promise_cannot_be_continuation() {
         use crate::{Gas, GasWeight};
 

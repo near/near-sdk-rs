@@ -44,4 +44,5 @@ fn compilation_tests() {
     t.pass("compilation_tests/types.rs");
     t.compile_fail("compilation_tests/nested_near_error.rs");
     t.pass("compilation_tests/allow_attr_forwarding.rs");
+    t.compile_fail("compilation_tests/error_handling_incorrect_result.rs");
 }

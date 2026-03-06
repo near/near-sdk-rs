@@ -244,13 +244,12 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
-                        let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
                             let #mutability #ident: #ty = {
                                 let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                    .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
+                                    .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx)));
                                 #invocation
                             };
                         }
@@ -327,7 +326,7 @@ impl AttrSigInfo {
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
                             let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
-                                .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
+                                .unwrap_or_else(|_| ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i)));
                             #invocation
                         }));
                 }
@@ -339,11 +338,11 @@ fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
             ::near_sdk::serde_json::from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`")))
+                .unwrap_or_else(|e| ::near_sdk::env::panic_err(::near_sdk::errors::JsonDeserializeError::new(&format!("callback: {e}"))))
         },
         SerializerType::Borsh => quote! {
             ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`")))
+                .unwrap_or_else(|e| ::near_sdk::env::panic_err(::near_sdk::errors::BorshDeserializeError::new(&format!("callback: {e}"))))
         },
     }
 }

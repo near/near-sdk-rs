@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_trait_info.rs
-assertion_line: 56
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub mod external_cross_contract {
@@ -57,8 +56,10 @@ pub mod external_cross_contract {
                 match near_sdk::serde_json::to_vec(&__args) {
                     Ok(serialized) => serialized,
                     Err(_) => {
-                        ::near_sdk::env::panic_str(
-                            "Failed to serialize the cross contract args using JSON.",
+                        ::near_sdk::env::panic_err(
+                            ::near_sdk::errors::JsonSerializeError::new(
+                                "cross contract args",
+                            ),
                         )
                     }
                 }
