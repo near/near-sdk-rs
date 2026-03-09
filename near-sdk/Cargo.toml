@@ -28,7 +28,6 @@ near-sys = { path = "../near-sys", version = "0.2.7" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
-hex = { version = "0.4", optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
@@ -38,6 +37,12 @@ near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
 arbitrary = { version = "1.4", optional = true }
+ed25519-dalek = { version = "2.2.0", optional = true }
+hex = { version = "0.4", optional = true }
+near-crypto = { version = "0.34", default-features = false, optional = true }
+ripemd = { version = "0.1.1", optional = true }
+sha2 = { version = "0.10", optional = true }
+sha3 = { version = "0.10", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
@@ -50,7 +55,6 @@ near-abi = { version = "0.4.0", features = [
 near-vm-runner = { version = "0.34", optional = true }
 near-primitives-core = { version = "0.34", optional = true }
 near-primitives = { version = "0.34", optional = true }
-near-crypto = { version = "0.34", default-features = false, optional = true }
 near-parameters = { version = "0.34", optional = true }
 
 [dev-dependencies]
@@ -102,10 +106,16 @@ unit-testing = [
     "near-vm-runner",
     "near-primitives-core",
     "near-primitives",
-    "near-crypto",
+    "dep:near-crypto",
     "near-parameters",
 ]
-non-contract-usage = []
+non-contract-usage = [
+    "dep:ed25519-dalek",
+    "dep:near-crypto",
+    "dep:ripemd",
+    "dep:sha2",
+    "dep:sha3",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]

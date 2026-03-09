@@ -607,13 +607,23 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    let value = value.as_ref();
-    //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid sha256 implementation.
-    unsafe {
-        sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use sha2::Digest;
+
+        sha2::Sha256::digest(value).into()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid sha256 implementation.
+        unsafe {
+            sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
     }
 }
 
@@ -632,13 +642,23 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    let value = value.as_ref();
-    //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak256 implementation.
-    unsafe {
-        sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak256::digest(value).into()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid keccak256 implementation.
+        unsafe {
+            sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
     }
 }
 
@@ -657,13 +677,24 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
-    let value = value.as_ref();
-    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak512 implementation.
-    unsafe {
-        sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak512::digest(value).into()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        let value = value.as_ref();
+
+        //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid keccak512 implementation.
+        unsafe {
+            sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
     }
 }
 
@@ -682,13 +713,23 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    let value = value.as_ref();
-    //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
-    unsafe {
-        sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use sha2::Digest;
+
+        ripemd::Ripemd160::digest(value).into()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
+        unsafe {
+            sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
     }
 }
 
@@ -706,17 +747,40 @@ pub fn ecrecover(
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
-    unsafe {
-        let return_code = sys::ecrecover(
-            hash.len() as _,
-            hash.as_ptr() as _,
-            signature.len() as _,
-            signature.as_ptr() as _,
-            v as u64,
-            malleability_flag as u64,
-            ATOMIC_OP_REGISTER,
-        );
-        if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use near_crypto::Secp256K1Signature;
+
+        let signature = Secp256K1Signature::from({
+            let mut buf = [0u8; 65];
+            buf[0..64].copy_from_slice(signature);
+            buf[64] = v;
+            buf
+        });
+
+        let hash: [u8; 32] = hash.try_into().ok()?;
+
+        if !signature.check_signature_values(malleability_flag) {
+            return None;
+        }
+
+        signature.recover(hash).ok()?.as_ref().try_into().ok()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        unsafe {
+            let return_code = sys::ecrecover(
+                hash.len() as _,
+                hash.as_ptr() as _,
+                signature.len() as _,
+                signature.as_ptr() as _,
+                v as u64,
+                malleability_flag as u64,
+                ATOMIC_OP_REGISTER,
+            );
+            if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
+        }
     }
 }
 
@@ -767,15 +831,30 @@ pub fn ed25519_verify(
     public_key: &[u8; 32],
 ) -> bool {
     let message = message.as_ref();
-    unsafe {
-        sys::ed25519_verify(
-            signature.len() as _,
-            signature.as_ptr() as _,
-            message.len() as _,
-            message.as_ptr() as _,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
-        ) == 1
+
+    #[cfg(feature = "non-contract-usage")]
+    {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+        let Ok(verifying_key) = VerifyingKey::from_bytes(public_key) else {
+            return false;
+        };
+        let signature = Signature::from_bytes(signature);
+        verifying_key.verify(message, &signature).is_ok()
+    }
+
+    #[cfg(not(feature = "non-contract-usage"))]
+    {
+        unsafe {
+            sys::ed25519_verify(
+                signature.len() as _,
+                signature.as_ptr() as _,
+                message.len() as _,
+                message.as_ptr() as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            ) == 1
+        }
     }
 }
 
