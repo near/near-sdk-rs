@@ -85,10 +85,7 @@ default = ["wee_alloc"]
 
 arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 expensive-debug = []
-deterministic-account-ids = [
-    "dep:hex",
-    "near-sys/deterministic-account-ids",
-]
+deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 unstable = []
 legacy = []
 global-contracts = []
