@@ -10,7 +10,7 @@ repository = "https://github.com/near/near-sdk-rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["unstable"] }
+near-sdk = { path = "../../near-sdk", features = ["unstable", "unit-testing"] }
 
 [profile.release]
 codegen-units = 1

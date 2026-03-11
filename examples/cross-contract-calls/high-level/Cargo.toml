@@ -10,7 +10,10 @@ repository = "https://github.com/near/near-sdk-rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../../near-sdk", features = ["default"] }
+near-sdk = { path = "../../../near-sdk", features = [
+    "default",
+    "unit-testing",
+] }
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment

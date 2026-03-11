@@ -607,14 +607,22 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use sha2::Digest;
 
         sha2::Sha256::digest(value).into()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         let value = value.as_ref();
         //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
@@ -642,14 +650,22 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use sha3::Digest;
 
         sha3::Keccak256::digest(value).into()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         let value = value.as_ref();
         //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
@@ -677,14 +693,22 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use sha3::Digest;
 
         sha3::Keccak512::digest(value).into()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         let value = value.as_ref();
 
@@ -713,14 +737,22 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use sha2::Digest;
 
         ripemd::Ripemd160::digest(value).into()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         let value = value.as_ref();
         //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
@@ -747,7 +779,11 @@ pub fn ecrecover(
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use near_crypto::Secp256K1Signature;
 
@@ -767,7 +803,11 @@ pub fn ecrecover(
         signature.recover(hash).ok()?.as_ref().try_into().ok()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         unsafe {
             let return_code = sys::ecrecover(
@@ -832,7 +872,11 @@ pub fn ed25519_verify(
 ) -> bool {
     let message = message.as_ref();
 
-    #[cfg(feature = "non-contract-usage")]
+    #[cfg(all(
+        feature = "non-contract-usage",
+        not(target_arch = "wasm32"),
+        not(feature = "unit-testing"),
+    ))]
     {
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -843,7 +887,11 @@ pub fn ed25519_verify(
         verifying_key.verify(message, &signature).is_ok()
     }
 
-    #[cfg(not(feature = "non-contract-usage"))]
+    #[cfg(any(
+        not(feature = "non-contract-usage"),
+        target_arch = "wasm32",
+        feature = "unit-testing",
+    ))]
     {
         unsafe {
             sys::ed25519_verify(
