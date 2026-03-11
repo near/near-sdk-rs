@@ -106,7 +106,14 @@ unit-testing = [
     "near-crypto",
     "near-parameters",
 ]
-non-contract-usage = ["ed25519-dalek", "near-crypto", "ripemd", "sha2", "sha3"]
+non-contract-usage = [
+    "ed25519-dalek",
+    "near-crypto",
+    "near-primitives-core",
+    "ripemd",
+    "sha2",
+    "sha3",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]

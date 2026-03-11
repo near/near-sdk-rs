@@ -607,21 +607,10 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(all(
-        feature = "non-contract-usage",
-        not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
-    ))]
-    {
-        use sha2::Digest;
-
-        sha2::Sha256::digest(value).into()
-    }
-
     #[cfg(any(
-        not(feature = "non-contract-usage"),
         target_arch = "wasm32",
-        feature = "unit-testing",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
     ))]
     {
         let value = value.as_ref();
@@ -632,6 +621,17 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
             sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha2::Digest;
+
+        sha2::Sha256::digest(value).into()
     }
 }
 
@@ -650,21 +650,10 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(all(
-        feature = "non-contract-usage",
-        not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
-    ))]
-    {
-        use sha3::Digest;
-
-        sha3::Keccak256::digest(value).into()
-    }
-
     #[cfg(any(
-        not(feature = "non-contract-usage"),
         target_arch = "wasm32",
-        feature = "unit-testing",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
     ))]
     {
         let value = value.as_ref();
@@ -675,6 +664,17 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
             sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak256::digest(value).into()
     }
 }
 
@@ -693,21 +693,10 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
-    #[cfg(all(
-        feature = "non-contract-usage",
-        not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
-    ))]
-    {
-        use sha3::Digest;
-
-        sha3::Keccak512::digest(value).into()
-    }
-
     #[cfg(any(
-        not(feature = "non-contract-usage"),
         target_arch = "wasm32",
-        feature = "unit-testing",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
     ))]
     {
         let value = value.as_ref();
@@ -719,6 +708,17 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
             sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak512::digest(value).into()
     }
 }
 
@@ -737,21 +737,10 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    #[cfg(all(
-        feature = "non-contract-usage",
-        not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
-    ))]
-    {
-        use sha2::Digest;
-
-        ripemd::Ripemd160::digest(value).into()
-    }
-
     #[cfg(any(
-        not(feature = "non-contract-usage"),
         target_arch = "wasm32",
-        feature = "unit-testing",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
     ))]
     {
         let value = value.as_ref();
@@ -762,6 +751,17 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
             sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha2::Digest;
+
+        ripemd::Ripemd160::digest(value).into()
     }
 }
 
@@ -779,10 +779,30 @@ pub fn ecrecover(
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            let return_code = sys::ecrecover(
+                hash.len() as _,
+                hash.as_ptr() as _,
+                signature.len() as _,
+                signature.as_ptr() as _,
+                v as u64,
+                malleability_flag as u64,
+                ATOMIC_OP_REGISTER,
+            );
+            if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
+        }
+    }
+
     #[cfg(all(
-        feature = "non-contract-usage",
         not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
     ))]
     {
         use near_crypto::Secp256K1Signature;
@@ -801,26 +821,6 @@ pub fn ecrecover(
         }
 
         signature.recover(hash).ok()?.as_ref().try_into().ok()
-    }
-
-    #[cfg(any(
-        not(feature = "non-contract-usage"),
-        target_arch = "wasm32",
-        feature = "unit-testing",
-    ))]
-    {
-        unsafe {
-            let return_code = sys::ecrecover(
-                hash.len() as _,
-                hash.as_ptr() as _,
-                signature.len() as _,
-                signature.as_ptr() as _,
-                v as u64,
-                malleability_flag as u64,
-                ATOMIC_OP_REGISTER,
-            );
-            if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
-        }
     }
 }
 
@@ -872,25 +872,10 @@ pub fn ed25519_verify(
 ) -> bool {
     let message = message.as_ref();
 
-    #[cfg(all(
-        feature = "non-contract-usage",
-        not(target_arch = "wasm32"),
-        not(feature = "unit-testing"),
-    ))]
-    {
-        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-
-        let Ok(verifying_key) = VerifyingKey::from_bytes(public_key) else {
-            return false;
-        };
-        let signature = Signature::from_bytes(signature);
-        verifying_key.verify(message, &signature).is_ok()
-    }
-
     #[cfg(any(
-        not(feature = "non-contract-usage"),
         target_arch = "wasm32",
-        feature = "unit-testing",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
     ))]
     {
         unsafe {
@@ -903,6 +888,21 @@ pub fn ed25519_verify(
                 public_key.as_ptr() as _,
             ) == 1
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+        let Ok(verifying_key) = VerifyingKey::from_bytes(public_key) else {
+            return false;
+        };
+        let signature = Signature::from_bytes(signature);
+        verifying_key.verify(message, &signature).is_ok()
     }
 }
 
@@ -2698,7 +2698,6 @@ mod tests {
         assert!(is_valid_account_id(b"near"));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn hash_smoke_tests() {
         assert_eq!(
@@ -2728,7 +2727,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn random_seed_smoke_test() {
         crate::testing_env!(
@@ -2780,7 +2778,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn signer_public_key() {
         let key: PublicKey =
@@ -2934,6 +2931,7 @@ mod tests {
 
         assert!(!super::alt_bn128_pairing_check(invalid_pair));
     }
+
     #[test]
     fn bls12381_p1_sum_0_100() {
         let buffer: [u8; 0] = [];
