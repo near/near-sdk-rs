@@ -21,7 +21,10 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.86.0"
             name: macos
-        features: ["", "--features unstable,legacy,__abi-generate,deterministic-account-ids"]
+        features:
+          - ""
+          - "--features unstable,legacy,__abi-generate,deterministic-account-ids"
+          - "--features unstable,deterministic-account-ids,non-contract-usage"
     steps:
       - uses: actions/checkout@v4
 
