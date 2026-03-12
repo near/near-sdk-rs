@@ -3,7 +3,7 @@ use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{Vector, append};
-use crate::{IntoStorageKey, env};
+use crate::{IntoStorageKey, env, errors};
 use near_sdk_macros::near;
 
 /// TreeMap based on AVL-tree
@@ -363,10 +363,18 @@ where
     /// ```
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
-            (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Excluded(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Included(a), Bound::Excluded(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => env::panic_str("Invalid range."),
+            (Bound::Included(a), Bound::Included(b)) if a > b => {
+                env::panic_err(errors::InvalidTreeMapRange {})
+            }
+            (Bound::Excluded(a), Bound::Included(b)) if a > b => {
+                env::panic_err(errors::InvalidTreeMapRange {})
+            }
+            (Bound::Included(a), Bound::Excluded(b)) if a > b => {
+                env::panic_err(errors::InvalidTreeMapRange {})
+            }
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => {
+                env::panic_err(errors::InvalidTreeMapRange {})
+            }
             (lo, hi) => (lo, hi),
         };
 
@@ -1857,35 +1865,35 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_same_excluded() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_incl_exlc() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_excl_incl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_incl_incl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Included(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_excl_excl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));

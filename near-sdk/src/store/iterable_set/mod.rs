@@ -5,10 +5,10 @@ mod impls;
 mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
-use super::{ERR_INCONSISTENT_STATE, LookupMap};
+use super::LookupMap;
 use crate::store::Vector;
 use crate::store::key::{Sha256, ToKey};
-use crate::{IntoStorageKey, env};
+use crate::{IntoStorageKey, env, errors};
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::borrow::Borrow;
@@ -516,10 +516,9 @@ where
                     x if x == last_index => {}
                     // Otherwise update it's index.
                     _ => {
-                        let element = self
-                            .elements
-                            .get(element_index)
-                            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                        let element = self.elements.get(element_index).unwrap_or_else(|| {
+                            env::panic_err(errors::InconsistentCollectionState::new())
+                        });
                         self.index.set(element.clone(), Some(element_index));
                     }
                 }
