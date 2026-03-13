@@ -128,30 +128,25 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-#[cfg(not(any(
-    test,
-    doctest,
-    clippy,
+// NOTE: compile_error! replaced with a deprecation warning in the #[near_bindgen] macro.
+// The warning approach lets x86 builds succeed (for clippy, tests, shared types)
+// while still nudging developers toward `cargo near build`.
+// The hard error is preserved for wasm32 builds without `cargo near` (which sets --cfg near).
+#[cfg(all(
     target_family = "wasm",
-    feature = "unit-testing",
-    feature = "non-contract-usage",
-    feature = "__abi-generate"
-)))]
+    not(near),
+    not(any(
+        test,
+        doctest,
+        clippy,
+        feature = "unit-testing",
+        feature = "non-contract-usage",
+        feature = "__abi-generate"
+    ))
+))]
 compile_error!(
-    r#"1. 🔨️  Use `cargo near build` instead of `cargo build` to compile your contract
+    r#"Use `cargo near build` instead of `cargo build --target wasm32-unknown-unknown` to compile your contract.
 💡  Install cargo-near from https://github.com/near/cargo-near
-
-2. ✅ Use `cargo check --target wasm32-unknown-unknown` instead of `cargo check` to error-check your contract
-
-3. ⚙️ Only following cfg-s are considered VALID for `near-sdk`:
-  - `#[cfg(target_family = "wasm")]`
-  - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
-  - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
-  - `#[cfg(feature = "__abi-generate")`
-  - `#[cfg(test)]`
-  - `#[cfg(doctest)]`
-  - `#[cfg(clippy)]`
-⚠️ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
 "#
 );
 

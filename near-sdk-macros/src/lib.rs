@@ -317,6 +317,33 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     #[cfg(not(feature = "__abi-embed-checked"))]
     let abi_embedded = quote! {};
     let item = proc_macro2::TokenStream::from(item);
+
+    // Generate a warning for non-wasm, non-cargo-near builds
+    let warning_ident = Ident::new(
+        &format!("__near_sdk_build_warning_{}", ident),
+        Span::call_site(),
+    );
+    let build_warning = quote! {
+        #[cfg(all(
+            not(target_family = "wasm"),
+            not(test),
+            not(clippy),
+        ))]
+        #[allow(unexpected_cfgs)]
+        const _: () = {
+            #[deprecated(note = "\n\n\
+                ⚠️⚠️⚠️  NEAR CONTRACT BUILD WARNING  ⚠️⚠️⚠️\n\n\
+                It looks like you're building a NEAR contract without `cargo near`.\n\
+                If you intended to build your contract, use `cargo near build` instead.\n\n\
+                💡 Install cargo-near: https://github.com/near/cargo-near\n")]
+            #[allow(non_upper_case_globals)]
+            const #warning_ident: () = ();
+
+            #[warn(deprecated)]
+            const __trigger: () = #warning_ident;
+        };
+    };
+
     TokenStream::from(quote! {
         #item
         #ext_gen
@@ -324,6 +351,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         #metadata
         #metadata_impl_gen
         #impl_contract_state
+        #build_warning
     })
 }
 

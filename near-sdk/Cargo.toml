@@ -113,6 +113,10 @@ __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 __macro-docs = []
 
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ["cfg(near)"]
+
 [package.metadata.docs.rs]
 features = [
     "global-contracts",
