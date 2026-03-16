@@ -1,9 +1,9 @@
 /*!
 A stub contract that implements nft_on_transfer for simulation testing nft_transfer_call.
 */
-use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
+use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
+use near_sdk::{AccountId, Gas, PanicOnDefault, PromiseOrValue, env, log, near, require};
 
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);

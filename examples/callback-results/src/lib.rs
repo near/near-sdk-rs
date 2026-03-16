@@ -1,5 +1,5 @@
 use near_sdk::require;
-use near_sdk::{env, near, Promise, PromiseError};
+use near_sdk::{Promise, PromiseError, env, near};
 
 const A_VALUE: u8 = 8;
 
@@ -10,27 +10,27 @@ pub struct Callback;
 impl Callback {
     /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
-        Self::ext(env::current_account_id())
+        Self::ext_self()
             .a()
-            .and(Self::ext(env::current_account_id()).b(fail_b))
-            .and(Self::ext(env::current_account_id()).c(c_value))
-            .and(Self::ext(env::current_account_id()).d(d_value))
-            .then(Self::ext(env::current_account_id()).handle_callbacks())
+            .and(Self::ext_self().b(fail_b))
+            .and(Self::ext_self().c(c_value))
+            .and(Self::ext_self().d(d_value))
+            .then(Self::ext_self().handle_callbacks())
     }
 
     /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks_reverse`.
     pub fn call_all_reverse(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
-        Self::ext(env::current_account_id())
+        Self::ext_self()
             .b(fail_b)
-            .and(Self::ext(env::current_account_id()).c(c_value))
-            .and(Self::ext(env::current_account_id()).d(d_value))
-            .and(Self::ext(env::current_account_id()).a())
-            .then(Self::ext(env::current_account_id()).handle_callbacks_reverse())
+            .and(Self::ext_self().c(c_value))
+            .and(Self::ext_self().d(d_value))
+            .and(Self::ext_self().a())
+            .then(Self::ext_self().handle_callbacks_reverse())
     }
 
     /// Calls function c with a value that will always succeed
     pub fn a() -> Promise {
-        Self::ext(env::current_account_id()).c(A_VALUE)
+        Self::ext_self().c(A_VALUE)
     }
 
     /// Returns a static string if `fail` is false, panicking otherwise.

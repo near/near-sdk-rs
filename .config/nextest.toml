@@ -1,0 +1,25 @@
+# Configuration for cargo-nextest
+# https://nexte.st/docs/configuration
+
+[profile.default]
+# Default profile settings
+retries = 0
+fail-fast = true
+
+[profile.ci]
+# CI-specific settings
+# Don't stop on first failure - run all tests to see full picture
+fail-fast = false
+# Retry flaky tests up to 2 times
+retries = 2
+# Show slow tests
+slow-timeout = { period = "60s", terminate-after = 3 }
+# Status output level
+status-level = "pass"
+# Final status output
+final-status-level = "flaky"
+
+# Compilation tests (trybuild) need more time - they compile code during the test
+[[profile.ci.overrides]]
+filter = "test(compilation_tests)"
+slow-timeout = { period = "120s", terminate-after = 3 }

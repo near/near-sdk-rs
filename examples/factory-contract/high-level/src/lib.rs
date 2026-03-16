@@ -1,5 +1,5 @@
 use near_sdk::PromiseError;
-use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
+use near_sdk::{AccountId, NearToken, Promise, env, ext_contract, near};
 
 #[derive(Default)]
 #[near(contract_state)]
@@ -34,7 +34,7 @@ impl FactoryContract {
         // Note, for a contract to simply call another contract (1) is sufficient.
         ext_status_message::ext(account_id.clone())
             .set_status(message)
-            .then(Self::ext(env::current_account_id()).get_result(account_id))
+            .then(Self::ext_self().get_result(account_id))
     }
 
     #[handle_result]

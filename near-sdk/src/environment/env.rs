@@ -15,7 +15,6 @@ use std::panic as std_panic;
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
-#[cfg(feature = "global-contracts")]
 use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
@@ -67,7 +66,7 @@ fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
 #[inline]
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
     let mut buf = [0; N];
-    sys::read_register(register_id, buf.as_mut_ptr() as _);
+    unsafe { sys::read_register(register_id, buf.as_mut_ptr() as _) };
     buf
 }
 
@@ -101,9 +100,7 @@ pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
 
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
-// TODO: replace with std::panic::PanicHookInfo when MSRV becomes >= 1.81.0
-#[allow(deprecated)]
-fn panic_hook_impl(info: &std_panic::PanicInfo) {
+fn panic_hook_impl(info: &std_panic::PanicHookInfo) {
     panic_str(info.to_string().as_str());
 }
 
@@ -151,11 +148,7 @@ pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = unsafe { sys::register_len(register_id) };
-    if len == u64::MAX {
-        None
-    } else {
-        Some(len)
-    }
+    if len == u64::MAX { None } else { Some(len) }
 }
 
 macro_rules! maybe_cached {
@@ -614,13 +607,31 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    let value = value.as_ref();
-    //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid sha256 implementation.
-    unsafe {
-        sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid sha256 implementation.
+        unsafe {
+            sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha2::Digest;
+
+        sha2::Sha256::digest(value).into()
     }
 }
 
@@ -639,13 +650,31 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    let value = value.as_ref();
-    //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak256 implementation.
-    unsafe {
-        sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid keccak256 implementation.
+        unsafe {
+            sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak256::digest(value).into()
     }
 }
 
@@ -664,13 +693,32 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
-    let value = value.as_ref();
-    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak512 implementation.
-    unsafe {
-        sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        let value = value.as_ref();
+
+        //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid keccak512 implementation.
+        unsafe {
+            sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha3::Digest;
+
+        sha3::Keccak512::digest(value).into()
     }
 }
 
@@ -689,13 +737,31 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    let value = value.as_ref();
-    //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
-    unsafe {
-        sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed(ATOMIC_OP_REGISTER)
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        let value = value.as_ref();
+        //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
+        //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
+        //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
+        unsafe {
+            sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+            read_register_fixed(ATOMIC_OP_REGISTER)
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use sha2::Digest;
+
+        ripemd::Ripemd160::digest(value).into()
     }
 }
 
@@ -713,21 +779,48 @@ pub fn ecrecover(
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
-    unsafe {
-        let return_code = sys::ecrecover(
-            hash.len() as _,
-            hash.as_ptr() as _,
-            signature.len() as _,
-            signature.as_ptr() as _,
-            v as u64,
-            malleability_flag as u64,
-            ATOMIC_OP_REGISTER,
-        );
-        if return_code == 0 {
-            None
-        } else {
-            Some(read_register_fixed(ATOMIC_OP_REGISTER))
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            let return_code = sys::ecrecover(
+                hash.len() as _,
+                hash.as_ptr() as _,
+                signature.len() as _,
+                signature.as_ptr() as _,
+                v as u64,
+                malleability_flag as u64,
+                ATOMIC_OP_REGISTER,
+            );
+            if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use near_crypto::Secp256K1Signature;
+
+        let signature = Secp256K1Signature::from({
+            let mut buf = [0u8; 65];
+            buf[0..64].copy_from_slice(signature);
+            buf[64] = v;
+            buf
+        });
+
+        let hash: [u8; 32] = hash.try_into().ok()?;
+
+        if !signature.check_signature_values(malleability_flag) {
+            return None;
+        }
+
+        signature.recover(hash).ok()?.as_ref().try_into().ok()
     }
 }
 
@@ -778,15 +871,38 @@ pub fn ed25519_verify(
     public_key: &[u8; 32],
 ) -> bool {
     let message = message.as_ref();
-    unsafe {
-        sys::ed25519_verify(
-            signature.len() as _,
-            signature.as_ptr() as _,
-            message.len() as _,
-            message.as_ptr() as _,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
-        ) == 1
+
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            sys::ed25519_verify(
+                signature.len() as _,
+                signature.as_ptr() as _,
+                message.len() as _,
+                message.as_ptr() as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            ) == 1
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+        let Ok(verifying_key) = VerifyingKey::from_bytes(public_key) else {
+            return false;
+        };
+        let signature = Signature::from_bytes(signature);
+        verifying_key.verify(message, &signature).is_ok()
     }
 }
 
@@ -970,7 +1086,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L28> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L23>
 ///
 pub fn promise_create(
     account_id: AccountId,
@@ -1027,7 +1143,7 @@ pub fn promise_create(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
 ///
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L49> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L30>
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
@@ -1738,7 +1854,6 @@ pub fn promise_batch_action_delete_account(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract using the provided contract code.
 ///
 /// # Arguments
@@ -1763,7 +1878,6 @@ pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, 
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract by referencing another account's deployed code.
 ///
 /// # Arguments
@@ -1791,7 +1905,6 @@ pub fn promise_batch_action_deploy_global_contract_by_account_id(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by code hash.
 ///
 /// # Arguments
@@ -1819,7 +1932,6 @@ pub fn promise_batch_action_use_global_contract(
     }
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by referencing the account that deployed it.
 ///
 /// # Arguments
@@ -1973,7 +2085,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
 ///
-/// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
+/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L38), [two](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L57)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }
@@ -2586,7 +2698,6 @@ mod tests {
         assert!(is_valid_account_id(b"near"));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn hash_smoke_tests() {
         assert_eq!(
@@ -2616,12 +2727,11 @@ mod tests {
         );
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn random_seed_smoke_test() {
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .random_seed([8; 32])
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().random_seed([8; 32]).build()
+        );
 
         assert_eq!(super::random_seed(), [8; 32]);
     }
@@ -2668,15 +2778,14 @@ mod tests {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn signer_public_key() {
         let key: PublicKey =
             "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
 
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .signer_account_pk(key.clone())
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().signer_account_pk(key.clone()).build()
+        );
         assert_eq!(super::signer_account_pk(), key);
     }
 
@@ -2822,6 +2931,7 @@ mod tests {
 
         assert!(!super::alt_bn128_pairing_check(invalid_pair));
     }
+
     #[test]
     fn bls12381_p1_sum_0_100() {
         let buffer: [u8; 0] = [];
@@ -3068,7 +3178,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
     fn test_global_contract_functions() {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
@@ -3092,7 +3201,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
     fn test_global_contract_edge_cases() {
         // Test with minimal valid inputs
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());

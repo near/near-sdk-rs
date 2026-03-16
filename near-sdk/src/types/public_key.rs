@@ -30,6 +30,15 @@ impl CurveType {
     }
 }
 
+impl std::fmt::Display for CurveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CurveType::ED25519 => write!(f, "ed25519"),
+            CurveType::SECP256K1 => write!(f, "secp256k1"),
+        }
+    }
+}
+
 impl std::str::FromStr for CurveType {
     type Err = ParsePublicKeyError;
 
@@ -44,39 +53,53 @@ impl std::str::FromStr for CurveType {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
-#[cfg(test)]
-impl TryFrom<PublicKey> for near_crypto::PublicKey {
-    type Error = ParsePublicKeyError;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "unit-testing", feature = "non-contract-usage")
+))]
+const _: () = {
+    impl TryFrom<PublicKey> for near_crypto::PublicKey {
+        type Error = ParsePublicKeyError;
 
-    fn try_from(public_key: PublicKey) -> Result<Self, Self::Error> {
-        let curve_type = CurveType::from_u8(public_key.data[0])?;
-        let expected_len = curve_type.data_len();
+        fn try_from(public_key: PublicKey) -> Result<Self, Self::Error> {
+            let curve_type = CurveType::from_u8(public_key.data[0])?;
+            let expected_len = curve_type.data_len();
 
-        let key_bytes = public_key.into_bytes();
-        if key_bytes.len() != expected_len + 1 {
-            return Err(ParsePublicKeyError {
-                kind: ParsePublicKeyErrorKind::InvalidLength(key_bytes.len()),
-            });
-        }
-
-        let data = &key_bytes.as_slice()[1..];
-        match curve_type {
-            CurveType::ED25519 => {
-                let public_key = near_crypto::PublicKey::ED25519(
-                    near_crypto::ED25519PublicKey::try_from(data).unwrap(),
-                );
-                Ok(public_key)
+            let key_bytes = public_key.into_bytes();
+            if key_bytes.len() != expected_len + 1 {
+                return Err(ParsePublicKeyError {
+                    kind: ParsePublicKeyErrorKind::InvalidLength(key_bytes.len()),
+                });
             }
-            CurveType::SECP256K1 => {
-                let public_key = near_crypto::PublicKey::SECP256K1(
-                    near_crypto::Secp256K1PublicKey::try_from(data).unwrap(),
-                );
-                Ok(public_key)
+
+            let data = &key_bytes.as_slice()[1..];
+            match curve_type {
+                CurveType::ED25519 => {
+                    let public_key = near_crypto::PublicKey::ED25519(
+                        near_crypto::ED25519PublicKey::try_from(data).unwrap(),
+                    );
+                    Ok(public_key)
+                }
+                CurveType::SECP256K1 => {
+                    let public_key = near_crypto::PublicKey::SECP256K1(
+                        near_crypto::Secp256K1PublicKey::try_from(data).unwrap(),
+                    );
+                    Ok(public_key)
+                }
             }
         }
     }
-}
+
+    impl From<near_crypto::PublicKey> for PublicKey {
+        fn from(value: near_crypto::PublicKey) -> Self {
+            let curve_type = match value {
+                near_crypto::PublicKey::ED25519(_) => CurveType::ED25519,
+                near_crypto::PublicKey::SECP256K1(_) => CurveType::SECP256K1,
+            };
+            Self { data: [[curve_type as u8].as_slice(), value.key_data()].concat() }
+        }
+    }
+};
 
 /// Public key in a binary format with base58 string serialization with human-readable curve.
 /// The key types currently supported are `secp256k1` and `ed25519`.
@@ -92,7 +115,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
 ///             .unwrap();
 ///
 /// // Uncompressed secp256k1 key
-/// let secp256k1: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj"
+/// let secp256k1: PublicKey = "secp256k1:5r22SrjrDvgY3wdQsnjgxkeAbU1VcM71FYvALEQWihjM3Xk4Be1CpETTqFccChQr4iJwDroSDVmgaWZv2AcXvYeL"
 ///             .parse()
 ///             .unwrap();
 /// ```
@@ -206,21 +229,27 @@ impl schemars::JsonSchema for PublicKey {
         String::schema_name()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
+    }
+}
+
+impl std::fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.curve_type() {
+            CurveType::ED25519 => {
+                write!(f, "ed25519:{}", bs58::encode(&self.data[1..]).into_string())
+            }
+            CurveType::SECP256K1 => {
+                write!(f, "secp256k1:{}", bs58::encode(&self.data[1..]).into_string())
+            }
+        }
     }
 }
 
 impl From<&PublicKey> for String {
-    fn from(str_public_key: &PublicKey) -> Self {
-        match str_public_key.curve_type() {
-            CurveType::ED25519 => {
-                ["ed25519:", &bs58::encode(&str_public_key.data[1..]).into_string()].concat()
-            }
-            CurveType::SECP256K1 => {
-                ["secp256k1:", &bs58::encode(&str_public_key.data[1..]).into_string()].concat()
-            }
-        }
+    fn from(public_key: &PublicKey) -> Self {
+        public_key.to_string()
     }
 }
 
@@ -247,9 +276,13 @@ enum ParsePublicKeyErrorKind {
 
 impl std::fmt::Display for ParsePublicKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
+        match &self.kind {
             ParsePublicKeyErrorKind::InvalidLength(l) => {
-                write!(f, "invalid length of the public key, expected 32 got {l}")
+                write!(
+                    f,
+                    "invalid length of the public key: got {l} bytes \
+                     (expected 32 for ed25519, 64 for secp256k1)"
+                )
             }
             ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {e}"),
             ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
@@ -306,6 +339,63 @@ mod tests {
         let key: PublicKey = expected_key();
         let actual: String = String::from(&key);
         assert_eq!(actual, "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp");
+    }
+
+    #[test]
+    fn test_public_key_display() {
+        let key: PublicKey = expected_key();
+        // Display and From<&PublicKey> for String should produce the same output
+        let display_output = format!("{}", key);
+        let from_output = String::from(&key);
+        assert_eq!(display_output, from_output);
+        assert_eq!(display_output, "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp");
+    }
+
+    #[test]
+    fn test_public_key_display_secp256k1() {
+        let key: PublicKey = "secp256k1:5r22SrjrDvgY3wdQsnjgxkeAbU1VcM71FYvALEQWihjM3Xk4Be1CpETTqFccChQr4iJwDroSDVmgaWZv2AcXvYeL".parse().unwrap();
+        let display_output = format!("{}", key);
+        assert!(display_output.starts_with("secp256k1:"));
+    }
+
+    #[test]
+    fn test_curve_type_display() {
+        assert_eq!(CurveType::ED25519.to_string(), "ed25519");
+        assert_eq!(CurveType::SECP256K1.to_string(), "secp256k1");
+    }
+
+    #[test]
+    fn test_curve_type_display_roundtrip() {
+        // Display -> FromStr should roundtrip
+        let ed = CurveType::ED25519;
+        let parsed: CurveType = ed.to_string().parse().unwrap();
+        assert_eq!(ed, parsed);
+
+        let secp = CurveType::SECP256K1;
+        let parsed: CurveType = secp.to_string().parse().unwrap();
+        assert_eq!(secp, parsed);
+    }
+
+    #[test]
+    fn test_parse_public_key_error_invalid_length_message() {
+        // Ensure the error message mentions both expected lengths
+        let err = ParsePublicKeyError { kind: ParsePublicKeyErrorKind::InvalidLength(48) };
+        let msg = err.to_string();
+        assert!(msg.contains("48"), "should show actual length");
+        assert!(msg.contains("32"), "should mention ed25519 expected length");
+        assert!(msg.contains("64"), "should mention secp256k1 expected length");
+    }
+
+    #[test]
+    fn test_parse_public_key_error_unknown_curve() {
+        let err = ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve };
+        assert_eq!(err.to_string(), "unknown curve kind");
+    }
+
+    #[test]
+    fn test_parse_public_key_error_implements_std_error() {
+        let err = ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve };
+        let _: &dyn std::error::Error = &err;
     }
 
     #[test]

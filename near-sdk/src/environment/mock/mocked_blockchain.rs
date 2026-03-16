@@ -1,10 +1,10 @@
 use super::Receipt;
 use crate::mock::MockAction;
 // TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
+use crate::VMContext;
 use crate::mock::mocked_memory::MockedMemory;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
-use crate::VMContext;
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
 use near_primitives::gas::Gas;
 use near_primitives_core::version::PROTOCOL_VERSION;
@@ -197,7 +197,7 @@ fn sdk_context_to_vm_context(
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use near_vm_runner::logic::{errors::VMLogicError, VMLogic};
+    use near_vm_runner::logic::{VMLogic, errors::VMLogicError};
 
     fn with_mock_interface<F, R>(f: F) -> R
     where
@@ -206,99 +206,99 @@ mod mock_chain {
         crate::mock::with_mocked_blockchain(|b| f(&mut b.logic.borrow_mut()).unwrap())
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn read_register(register_id: u64, ptr: u64) {
         with_mock_interface(|b| b.read_register(register_id, ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn register_len(register_id: u64) -> u64 {
         with_mock_interface(|b| b.register_len(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn current_account_id(register_id: u64) {
         with_mock_interface(|b| b.current_account_id(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn current_contract_code(register_id: u64) -> u64 {
         with_mock_interface(|b| b.current_contract_code(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn refund_to_account_id(register_id: u64) {
         with_mock_interface(|b| b.refund_to_account_id(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn signer_account_id(register_id: u64) {
         with_mock_interface(|b| b.signer_account_id(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn signer_account_pk(register_id: u64) {
         with_mock_interface(|b| b.signer_account_pk(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn predecessor_account_id(register_id: u64) {
         with_mock_interface(|b| b.predecessor_account_id(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn input(register_id: u64) {
         with_mock_interface(|b| b.input(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn block_index() -> u64 {
         with_mock_interface(|b| b.block_index())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn block_timestamp() -> u64 {
         with_mock_interface(|b| b.block_timestamp())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn epoch_height() -> u64 {
         with_mock_interface(|b| b.epoch_height())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_usage() -> u64 {
         with_mock_interface(|b| b.storage_usage())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn account_balance(balance_ptr: u64) {
         with_mock_interface(|b| b.account_balance(balance_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn account_locked_balance(balance_ptr: u64) {
         with_mock_interface(|b| b.account_locked_balance(balance_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn attached_deposit(balance_ptr: u64) {
         with_mock_interface(|b| b.attached_deposit(balance_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn prepaid_gas() -> u64 {
         with_mock_interface(|b| b.prepaid_gas())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn used_gas() -> u64 {
         with_mock_interface(|b| b.used_gas())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn random_seed(register_id: u64) {
         with_mock_interface(|b| b.random_seed(register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn sha256(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.sha256(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn keccak256(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.keccak256(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn keccak512(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn ecrecover(
         hash_len: u64,
         hash_ptr: u64,
@@ -312,7 +312,7 @@ mod mock_chain {
             b.ecrecover(hash_len, hash_ptr, sig_len, sig_ptr, v, malleability_flag, register_id)
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn ed25519_verify(
         signature_len: u64,
         signature_ptr: u64,
@@ -332,29 +332,29 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn value_return(value_len: u64, value_ptr: u64) {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn panic() -> ! {
         with_mock_interface(|b| b.panic());
         unreachable!()
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn panic_utf8(len: u64, ptr: u64) -> ! {
         with_mock_interface(|b| b.panic_utf8(len, ptr));
         unreachable!()
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf8(len: u64, ptr: u64) {
         with_mock_interface(|b| b.log_utf8(len, ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf16(len: u64, ptr: u64) {
         with_mock_interface(|b| b.log_utf16(len, ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_create(
         account_id_len: u64,
         account_id_ptr: u64,
@@ -378,7 +378,7 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_then(
         promise_index: u64,
         account_id_len: u64,
@@ -404,15 +404,15 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
         with_mock_interface(|b| b.promise_and(promise_idx_ptr, promise_idx_count))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64 {
         with_mock_interface(|b| b.promise_batch_create(account_id_len, account_id_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_then(
         promise_index: u64,
         account_id_len: u64,
@@ -420,11 +420,11 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.promise_batch_then(promise_index, account_id_len, account_id_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_create_account(promise_index: u64) {
         with_mock_interface(|b| b.promise_batch_action_create_account(promise_index))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_contract(
         promise_index: u64,
         code_len: u64,
@@ -435,11 +435,10 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
     // #########################
     // # Global Contract API   #
     // #########################
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_global_contract(
         promise_index: u64,
         code_len: u64,
@@ -450,8 +449,7 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_global_contract_by_account_id(
         promise_index: u64,
         code_len: u64,
@@ -466,8 +464,7 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract(
         promise_index: u64,
         code_hash_len: u64,
@@ -478,8 +475,7 @@ mod mock_chain {
         })
     }
 
-    #[cfg(feature = "global-contracts")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract_by_account_id(
         promise_index: u64,
         account_id_len: u64,
@@ -494,7 +490,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_set_refund_to(
         promise_index: u64,
         account_id_len: u64,
@@ -505,7 +501,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_state_init(
         promise_index: u64,
         code_len: u64,
@@ -517,7 +513,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_state_init_by_account_id(
         promise_index: u64,
         account_id_len: u64,
@@ -534,7 +530,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn set_state_init_data_entry(
         promise_index: u64,
         action_index: u64,
@@ -555,7 +551,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_function_call(
         promise_index: u64,
         function_name_len: u64,
@@ -578,7 +574,7 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_function_call_weight(
         promise_index: u64,
         function_name_len: u64,
@@ -603,11 +599,11 @@ mod mock_chain {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
         with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_stake(
         promise_index: u64,
         amount_ptr: u64,
@@ -618,7 +614,7 @@ mod mock_chain {
             b.promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr)
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_add_key_with_full_access(
         promise_index: u64,
         public_key_len: u64,
@@ -634,7 +630,7 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_add_key_with_function_call(
         promise_index: u64,
         public_key_len: u64,
@@ -660,7 +656,7 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,
@@ -670,7 +666,7 @@ mod mock_chain {
             b.promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_delete_account(
         promise_index: u64,
         beneficiary_id_len: u64,
@@ -684,7 +680,7 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_yield_create(
         function_name_len: u64,
         function_name_ptr: u64,
@@ -706,7 +702,7 @@ mod mock_chain {
             )
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_yield_resume(
         data_id_len: u64,
         data_id_ptr: u64,
@@ -717,19 +713,19 @@ mod mock_chain {
             b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_results_count() -> u64 {
         with_mock_interface(|b| b.promise_results_count())
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_result(result_idx: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.promise_result(result_idx, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_return(promise_id: u64) {
         with_mock_interface(|b| b.promise_return(promise_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_write(
         key_len: u64,
         key_ptr: u64,
@@ -741,35 +737,35 @@ mod mock_chain {
             b.storage_write(key_len, key_ptr, value_len, value_ptr, register_id)
         })
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.storage_read(key_len, key_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.storage_remove(key_len, key_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_has_key(key_len: u64, key_ptr: u64) -> u64 {
         with_mock_interface(|b| b.storage_has_key(key_len, key_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
         with_mock_interface(|b| b.validator_stake(account_id_len, account_id_ptr, stake_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn validator_total_stake(stake_ptr: u64) {
         with_mock_interface(|b| b.validator_total_stake(stake_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.alt_bn128_g1_multiexp(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.alt_bn128_g1_sum(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
         with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
     }
@@ -777,15 +773,15 @@ mod mock_chain {
     // ###########
     // BLS12-381 #
     // ###########
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p1_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.bls12381_p1_sum(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p2_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.bls12381_p2_sum(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_g1_multiexp(
         value_len: u64,
         value_ptr: u64,
@@ -793,7 +789,7 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.bls12381_g1_multiexp(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_g2_multiexp(
         value_len: u64,
         value_ptr: u64,
@@ -801,7 +797,7 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.bls12381_g2_multiexp(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_map_fp_to_g1(
         value_len: u64,
         value_ptr: u64,
@@ -809,7 +805,7 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.bls12381_map_fp_to_g1(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_map_fp2_to_g2(
         value_len: u64,
         value_ptr: u64,
@@ -817,11 +813,11 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.bls12381_map_fp2_to_g2(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
         with_mock_interface(|b| b.bls12381_pairing_check(value_len, value_ptr))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p1_decompress(
         value_len: u64,
         value_ptr: u64,
@@ -829,7 +825,7 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| b.bls12381_p1_decompress(value_len, value_ptr, register_id))
     }
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p2_decompress(
         value_len: u64,
         value_ptr: u64,
@@ -920,8 +916,8 @@ mod tests {
     #[cfg(feature = "deterministic-account-ids")]
     mod deterministic_account_ids {
         use crate::{
-            state_init::{StateInit, StateInitV1},
             GlobalContractId,
+            state_init::{StateInit, StateInitV1},
         };
 
         use super::*;

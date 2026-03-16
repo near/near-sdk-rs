@@ -5,10 +5,10 @@ mod impls;
 mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
-use super::{LookupMap, ERR_INCONSISTENT_STATE};
-use crate::store::key::{Sha256, ToKey};
+use super::{ERR_INCONSISTENT_STATE, LookupMap};
 use crate::store::Vector;
-use crate::{env, IntoStorageKey};
+use crate::store::key::{Sha256, ToKey};
+use crate::{IntoStorageKey, env};
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::borrow::Borrow;
@@ -378,11 +378,7 @@ where
     where
         T: BorshDeserialize + Clone,
     {
-        if self.len() <= other.len() {
-            self.iter().all(|v| other.contains(v))
-        } else {
-            false
-        }
+        if self.len() <= other.len() { self.iter().all(|v| other.contains(v)) } else { false }
     }
 
     /// Returns `true` if the set is a superset of another, i.e., `self` contains at least all the
@@ -549,7 +545,7 @@ mod tests {
     use crate::store::IterableSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashSet;
@@ -902,5 +898,57 @@ mod tests {
         <IterableSet<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
 
         insta::assert_snapshot!(format!("{:#?}", defs));
+    }
+
+    #[test]
+    fn test_drain_next_back_removes_from_index() {
+        let mut set = IterableSet::new(b"t");
+
+        // Insert elements
+        for i in 0..10 {
+            set.insert(i);
+        }
+
+        // Drain from the back using next_back()
+        let mut drain = set.drain();
+        let last = drain.next_back().unwrap();
+        drop(drain);
+
+        // If the bug exists: contains() will return true (stale index entry)
+        // If bug is fixed: contains() will return false
+        assert!(
+            !set.contains(&last),
+            "Element {} was drained but contains() returns true (stale index)",
+            last
+        );
+
+        // If the bug exists: insert should fail silently or panic
+        // If bug is fixed: insert should succeed
+        assert!(
+            set.insert(last),
+            "Cannot re-insert element {} after draining it (stale index)",
+            last
+        );
+    }
+
+    #[test]
+    fn test_drain_bidirectional() {
+        let mut set = IterableSet::new(b"t");
+        for i in 0..10 {
+            set.insert(i);
+        }
+
+        let mut drain = set.drain();
+        let first = drain.next().unwrap();
+        let last = drain.next_back().unwrap();
+        drop(drain);
+
+        // Both should be gone
+        assert!(!set.contains(&first), "Element {} from next() still in index", first);
+        assert!(!set.contains(&last), "Element {} from next_back() still in index", last);
+
+        // Should be able to re-insert both
+        assert!(set.insert(first));
+        assert!(set.insert(last));
     }
 }

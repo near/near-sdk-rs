@@ -1,7 +1,7 @@
 use crate::CryptoHash;
 use bs58::decode::Error as B58Error;
 use near_sdk_macros::near;
-use serde::{de, ser, Deserialize};
+use serde::{Deserialize, de, ser};
 use std::convert::TryFrom;
 
 #[near(inside_nearsdk)]
@@ -93,8 +93,8 @@ impl schemars::JsonSchema for Base58CryptoHash {
         String::schema_name()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 

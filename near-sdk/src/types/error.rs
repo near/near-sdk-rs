@@ -69,11 +69,58 @@ where
 ///     }
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Abort;
+
+impl std::fmt::Display for Abort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "transaction aborted")
+    }
+}
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
         crate::env::abort()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_abort_display() {
+        let abort = Abort;
+        assert_eq!(abort.to_string(), "transaction aborted");
+    }
+
+    #[test]
+    fn test_abort_debug() {
+        let abort = Abort;
+        assert_eq!(format!("{:?}", abort), "Abort");
+    }
+
+    #[test]
+    fn test_abort_clone_copy() {
+        let abort = Abort;
+        // Deliberately test Clone on a Copy type
+        #[allow(clippy::clone_on_copy)]
+        let cloned = abort.clone();
+        let copied = abort; // Copy
+        assert_eq!(abort, cloned);
+        assert_eq!(abort, copied);
+    }
+
+    #[test]
+    fn test_abort_eq() {
+        assert_eq!(Abort, Abort);
+    }
+
+    #[test]
+    fn test_abort_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(Abort);
+        assert!(set.contains(&Abort));
     }
 }

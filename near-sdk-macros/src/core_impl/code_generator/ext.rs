@@ -1,7 +1,7 @@
-use crate::core_impl::{serializer, AttrSigInfo};
+use crate::core_impl::{AttrSigInfo, serializer};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, Attribute, Generics, Path, Signature};
+use quote::{ToTokens, format_ident, quote};
+use syn::{Attribute, Generics, Path, Signature, parse_quote};
 
 /// Generates inner ext code for structs and modules. If intended for a struct, generic details
 /// for the struct should be passed in through `generic_details` and the `ext` method will be
@@ -31,11 +31,33 @@ pub(crate) fn generate_ext_structs(
             }
         }
     };
+    // `ext_self` is only generated for contract structs, not for ext_contract modules,
+    // since it calls env::current_account_id() which only makes sense for self-callbacks.
+    let ext_self_code = if generic_details.is_some() {
+        quote! {
+            /// Convenience method for creating a cross-contract call to the current contract.
+            ///
+            /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
+            pub fn ext_self() -> #name {
+                #name {
+                    promise_or_create_on: ::near_sdk::PromiseOrValue::Value(
+                        ::near_sdk::env::current_account_id(),
+                    ),
+                    deposit: ::near_sdk::NearToken::from_near(0),
+                    static_gas: ::near_sdk::Gas::from_gas(0),
+                    gas_weight: ::near_sdk::GasWeight::default(),
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
     if let Some(generics) = generic_details {
         // If ext generation is on struct, make ext function associated with struct not module
         ext_code = quote! {
             impl #generics #ident #generics {
                 #ext_code
+                #ext_self_code
             }
         };
     }
@@ -75,7 +97,7 @@ pub(crate) fn generate_ext_structs(
 /// However, some attributes should be forwarded and they are defined here.
 ///
 /// [#959]: https://github.com/near/near-sdk-rs/pull/959
-const FN_ATTRIBUTES_TO_FORWARD: [&str; 1] = [
+const FN_ATTRIBUTES_TO_FORWARD: [&str; 2] = [
     // Allow some contract methods to be feature gated, for example:
     //
     // ```
@@ -88,6 +110,16 @@ const FN_ATTRIBUTES_TO_FORWARD: [&str; 1] = [
     // In that scenario `ContractExt::test_method` should be included only if
     // `integration_tests` is enabled.
     "cfg",
+    // `#[allow(...)]` is a built-in compiler attribute that only ever suppresses
+    // lints — it never causes compilation errors or unexpected behavior. Since the
+    // generated ext wrapper shares the same function signature as the original
+    // method, lint suppressions like `#[allow(clippy::too_many_arguments)]` should
+    // carry over. See https://github.com/near/near-sdk-rs/issues/1505.
+    //
+    // Note: `#[expect(...)]` is intentionally NOT forwarded because it warns when
+    // the lint is not triggered, and the ext wrapper may not trigger the same lints
+    // as the original method.
+    "allow",
 ];
 
 /// Returns whether `attribute` should be forwarded to `_Ext` methods, see
@@ -189,6 +221,7 @@ mod tests {
             #[cfg(target_os = "linux")]
             #[inline]
             #[warn(unused)]
+            #[allow(clippy::too_many_arguments)]
             pub fn method(&self) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();

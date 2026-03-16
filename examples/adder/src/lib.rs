@@ -1,4 +1,4 @@
-use near_sdk::{env, near, Promise};
+use near_sdk::{Promise, near};
 
 #[derive(Debug, PartialEq, Eq)]
 #[near(serializers=[borsh, json])]
@@ -12,12 +12,12 @@ pub struct Adder {}
 impl Adder {
     /// Call functions a, b, and c, d,  asynchronously and handle results with `add_callback_vec`.
     pub fn call_all() -> Promise {
-        Self::ext(env::current_account_id())
+        Self::ext_self()
             .a()
-            .and(Self::ext(env::current_account_id()).b())
-            .and(Self::ext(env::current_account_id()).c())
-            .and(Self::ext(env::current_account_id()).d())
-            .then(Self::ext(env::current_account_id()).add_callback_vec())
+            .and(Self::ext_self().b())
+            .and(Self::ext_self().c())
+            .and(Self::ext_self().d())
+            .then(Self::ext_self().add_callback_vec())
     }
 
     /// Adds two pairs point-wise.

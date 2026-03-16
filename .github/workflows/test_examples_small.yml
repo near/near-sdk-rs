@@ -6,15 +6,21 @@ on:
   pull_request:
 env:
   RUSTFLAGS: -D warnings
+  NEAR_RPC_TIMEOUT_SECS: 100
+
 jobs:
   test:
-    runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.example }} - ${{ matrix.platform }}"
+    runs-on: ${{ matrix.platform.os }}
+    name: "${{ matrix.example }} - ${{ matrix.platform.name }}"
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest]
-        toolchain: [1.86]
+        platform:
+          - os: warp-ubuntu-latest-x64-4x
+            name: linux
+          - os: warp-macos-latest-arm64-6x
+            name: macos
+        toolchain: ["1.86"]
         example:
           [
             lockable-fungible-token,
@@ -24,18 +30,26 @@ jobs:
           ]
     steps:
       - uses: actions/checkout@v4
-      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
-        uses: actions-rs/toolchain@v1
+
+      - name: Install Rust ${{ matrix.toolchain }} with wasm32 target
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --profile minimal --target wasm32-unknown-unknown
+          rustup override set ${{ matrix.toolchain }}
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
         with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
-      - name: Install cargo-near CLI (dependency for build with near-workspaces)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
+          tool: nextest
+
       - uses: Swatinem/rust-cache@v2
         with:
+          cache-provider: warpbuild
           workspaces: "./examples/${{ matrix.example }} -> target"
-      - name: Test
-        env:
-          NEAR_RPC_TIMEOUT_SECS: 100
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace
+          shared-key: "${{ matrix.platform.name }}-${{ matrix.toolchain }}-${{ matrix.example }}"
+          cache-all-crates: true
+
+      - name: Run tests with nextest
+        run: cargo nextest run --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace --config-file .config/nextest.toml --profile ci

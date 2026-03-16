@@ -1,7 +1,7 @@
 use super::{HandleResultAttr, InitAttr, MethodKind, ReturnKind, SerializerAttr};
-use crate::core_impl::{utils, CallMethod, InitMethod, Returns, SerializerType, ViewMethod};
+use crate::core_impl::{CallMethod, InitMethod, Returns, SerializerType, ViewMethod, utils};
 use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Error, FnArg, Receiver, ReturnType, Signature, Type};
+use syn::{Attribute, Error, FnArg, Receiver, ReturnType, Signature, Type, spanned::Spanned};
 
 /// Traversal abstraction to walk a method declaration and build it's respective [MethodKind].
 pub struct Visitor {
@@ -236,7 +236,10 @@ fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<
         ResultHandling::NoCheck => Ok(ReturnKind::HandlesResult(typ.clone())),
         ResultHandling::Check => {
             if !utils::type_is_result(typ) {
-                Err(Error::new(typ.span(), "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`."))
+                Err(Error::new(
+                    typ.span(),
+                    "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`.",
+                ))
             } else {
                 Ok(ReturnKind::HandlesResult(typ.clone()))
             }

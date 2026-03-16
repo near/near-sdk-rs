@@ -15,20 +15,20 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
+use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
 use near_contract_standards::non_fungible_token::core::{
     NonFungibleTokenCore, NonFungibleTokenResolver,
 };
 use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
 use near_contract_standards::non_fungible_token::metadata::{
-    NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
+    NFT_METADATA_SPEC, NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata,
 };
-use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, near, require, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+    AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue, env, near, require,
 };
 use std::collections::HashMap;
 
@@ -221,8 +221,8 @@ impl NonFungibleTokenMetadataProvider for Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, NearToken};
+    use near_sdk::test_utils::{VMContextBuilder, accounts};
+    use near_sdk::{NearToken, testing_env};
     use std::collections::HashMap;
 
     use super::*;
@@ -278,11 +278,13 @@ mod tests {
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(0).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(MINT_STORAGE_COST)
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
 
         let token_id = "0".to_string();
         let token = contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
@@ -298,27 +300,33 @@ mod tests {
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(0).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(MINT_STORAGE_COST)
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         let token_id = "0".to_string();
         contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(1))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(1))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_transfer(accounts(1), token_id.clone(), None, None);
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
-            .is_view(true)
-            .attached_deposit(NearToken::from_near(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .account_balance(env::account_balance())
+                .is_view(true)
+                .attached_deposit(NearToken::from_near(0))
+                .build()
+        );
         if let Some(token) = contract.nft_token(token_id.clone()) {
             assert_eq!(token.token_id, token_id);
             assert_eq!(token.owner_id, accounts(1));
@@ -335,28 +343,34 @@ mod tests {
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(0).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(MINT_STORAGE_COST)
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         let token_id = "0".to_string();
         contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
 
         // alice approves bob
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(150000000000000000000u128))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(150000000000000000000u128))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_approve(token_id.clone(), accounts(1), None);
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
-            .is_view(true)
-            .attached_deposit(NearToken::from_near(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .account_balance(env::account_balance())
+                .is_view(true)
+                .attached_deposit(NearToken::from_near(0))
+                .build()
+        );
         assert!(contract.nft_is_approved(token_id.clone(), accounts(1), Some(1)));
     }
 
@@ -366,35 +380,43 @@ mod tests {
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(0).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(MINT_STORAGE_COST)
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         let token_id = "0".to_string();
         contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
 
         // alice approves bob
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(150000000000000000000))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(150000000000000000000))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_approve(token_id.clone(), accounts(1), None);
 
         // alice revokes bob
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(1))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(1))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_revoke(token_id.clone(), accounts(1));
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
-            .is_view(true)
-            .attached_deposit(NearToken::from_near(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .account_balance(env::account_balance())
+                .is_view(true)
+                .attached_deposit(NearToken::from_near(0))
+                .build()
+        );
         assert!(!contract.nft_is_approved(token_id.clone(), accounts(1), None));
     }
 
@@ -404,35 +426,43 @@ mod tests {
         testing_env!(context.build());
         let mut contract = Contract::new_default_meta(accounts(0).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(MINT_STORAGE_COST)
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         let token_id = "0".to_string();
         contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
 
         // alice approves bob
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(150000000000000000000))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(150000000000000000000))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_approve(token_id.clone(), accounts(1), None);
 
         // alice revokes bob
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(1))
-            .predecessor_account_id(accounts(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .attached_deposit(NearToken::from_yoctonear(1))
+                .predecessor_account_id(accounts(0))
+                .build()
+        );
         contract.nft_revoke_all(token_id.clone());
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
-            .is_view(true)
-            .attached_deposit(NearToken::from_near(0))
-            .build());
+        testing_env!(
+            context
+                .storage_usage(env::storage_usage())
+                .account_balance(env::account_balance())
+                .is_view(true)
+                .attached_deposit(NearToken::from_near(0))
+                .build()
+        );
         assert!(!contract.nft_is_approved(token_id.clone(), accounts(1), Some(1)));
     }
 }

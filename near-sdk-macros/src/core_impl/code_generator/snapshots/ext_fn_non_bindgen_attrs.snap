@@ -1,9 +1,10 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/ext.rs
-assertion_line: 197
+assertion_line: 203
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_os = "linux")]
+#[allow(clippy::too_many_arguments)]
 pub fn method(self) -> ::near_sdk::Promise {
     let __args = ::std::vec![];
     match self.promise_or_create_on {

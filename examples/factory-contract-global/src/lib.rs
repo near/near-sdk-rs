@@ -1,5 +1,5 @@
 use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
-use near_sdk::{env, ext_contract, near, AccountId, CryptoHash, Promise, PromiseError};
+use near_sdk::{AccountId, CryptoHash, Promise, PromiseError, env, ext_contract, near};
 
 #[derive(Default)]
 #[near(contract_state)]
@@ -109,7 +109,7 @@ impl GlobalFactoryContract {
         // 3) return that message as its own result.
         ext_status_message::ext(account_id.clone())
             .set_status(message)
-            .then(Self::ext(env::current_account_id()).get_result(account_id))
+            .then(Self::ext_self().get_result(account_id))
     }
 
     #[handle_result]
@@ -128,8 +128,8 @@ impl GlobalFactoryContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::test_utils::{VMContextBuilder, accounts};
+    use near_sdk::{AccountId, testing_env};
 
     fn get_context(predecessor_account_id: AccountId) -> near_sdk::VMContext {
         VMContextBuilder::new()

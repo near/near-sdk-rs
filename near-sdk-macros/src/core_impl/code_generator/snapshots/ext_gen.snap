@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/ext.rs
-assertion_line: 172
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[must_use]
@@ -37,6 +36,19 @@ impl Test {
     pub fn ext_on(promise: ::near_sdk::Promise) -> TestExt {
         TestExt {
             promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(promise),
+            deposit: ::near_sdk::NearToken::from_near(0),
+            static_gas: ::near_sdk::Gas::from_gas(0),
+            gas_weight: ::near_sdk::GasWeight::default(),
+        }
+    }
+    /// Convenience method for creating a cross-contract call to the current contract.
+    ///
+    /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
+    pub fn ext_self() -> TestExt {
+        TestExt {
+            promise_or_create_on: ::near_sdk::PromiseOrValue::Value(
+                ::near_sdk::env::current_account_id(),
+            ),
             deposit: ::near_sdk::NearToken::from_near(0),
             static_gas: ::near_sdk::Gas::from_gas(0),
             gas_weight: ::near_sdk::GasWeight::default(),

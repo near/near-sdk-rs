@@ -8,6 +8,7 @@ readme = "README.md"
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
+rust-version.workspace = true
 description = """
 Rust library for writing NEAR smart contracts.
 """
@@ -22,8 +23,8 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.24.0" }
-near-sys = { path = "../near-sys", version = "0.2.6" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.24.1" }
+near-sys = { path = "../near-sys", version = "0.2.7" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
@@ -42,7 +43,8 @@ arbitrary = { version = "1.4", optional = true }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8.8", optional = true }
+schemars = { version = "0.8.22", optional = true }
+ed25519-dalek = { version = "2.2.0", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
@@ -51,11 +53,14 @@ near-primitives-core = { version = "0.34", optional = true }
 near-primitives = { version = "0.34", optional = true }
 near-crypto = { version = "0.34", default-features = false, optional = true }
 near-parameters = { version = "0.34", optional = true }
+ripemd = { version = "0.1.1", optional = true }
+sha2 = { version = "0.10", optional = true }
+sha3 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
-rand = "0.8.4"
+rand = { version = "0.8.4", features = ["small_rng"] }
 trybuild = "1.0"
 rustversion = "1.0"
 rand_xorshift = "0.3"
@@ -80,14 +85,10 @@ default = ["wee_alloc"]
 
 arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 expensive-debug = []
-deterministic-account-ids = [
-    "global-contracts",
-    "dep:hex",
-    "near-sys/deterministic-account-ids",
-]
+deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 unstable = []
 legacy = []
-global-contracts = ["near-sys/global-contracts"]
+global-contracts = []
 abi = [
     "borsh/unstable__schema",
     "near-abi",
@@ -105,7 +106,14 @@ unit-testing = [
     "near-crypto",
     "near-parameters",
 ]
-non-contract-usage = []
+non-contract-usage = [
+    "ed25519-dalek",
+    "near-crypto",
+    "near-primitives-core",
+    "ripemd",
+    "sha2",
+    "sha3",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
@@ -114,7 +122,6 @@ __macro-docs = []
 
 [package.metadata.docs.rs]
 features = [
-    "global-contracts",
     "unstable",
     "legacy",
     "unit-testing",

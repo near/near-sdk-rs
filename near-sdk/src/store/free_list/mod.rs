@@ -1,8 +1,8 @@
 mod iter;
 pub use self::iter::{Drain, Iter, IterMut};
 
-use super::{Vector, ERR_INCONSISTENT_STATE};
-use crate::{env, IntoStorageKey};
+use super::{ERR_INCONSISTENT_STATE, Vector};
+use crate::{IntoStorageKey, env};
 use near_sdk_macros::near;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -45,11 +45,7 @@ enum Slot<T> {
 
 impl<T> Slot<T> {
     fn into_value(self) -> Option<T> {
-        if let Slot::Occupied(value) = self {
-            Some(value)
-        } else {
-            None
-        }
+        if let Slot::Occupied(value) = self { Some(value) } else { None }
     }
 }
 
@@ -118,21 +114,13 @@ where
     /// is out of range or has been removed, returns `None`.
     #[allow(dead_code)]
     pub fn get(&self, index: FreeListIndex) -> Option<&T> {
-        if let Slot::Occupied(value) = self.elements.get(index.0)? {
-            Some(value)
-        } else {
-            None
-        }
+        if let Slot::Occupied(value) = self.elements.get(index.0)? { Some(value) } else { None }
     }
     /// Returns a mutable reference to filled cell, if the value at the given index is valid. If
     /// the index is out of range or has been removed, returns `None`.
     #[allow(dead_code)]
     pub fn get_mut(&mut self, index: FreeListIndex) -> Option<&mut T> {
-        if let Slot::Occupied(value) = self.elements.get_mut(index.0)? {
-            Some(value)
-        } else {
-            None
-        }
+        if let Slot::Occupied(value) = self.elements.get_mut(index.0)? { Some(value) } else { None }
     }
     /// Inserts new value into bucket. Returns the index that it was inserted at.
     ///

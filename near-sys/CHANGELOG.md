@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.6...near-sys-v0.2.7) - 2026-02-05
+
+### Other
+
+- enabling msrv in workspace crates via Cargo.toml ([#1467](https://github.com/near/near-sdk-rs/pull/1467))
+
 ## [0.2.6](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.5...near-sys-v0.2.6) - 2025-12-01
 
 ### Added
