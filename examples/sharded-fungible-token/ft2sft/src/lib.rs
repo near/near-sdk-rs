@@ -68,7 +68,7 @@ impl FungibleTokenReceiver for Ft2SftContract {
             .checked_add(amount.0)
             .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
 
-        let receiver_id = mint.receiver_id.unwrap_or(sender_id.clone());
+        let receiver_id = mint.receiver_id.unwrap_or_else(|| sender_id.clone());
 
         SftEvent::Mint(
             [SftMint {
@@ -215,7 +215,6 @@ impl Ft2SftContract {
     const FT_TRANSFER_CALL_MIN_GAS: Gas = Gas::from_tgas(30);
     const RESOLVE_TRANSFER_GAS: Gas = Gas::from_tgas(5);
 
-    #[allow(clippy::as_conversions)]
     const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
 
     #[allow(dead_code)]
@@ -254,8 +253,16 @@ impl Ft2SftContract {
     #[allow(dead_code)]
     #[private]
     pub fn sft_resolve_burn(&mut self, owner_id: AccountId, amount: U128, is_call: bool) -> U128 {
-        let burned_amount = match env::promise_result_checked(0, Self::MAX_RESULT_LENGTH) {
-            Ok(data) => {
+        let burned_amount = env::promise_result_checked(0, Self::MAX_RESULT_LENGTH).map_or(
+            if is_call {
+                // do not refund on failed `ft_transfer_call` due to
+                // NEP-141 vulnerability: `ft_resolve_transfer` fails to
+                // read result of `ft_on_transfer` due to insufficient gas
+                amount.0
+            } else {
+                0
+            },
+            |data| {
                 if is_call {
                     // `ft_transfer_call` returns used amount
                     serde_json::from_slice::<U128>(&data).unwrap_or_default().0.min(amount.0)
@@ -265,18 +272,8 @@ impl Ft2SftContract {
                 } else {
                     0
                 }
-            }
-            Err(_) => {
-                if is_call {
-                    // do not refund on failed `ft_transfer_call` due to
-                    // NEP-141 vulnerability: `ft_resolve_transfer` fails to
-                    // read result of `ft_on_transfer` due to insufficient gas
-                    amount.0
-                } else {
-                    0
-                }
-            }
-        };
+            },
+        );
 
         let mint_amount = amount.0.saturating_sub(burned_amount);
         if mint_amount > 0 {
