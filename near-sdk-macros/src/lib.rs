@@ -346,16 +346,16 @@ fn process_impl_block(
     // from the method's reference arguments, so users cannot follow clippy's suggestion
     // to use slice types (e.g. `&[String]` instead of `&Vec<String>`) without breaking
     // deserialization.
-    for method in &item_impl_info.methods {
-        if method.attr_signature_info.args.iter().any(|arg| arg.reference.is_some()) {
-            let method_ident = &method.attr_signature_info.ident;
-            for item in &mut input.items {
-                if let ImplItem::Fn(m) = item {
-                    if m.sig.ident == *method_ident {
-                        m.attrs.push(parse_quote!(#[allow(clippy::ptr_arg)]));
-                        break;
-                    }
-                }
+    let methods_with_ref_args: std::collections::HashSet<_> = item_impl_info
+        .methods
+        .iter()
+        .filter(|m| m.attr_signature_info.args.iter().any(|arg| arg.reference.is_some()))
+        .map(|m| m.attr_signature_info.ident.clone())
+        .collect();
+    for item in &mut input.items {
+        if let ImplItem::Fn(m) = item {
+            if methods_with_ref_args.contains(&m.sig.ident) {
+                m.attrs.push(parse_quote!(#[allow(clippy::ptr_arg)]));
             }
         }
     }
