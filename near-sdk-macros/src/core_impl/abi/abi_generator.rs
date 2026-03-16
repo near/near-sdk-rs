@@ -52,16 +52,17 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
     }
 }
 
-/// Returns the subset of `attrs` that are `#[cfg(...)]` or `#[cfg_attr(...)]`.
+/// Returns the subset of `attrs` that are `#[cfg(...)]`.
 ///
 /// These attributes control conditional compilation and must be forwarded to
 /// ABI entries so that methods gated behind feature flags (or other cfg
 /// conditions) are only included in the ABI when the condition is satisfied.
+///
+/// Note: `#[cfg_attr(...)]` is intentionally NOT forwarded because it can
+/// expand into non-cfg proc macro attributes (e.g. `access_control_any`)
+/// that would fail when applied to a `functions.push(...)` statement.
 fn cfg_attributes(attrs: &[Attribute]) -> Vec<&Attribute> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr"))
-        .collect()
+    attrs.iter().filter(|attr| attr.path().is_ident("cfg")).collect()
 }
 
 impl ImplItemMethodInfo {
