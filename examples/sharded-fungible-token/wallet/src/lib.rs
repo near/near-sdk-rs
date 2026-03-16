@@ -1,4 +1,10 @@
-use impl_tools::autoimpl;
+#[cfg(feature = "governed")]
+mod governed;
+
+use core::ops::{Deref, DerefMut};
+
+#[cfg(feature = "governed")]
+use near_contract_standards::sharded_fungible_token::wallet::governed::ShardedFungibleTokenWalletGoverned;
 use near_contract_standards::sharded_fungible_token::{
     events::{SftEvent, SftReceive, SftSend},
     minter::ext_sft_burner,
@@ -24,8 +30,6 @@ use near_sdk::{
 /// The implementation is highly inspired by [Jetton wallet](https://github.com/ton-blockchain/jetton-contract/blob/3d24b419f2ce49c09abf6b8703998187fe358ec9/contracts/jetton-wallet.fc)
 /// contract reference implementation.
 #[near(contract_state(key = SftWalletData::STATE_KEY))]
-#[autoimpl(Deref using self.0)]
-#[autoimpl(DerefMut using self.0)]
 #[derive(PanicOnDefault)]
 #[repr(transparent)]
 struct SftWalletContract(SftWalletData);
@@ -67,7 +71,7 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
         #[cfg(feature = "governed")]
         if caller != *self.minter_id {
             require!(caller == *self.owner_id, Self::ERR_NOT_OWNER);
-            require!(!self.is_outgoing_transfers_locked(), Self::ERR_LOCKED);
+            require!(!self.sft_governed_is_send_locked(), Self::ERR_LOCKED);
         }
 
         require!(receiver_id != *self.owner_id, Self::ERR_SELF_TRANSFER);
@@ -146,7 +150,7 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
             Self::ERR_WRONG_WALLET,
         );
         #[cfg(feature = "governed")]
-        require!(!self.is_incoming_transfers_locked(), Self::ERR_LOCKED);
+        require!(!self.sft_governed_is_receive_locked(), Self::ERR_LOCKED);
 
         self.balance = self
             .balance
@@ -237,7 +241,7 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
         #[cfg(feature = "governed")]
         if caller != *self.minter_id {
             require!(caller == *self.owner_id, Self::ERR_NOT_OWNER);
-            require!(!self.is_outgoing_transfers_locked(), Self::ERR_LOCKED);
+            require!(!self.sft_governed_is_send_locked(), Self::ERR_LOCKED);
         }
 
         self.balance = self
@@ -392,40 +396,16 @@ impl SftWalletContract {
     }
 }
 
-#[cfg(feature = "governed")]
-const _: () = {
-    use near_contract_standards::sharded_fungible_token::wallet::ShardedFungibleTokenWalletGoverned;
+impl Deref for SftWalletContract {
+    type Target = SftWalletData;
 
-    #[near]
-    impl ShardedFungibleTokenWalletGoverned for SftWalletContract {
-        /// Set status (only allowed for minter).
-        ///
-        /// Note: MUST have exactly 1yN attached.
-        #[payable]
-        fn sft_wallet_set_status(&mut self, status: u8) {
-            require!(
-                env::attached_deposit() == NearToken::from_yoctonear(1),
-                Self::ERR_INSUFFICIENT_DEPOSIT
-            );
-            require!(env::predecessor_account_id() == *self.minter_id, Self::ERR_WRONG_WALLET);
-            self.status = status;
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
+}
 
-    impl SftWalletContract {
-        const ERR_LOCKED: &str = "wallet is locked";
-
-        const OUTGOING_TRANSFERS_LOCKED_FLAG: u8 = 1 << 0;
-        const INCOMING_TRANSFERS_LOCKED_FLAG: u8 = 1 << 1;
-
-        pub const fn is_outgoing_transfers_locked(&self) -> bool {
-            self.0.status & Self::OUTGOING_TRANSFERS_LOCKED_FLAG
-                == Self::OUTGOING_TRANSFERS_LOCKED_FLAG
-        }
-
-        pub const fn is_incoming_transfers_locked(&self) -> bool {
-            self.0.status & Self::INCOMING_TRANSFERS_LOCKED_FLAG
-                == Self::INCOMING_TRANSFERS_LOCKED_FLAG
-        }
+impl DerefMut for SftWalletContract {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
-};
+}

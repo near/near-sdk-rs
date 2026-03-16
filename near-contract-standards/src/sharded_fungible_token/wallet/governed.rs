@@ -12,13 +12,15 @@ use crate::sharded_fungible_token::wallet::ShardedFungibleTokenWallet;
 /// * lock incoming transfers
 #[ext_contract(ext_sft_wallet_governed)]
 pub trait ShardedFungibleTokenWalletGoverned: ShardedFungibleTokenWallet {
-    /// Lock outgoing transfers for this owner (only allowed for minter).
+    /// Set governed status for this owner (only allowed for minter):
+    /// * `send`: (un)lock outgoing transfers unless not given
+    /// * `receive`: (un)lock incoming transfers unless not given
     ///
     /// Note: MUST have exactly 1yN attached.
-    fn sft_wallet_lock_send(&mut self);
+    fn sft_governed_set_locked(&mut self, send: Option<bool>, receive: Option<bool>);
 
-    /// Lock incoming transfers for this owner (only allowed for minter).
-    ///
-    /// Note: MUST have exactly 1yN attached.
-    fn sft_wallet_lock_receive(&mut self);
+    /// Returns whether outgoing transfers are locked for this owner.
+    fn sft_governed_is_send_locked(&self) -> bool;
+    /// Returns whether incoming transfers are locked for this owner.
+    fn sft_governed_is_receive_locked(&self) -> bool;
 }
