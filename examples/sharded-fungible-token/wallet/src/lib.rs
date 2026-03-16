@@ -3,7 +3,7 @@ use near_contract_standards::sharded_fungible_token::{
     events::{SftEvent, SftReceive, SftSend},
     minter::ext_sft_burner,
     receiver::ext_sft_receiver,
-    wallet::{SftWalletData, ShardedFungibleTokenWallet, StateInitArgs, TransferNotification},
+    wallet::{SftWalletData, ShardedFungibleTokenWallet, StateInitAction, TransferNotification},
 };
 use near_sdk::{
     AccountId, AccountIdRef, NearToken, PanicOnDefault, Promise, PromiseOrValue, env,
@@ -32,11 +32,6 @@ struct SftWalletContract(SftWalletData);
 
 #[near]
 impl ShardedFungibleTokenWallet for SftWalletContract {
-    /// View method to get all data at once
-    fn sft_wallet_data(self) -> SftWalletData {
-        self.0
-    }
-
     /// Transfer given `amount` of tokens to `receiver_id`.
     ///
     /// Unless `no_init` is set, requires additional attached deposit to pay for
@@ -183,12 +178,12 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
             // receiver's wallet-contract
             .refund_to(env::refund_to_account_id());
 
-        if let Some(StateInitArgs { state_init, state_init_amount }) = notify.state_init {
+        if let Some(StateInitAction { state_init, deposit }) = notify.state_init {
             deposit_left = deposit_left
-                .checked_sub(state_init_amount)
+                .checked_sub(deposit)
                 .unwrap_or_else(|| env::panic_str(Self::ERR_INSUFFICIENT_DEPOSIT));
 
-            p = p.state_init(state_init, state_init_amount);
+            p = p.state_init(state_init, deposit);
         }
 
         require!(deposit_left >= NearToken::from_yoctonear(1), Self::ERR_INSUFFICIENT_DEPOSIT);
@@ -261,20 +256,41 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
         )
         .emit();
 
-        ext_sft_burner::ext(self.minter_id.clone())
-            // forward all attached deposit
-            .with_attached_deposit(env::attached_deposit())
-            // forward all remaining gas here
-            .with_unused_gas_weight(1)
-            .sft_on_burn(self.owner_id.clone(), amount, msg)
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
-                    // do not distribute remaining gas here
-                    .with_unused_gas_weight(0)
-                    .sft_resolve_transfer(self.minter_id.clone(), true, amount),
-            )
-            .into()
+        ext_sft_burner::ext_on(
+            Promise::new(self.minter_id.clone())
+                // refund attached deposit in case of failure to `refund_to`
+                // set by burner (or predecessor, otherwise) instead of
+                // burner's wallet-contract
+                .refund_to(env::refund_to_account_id()),
+        )
+        // forward all attached deposit
+        .with_attached_deposit(env::attached_deposit())
+        // forward all remaining gas here
+        .with_unused_gas_weight(1)
+        .sft_on_burn(self.owner_id.clone(), amount, msg)
+        .then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(SftWalletData::SFT_RESOLVE_GAS)
+                // do not distribute remaining gas here
+                .with_unused_gas_weight(0)
+                .sft_resolve_transfer(self.minter_id.clone(), true, amount),
+        )
+        .into()
+    }
+
+    /// [Minter](minter::ShardedFungibleTokenMinter)'s [`AccountId`]
+    fn sft_minter_id(&self) -> AccountId {
+        self.0.minter_id.clone()
+    }
+
+    /// Owner's [`AccountId`]
+    fn sft_owner_id(&self) -> AccountId {
+        self.0.owner_id.clone()
+    }
+
+    /// Balance of the owner
+    fn sft_balance(&self) -> U128 {
+        self.0.balance.into()
     }
 }
 
@@ -292,7 +308,6 @@ impl SftWalletContract {
         amount: U128,
     ) -> U128 {
         const MAX_RESULT_LENGTH: usize = "\"+340282366920938463463374607431768211455\"".len(); // u128::MAX
-        // TODO: promise_result_at_most
         let mut used_amount = env::promise_result_checked(
             0,
             MAX_RESULT_LENGTH, // prevent out of gas (too long result)

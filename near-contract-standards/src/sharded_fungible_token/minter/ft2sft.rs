@@ -1,14 +1,11 @@
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-};
+use std::collections::BTreeMap;
 
-use near_sdk::{borsh, ext_contract, near, AccountId, GlobalContractId, NearToken};
+use near_sdk::{AccountId, GlobalContractId, borsh, ext_contract, near};
 
 use crate::{
     fungible_token::receiver::FungibleTokenReceiver,
     sharded_fungible_token::{
-        minter::{SftMinterData, ShardedFungibleTokenBurner, ShardedFungibleTokenMinter},
+        minter::{ShardedFungibleTokenBurner, ShardedFungibleTokenMinter},
         wallet::TransferNotification,
     },
 };
@@ -24,14 +21,17 @@ pub trait Ft2Sft:
     fn ft_contract_id(self) -> AccountId;
 }
 
-#[near(serializers = [borsh, json])]
+#[near(serializers = [borsh])]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ft2SftData {
-    #[serde(flatten)]
-    pub data: SftMinterData,
-
     /// Contract implementing NEP-141 fungible token standard
     pub ft_contract_id: AccountId,
+
+    /// Code for deploying child wallet-contracts
+    pub sft_wallet_code: GlobalContractId,
+
+    /// Total amount of fungible tokens minted
+    pub total_supply: u128,
     // TODO: feature nep245 + token_id
 }
 
@@ -49,15 +49,11 @@ pub struct MintMessage {
 
     /// Optionally, notify `receiver_id` via [`.sft_on_receive()`](crate::sharded_fungible_token::receiver::ShardedFungibleTokenReceiver::sft_on_receive).
     /// Note that non-zero [`forward_deposit`](TransferNotification::forward_deposit)
-    /// and [`state_init.state_init_amount`](crate::sharded_fungible_token::wallet::StateInitArgs::state_init_amount)
+    /// and [`state_init.deposit`](crate::sharded_fungible_token::wallet::StateInitArgs::deposit)
     /// are not supported, since [`.ft_on_transfer()`](crate::fungible_token::receiver::FungibleTokenReceiver::ft_on_transfer)
     /// doesn't support attaching deposit according to NEP-141 spec.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notify: Option<TransferNotification>,
-
-    /// Where to refund excess attached deposit, or `sender_id` if not given.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refund_to: Option<AccountId>,
 }
 
 /// Message for [`.sft_on_burn()`](super::ShardedFungibleTokenBurner::sft_on_burn)
@@ -76,15 +72,6 @@ pub struct BurnMessage {
     /// with given `msg`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub msg: Option<String>,
-
-    /// If given and non-zero, make [`.storage_deposit()`](crate::storage_management::StorageManagement::storage_deposit)
-    /// for receiver before the actual transfer.
-    #[serde(default, skip_serializing_if = "NearToken::is_zero")]
-    pub storage_deposit: NearToken,
-
-    /// Where to refund excess attached deposit, or `sender_id` if not given.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refund_to: Option<AccountId>,
 }
 
 impl Ft2SftData {
@@ -95,7 +82,11 @@ impl Ft2SftData {
         ft_contract_id: impl Into<AccountId>,
         sft_wallet_code: impl Into<GlobalContractId>,
     ) -> Self {
-        Self { data: SftMinterData::init(sft_wallet_code), ft_contract_id: ft_contract_id.into() }
+        Self {
+            ft_contract_id: ft_contract_id.into(),
+            sft_wallet_code: sft_wallet_code.into(),
+            total_supply: 0,
+        }
     }
 
     #[inline]
@@ -109,19 +100,5 @@ impl Ft2SftData {
                 .unwrap_or_else(|_| unreachable!()),
         )]
         .into()
-    }
-}
-
-impl Deref for Ft2SftData {
-    type Target = SftMinterData;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-impl DerefMut for Ft2SftData {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
     }
 }

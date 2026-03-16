@@ -3,12 +3,11 @@ pub mod governed;
 use std::collections::BTreeMap;
 
 use near_sdk::{
-    borsh, ext_contract,
+    AccountId, Gas, NearToken, PromiseOrValue, borsh, ext_contract,
     json_types::U128,
     near,
-    serde_with::{serde_as, DisplayFromStr},
+    serde_with::{DisplayFromStr, serde_as},
     state_init::StateInit,
-    AccountId, Gas, NearToken, PromiseOrValue,
 };
 
 /// # Sharded Fungible Token wallet-contract
@@ -19,9 +18,6 @@ use near_sdk::{
 /// * [minter](super::minter::ShardedFungibleTokenMinter)'s [`AccountId`]
 #[ext_contract(ext_sft_wallet)]
 pub trait ShardedFungibleTokenWallet {
-    /// View method to get all data at once
-    fn sft_wallet_data(self) -> SftWalletData;
-
     /// Transfer given `amount` of tokens to `receiver_id`.
     ///
     /// Unless `no_init` is set, requires additional attached deposit to pay for
@@ -82,7 +78,16 @@ pub trait ShardedFungibleTokenWallet {
     ///
     /// Note: MUST be `#[payable]` and require at least 1yN attached
     fn sft_burn(&mut self, amount: U128, memo: Option<String>, msg: String)
-        -> PromiseOrValue<U128>;
+    -> PromiseOrValue<U128>;
+
+    /// [Minter](super::minter::ShardedFungibleTokenMinter)'s [`AccountId`]
+    fn sft_minter_id(&self) -> AccountId;
+
+    /// Owner's [`AccountId`]
+    fn sft_owner_id(&self) -> AccountId;
+
+    /// Balance of the owner
+    fn sft_balance(&self) -> U128;
 }
 
 /// Sharded Fungible Token wallet-contract data
@@ -131,8 +136,8 @@ pub struct TransferNotification {
     /// Optionally, deploy & init `receiver_id` contract if didn't exist.
     /// It enables for better composability when transferring to other
     /// not-yet-initialized owner contracts.
-    #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-    pub state_init: Option<StateInitArgs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_init: Option<StateInitAction>,
 
     /// Message to pass in [`receiver_id::sft_on_receive()`](super::receiver::ShardedFungibleTokenReceiver::sft_on_receive)
     pub msg: String,
@@ -145,37 +150,18 @@ impl TransferNotification {
     }
 
     #[inline]
-    pub fn state_init(mut self, state_init: StateInit, amount: NearToken) -> Self {
-        self.state_init = Some(StateInitArgs { state_init, state_init_amount: amount });
+    pub fn state_init(mut self, state_init: StateInit, deposit: NearToken) -> Self {
+        self.state_init = Some(StateInitAction { state_init, deposit });
         self
     }
 }
 
 #[near(serializers=[borsh, json])]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StateInitArgs {
+pub struct StateInitAction {
     #[serde(flatten)]
     pub state_init: StateInit,
 
     #[serde(default, skip_serializing_if = "NearToken::is_zero")]
-    pub state_init_amount: NearToken,
+    pub deposit: NearToken,
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use near_sdk::{ContractCode, StateInit};
-
-//     use super::*;
-
-//     #[test]
-//     fn storage_cost() {
-//         let long_account_id: AccountId = "a".repeat(64).parse().unwrap();
-
-//         let code = ContractCode::GlobalAccountId("wallet.sft.near".parse().unwrap());
-//         let data = SFTWalletData::init_state(&long_account_id, &long_account_id);
-
-//         let state_init = StateInit::code(code).data(data);
-
-//         println!("max storage cost: {}", state_init.storage_cost());
-//     }
-// }
