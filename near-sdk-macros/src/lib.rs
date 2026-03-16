@@ -341,6 +341,25 @@ fn process_impl_block(
         Err(err) => return Err(err.to_compile_error()),
     };
 
+    // Add #[allow(clippy::ptr_arg)] to methods with reference arguments to suppress
+    // unfixable clippy warnings. The macro generates Input structs with owned/sized types
+    // from the method's reference arguments, so users cannot follow clippy's suggestion
+    // to use slice types (e.g. `&[String]` instead of `&Vec<String>`) without breaking
+    // deserialization.
+    for method in &item_impl_info.methods {
+        if method.attr_signature_info.args.iter().any(|arg| arg.reference.is_some()) {
+            let method_ident = &method.attr_signature_info.ident;
+            for item in &mut input.items {
+                if let ImplItem::Fn(m) = item {
+                    if m.sig.ident == *method_ident {
+                        m.attrs.push(parse_quote!(#[allow(clippy::ptr_arg)]));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     #[cfg(not(feature = "__abi-generate"))]
     let abi_generated = quote! {};
     #[cfg(feature = "__abi-generate")]
