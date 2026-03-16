@@ -242,7 +242,15 @@ impl AttrSigInfo {
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
-                let ArgInfo { mutability, pat_mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
+                let ArgInfo {
+                    mutability,
+                    pat_mutability,
+                    ident,
+                    ty,
+                    bindgen_ty,
+                    serializer_ty,
+                    ..
+                } = arg;
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
