@@ -120,8 +120,9 @@ impl AttrSigInfo {
         let mut fields = TokenStream2::new();
         for arg in args {
             let ArgInfo { ty, ident, .. } = &arg;
+            let owned_ty = utils::unsized_to_owned(ty);
             fields.extend(quote! {
-                #ident: #ty,
+                #ident: #owned_ty,
             });
         }
         quote! {
@@ -242,13 +243,14 @@ impl AttrSigInfo {
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
+                let owned_ty = utils::unsized_to_owned(ty);
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
-                            let #mutability #ident: #ty = {
+                            let #mutability #ident: #owned_ty = {
                                 let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
                                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
                                 #invocation
@@ -299,7 +301,7 @@ impl AttrSigInfo {
                         };
                         quote! {
                             #acc
-                            let #mutability #ident: #ty = #result;
+                            let #mutability #ident: #owned_ty = #result;
                         }
                     }
                     _ => unreachable!(),
@@ -320,10 +322,11 @@ impl AttrSigInfo {
             })
             .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
+                let owned_ty = utils::unsized_to_owned(ty);
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
                     #acc
-                    let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
+                    let #mutability #ident: #owned_ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
                             let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
