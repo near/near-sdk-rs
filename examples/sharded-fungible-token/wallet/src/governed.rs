@@ -11,6 +11,7 @@ impl ShardedFungibleTokenWalletGoverned for SftWalletContract {
     /// * `receive`: (un)lock incoming transfers unless not given
     ///
     /// Note: MUST have exactly 1yN attached.
+    #[payable]
     fn sft_governed_set_locked(&mut self, send: Option<bool>, receive: Option<bool>) {
         require!(
             env::attached_deposit() == NearToken::from_yoctonear(1),

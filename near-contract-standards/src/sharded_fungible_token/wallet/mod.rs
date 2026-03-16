@@ -107,7 +107,6 @@ pub struct SftWalletData {
 
 impl SftWalletData {
     pub const STATE_KEY: &'static [u8] = b"";
-    // TODO: calculate exact values
     pub const SFT_RECEIVE_MIN_GAS: Gas = Gas::from_tgas(5);
     pub const SFT_RESOLVE_GAS: Gas = Gas::from_tgas(5);
 

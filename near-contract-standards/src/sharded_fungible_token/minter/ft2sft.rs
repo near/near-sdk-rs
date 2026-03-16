@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use near_sdk::{AccountId, GlobalContractId, borsh, ext_contract, near};
+use near_sdk::{AccountId, GlobalContractId, Promise, borsh, ext_contract, near};
 
 use crate::{
     fungible_token::receiver::FungibleTokenReceiver,
@@ -18,7 +18,19 @@ use crate::{
 pub trait Ft2Sft:
     ShardedFungibleTokenMinter + ShardedFungibleTokenBurner + FungibleTokenReceiver
 {
-    fn ft_contract_id(self) -> AccountId;
+    /// Fungible Token contract id
+    fn ft_contract_id(&self) -> AccountId;
+
+    /// If the sFT wallet-contract code has governance capabilities, then
+    /// FT contract can set locked status for specific owner.
+    /// 
+    /// NOTE: requires 1yN attached deposit.
+    fn sft_governed_set_locked_for(
+        &mut self,
+        owner_id: AccountId,
+        send: Option<bool>,
+        receive: Option<bool>,
+    ) -> Promise;
 }
 
 #[near(serializers = [borsh])]

@@ -1,4 +1,5 @@
-use impl_tools::autoimpl;
+use core::ops::{Deref, DerefMut};
+
 use near_contract_standards::{
     fungible_token::{core::ext_ft_core, receiver::FungibleTokenReceiver},
     sharded_fungible_token::{
@@ -7,7 +8,7 @@ use near_contract_standards::{
             ShardedFungibleTokenBurner, ShardedFungibleTokenMinter,
             ft2sft::{BurnMessage, Ft2Sft, Ft2SftData, MintMessage},
         },
-        wallet::{SftWalletData, ext_sft_wallet},
+        wallet::{SftWalletData, ext_sft_wallet, governed::ext_sft_wallet_governed},
     },
     storage_management::ext_storage_management,
 };
@@ -21,27 +22,58 @@ use near_sdk::{
 /// Reference implementation for
 /// [Fungible Tokens to Sharded Fungible Tokens adaptor](Ft2Sft)
 #[near(contract_state(key = Ft2SftData::STATE_KEY))]
-#[autoimpl(Deref using self.0)]
-#[autoimpl(DerefMut using self.0)]
 #[derive(PanicOnDefault)]
 #[repr(transparent)]
 struct Ft2SftContract(Ft2SftData);
 
 #[near]
 impl Ft2Sft for Ft2SftContract {
-    fn ft_contract_id(self) -> AccountId {
-        self.0.ft_contract_id
+    /// Fungible Token contract id
+    fn ft_contract_id(&self) -> AccountId {
+        self.ft_contract_id.clone()
+    }
+
+    /// If the sFT wallet-contract code has governance capabilities, then
+    /// FT contract can set locked status for specific owner.
+    ///
+    /// Note: MUST have exactly 1yN attached.
+    #[payable]
+    fn sft_governed_set_locked_for(
+        &mut self,
+        owner_id: AccountId,
+        send: Option<bool>,
+        receive: Option<bool>,
+    ) -> Promise {
+        require!(
+            env::attached_deposit() == NearToken::from_yoctonear(0),
+            Self::ERR_INSUFFICIENT_DEPOSIT,
+        );
+        require!(env::predecessor_account_id() == *self.ft_contract_id, Self::ERR_WRONG_TOKEN);
+
+        ext_sft_wallet_governed::ext_on({
+            let state_init = self.sft_wallet_init_for(owner_id);
+            Promise::new(state_init.derive_account_id())
+                // init owner's wallet-contract as it might be not
+                // initialized yet
+                .state_init(
+                    state_init,
+                    // sFT wallet-contract fits into ZBA limits, i.e. < 770 bytes
+                    NearToken::ZERO,
+                )
+        })
+        .with_attached_deposit(NearToken::from_yoctonear(1))
+        .sft_governed_set_locked(send, receive)
     }
 }
 
 #[near]
 impl ShardedFungibleTokenMinter for Ft2SftContract {
     fn sft_total_supply(&self) -> U128 {
-        self.0.total_supply.into()
+        self.total_supply.into()
     }
 
     fn sft_wallet_global_contract_id(&self) -> GlobalContractId {
-        self.0.sft_wallet_code.clone()
+        self.sft_wallet_code.clone()
     }
 
     fn sft_wallet_account_id_for(&self, owner_id: AccountId) -> AccountId {
@@ -58,19 +90,19 @@ impl FungibleTokenReceiver for Ft2SftContract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        require!(env::predecessor_account_id() == *self.ft_contract_id, ERR_WRONG_TOKEN);
-        require!(amount.0 > 0, ERR_ZERO_AMOUNT);
+        require!(env::predecessor_account_id() == *self.ft_contract_id, Self::ERR_WRONG_TOKEN);
+        require!(amount.0 > 0, Self::ERR_ZERO_AMOUNT);
 
         let mint: MintMessage = if msg.is_empty() {
             MintMessage::default()
         } else {
-            serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str(ERR_INVALID_JSON))
+            serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str(Self::ERR_INVALID_JSON))
         };
 
         self.total_supply = self
             .total_supply
             .checked_add(amount.0)
-            .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
+            .unwrap_or_else(|| env::panic_str(Self::ERR_SUPPLY_OVERFLOW));
 
         let receiver_id = mint.receiver_id.unwrap_or_else(|| sender_id.clone());
 
@@ -134,27 +166,27 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        require!(amount.0 > 0, ERR_ZERO_AMOUNT);
+        require!(amount.0 > 0, Self::ERR_ZERO_AMOUNT);
         let deposit_left = env::attached_deposit()
             // reserve 1yN for `ft_transfer()` / `ft_transfer_call()` later
             .checked_sub(NearToken::from_yoctonear(1))
-            .unwrap_or_else(|| env::panic_str(ERR_INSUFFICIENT_DEPOSIT));
+            .unwrap_or_else(|| env::panic_str(Self::ERR_INSUFFICIENT_DEPOSIT));
 
         require!(
             env::predecessor_account_id() == self.sft_wallet_account_id_for(&sender_id),
-            ERR_WRONG_WALLET,
+            Self::ERR_WRONG_WALLET,
         );
 
         let burn: BurnMessage = if msg.is_empty() {
             BurnMessage::default()
         } else {
-            serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str(ERR_INVALID_JSON))
+            serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str(Self::ERR_INVALID_JSON))
         };
 
         self.total_supply = self
             .total_supply
             .checked_sub(amount.0)
-            .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
+            .unwrap_or_else(|| env::panic_str(Self::ERR_SUPPLY_OVERFLOW));
 
         SftEvent::Burn(
             [SftBurn {
@@ -240,7 +272,7 @@ impl Ft2SftContract {
             self.total_supply = self
                 .total_supply
                 .checked_sub(burn_amount)
-                .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
+                .unwrap_or_else(|| env::panic_str(Self::ERR_SUPPLY_OVERFLOW));
 
             SftEvent::Burn(
                 [SftBurn {
@@ -292,7 +324,7 @@ impl Ft2SftContract {
             self.total_supply = self
                 .total_supply
                 .checked_add(mint_amount)
-                .unwrap_or_else(|| env::panic_str(ERR_SUPPLY_OVERFLOW));
+                .unwrap_or_else(|| env::panic_str(Self::ERR_SUPPLY_OVERFLOW));
 
             SftEvent::Mint(
                 [SftMint {
@@ -312,6 +344,13 @@ impl Ft2SftContract {
 }
 
 impl Ft2SftContract {
+    const ERR_WRONG_TOKEN: &str = "wrong token";
+    const ERR_WRONG_WALLET: &str = "wrong wallet";
+    const ERR_ZERO_AMOUNT: &str = "zero amount";
+    const ERR_SUPPLY_OVERFLOW: &str = "total_supply overflow";
+    const ERR_INVALID_JSON: &str = "invalid JSON";
+    const ERR_INSUFFICIENT_DEPOSIT: &str = "insufficient attached deposit";
+
     fn sft_wallet_init_for(&self, owner_id: impl Into<AccountId>) -> StateInit {
         StateInit::V1(StateInitV1 {
             code: self.sft_wallet_code.clone(),
@@ -325,9 +364,16 @@ impl Ft2SftContract {
     }
 }
 
-const ERR_WRONG_TOKEN: &str = "wrong token";
-const ERR_WRONG_WALLET: &str = "wrong wallet";
-const ERR_ZERO_AMOUNT: &str = "zero amount";
-const ERR_SUPPLY_OVERFLOW: &str = "total_supply overflow";
-const ERR_INVALID_JSON: &str = "invalid JSON";
-const ERR_INSUFFICIENT_DEPOSIT: &str = "insufficient attached deposit";
+impl Deref for Ft2SftContract {
+    type Target = Ft2SftData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Ft2SftContract {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
