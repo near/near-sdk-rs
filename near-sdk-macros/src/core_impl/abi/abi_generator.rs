@@ -13,7 +13,18 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         return TokenStream2::new();
     }
 
-    let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
+    let function_pushes: Vec<TokenStream2> = i
+        .methods
+        .iter()
+        .map(|m| {
+            let abi_struct = m.abi_struct();
+            let cfg_attrs = cfg_attributes(&m.attr_signature_info.non_bindgen_attrs);
+            quote! {
+                #(#cfg_attrs)*
+                functions.push(#abi_struct);
+            }
+        })
+        .collect();
     let first_function_name = &i.methods[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
@@ -24,7 +35,8 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
                 use ::std::string::String;
 
                 let mut schema_generator = ::near_sdk::schemars::r#gen::SchemaGenerator::default();
-                let functions = vec![#(#functions),*];
+                let mut functions = ::std::vec::Vec::new();
+                #(#function_pushes)*
                 let mut data = ::std::mem::ManuallyDrop::new(
                     ::near_sdk::serde_json::to_vec(&::near_sdk::__private::ChunkedAbiEntry::new(
                         functions,
@@ -38,6 +50,18 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
             }
         };
     }
+}
+
+/// Returns the subset of `attrs` that are `#[cfg(...)]` or `#[cfg_attr(...)]`.
+///
+/// These attributes control conditional compilation and must be forwarded to
+/// ABI entries so that methods gated behind feature flags (or other cfg
+/// conditions) are only included in the ABI when the condition is satisfied.
+fn cfg_attributes(attrs: &[Attribute]) -> Vec<&Attribute> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr"))
+        .collect()
 }
 
 impl ImplItemMethodInfo {
@@ -407,5 +431,24 @@ mod tests {
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
+    }
+
+    #[test]
+    fn test_generate_abi_cfg_method_gated() {
+        use syn::ItemImpl;
+        use crate::core_impl::ItemImplInfo;
+
+        let mut input: ItemImpl = parse_quote! {
+            impl Test {
+                pub fn always_present(&self) {}
+
+                #[cfg(feature = "some_feat")]
+                pub fn feature_gated(&self) {}
+            }
+        };
+        let item_impl_info = ItemImplInfo::new(&mut input).unwrap();
+        let actual = super::generate(&item_impl_info);
+
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }
