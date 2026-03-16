@@ -86,6 +86,8 @@ impl AttrSigInfo {
     /// `binding: SUBTYPE,` where `TYPE` is one of the following: `& SUBTYPE`, `&mut SUBTYPE`,
     /// and `SUBTYPE` is one of the following: `[T; n]`, path like
     /// `std::collections::HashMap<SUBTYPE, SUBTYPE>`, or tuple `(SUBTYPE0, SUBTYPE1, ...)`.
+    ///
+    /// Unsized subtypes are converted to owned equivalents: `[T]` → `Vec<T>`, `str` → `String`.
     /// # Example
     /// ```rust
     /// struct Input {
