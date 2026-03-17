@@ -1,6 +1,7 @@
 use crate::multi_token::metadata::MTTokenMetadata;
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
+    json_types::U128,
     serde::{Deserialize, Serialize},
     AccountId, NearSchema,
 };
@@ -42,7 +43,7 @@ pub struct Approval {
 /// - `amount`: The amount that was approved for transfer
 ///
 /// This format matches the NEP-245 spec for the `approvals` parameter in `mt_resolve_transfer`.
-pub type ClearedApproval = (AccountId, u64, u128);
+pub type ClearedApproval = (AccountId, u64, U128);
 
 /// The Token struct returned by view methods.
 ///
