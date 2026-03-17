@@ -83,7 +83,7 @@ insta = "1.39.0"
 [features]
 default = ["wee_alloc"]
 
-arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
+arbitrary = ["dep:arbitrary", "arbitrary/derive", "near-account-id/arbitrary"]
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 unstable = []
