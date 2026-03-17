@@ -32,10 +32,10 @@ use near_sdk::{
 #[near(contract_state(key = SftWalletData::STATE_KEY))]
 #[derive(PanicOnDefault)]
 #[repr(transparent)]
-struct SftWalletContract(SftWalletData);
+struct Contract(SftWalletData);
 
 #[near]
-impl ShardedFungibleTokenWallet for SftWalletContract {
+impl ShardedFungibleTokenWallet for Contract {
     /// Transfer given `amount` of tokens to `receiver_id`.
     ///
     /// Unless `no_init` is set, requires additional attached deposit to pay for
@@ -299,7 +299,7 @@ impl ShardedFungibleTokenWallet for SftWalletContract {
 }
 
 #[near]
-impl SftWalletContract {
+impl Contract {
     /// Gets result from `sft_receive()`, `sft_on_receive()`
     /// or `sft_on_burn()`, adjusts the balance accordingly
     /// and returns `used_amount`.
@@ -373,7 +373,7 @@ impl SftWalletContract {
     }
 }
 
-impl SftWalletContract {
+impl Contract {
     const ERR_NOT_OWNER: &str = "not owner";
     const ERR_SELF_TRANSFER: &str = "self-transfer";
     const ERR_WRONG_WALLET: &str = "wrong wallet";
@@ -396,7 +396,7 @@ impl SftWalletContract {
     }
 }
 
-impl Deref for SftWalletContract {
+impl Deref for Contract {
     type Target = SftWalletData;
 
     fn deref(&self) -> &Self::Target {
@@ -404,7 +404,7 @@ impl Deref for SftWalletContract {
     }
 }
 
-impl DerefMut for SftWalletContract {
+impl DerefMut for Contract {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

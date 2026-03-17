@@ -24,6 +24,8 @@ use near_sdk::{
 struct Contract(GovernedSftMinterData);
 
 #[near]
+/// Minter is governed by default, while it depends on child wallet-contract
+/// code if it implements governed functionality or not
 impl ShardedFungibleTokenMinterGoverned for Contract {
     #[payable]
     fn sft_minter_transfer_authority(&mut self, new_authority_id: AccountId) {

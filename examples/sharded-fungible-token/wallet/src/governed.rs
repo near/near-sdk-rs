@@ -2,10 +2,10 @@ use bitflags::bitflags;
 use near_contract_standards::sharded_fungible_token::wallet::governed::ShardedFungibleTokenWalletGoverned;
 use near_sdk::{NearToken, env, near, require};
 
-use crate::{SftWalletContract, SftWalletContractExt};
+use crate::{Contract, ContractExt};
 
 #[near]
-impl ShardedFungibleTokenWalletGoverned for SftWalletContract {
+impl ShardedFungibleTokenWalletGoverned for Contract {
     /// Set governed status for this owner (only allowed for minter):
     /// * `send`: (un)lock outgoing transfers unless not given
     /// * `receive`: (un)lock incoming transfers unless not given
@@ -48,7 +48,7 @@ bitflags! {
     }
 }
 
-impl SftWalletContract {
+impl Contract {
     pub const ERR_LOCKED: &str = "wallet is locked";
 
     const STATUS_KEY: &[u8] = b"s";
