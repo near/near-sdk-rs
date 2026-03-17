@@ -1,88 +1,27 @@
-use core::ops::{Deref, DerefMut};
-
+///! Reference implementation for Fungible Token to Sharded Fungible Token adaptor
+///! It mints sharded fungible tokens on [`.ft_on_transfer()`](FungibleTokenReceiver::ft_on_transfer)
+///! and burns them back in [`.sft_on_burn()`](ShardedFungibleTokenBurner::sft_on_burn).
 use near_contract_standards::{
     fungible_token::{core::ext_ft_core, receiver::FungibleTokenReceiver},
     sharded_fungible_token::{
         events::{SftBurn, SftEvent, SftMint},
         minter::{
-            ShardedFungibleTokenBurner, ShardedFungibleTokenMinter,
-            ft2sft::{BurnMessage, Ft2Sft, Ft2SftData, MintMessage},
+            ShardedFungibleTokenBurner,
+            ft2sft::{BurnMessage, MintMessage},
         },
-        wallet::{SftWalletData, ext_sft_wallet, governed::ext_sft_wallet_governed},
+        wallet::{SftWalletData, ext_sft_wallet},
     },
     storage_management::ext_storage_management,
 };
 use near_sdk::{
-    AccountId, Gas, GlobalContractId, NearToken, PanicOnDefault, Promise, PromiseOrValue, env,
-    json_types::U128,
-    near, require, serde_json,
-    state_init::{StateInit, StateInitV1},
+    AccountId, Gas, NearToken, Promise, PromiseOrValue, env, json_types::U128, near, require,
+    serde_json,
 };
 
-/// Reference implementation for
-/// [Fungible Tokens to Sharded Fungible Tokens adaptor](Ft2Sft)
-#[near(contract_state(key = Ft2SftData::STATE_KEY))]
-#[derive(PanicOnDefault)]
-#[repr(transparent)]
-struct Ft2SftContract(Ft2SftData);
+use crate::{Contract, ContractExt};
 
 #[near]
-impl Ft2Sft for Ft2SftContract {
-    /// Fungible Token contract id
-    fn ft_contract_id(&self) -> AccountId {
-        self.ft_contract_id.clone()
-    }
-
-    /// If the sFT wallet-contract code has governance capabilities, then
-    /// FT contract can set locked status for specific owner.
-    ///
-    /// Note: MUST have exactly 1yN attached.
-    #[payable]
-    fn sft_governed_set_locked_for(
-        &mut self,
-        owner_id: AccountId,
-        send: Option<bool>,
-        receive: Option<bool>,
-    ) -> Promise {
-        require!(
-            env::attached_deposit() == NearToken::from_yoctonear(0),
-            Self::ERR_INSUFFICIENT_DEPOSIT,
-        );
-        require!(env::predecessor_account_id() == *self.ft_contract_id, Self::ERR_WRONG_TOKEN);
-
-        ext_sft_wallet_governed::ext_on({
-            let state_init = self.sft_wallet_init_for(owner_id);
-            Promise::new(state_init.derive_account_id())
-                // init owner's wallet-contract as it might be not
-                // initialized yet
-                .state_init(
-                    state_init,
-                    // sFT wallet-contract fits into ZBA limits, i.e. < 770 bytes
-                    NearToken::ZERO,
-                )
-        })
-        .with_attached_deposit(NearToken::from_yoctonear(1))
-        .sft_governed_set_locked(send, receive)
-    }
-}
-
-#[near]
-impl ShardedFungibleTokenMinter for Ft2SftContract {
-    fn sft_total_supply(&self) -> U128 {
-        self.total_supply.into()
-    }
-
-    fn sft_wallet_global_contract_id(&self) -> GlobalContractId {
-        self.sft_wallet_code.clone()
-    }
-
-    fn sft_wallet_account_id_for(&self, owner_id: AccountId) -> AccountId {
-        self.sft_wallet_account_id_for(&owner_id)
-    }
-}
-
-#[near]
-impl FungibleTokenReceiver for Ft2SftContract {
+impl FungibleTokenReceiver for Contract {
     /// Mint (i.e. "wrap") received fungible tokens into sharded ones.
     fn ft_on_transfer(
         &mut self,
@@ -90,7 +29,7 @@ impl FungibleTokenReceiver for Ft2SftContract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        require!(env::predecessor_account_id() == *self.ft_contract_id, Self::ERR_WRONG_TOKEN);
+        require!(env::predecessor_account_id() == *self.authority_id, Self::ERR_WRONG_TOKEN);
         require!(amount.0 > 0, Self::ERR_ZERO_AMOUNT);
 
         let mint: MintMessage = if msg.is_empty() {
@@ -157,7 +96,7 @@ impl FungibleTokenReceiver for Ft2SftContract {
 }
 
 #[near]
-impl ShardedFungibleTokenBurner for Ft2SftContract {
+impl ShardedFungibleTokenBurner for Contract {
     /// Burn sharded fungible tokens and unwrap into non-sharded ones.
     #[payable]
     fn sft_on_burn(
@@ -201,7 +140,7 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
 
         let receiver_id = burn.receiver_id.unwrap_or_else(|| sender_id.clone());
 
-        let mut p = Promise::new(self.ft_contract_id.clone())
+        let mut p = Promise::new(self.authority_id.clone())
             // refund storage_deposit (if any) + 1yN in case of failure to
             // `refund_to` set by burner (or predecessor, otherwise) instead of
             // current ft2sft
@@ -247,7 +186,7 @@ impl ShardedFungibleTokenBurner for Ft2SftContract {
 }
 
 #[near]
-impl Ft2SftContract {
+impl Contract {
     const STORAGE_DEPOSIT_GAS: Gas = Gas::from_tgas(10);
     const FT_TRANSFER_MIN_GAS: Gas = Gas::from_tgas(10);
     const FT_TRANSFER_CALL_MIN_GAS: Gas = Gas::from_tgas(30);
@@ -343,37 +282,10 @@ impl Ft2SftContract {
     }
 }
 
-impl Ft2SftContract {
+impl Contract {
     const ERR_WRONG_TOKEN: &str = "wrong token";
     const ERR_WRONG_WALLET: &str = "wrong wallet";
     const ERR_ZERO_AMOUNT: &str = "zero amount";
     const ERR_SUPPLY_OVERFLOW: &str = "total_supply overflow";
     const ERR_INVALID_JSON: &str = "invalid JSON";
-    const ERR_INSUFFICIENT_DEPOSIT: &str = "insufficient attached deposit";
-
-    fn sft_wallet_init_for(&self, owner_id: impl Into<AccountId>) -> StateInit {
-        StateInit::V1(StateInitV1 {
-            code: self.sft_wallet_code.clone(),
-            data: SftWalletData::init_state(owner_id, env::current_account_id()),
-            // TODO: governed ft2sft proxy?
-        })
-    }
-
-    fn sft_wallet_account_id_for(&self, owner_id: impl Into<AccountId>) -> AccountId {
-        self.sft_wallet_init_for(owner_id).derive_account_id()
-    }
-}
-
-impl Deref for Ft2SftContract {
-    type Target = Ft2SftData;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Ft2SftContract {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }

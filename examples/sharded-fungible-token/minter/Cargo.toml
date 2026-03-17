@@ -1,5 +1,5 @@
 [package]
-name = "ft2sft-minter"
+name = "sft-minter"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
@@ -11,6 +11,13 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk.workspace = true
 near-contract-standards.workspace = true
+
+[features]
+# Fungible Tokens (NEP-141) to Sharded Fungible Token adaptor:
+# sFT minter that wraps FTs in sFTs
+ft2sft = []
+
+# TODO: feature for nep245 `<CONTRACT_ID:TOKEN_ID>`?
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }

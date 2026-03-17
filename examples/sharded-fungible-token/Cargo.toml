@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["wallet", "ft2sft"]
+members = ["minter", "wallet"]
 
 [workspace.package]
 edition = "2024"
@@ -10,8 +10,6 @@ repository = "https://github.com/near/near-sdk-rs"
 [workspace.dependencies]
 near-sdk = { path = "../../near-sdk" }
 near-contract-standards = { path = "../../near-contract-standards" }
-
-impl-tools = "0.11"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
