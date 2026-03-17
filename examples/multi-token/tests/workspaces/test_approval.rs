@@ -44,6 +44,7 @@ async fn test_approve(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(approval_amount)],
             Option::<Vec<u64>>::None,
@@ -83,6 +84,7 @@ async fn test_approve_insufficient_amount(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(200)], // More than approved
             Option::<Vec<u64>>::None,
@@ -122,6 +124,7 @@ async fn test_batch_approve(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD, TOKEN_ID_POTION],
+            contract.id(),
             alice.id(),
             vec![U128(100), U128(500)],
             Option::<Vec<u64>>::None,
@@ -171,6 +174,7 @@ async fn test_revoke(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(1)],
             Option::<Vec<u64>>::None,
@@ -234,6 +238,7 @@ async fn test_revoke_all(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(1)],
             Option::<Vec<u64>>::None,
@@ -247,6 +252,7 @@ async fn test_revoke_all(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             bob.id(),
             vec![U128(1)],
             Option::<Vec<u64>>::None,
@@ -432,6 +438,7 @@ async fn test_partial_approval_consumption(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(120)],
             Option::<Vec<u64>>::None,
@@ -446,6 +453,7 @@ async fn test_partial_approval_consumption(
         .call("mt_is_approved")
         .args_json((
             vec![TOKEN_ID_SWORD],
+            contract.id(),
             alice.id(),
             vec![U128(121)],
             Option::<Vec<u64>>::None,

@@ -41,7 +41,13 @@ pub async fn helper_mint(
 ) -> anyhow::Result<()> {
     let res = caller
         .call(mt_contract.id(), "mt_mint")
-        .args_json((token_id, owner_id, near_sdk::json_types::U128(amount), metadata))
+        .args_json((
+            token_id,
+            owner_id,
+            near_sdk::json_types::U128(amount),
+            metadata,
+            None::<near_contract_standards::multi_token::metadata::MTBaseTokenMetadata>,
+        ))
         .max_gas()
         .deposit(MINT_STORAGE_DEPOSIT)
         .transact()
@@ -108,6 +114,7 @@ pub async fn initialized_contracts(
             mt_contract.id(),
             near_sdk::json_types::U128(INITIAL_MINT_AMOUNT),
             Some(metadata),
+            None::<near_contract_standards::multi_token::metadata::MTBaseTokenMetadata>,
         ))
         .max_gas()
         .deposit(MINT_STORAGE_DEPOSIT)
@@ -124,6 +131,7 @@ pub async fn initialized_contracts(
             mt_contract.id(),
             near_sdk::json_types::U128(INITIAL_MINT_AMOUNT * 10),
             Some(metadata),
+            None::<near_contract_standards::multi_token::metadata::MTBaseTokenMetadata>,
         ))
         .max_gas()
         .deposit(MINT_STORAGE_DEPOSIT)

@@ -12,22 +12,30 @@ use near_sdk::{
     collections::{LookupMap, TreeMap, UnorderedSet},
     env,
     json_types::U128,
-    log, near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
+    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
 use crate::multi_token::{
     core::{receiver::ext_mt_receiver, resolver::ext_mt_resolver, MultiTokenCore},
     events::{MtBurn, MtMint, MtTransfer},
-    metadata::MTTokenMetadata,
+    metadata::{MTBaseTokenMetadata, MTTokenMetadata},
     token::{Approval, ClearedApproval, Token, TokenId},
     utils::refund_deposit_to_account,
 };
 
 use super::resolver::MultiTokenResolver;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
+
+/// Calculate gas needed for resolve_transfer based on number of tokens in the batch.
+/// Uses base cost + per-token cost to account for the work done per token during resolution.
+fn gas_for_resolve_transfer(token_count: usize) -> Gas {
+    const BASE: Gas = Gas::from_tgas(8);
+    const PER_TOKEN: Gas = Gas::from_tgas(2);
+    let count = token_count as u64;
+    Gas::from_gas(BASE.as_gas().saturating_add(PER_TOKEN.as_gas().saturating_mul(count)))
+}
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 const ERR_BALANCE_OVERFLOW: &str = "Balance overflow";
@@ -59,9 +67,10 @@ pub struct MultiToken {
     /// The storage size in bytes for each new token
     pub extra_storage_in_bytes_per_token: StorageUsage,
 
-    /// TokenId -> creator/owner for NFT-like tokens (where there's a single owner)
-    /// For fungible-style tokens, this stores the original creator
-    pub owner_by_id: TreeMap<TokenId, AccountId>,
+    /// TokenId -> creator of the token type (the account that first minted it).
+    /// This is used internally for permission checks but is NOT returned as `owner_id`
+    /// in view methods, since multi-tokens (especially fungible ones) don't have a single owner.
+    pub creator_by_id: TreeMap<TokenId, AccountId>,
 
     /// TokenId -> total supply
     pub total_supply: LookupMap<TokenId, u128>,
@@ -73,13 +82,15 @@ pub struct MultiToken {
     /// Required by metadata extension: TokenId -> TokenMetadata
     pub token_metadata_by_id: Option<LookupMap<TokenId, MTTokenMetadata>>,
 
+    /// Required by metadata extension: TokenId -> MTBaseTokenMetadata
+    pub base_metadata_by_id: Option<LookupMap<TokenId, MTBaseTokenMetadata>>,
+
     /// Required by enumeration extension: AccountId -> set of TokenIds owned
     pub tokens_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
 
-    /// Required by approval extension: TokenId -> (OwnerAccountId -> (ApprovedAccountId -> Approval))
-    #[allow(clippy::type_complexity)]
-    pub approvals_by_id:
-        Option<LookupMap<TokenId, HashMap<AccountId, HashMap<AccountId, Approval>>>>,
+    /// Required by approval extension: (TokenId, OwnerAccountId) -> (ApprovedAccountId -> Approval)
+    /// Uses a composite string key "token_id:owner_id" for efficient per-owner lookups.
+    pub approvals_by_id: Option<LookupMap<String, HashMap<AccountId, Approval>>>,
 
     /// Next approval ID for each token
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
@@ -90,21 +101,25 @@ impl MultiToken {
     ///
     /// # Arguments
     ///
-    /// * `owner_by_id_prefix` - Storage prefix for the owner_by_id collection
+    /// * `creator_by_id_prefix` - Storage prefix for the creator_by_id collection
     /// * `owner_id` - Account ID of the contract owner (can mint tokens)
-    /// * `token_metadata_prefix` - Optional storage prefix for metadata extension
+    /// * `token_metadata_prefix` - Optional storage prefix for token metadata extension
+    /// * `base_metadata_prefix` - Optional storage prefix for base metadata extension
     /// * `enumeration_prefix` - Optional storage prefix for enumeration extension
     /// * `approval_prefix` - Optional storage prefix for approval extension
-    pub fn new<O, T, E, A>(
-        owner_by_id_prefix: O,
+    #[allow(clippy::too_many_arguments)]
+    pub fn new<O, T, B, E, A>(
+        creator_by_id_prefix: O,
         owner_id: AccountId,
         token_metadata_prefix: Option<T>,
+        base_metadata_prefix: Option<B>,
         enumeration_prefix: Option<E>,
         approval_prefix: Option<A>,
     ) -> Self
     where
         O: IntoStorageKey,
         T: IntoStorageKey,
+        B: IntoStorageKey,
         E: IntoStorageKey,
         A: IntoStorageKey,
     {
@@ -118,15 +133,16 @@ impl MultiToken {
             (None, None)
         };
 
-        let owner_prefix: Vec<u8> = owner_by_id_prefix.into_storage_key();
+        let creator_prefix: Vec<u8> = creator_by_id_prefix.into_storage_key();
 
         let mut this = Self {
             owner_id,
             extra_storage_in_bytes_per_token: 0,
-            owner_by_id: TreeMap::new(owner_prefix.clone()),
-            total_supply: LookupMap::new([owner_prefix.clone(), b"s".to_vec()].concat()),
-            balances: LookupMap::new([owner_prefix, b"b".to_vec()].concat()),
+            creator_by_id: TreeMap::new(creator_prefix.clone()),
+            total_supply: LookupMap::new([creator_prefix.clone(), b"s".to_vec()].concat()),
+            balances: LookupMap::new([creator_prefix, b"b".to_vec()].concat()),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
+            base_metadata_by_id: base_metadata_prefix.map(LookupMap::new),
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             approvals_by_id,
             next_approval_id_by_id,
@@ -142,7 +158,7 @@ impl MultiToken {
         let tmp_account_id: AccountId = "a".repeat(64).parse().unwrap();
 
         // Add dummy data to measure storage
-        self.owner_by_id.insert(&tmp_token_id, &tmp_account_id);
+        self.creator_by_id.insert(&tmp_token_id, &tmp_account_id);
         self.total_supply.insert(&tmp_token_id, &0u128);
 
         // Create nested balance map
@@ -156,6 +172,10 @@ impl MultiToken {
             token_metadata_by_id.insert(&tmp_token_id, &MTTokenMetadata::default());
         }
 
+        if let Some(base_metadata_by_id) = &mut self.base_metadata_by_id {
+            base_metadata_by_id.insert(&tmp_token_id, &MTBaseTokenMetadata::default());
+        }
+
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             let mut set = UnorderedSet::new(StorageKey::TokensPerOwner {
                 account_hash: env::sha256(tmp_account_id.as_bytes()),
@@ -165,11 +185,11 @@ impl MultiToken {
         }
 
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
+            let approval_key =
+                format!("{}:{}", tmp_token_id, tmp_account_id);
             let mut approvals = HashMap::new();
-            let mut inner = HashMap::new();
-            inner.insert(tmp_account_id.clone(), Approval { approval_id: 0, amount: 0 });
-            approvals.insert(tmp_account_id.clone(), inner);
-            approvals_by_id.insert(&tmp_token_id, &approvals);
+            approvals.insert(tmp_account_id.clone(), Approval { approval_id: 0, amount: 0 });
+            approvals_by_id.insert(&approval_key, &approvals);
         }
 
         if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
@@ -183,18 +203,23 @@ impl MultiToken {
             next_approval_id_by_id.remove(&tmp_token_id);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            approvals_by_id.remove(&tmp_token_id);
+            let approval_key =
+                format!("{}:{}", tmp_token_id, tmp_account_id);
+            approvals_by_id.remove(&approval_key);
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             let mut set = tokens_per_owner.remove(&tmp_account_id).unwrap();
             set.remove(&tmp_token_id);
+        }
+        if let Some(base_metadata_by_id) = &mut self.base_metadata_by_id {
+            base_metadata_by_id.remove(&tmp_token_id);
         }
         if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
         }
         self.balances.remove(&tmp_token_id);
         self.total_supply.remove(&tmp_token_id);
-        self.owner_by_id.remove(&tmp_token_id);
+        self.creator_by_id.remove(&tmp_token_id);
     }
 
     /// Check if a token exists.
@@ -252,17 +277,25 @@ impl MultiToken {
     /// * `token_id` - Unique identifier for the token type
     /// * `token_owner_id` - Account to receive the minted tokens
     /// * `amount` - Number of tokens to mint
-    /// * `token_metadata` - Optional metadata for the token
+    /// * `token_metadata` - Optional token-specific metadata (only stored for new token types)
+    /// * `base_metadata` - Optional base metadata (only stored for new token types if the
+    ///   base metadata extension is enabled)
+    /// * `refund_to` - If `Some(account)`, checks `env::attached_deposit()` covers storage
+    ///   and refunds the excess to `account`. If `None`, skips deposit checking entirely
+    ///   (useful when the contract itself pays for minting).
     ///
     /// # Returns
     ///
     /// The Token struct representing the minted token.
+    #[allow(clippy::too_many_arguments)]
     pub fn internal_mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         amount: u128,
         token_metadata: Option<MTTokenMetadata>,
+        base_metadata: Option<MTBaseTokenMetadata>,
+        refund_to: Option<AccountId>,
     ) -> Token {
         let initial_storage_usage = env::storage_usage();
 
@@ -270,14 +303,21 @@ impl MultiToken {
         let is_new_token = !self.token_exists(&token_id);
 
         if is_new_token {
-            // New token type - set initial owner and supply
-            self.owner_by_id.insert(&token_id, &token_owner_id);
+            // New token type - record creator and supply
+            self.creator_by_id.insert(&token_id, &token_owner_id);
             self.total_supply.insert(&token_id, &amount);
 
-            // Store metadata if provided and extension is enabled
+            // Store token metadata if provided and extension is enabled
             if let Some(metadata) = &token_metadata {
                 if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
                     token_metadata_by_id.insert(&token_id, metadata);
+                }
+            }
+
+            // Store base metadata if provided and extension is enabled
+            if let Some(base_meta) = &base_metadata {
+                if let Some(base_metadata_by_id) = &mut self.base_metadata_by_id {
+                    base_metadata_by_id.insert(&token_id, base_meta);
                 }
             }
         } else {
@@ -307,9 +347,11 @@ impl MultiToken {
             tokens_per_owner.insert(&token_owner_id, &token_set);
         }
 
-        // Refund unused deposit
-        let storage_used = env::storage_usage() - initial_storage_usage;
-        refund_deposit_to_account(storage_used, env::predecessor_account_id());
+        // Handle deposit refund if requested
+        if let Some(refund_account) = refund_to {
+            let storage_used = env::storage_usage() - initial_storage_usage;
+            refund_deposit_to_account(storage_used, refund_account);
+        }
 
         // Emit mint event
         let token_ids: Vec<&str> = vec![token_id.as_str()];
@@ -322,10 +364,10 @@ impl MultiToken {
         }
         .emit();
 
-        // Build and return Token
+        // Build and return Token (owner_id is None since multi-tokens don't have a single owner)
         Token {
             token_id,
-            owner_id: Some(token_owner_id),
+            owner_id: None,
             metadata: token_metadata,
             approved_account_ids: None,
         }
@@ -414,42 +456,42 @@ impl MultiToken {
         if &predecessor_id != sender_id {
             // Check if predecessor is approved
             if let Some(approvals_by_id) = &mut self.approvals_by_id {
-                if let Some(mut token_approvals) = approvals_by_id.get(token_id) {
-                    if let Some(owner_approvals) = token_approvals.get_mut(sender_id) {
-                        if let Some(approval) = owner_approvals.get(&predecessor_id) {
-                            // Verify approval_id if provided
-                            if let Some(expected_approval_id) = approval_id {
-                                require!(
-                                    approval.approval_id == expected_approval_id,
-                                    "Approval ID mismatch"
-                                );
-                            }
-                            require!(approval.amount >= amount, "Approved amount insufficient");
+                let approval_key = format!("{}:{}", token_id, sender_id);
+                if let Some(mut owner_approvals) = approvals_by_id.get(&approval_key) {
+                    if let Some(approval) = owner_approvals.get(&predecessor_id) {
+                        // Verify approval_id if provided
+                        if let Some(expected_approval_id) = approval_id {
+                            require!(
+                                approval.approval_id == expected_approval_id,
+                                "Approval ID mismatch"
+                            );
+                        }
+                        require!(approval.amount >= amount, "Approved amount insufficient");
 
-                            // Store the cleared approval info BEFORE modifying
-                            // Only store the specific approval that was consumed
-                            if approval.amount == amount {
-                                // Full approval consumed - store it for potential restoration
-                                cleared_approval = Some((
-                                    predecessor_id.clone(),
-                                    approval.approval_id,
-                                    approval.amount,
-                                ));
-                                owner_approvals.remove(&predecessor_id);
-                            } else {
-                                // Partial approval - no need to store for restoration
-                                // since we're just reducing the amount
-                                owner_approvals.insert(
-                                    predecessor_id.clone(),
-                                    Approval {
-                                        approval_id: approval.approval_id,
-                                        amount: approval.amount - amount,
-                                    },
-                                );
-                            }
-                            approvals_by_id.insert(token_id, &token_approvals);
+                        // Store the cleared approval info BEFORE modifying
+                        // Only store the specific approval that was consumed
+                        if approval.amount == amount {
+                            // Full approval consumed - store it for potential restoration
+                            cleared_approval = Some((
+                                predecessor_id.clone(),
+                                approval.approval_id,
+                                U128(approval.amount),
+                            ));
+                            owner_approvals.remove(&predecessor_id);
                         } else {
-                            env::panic_str("Not approved");
+                            // Partial approval - reduce the amount
+                            owner_approvals.insert(
+                                predecessor_id.clone(),
+                                Approval {
+                                    approval_id: approval.approval_id,
+                                    amount: approval.amount - amount,
+                                },
+                            );
+                        }
+                        if owner_approvals.is_empty() {
+                            approvals_by_id.remove(&approval_key);
+                        } else {
+                            approvals_by_id.insert(&approval_key, &owner_approvals);
                         }
                     } else {
                         env::panic_str("Not approved");
@@ -555,11 +597,12 @@ impl MultiToken {
             old_approval.map(|approval| vec![Some(vec![approval])]);
 
         // Call receiver
+        let resolve_gas = gas_for_resolve_transfer(1);
         ext_mt_receiver::ext(receiver_id.clone())
             .with_static_gas(
                 env::prepaid_gas()
                     .saturating_sub(GAS_FOR_MT_TRANSFER_CALL)
-                    .saturating_sub(GAS_FOR_RESOLVE_TRANSFER),
+                    .saturating_sub(resolve_gas),
             )
             .mt_on_transfer(
                 sender_id.clone(),
@@ -570,7 +613,7 @@ impl MultiToken {
             )
             .then(
                 ext_mt_resolver::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .with_static_gas(resolve_gas)
                     .mt_resolve_transfer(
                         previous_owner_ids,
                         receiver_id,
@@ -722,11 +765,12 @@ impl MultiTokenCore for MultiToken {
         };
 
         // Call receiver with all tokens
+        let resolve_gas = gas_for_resolve_transfer(token_ids.len());
         ext_mt_receiver::ext(receiver_id.clone())
             .with_static_gas(
                 env::prepaid_gas()
                     .saturating_sub(GAS_FOR_MT_TRANSFER_CALL)
-                    .saturating_sub(GAS_FOR_RESOLVE_TRANSFER),
+                    .saturating_sub(resolve_gas),
             )
             .mt_on_transfer(
                 predecessor_id,
@@ -737,7 +781,7 @@ impl MultiTokenCore for MultiToken {
             )
             .then(
                 ext_mt_resolver::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .with_static_gas(resolve_gas)
                     .mt_resolve_transfer(
                         previous_owner_ids,
                         receiver_id,
@@ -757,10 +801,11 @@ impl MultiTokenCore for MultiToken {
                     return None;
                 }
 
-                let owner_id = self.owner_by_id.get(&token_id);
                 let metadata = self.token_metadata_by_id.as_ref().and_then(|m| m.get(&token_id));
 
-                Some(Token { token_id, owner_id, metadata, approved_account_ids: None })
+                // owner_id is None for multi-tokens: fungible tokens don't have a single owner,
+                // and the creator is tracked internally via creator_by_id.
+                Some(Token { token_id, owner_id: None, metadata, approved_account_ids: None })
             })
             .collect()
     }
@@ -809,6 +854,8 @@ impl MultiTokenResolver for MultiToken {
         };
 
         let mut used_amounts = Vec::with_capacity(amounts.len());
+        // Collect refunded (previous_owner_id, token_id, amount) for event emission
+        let mut refunded: Vec<(&AccountId, &str, U128)> = Vec::new();
 
         for (i, ((token_id, original_amount), refund_amount)) in
             token_ids.iter().zip(amounts.iter()).zip(refund_amounts.iter()).enumerate()
@@ -870,26 +917,47 @@ impl MultiTokenResolver for MultiToken {
             if let Some(ref all_approvals) = approvals {
                 if let Some(Some(token_approvals)) = all_approvals.get(i) {
                     if let Some(approvals_by_id) = &mut self.approvals_by_id {
-                        let mut token_approval_map =
-                            approvals_by_id.get(token_id).unwrap_or_default();
+                        let approval_key = format!("{}:{}", token_id, previous_owner_id);
                         let mut owner_approvals =
-                            token_approval_map.get(previous_owner_id).cloned().unwrap_or_default();
+                            approvals_by_id.get(&approval_key).unwrap_or_default();
 
                         for (account_id, approval_id, amount) in token_approvals {
                             owner_approvals.insert(
                                 account_id.clone(),
-                                Approval { approval_id: *approval_id, amount: *amount },
+                                Approval { approval_id: *approval_id, amount: amount.0 },
                             );
                         }
 
-                        token_approval_map.insert(previous_owner_id.clone(), owner_approvals);
-                        approvals_by_id.insert(token_id, &token_approval_map);
+                        approvals_by_id.insert(&approval_key, &owner_approvals);
                     }
                 }
             }
 
-            // Emit refund transfer event
-            log!("Refund {} of token {} to {}", actual_refund, token_id, previous_owner_id);
+            refunded.push((previous_owner_id, token_id.as_str(), U128(actual_refund)));
+        }
+
+        // Emit proper MtTransfer refund events, grouped by previous_owner_id
+        // since different tokens in a batch may have different previous owners.
+        if !refunded.is_empty() {
+            // Group refunds by previous_owner_id
+            let mut grouped: HashMap<&AccountId, (Vec<&str>, Vec<U128>)> = HashMap::new();
+            for (prev_owner, token_id, amount) in &refunded {
+                let entry = grouped.entry(prev_owner).or_insert_with(|| (Vec::new(), Vec::new()));
+                entry.0.push(token_id);
+                entry.1.push(*amount);
+            }
+
+            for (previous_owner_id, (ref_token_ids, ref_amounts)) in &grouped {
+                MtTransfer {
+                    old_owner_id: receiver_id.as_ref(),
+                    new_owner_id: previous_owner_id.as_ref(),
+                    token_ids: ref_token_ids,
+                    amounts: ref_amounts,
+                    authorized_id: None,
+                    memo: Some("refund"),
+                }
+                .emit();
+            }
         }
 
         used_amounts
@@ -901,14 +969,14 @@ impl crate::multi_token::enumeration::MultiTokenEnumeration for MultiToken {
         let start_index: u128 = from_index.map(|v| v.0).unwrap_or(0);
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
 
-        self.owner_by_id
+        self.creator_by_id
             .iter()
             .skip(start_index as usize)
             .take(limit)
-            .map(|(token_id, owner_id)| {
+            .map(|(token_id, _creator_id)| {
                 let metadata = self.token_metadata_by_id.as_ref().and_then(|m| m.get(&token_id));
 
-                Token { token_id, owner_id: Some(owner_id), metadata, approved_account_ids: None }
+                Token { token_id, owner_id: None, metadata, approved_account_ids: None }
             })
             .collect()
     }
@@ -939,10 +1007,9 @@ impl crate::multi_token::enumeration::MultiTokenEnumeration for MultiToken {
             .skip(start_index as usize)
             .take(limit)
             .map(|token_id| {
-                let owner_id = self.owner_by_id.get(&token_id);
                 let metadata = self.token_metadata_by_id.as_ref().and_then(|m| m.get(&token_id));
 
-                Token { token_id, owner_id, metadata, approved_account_ids: None }
+                Token { token_id, owner_id: None, metadata, approved_account_ids: None }
             })
             .collect()
     }

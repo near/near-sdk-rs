@@ -20,6 +20,7 @@
 //!     MultiToken,
 //!     Metadata,
 //!     TokenMetadata,
+//!     BaseMetadata,
 //!     Enumeration,
 //!     Approval,
 //! }
@@ -40,6 +41,7 @@
 //!                 StorageKey::MultiToken,
 //!                 owner_id,
 //!                 Some(StorageKey::TokenMetadata),
+//!                 Some(StorageKey::BaseMetadata),
 //!                 Some(StorageKey::Enumeration),
 //!                 Some(StorageKey::Approval),
 //!             ),
@@ -105,6 +107,3 @@ pub use self::utils::*;
 pub use self::events::MtBurn;
 pub use self::events::MtMint;
 pub use self::events::MtTransfer;
-pub use self::events::REFUND_MEMO;
-pub use self::events::REFUND_MEMO_EXTRA_BYTES;
-pub use self::events::TOTAL_LOG_LENGTH_LIMIT;

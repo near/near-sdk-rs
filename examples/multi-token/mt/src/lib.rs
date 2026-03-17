@@ -18,6 +18,7 @@ NOTES:
 */
 use near_contract_standards::multi_token::{
     // Metadata
+    MTBaseTokenMetadata,
     MTContractMetadata,
     MTTokenMetadata,
     // Core types
@@ -51,6 +52,7 @@ enum StorageKey {
     MultiToken,
     Metadata,
     TokenMetadata,
+    BaseMetadata,
     Enumeration,
     Approval,
 }
@@ -79,6 +81,7 @@ impl Contract {
                 StorageKey::MultiToken,
                 owner_id,
                 Some(StorageKey::TokenMetadata),
+                Some(StorageKey::BaseMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
             ),
@@ -97,9 +100,17 @@ impl Contract {
         token_owner_id: AccountId,
         amount: U128,
         token_metadata: Option<MTTokenMetadata>,
+        base_metadata: Option<MTBaseTokenMetadata>,
     ) -> Token {
         assert_eq!(env::predecessor_account_id(), self.tokens.owner_id, "Unauthorized");
-        self.tokens.internal_mint(token_id, token_owner_id, amount.0, token_metadata)
+        self.tokens.internal_mint(
+            token_id,
+            token_owner_id,
+            amount.0,
+            token_metadata,
+            base_metadata,
+            Some(env::predecessor_account_id()),
+        )
     }
 
     /// Burn tokens.
@@ -195,7 +206,7 @@ impl MultiTokenResolver for Contract {
         receiver_id: AccountId,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
-        approvals: Option<Vec<Option<Vec<(AccountId, u64, u128)>>>>,
+        approvals: Option<Vec<Option<Vec<(AccountId, u64, U128)>>>>,
     ) -> Vec<U128> {
         self.tokens.mt_resolve_transfer(
             previous_owner_ids,
@@ -233,11 +244,12 @@ impl MultiTokenApproval for Contract {
     fn mt_is_approved(
         &self,
         token_ids: Vec<TokenId>,
+        owner_id: AccountId,
         approved_account_id: AccountId,
         amounts: Vec<U128>,
         approval_ids: Option<Vec<u64>>,
     ) -> bool {
-        self.tokens.mt_is_approved(token_ids, approved_account_id, amounts, approval_ids)
+        self.tokens.mt_is_approved(token_ids, owner_id, approved_account_id, amounts, approval_ids)
     }
 }
 
@@ -267,13 +279,22 @@ impl MultiTokenMetadataProvider for Contract {
         &self,
         token_ids: Vec<String>,
     ) -> Vec<near_contract_standards::multi_token::metadata::MTTokenMetadataAll> {
-        // For this example, we return empty metadata for tokens without stored metadata
         token_ids
             .into_iter()
-            .map(|_token_id| near_contract_standards::multi_token::metadata::MTTokenMetadataAll {
-                base: near_contract_standards::multi_token::metadata::MTBaseTokenMetadata::default(
-                ),
-                token: MTTokenMetadata::default(),
+            .map(|token_id| {
+                let base = self
+                    .tokens
+                    .base_metadata_by_id
+                    .as_ref()
+                    .and_then(|m| m.get(&token_id))
+                    .unwrap_or_default();
+                let token = self
+                    .tokens
+                    .token_metadata_by_id
+                    .as_ref()
+                    .and_then(|m| m.get(&token_id))
+                    .unwrap_or_default();
+                near_contract_standards::multi_token::metadata::MTTokenMetadataAll { base, token }
             })
             .collect()
     }
@@ -293,18 +314,36 @@ impl MultiTokenMetadataProvider for Contract {
 
     fn mt_metadata_base_by_token_id(
         &self,
-        _token_ids: Vec<String>,
+        token_ids: Vec<String>,
     ) -> Vec<near_contract_standards::multi_token::metadata::MTBaseTokenMetadata> {
-        // Base metadata is not stored in this example
-        vec![]
+        token_ids
+            .into_iter()
+            .map(|token_id| {
+                self.tokens
+                    .base_metadata_by_id
+                    .as_ref()
+                    .and_then(|m| m.get(&token_id))
+                    .unwrap_or_default()
+            })
+            .collect()
     }
 
     fn mt_metadata_base_by_metadata_id(
         &self,
-        _base_metadata_ids: Vec<String>,
+        base_metadata_ids: Vec<String>,
     ) -> Vec<near_contract_standards::multi_token::metadata::MTBaseTokenMetadata> {
-        // Base metadata is not stored in this example
-        vec![]
+        // Look up by the base metadata `id` field. This requires scanning stored metadata.
+        // For simplicity, we treat the metadata_id as the token_id here.
+        base_metadata_ids
+            .into_iter()
+            .map(|metadata_id| {
+                self.tokens
+                    .base_metadata_by_id
+                    .as_ref()
+                    .and_then(|m| m.get(&metadata_id))
+                    .unwrap_or_default()
+            })
+            .collect()
     }
 }
 
@@ -316,7 +355,7 @@ mod tests {
     use super::*;
 
     const MINT_STORAGE_COST: NearToken =
-        NearToken::from_yoctonear(6_000_000_000_000_000_000_000u128);
+        NearToken::from_yoctonear(10_000_000_000_000_000_000_000u128);
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
@@ -379,9 +418,10 @@ mod tests {
             accounts(0),
             U128(100),
             Some(sample_token_metadata()),
+            None,
         );
         assert_eq!(token.token_id, token_id);
-        assert_eq!(token.owner_id, Some(accounts(0)));
+        assert_eq!(token.owner_id, None);
         assert_eq!(token.metadata.unwrap(), sample_token_metadata());
 
         // Check balance
@@ -403,7 +443,7 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
         let token_id = "sword-1".to_string();
-        contract.mt_mint(token_id.clone(), accounts(0), U128(100), Some(sample_token_metadata()));
+        contract.mt_mint(token_id.clone(), accounts(0), U128(100), Some(sample_token_metadata()), None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -439,7 +479,7 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
         let token_id = "sword-1".to_string();
-        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None);
+        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -475,14 +515,14 @@ mod tests {
             .build());
 
         // Mint two different token types
-        contract.mt_mint("sword-1".to_string(), accounts(0), U128(100), None);
+        contract.mt_mint("sword-1".to_string(), accounts(0), U128(100), None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(MINT_STORAGE_COST)
             .predecessor_account_id(accounts(0))
             .build());
-        contract.mt_mint("potion-1".to_string(), accounts(0), U128(50), None);
+        contract.mt_mint("potion-1".to_string(), accounts(0), U128(50), None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -525,12 +565,12 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
         let token_id = "sword-1".to_string();
-        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None);
+        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None, None);
 
         // Approve bob to spend 50 tokens
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(150_000_000_000_000_000_000u128))
+            .attached_deposit(NearToken::from_millinear(2))
             .predecessor_account_id(accounts(0))
             .build());
         contract.mt_approve(vec![token_id.clone()], vec![U128(50)], accounts(1), None);
@@ -542,10 +582,10 @@ mod tests {
             .attached_deposit(NearToken::from_near(0))
             .build());
 
-        assert!(contract.mt_is_approved(vec![token_id.clone()], accounts(1), vec![U128(50)], None));
+        assert!(contract.mt_is_approved(vec![token_id.clone()], accounts(0), accounts(1), vec![U128(50)], None));
 
         // Not approved for more than 50
-        assert!(!contract.mt_is_approved(vec![token_id], accounts(1), vec![U128(51)], None));
+        assert!(!contract.mt_is_approved(vec![token_id], accounts(0), accounts(1), vec![U128(51)], None));
     }
 
     #[test]
@@ -560,12 +600,12 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
         let token_id = "sword-1".to_string();
-        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None);
+        contract.mt_mint(token_id.clone(), accounts(0), U128(100), None, None);
 
         // Approve bob
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(NearToken::from_yoctonear(150_000_000_000_000_000_000u128))
+            .attached_deposit(NearToken::from_millinear(2))
             .predecessor_account_id(accounts(0))
             .build());
         contract.mt_approve(vec![token_id.clone()], vec![U128(50)], accounts(1), None);
@@ -585,7 +625,7 @@ mod tests {
             .attached_deposit(NearToken::from_near(0))
             .build());
 
-        assert!(!contract.mt_is_approved(vec![token_id], accounts(1), vec![U128(1)], None));
+        assert!(!contract.mt_is_approved(vec![token_id], accounts(0), accounts(1), vec![U128(1)], None));
     }
 
     #[test]
@@ -599,14 +639,14 @@ mod tests {
             .attached_deposit(MINT_STORAGE_COST)
             .predecessor_account_id(accounts(0))
             .build());
-        contract.mt_mint("sword-1".to_string(), accounts(0), U128(100), None);
+        contract.mt_mint("sword-1".to_string(), accounts(0), U128(100), None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(MINT_STORAGE_COST)
             .predecessor_account_id(accounts(0))
             .build());
-        contract.mt_mint("potion-1".to_string(), accounts(1), U128(50), None);
+        contract.mt_mint("potion-1".to_string(), accounts(1), U128(50), None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())

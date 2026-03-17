@@ -66,6 +66,7 @@ pub trait MultiTokenApproval {
     ///
     /// # Arguments
     /// * `token_ids` - The tokens to check
+    /// * `owner_id` - The owner who granted the approval
     /// * `approved_account_id` - The account to check approval for
     /// * `amounts` - The amounts to check (must be approved for at least these amounts)
     /// * `approval_ids` - Optional approval IDs to verify
@@ -75,6 +76,7 @@ pub trait MultiTokenApproval {
     fn mt_is_approved(
         &self,
         token_ids: Vec<TokenId>,
+        owner_id: AccountId,
         approved_account_id: AccountId,
         amounts: Vec<U128>,
         approval_ids: Option<Vec<u64>>,
