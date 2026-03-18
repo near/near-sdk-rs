@@ -55,9 +55,9 @@ pub struct Token {
     /// The unique identifier for this token
     pub token_id: TokenId,
 
-    /// The owner of this token. For fungible-style tokens where multiple accounts
-    /// hold balances, this may be `None`. For NFT-style tokens (supply=1), this
-    /// will be `Some(owner)`.
+    /// The owner of this token. For multi-tokens this is typically `None` since
+    /// fungible and semi-fungible tokens don't have a single owner. Contracts may
+    /// choose to populate this for NFT-style tokens (supply=1) if desired.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_id: Option<AccountId>,
 
