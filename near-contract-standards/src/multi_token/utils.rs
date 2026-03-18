@@ -2,7 +2,7 @@
 
 use crate::multi_token::token::TokenId;
 use near_sdk::json_types::U128;
-use near_sdk::{env, require, AccountId, NearToken, Promise};
+use near_sdk::{AccountId, NearToken, Promise, env, require};
 use std::mem::size_of;
 
 /// Calculate the storage bytes required for an approval entry.

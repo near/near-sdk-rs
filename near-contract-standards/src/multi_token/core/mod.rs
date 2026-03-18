@@ -3,14 +3,14 @@ mod receiver;
 pub mod resolver;
 
 pub use self::core_impl::*;
-pub use self::receiver::{ext_mt_receiver, MultiTokenReceiver};
-pub use self::resolver::{ext_mt_resolver, MultiTokenResolver};
+pub use self::receiver::{MultiTokenReceiver, ext_mt_receiver};
+pub use self::resolver::{MultiTokenResolver, ext_mt_resolver};
 
 use crate::multi_token::token::{Token, TokenId};
-use near_sdk::ext_contract;
-use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
+use near_sdk::ext_contract;
+use near_sdk::json_types::U128;
 
 /// Used for all multi tokens. The specification for the
 /// [core multi token standard](https://nomicon.io/Standards/Tokens/MultiToken/Core) lays out the reasoning for each method.

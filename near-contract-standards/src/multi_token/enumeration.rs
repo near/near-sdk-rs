@@ -1,6 +1,6 @@
 use crate::multi_token::token::Token;
 use near_sdk::json_types::U128;
-use near_sdk::{ext_contract, AccountId};
+use near_sdk::{AccountId, ext_contract};
 
 use super::metadata::MTBaseTokenMetadata;
 

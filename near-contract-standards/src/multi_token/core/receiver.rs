@@ -1,6 +1,6 @@
 use crate::multi_token::token::TokenId;
 use near_sdk::json_types::U128;
-use near_sdk::{ext_contract, AccountId, PromiseOrValue};
+use near_sdk::{AccountId, PromiseOrValue, ext_contract};
 
 /// Used when a multi token is transferred using `mt_transfer_call` or `mt_batch_transfer_call`.
 /// This trait is implemented on the receiving contract, not on the MT contract.

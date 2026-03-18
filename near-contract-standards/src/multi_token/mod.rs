@@ -93,12 +93,12 @@ pub use self::approval::MultiTokenApproval;
 pub use self::approval::MultiTokenApprovalReceiver;
 
 // Re-export metadata types for convenience
+pub use self::metadata::MT_METADATA_SPEC;
 pub use self::metadata::MTBaseTokenMetadata;
 pub use self::metadata::MTContractMetadata;
 pub use self::metadata::MTTokenMetadata;
 pub use self::metadata::MTTokenMetadataAll;
 pub use self::metadata::MultiTokenMetadataProvider;
-pub use self::metadata::MT_METADATA_SPEC;
 
 // Re-export utilities
 pub use self::utils::*;

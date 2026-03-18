@@ -1,7 +1,7 @@
 use crate::multi_token::token::{ClearedApproval, TokenId};
+use near_sdk::AccountId;
 use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
-use near_sdk::AccountId;
 
 /// Used when a multi token is transferred using `mt_transfer_call` or `mt_batch_transfer_call`.
 /// This is the method that's called after `mt_on_transfer`.

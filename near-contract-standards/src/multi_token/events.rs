@@ -14,9 +14,9 @@
 //! or [`MtBurn::emit_many`] respectively.
 
 use crate::event::NearEvent;
+use near_sdk::AccountIdRef;
 use near_sdk::json_types::U128;
 use near_sdk::serde::Serialize;
-use near_sdk::AccountIdRef;
 
 /// Data to log for an MT mint event. To log this event, call [`.emit()`](MtMint::emit).
 #[must_use]

@@ -8,7 +8,7 @@ mod approval_impl;
 
 use crate::multi_token::token::TokenId;
 use near_sdk::json_types::U128;
-use near_sdk::{ext_contract, AccountId, Promise};
+use near_sdk::{AccountId, Promise, ext_contract};
 
 /// Trait for approval management in multi-token contracts.
 ///

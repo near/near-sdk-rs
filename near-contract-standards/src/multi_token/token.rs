@@ -1,9 +1,9 @@
 use crate::multi_token::metadata::MTTokenMetadata;
 use near_sdk::{
+    AccountId, NearSchema,
     borsh::{BorshDeserialize, BorshSerialize},
     json_types::U128,
     serde::{Deserialize, Serialize},
-    AccountId, NearSchema,
 };
 use std::collections::HashMap;
 

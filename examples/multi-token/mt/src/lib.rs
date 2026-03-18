@@ -443,7 +443,13 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
         let token_id = "sword-1".to_string();
-        contract.mt_mint(token_id.clone(), accounts(0), U128(100), Some(sample_token_metadata()), None);
+        contract.mt_mint(
+            token_id.clone(),
+            accounts(0),
+            U128(100),
+            Some(sample_token_metadata()),
+            None,
+        );
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -582,10 +588,22 @@ mod tests {
             .attached_deposit(NearToken::from_near(0))
             .build());
 
-        assert!(contract.mt_is_approved(vec![token_id.clone()], accounts(0), accounts(1), vec![U128(50)], None));
+        assert!(contract.mt_is_approved(
+            vec![token_id.clone()],
+            accounts(0),
+            accounts(1),
+            vec![U128(50)],
+            None
+        ));
 
         // Not approved for more than 50
-        assert!(!contract.mt_is_approved(vec![token_id], accounts(0), accounts(1), vec![U128(51)], None));
+        assert!(!contract.mt_is_approved(
+            vec![token_id],
+            accounts(0),
+            accounts(1),
+            vec![U128(51)],
+            None
+        ));
     }
 
     #[test]
@@ -625,7 +643,13 @@ mod tests {
             .attached_deposit(NearToken::from_near(0))
             .build());
 
-        assert!(!contract.mt_is_approved(vec![token_id], accounts(0), accounts(1), vec![U128(1)], None));
+        assert!(!contract.mt_is_approved(
+            vec![token_id],
+            accounts(0),
+            accounts(1),
+            vec![U128(1)],
+            None
+        ));
     }
 
     #[test]

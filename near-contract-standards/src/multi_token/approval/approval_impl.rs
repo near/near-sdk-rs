@@ -7,7 +7,7 @@ use crate::multi_token::utils::{
     assert_at_least_one_yocto, refund_approved_account_ids_iter, refund_deposit,
 };
 use near_sdk::json_types::U128;
-use near_sdk::{env, require, AccountId, Gas, Promise};
+use near_sdk::{AccountId, Gas, Promise, env, require};
 
 const GAS_FOR_MT_ON_APPROVE: Gas = Gas::from_tgas(35);
 

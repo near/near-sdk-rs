@@ -7,17 +7,17 @@
 use std::collections::HashMap;
 
 use near_sdk::{
+    AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
     assert_one_yocto,
     borsh::BorshSerialize,
     collections::{LookupMap, TreeMap, UnorderedSet},
     env,
     json_types::U128,
-    near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue,
-    PromiseResult, StorageUsage,
+    near, require,
 };
 
 use crate::multi_token::{
-    core::{receiver::ext_mt_receiver, resolver::ext_mt_resolver, MultiTokenCore},
+    core::{MultiTokenCore, receiver::ext_mt_receiver, resolver::ext_mt_resolver},
     events::{MtBurn, MtMint, MtTransfer},
     metadata::{MTBaseTokenMetadata, MTTokenMetadata},
     token::{Approval, ClearedApproval, Token, TokenId},
@@ -185,8 +185,7 @@ impl MultiToken {
         }
 
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            let approval_key =
-                format!("{}:{}", tmp_token_id, tmp_account_id);
+            let approval_key = format!("{}:{}", tmp_token_id, tmp_account_id);
             let mut approvals = HashMap::new();
             approvals.insert(tmp_account_id.clone(), Approval { approval_id: 0, amount: 0 });
             approvals_by_id.insert(&approval_key, &approvals);
@@ -203,8 +202,7 @@ impl MultiToken {
             next_approval_id_by_id.remove(&tmp_token_id);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            let approval_key =
-                format!("{}:{}", tmp_token_id, tmp_account_id);
+            let approval_key = format!("{}:{}", tmp_token_id, tmp_account_id);
             approvals_by_id.remove(&approval_key);
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
@@ -365,12 +363,7 @@ impl MultiToken {
         .emit();
 
         // Build and return Token (owner_id is None since multi-tokens don't have a single owner)
-        Token {
-            token_id,
-            owner_id: None,
-            metadata: token_metadata,
-            approved_account_ids: None,
-        }
+        Token { token_id, owner_id: None, metadata: token_metadata, approved_account_ids: None }
     }
 
     /// Burn tokens.
