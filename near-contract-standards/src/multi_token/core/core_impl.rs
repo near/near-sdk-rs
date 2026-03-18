@@ -866,18 +866,20 @@ impl MultiTokenResolver for MultiToken {
         {
             let previous_owner_id = &previous_owner_ids[i];
 
-            // Calculate how much was actually used vs refunded
-            let refund = std::cmp::min(refund_amount.0, original_amount.0);
-            let used = original_amount.0 - refund;
-            used_amounts.push(U128(used));
+            // Calculate how much the receiver wants to refund (capped at original amount)
+            let requested_refund = std::cmp::min(refund_amount.0, original_amount.0);
 
-            if refund == 0 {
+            if requested_refund == 0 {
+                used_amounts.push(*original_amount);
                 continue; // No refund needed
             }
 
-            // Check receiver's current balance
+            // Check receiver's current balance — can only refund what they still hold
             let receiver_balance = self.internal_balance_of(&receiver_id, token_id);
-            let actual_refund = std::cmp::min(refund, receiver_balance);
+            let actual_refund = std::cmp::min(requested_refund, receiver_balance);
+
+            // Compute used based on actual refund, not requested
+            used_amounts.push(U128(original_amount.0 - actual_refund));
 
             if actual_refund == 0 {
                 continue;
