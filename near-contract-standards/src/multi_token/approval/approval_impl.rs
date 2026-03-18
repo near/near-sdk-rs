@@ -1,7 +1,7 @@
 //! Implementation of approval management for MultiToken.
 
 use crate::multi_token::approval::MultiTokenApproval;
-use crate::multi_token::core::MultiToken;
+use crate::multi_token::core::{MultiToken, approval_key};
 use crate::multi_token::token::{Approval, TokenId};
 use crate::multi_token::utils::{
     assert_at_least_one_yocto, refund_approved_account_ids_iter, refund_deposit,
@@ -56,15 +56,15 @@ impl MultiTokenApproval for MultiToken {
             // Get or create approval map for this (token, owner) pair
             let approvals_by_id =
                 self.approvals_by_id.as_mut().expect("Approval extension not enabled");
-            let approval_key = format!("{}:{}", token_id, owner_id);
-            let mut owner_approvals = approvals_by_id.get(&approval_key).unwrap_or_default();
+            let akey = approval_key(token_id, &owner_id);
+            let mut owner_approvals = approvals_by_id.get(&akey).unwrap_or_default();
 
             // Insert approval
             owner_approvals.insert(
                 account_id.clone(),
                 Approval { approval_id: new_approval_id, amount: amount.0 },
             );
-            approvals_by_id.insert(&approval_key, &owner_approvals);
+            approvals_by_id.insert(&akey, &owner_approvals);
 
             approval_ids.push(new_approval_id);
         }
@@ -91,14 +91,14 @@ impl MultiTokenApproval for MultiToken {
         let mut revoked_any = false;
 
         for token_id in token_ids {
-            let approval_key = format!("{}:{}", token_id, owner_id);
-            if let Some(mut owner_approvals) = approvals_by_id.get(&approval_key) {
+            let akey = approval_key(&token_id, &owner_id);
+            if let Some(mut owner_approvals) = approvals_by_id.get(&akey) {
                 if owner_approvals.remove(&account_id).is_some() {
                     revoked_any = true;
                     if owner_approvals.is_empty() {
-                        approvals_by_id.remove(&approval_key);
+                        approvals_by_id.remove(&akey);
                     } else {
-                        approvals_by_id.insert(&approval_key, &owner_approvals);
+                        approvals_by_id.insert(&akey, &owner_approvals);
                     }
                 }
             }
@@ -120,8 +120,8 @@ impl MultiTokenApproval for MultiToken {
         let mut all_revoked_accounts: Vec<AccountId> = Vec::new();
 
         for token_id in token_ids {
-            let approval_key = format!("{}:{}", token_id, owner_id);
-            if let Some(owner_approvals) = approvals_by_id.remove(&approval_key) {
+            let akey = approval_key(&token_id, &owner_id);
+            if let Some(owner_approvals) = approvals_by_id.remove(&akey) {
                 // Collect all revoked account IDs for refund
                 all_revoked_accounts.extend(owner_approvals.keys().cloned());
             }
@@ -158,8 +158,8 @@ impl MultiTokenApproval for MultiToken {
         };
 
         for (i, (token_id, amount)) in token_ids.iter().zip(amounts.iter()).enumerate() {
-            let approval_key = format!("{}:{}", token_id, owner_id);
-            let owner_approvals = match approvals_by_id.get(&approval_key) {
+            let akey = approval_key(token_id, &owner_id);
+            let owner_approvals = match approvals_by_id.get(&akey) {
                 Some(approvals) => approvals,
                 None => return false,
             };

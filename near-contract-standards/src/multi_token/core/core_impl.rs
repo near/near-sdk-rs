@@ -16,6 +16,17 @@ use near_sdk::{
     near, require,
 };
 
+/// Build a collision-free approval storage key from a (token_id, owner_id) pair.
+/// Uses a null-byte separator since AccountIds cannot contain 0x00, then hashes
+/// the result to produce a fixed-size key.
+pub fn approval_key(token_id: &str, owner_id: &AccountId) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(token_id.len() + 1 + owner_id.as_str().len());
+    buf.extend_from_slice(token_id.as_bytes());
+    buf.push(0); // null byte separator — valid AccountIds cannot contain 0x00
+    buf.extend_from_slice(owner_id.as_str().as_bytes());
+    env::sha256(&buf)
+}
+
 use crate::multi_token::{
     core::{MultiTokenCore, receiver::ext_mt_receiver, resolver::ext_mt_resolver},
     events::{MtBurn, MtMint, MtTransfer},
@@ -89,8 +100,8 @@ pub struct MultiToken {
     pub tokens_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
 
     /// Required by approval extension: (TokenId, OwnerAccountId) -> (ApprovedAccountId -> Approval)
-    /// Uses a composite string key "token_id:owner_id" for efficient per-owner lookups.
-    pub approvals_by_id: Option<LookupMap<String, HashMap<AccountId, Approval>>>,
+    /// Uses a SHA-256 hash of (token_id, owner_id) as the key for collision-free lookups.
+    pub approvals_by_id: Option<LookupMap<Vec<u8>, HashMap<AccountId, Approval>>>,
 
     /// Next approval ID for each token
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
@@ -185,10 +196,10 @@ impl MultiToken {
         }
 
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            let approval_key = format!("{}:{}", tmp_token_id, tmp_account_id);
+            let akey = approval_key(&tmp_token_id, &tmp_account_id);
             let mut approvals = HashMap::new();
             approvals.insert(tmp_account_id.clone(), Approval { approval_id: 0, amount: 0 });
-            approvals_by_id.insert(&approval_key, &approvals);
+            approvals_by_id.insert(&akey, &approvals);
         }
 
         if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
@@ -202,8 +213,8 @@ impl MultiToken {
             next_approval_id_by_id.remove(&tmp_token_id);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            let approval_key = format!("{}:{}", tmp_token_id, tmp_account_id);
-            approvals_by_id.remove(&approval_key);
+            let akey = approval_key(&tmp_token_id, &tmp_account_id);
+            approvals_by_id.remove(&akey);
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             let mut set = tokens_per_owner.remove(&tmp_account_id).unwrap();
@@ -449,8 +460,8 @@ impl MultiToken {
         if &predecessor_id != sender_id {
             // Check if predecessor is approved
             if let Some(approvals_by_id) = &mut self.approvals_by_id {
-                let approval_key = format!("{}:{}", token_id, sender_id);
-                if let Some(mut owner_approvals) = approvals_by_id.get(&approval_key) {
+                let akey = approval_key(token_id, sender_id);
+                if let Some(mut owner_approvals) = approvals_by_id.get(&akey) {
                     if let Some(approval) = owner_approvals.get(&predecessor_id) {
                         // Verify approval_id if provided
                         if let Some(expected_approval_id) = approval_id {
@@ -482,9 +493,9 @@ impl MultiToken {
                             );
                         }
                         if owner_approvals.is_empty() {
-                            approvals_by_id.remove(&approval_key);
+                            approvals_by_id.remove(&akey);
                         } else {
-                            approvals_by_id.insert(&approval_key, &owner_approvals);
+                            approvals_by_id.insert(&akey, &owner_approvals);
                         }
                     } else {
                         env::panic_str("Not approved");
@@ -910,9 +921,8 @@ impl MultiTokenResolver for MultiToken {
             if let Some(ref all_approvals) = approvals {
                 if let Some(Some(token_approvals)) = all_approvals.get(i) {
                     if let Some(approvals_by_id) = &mut self.approvals_by_id {
-                        let approval_key = format!("{}:{}", token_id, previous_owner_id);
-                        let mut owner_approvals =
-                            approvals_by_id.get(&approval_key).unwrap_or_default();
+                        let akey = approval_key(token_id, previous_owner_id);
+                        let mut owner_approvals = approvals_by_id.get(&akey).unwrap_or_default();
 
                         for (account_id, approval_id, amount) in token_approvals {
                             owner_approvals.insert(
@@ -921,7 +931,7 @@ impl MultiTokenResolver for MultiToken {
                             );
                         }
 
-                        approvals_by_id.insert(&approval_key, &owner_approvals);
+                        approvals_by_id.insert(&akey, &owner_approvals);
                     }
                 }
             }
