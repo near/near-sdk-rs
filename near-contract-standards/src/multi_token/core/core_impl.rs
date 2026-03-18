@@ -472,15 +472,16 @@ impl MultiToken {
                         }
                         require!(approval.amount >= amount, "Approved amount insufficient");
 
-                        // Store the cleared approval info BEFORE modifying
-                        // Only store the specific approval that was consumed
+                        // Always capture the original approval for potential rollback
+                        // in mt_resolve_transfer (needed for both full and partial consumption)
+                        cleared_approval = Some((
+                            predecessor_id.clone(),
+                            approval.approval_id,
+                            U128(approval.amount),
+                        ));
+
                         if approval.amount == amount {
-                            // Full approval consumed - store it for potential restoration
-                            cleared_approval = Some((
-                                predecessor_id.clone(),
-                                approval.approval_id,
-                                U128(approval.amount),
-                            ));
+                            // Full approval consumed - remove it
                             owner_approvals.remove(&predecessor_id);
                         } else {
                             // Partial approval - reduce the amount
