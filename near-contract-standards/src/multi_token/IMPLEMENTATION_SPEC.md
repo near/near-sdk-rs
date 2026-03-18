@@ -30,7 +30,7 @@ near-contract-standards/src/multi_token/
 │   ├── mod.rs               # Trait definition (moved from enumeration.rs)
 │   └── enumeration_impl.rs  # Implementation [NEW]
 ├── metadata.rs              # Metadata structs (exists, minor updates)
-├── events.rs                # Events with safety checks (rewrite)
+├── events.rs                # NEP-297 event types for mint, transfer, burn
 ├── storage_impl.rs          # StorageManagement implementation [NEW]
 └── utils.rs                 # Helper functions [NEW]
 ```
@@ -179,7 +179,7 @@ The `MultiToken` struct implements:
 
 ### 4. Events (`events.rs`)
 
-Events with builder pattern and safety checks:
+NEP-297 event types:
 
 ```rust
 #[must_use = "make sure to `.emit()` this event"]
@@ -373,9 +373,9 @@ impl MultiTokenCore for Contract {
 - [ ] `MultiTokenResolver` implementation
 
 ### Phase 2: Events
-- [ ] Rewrite events with builder pattern
-- [ ] Add safety checks (log length validation)
-- [ ] Update existing code to use new events
+- [x] Implement NEP-297 event types (MtMint, MtTransfer, MtBurn)
+- [ ] Consider adding log length validation (see near/intents `check_refund()` pattern)
+- [x] Emit proper MtTransfer events on refund in mt_resolve_transfer
 
 ### Phase 3: Enumeration
 - [ ] Restructure into `enumeration/` directory
