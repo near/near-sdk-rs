@@ -848,13 +848,17 @@ impl MultiTokenResolver for MultiToken {
             "Invalid arguments"
         );
 
-        // Get the result from mt_on_transfer
+        // Get the result from mt_on_transfer.
+        // If the promise failed, or the returned vec has wrong length, refund everything.
         #[allow(deprecated)]
         let refund_amounts: Vec<U128> = match env::promise_result(0) {
             PromiseResult::Successful(value) => {
-                near_sdk::serde_json::from_slice(&value).unwrap_or_else(|_| amounts.clone())
+                near_sdk::serde_json::from_slice::<Vec<U128>>(&value)
+                    .ok()
+                    .filter(|v| v.len() == amounts.len())
+                    .unwrap_or_else(|| amounts.clone())
             }
-            _ => amounts.clone(), // On failure, refund everything
+            _ => amounts.clone(),
         };
 
         let mut used_amounts = Vec::with_capacity(amounts.len());
