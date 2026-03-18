@@ -116,5 +116,12 @@ mod tests {
 
         let deserialized: StateInit = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, state_init);
+
+        // Old internally tagged format must NOT deserialize
+        let old_format = r#"{"version":"v1","code":{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"},"data":{}}"#;
+        assert!(
+            serde_json::from_str::<StateInit>(old_format).is_err(),
+            "old internally tagged format should be rejected"
+        );
     }
 }
