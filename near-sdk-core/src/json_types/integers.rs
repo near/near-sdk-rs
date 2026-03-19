@@ -1,0 +1,139 @@
+//! Helper classes to serialize and deserialize large integer types into base-10 string
+//! representations.
+//! NOTE: JSON standard can only work with integer up to 53 bits. So we need helper classes for
+//! 64-bit and 128-bit integers.
+
+use near_sdk_macros::near;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+macro_rules! impl_str_type {
+    ($iden: ident, $ty: tt) => {
+        #[near(inside_nearsdk)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+        pub struct $iden(pub $ty);
+
+        impl From<$ty> for $iden {
+            fn from(v: $ty) -> Self {
+                Self(v)
+            }
+        }
+
+        impl From<$iden> for $ty {
+            fn from(v: $iden) -> $ty {
+                v.0
+            }
+        }
+
+        impl Serialize for $iden {
+            fn serialize<S>(
+                &self,
+                serializer: S,
+            ) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_str(&self.0.to_string())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $iden {
+            fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let s: String = Deserialize::deserialize(deserializer)?;
+                Ok(Self(str::parse::<$ty>(&s).map_err(serde::de::Error::custom)?))
+            }
+        }
+
+        #[cfg(feature = "abi")]
+        impl schemars::JsonSchema for $iden {
+            fn is_referenceable() -> bool {
+                false
+            }
+
+            fn schema_name() -> String {
+                String::schema_name()
+            }
+
+            fn json_schema(
+                r#gen: &mut schemars::r#gen::SchemaGenerator,
+            ) -> schemars::schema::Schema {
+                String::json_schema(r#gen)
+            }
+        }
+    };
+}
+
+impl_str_type!(U128, u128);
+impl_str_type!(U64, u64);
+impl_str_type!(I128, i128);
+impl_str_type!(I64, i64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_serde {
+        ($str_type: tt, $int_type: tt, $number: expr) => {
+            let a: $int_type = $number;
+            let str_a: $str_type = a.into();
+            let b: $int_type = str_a.into();
+            assert_eq!(a, b);
+
+            let str: String = serde_json::to_string(&str_a).unwrap();
+            let deser_a: $str_type = serde_json::from_str(&str).unwrap();
+            assert_eq!(a, deser_a.0);
+        };
+    }
+
+    #[test]
+    fn test_u128() {
+        test_serde!(U128, u128, 0);
+        test_serde!(U128, u128, 1);
+        test_serde!(U128, u128, 123);
+        test_serde!(U128, u128, 10u128.pow(18));
+        test_serde!(U128, u128, 2u128.pow(100));
+        test_serde!(U128, u128, u128::MAX);
+        assert!(U128::from(u128::MIN) < U128::from(u128::MAX));
+    }
+
+    #[test]
+    fn test_i128() {
+        test_serde!(I128, i128, 0);
+        test_serde!(I128, i128, 1);
+        test_serde!(I128, i128, -1);
+        test_serde!(I128, i128, 123);
+        test_serde!(I128, i128, 10i128.pow(18));
+        test_serde!(I128, i128, 2i128.pow(100));
+        test_serde!(I128, i128, -(2i128.pow(100)));
+        test_serde!(I128, i128, i128::MAX);
+        test_serde!(I128, i128, i128::MIN);
+        assert!(I128::from(i128::MIN) < I128::from(i128::MAX));
+    }
+
+    #[test]
+    fn test_u64() {
+        test_serde!(U64, u64, 0);
+        test_serde!(U64, u64, 1);
+        test_serde!(U64, u64, 123);
+        test_serde!(U64, u64, 10u64.pow(18));
+        test_serde!(U64, u64, 2u64.pow(60));
+        test_serde!(U64, u64, u64::MAX);
+        assert!(U64::from(u64::MIN) < U64::from(u64::MAX));
+    }
+
+    #[test]
+    fn test_i64() {
+        test_serde!(I64, i64, 0);
+        test_serde!(I64, i64, 1);
+        test_serde!(I64, i64, -1);
+        test_serde!(I64, i64, 123);
+        test_serde!(I64, i64, 10i64.pow(18));
+        test_serde!(I64, i64, 2i64.pow(60));
+        test_serde!(I64, i64, -(2i64.pow(60)));
+        test_serde!(I64, i64, i64::MAX);
+        test_serde!(I64, i64, i64::MIN);
+        assert!(I64::from(i64::MIN) < I64::from(i64::MAX));
+    }
+}

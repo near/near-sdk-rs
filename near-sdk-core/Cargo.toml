@@ -1,0 +1,76 @@
+[package]
+name = "near-sdk-core"
+version.workspace = true
+authors = ["Near Inc <vladyslav.savchyn@nearone.org>"]
+edition.workspace = true
+license.workspace = true
+# not yet there
+# readme = "README.md"
+
+# might add lib 
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = """
+Rust library of core NEAR smart contract types.
+"""
+
+#todo
+# [[test]]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_with = { version = "3", features = ["base64", "hex", "json"] }
+base64 = "0.22"
+borsh = { version = "1.0.0", features = ["derive"] }
+bs58 = "0.5"
+hex = "0.4"
+schemars = { version = "0.8.22", optional = true }
+
+arbitrary = { version = "1.4", optional = true }
+
+near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
+near-gas = { version = "0.3", features = ["serde", "borsh"] }
+near-token = { version = "0.3", features = ["serde", "borsh"] }
+near-sdk-macros = { path = "../near-sdk-macros/", version = "~5.24.1" }
+near-crypto = { version = "0.34", default-features = false, optional = true }
+
+near-sys = { path = "../near-sys", version = "~0.2.7", optional = true }
+
+near-primitives-core = { version = "0.34", optional = true }
+near-parameters = { version = "0.34", optional = true }
+near-vm-runner = { version = "0.34", default-features = false, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ripemd = "0.1.1"
+sha2 = "0.10"
+sha3 = "0.10"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+near-sys = { path = "../near-sys", version = "~0.2.7" }
+
+#todo
+# [features]?
+[features]
+default = []
+
+abi = [
+    "borsh/unstable__schema",
+    "schemars",
+    "near-sdk-macros/abi",
+    "near-account-id/abi",
+    "near-gas/abi",
+    "serde_with/schemars_0_8",
+]
+
+arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
+
+__near-sdk-unit-testing = [
+    "dep:near-crypto",
+    "dep:near-sys",
+    "dep:near-primitives-core",
+    "dep:near-parameters",
+    "dep:near-vm-runner",
+]
