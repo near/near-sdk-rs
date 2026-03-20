@@ -1,6 +1,8 @@
 use std::num::NonZeroU128;
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use near_token::NearToken;
+use serde::{Deserialize, Serialize};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -21,10 +23,79 @@ impl Allowance {
     }
 }
 
+impl Serialize for Allowance {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Allowance::Unlimited => serializer.serialize_none(),
+            Allowance::Limited(v) => serializer.serialize_some(&v.get()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Allowance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let opt: Option<u128> =
+            <std::option::Option<_> as serde::Deserialize>::deserialize(deserializer)?;
+        match opt {
+            None => Ok(Allowance::Unlimited),
+            Some(val) => {
+                let nz = NonZeroU128::new(val)
+                    .ok_or_else(|| serde::de::Error::custom("allowance cannot be zero"))?;
+                Ok(Allowance::Limited(nz))
+            }
+        }
+    }
+}
+
+impl BorshSerialize for Allowance {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let opt: Option<u128> = match self {
+            Allowance::Unlimited => None,
+            Allowance::Limited(v) => Some(v.get()),
+        };
+        borsh::BorshSerialize::serialize(&opt, writer)
+    }
+}
+
+impl BorshDeserialize for Allowance {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let opt: Option<u128> = borsh::de::from_reader(reader)?;
+        match opt {
+            None => Ok(Allowance::Unlimited),
+            Some(val) => {
+                let nz = NonZeroU128::new(val).ok_or_else(|| {
+                    borsh::io::Error::new(
+                        borsh::io::ErrorKind::InvalidData,
+                        "allowance cannot be zero",
+                    )
+                })?;
+                Ok(Allowance::Limited(nz))
+            }
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod test {
     use crate::{allowance::Allowance, types::NearToken};
+    #[test]
+    fn test_allowance_borsh() {
+        let unlimited = Allowance::Unlimited;
+        let opt_none: Option<u128> = Option::None;
+        assert_eq!(borsh::to_vec(&unlimited).unwrap(), borsh::to_vec(&opt_none).unwrap());
+
+        let limited = Allowance::limited(NearToken::from_yoctonear(1)).unwrap();
+        let token = Some(NearToken::from_yoctonear(1));
+        assert_eq!(borsh::to_vec(&limited).unwrap(), borsh::to_vec(&token).unwrap());
+    }
+
     #[test]
     fn test_allowance_debug() {
         let unlimited = Allowance::Unlimited;
