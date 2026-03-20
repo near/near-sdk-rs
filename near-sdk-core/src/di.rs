@@ -6,7 +6,7 @@ use crate::types::CryptoHash;
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
 /// guest code is not parallel.
-// TODO: add more const things that we might need to re-export this file fully?
+#[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
 const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
 #[inline]
@@ -21,24 +21,13 @@ pub struct EnvironmentBasedEnv {}
 
 impl EnvironmentBasedEnv {
     pub fn abort() -> ! {
-        // How to adopt this?
-        /*
-        Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
-        #[cfg(target_arch = "wasm32")]
-        This was stabilized recently (~ >1.51), so ignore warnings but don't enforce higher msrv
-        #[allow(unused_unsafe)]
-        unsafe {
-            core::arch::wasm32::unreachable()
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        unsafe {
-            sys::panic()
-        }
-         */
-
         #[cfg(target_arch = "wasm32")]
         {
-            unsafe { core::arch::wasm32::unreachable() }
+            //* This was stabilized recently (~ >1.51), so ignore warnings but don't enforce higher msrv
+            #[allow(unused_unsafe)]
+            unsafe {
+                core::arch::wasm32::unreachable()
+            }
         }
         #[cfg(all(not(target_arch = "wasm32"), feature = "__near-sdk-unit-testing", not(test)))]
         {
@@ -68,14 +57,17 @@ impl EnvironmentBasedEnv {
         }
     }
 
+    #[allow(unused)]
     pub fn sha256(value: impl AsRef<[u8]>) -> Vec<u8> {
         Self::sha256_array(value).to_vec()
     }
 
+    #[allow(unused)]
     pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
         Self::keccak256_array(value).to_vec()
     }
 
+    #[allow(unused)]
     pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
         Self::keccak512_array(value).to_vec()
     }
@@ -150,6 +142,7 @@ impl EnvironmentBasedEnv {
         }
     }
 
+    #[allow(unused)]
     pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
         #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
         {

@@ -46,7 +46,6 @@ where
 {
     fn panic(&self) -> ! {
         crate::di::EnvironmentBasedEnv::panic_str(self.as_ref())
-        // crate::env::panic_str(self.as_ref())
     }
 }
 

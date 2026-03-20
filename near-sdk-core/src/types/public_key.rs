@@ -54,7 +54,6 @@ impl std::str::FromStr for CurveType {
 }
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "__near-sdk-unit-testing"))]
-#[cfg(test)]
 impl TryFrom<PublicKey> for near_crypto::PublicKey {
     type Error = ParsePublicKeyError;
 
@@ -94,7 +93,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
 ///
 /// # Example
 /// ```
-/// use near_sdk_core::PublicKey;
+/// use near_sdk_core::types::PublicKey;
 ///
 /// // Compressed ed25519 key
 /// let ed: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse()

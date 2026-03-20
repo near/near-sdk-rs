@@ -4,10 +4,8 @@ version.workspace = true
 authors = ["Near Inc <vladyslav.savchyn@nearone.org>"]
 edition.workspace = true
 license.workspace = true
-# not yet there
-# readme = "README.md"
+readme = "README.md"
 
-# might add lib 
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -15,9 +13,6 @@ rust-version.workspace = true
 description = """
 Rust library of core NEAR smart contract types.
 """
-
-#todo
-# [[test]]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -51,8 +46,6 @@ sha3 = "0.10"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 near-sys = { path = "../near-sys", version = "~0.2.7" }
 
-#todo
-# [features]?
 [features]
 default = []
 
