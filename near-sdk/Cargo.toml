@@ -98,6 +98,7 @@ abi = [
     "near-account-id/abi",
     "near-gas/abi",
     "near-token/abi",
+    "near-sdk-core/abi",
     "serde_with/schemars_0_8",
 ]
 unit-testing = [
