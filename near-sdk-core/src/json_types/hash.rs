@@ -1,4 +1,4 @@
-use crate::CryptoHash;
+use crate::types::CryptoHash;
 use bs58::decode::Error as B58Error;
 use near_sdk_macros::near;
 use serde::{Deserialize, de, ser};

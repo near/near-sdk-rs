@@ -1,8 +1,8 @@
 use near_account_id::AccountId;
 use near_sdk_macros::near;
 
-use crate::CryptoHash;
 use crate::json_types::Base58CryptoHash;
+use crate::types::CryptoHash;
 
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

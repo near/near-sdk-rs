@@ -1,7 +1,7 @@
 #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
 use near_sys as sys;
 
-use crate::CryptoHash;
+use crate::types::CryptoHash;
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
