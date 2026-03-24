@@ -73,10 +73,24 @@ const _: () = {
         }
     }
 
+    impl From<StateInit> for DeterministicAccountStateInit {
+        fn from(value: StateInit) -> Self {
+            match value {
+                StateInit::V1(state_init) => Self::V1(state_init.into()),
+            }
+        }
+    }
+
     impl From<DeterministicAccountStateInitV1> for StateInitV1 {
         fn from(
             DeterministicAccountStateInitV1 { code, data }: DeterministicAccountStateInitV1,
         ) -> Self {
+            Self { code: code.into(), data }
+        }
+    }
+
+    impl From<StateInitV1> for DeterministicAccountStateInitV1 {
+        fn from(StateInitV1 { code, data }: StateInitV1) -> Self {
             Self { code: code.into(), data }
         }
     }

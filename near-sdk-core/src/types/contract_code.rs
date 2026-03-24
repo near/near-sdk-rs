@@ -48,12 +48,12 @@ impl From<AccountId> for GlobalContractId {
     }
 }
 
-// TODO: test if unit-testing works
 #[cfg(all(not(target_arch = "wasm32"), feature = "__near-sdk-unit-testing"))]
 const _: () = {
     use near_primitives_core::{
         account::AccountContract as NearAccountContract,
         global_contract::GlobalContractIdentifier as NearGlobalContractIdentifier,
+        hash::CryptoHash,
     };
 
     impl From<NearAccountContract> for AccountContract {
@@ -69,6 +69,17 @@ const _: () = {
         }
     }
 
+    impl From<AccountContract> for NearAccountContract {
+        fn from(value: AccountContract) -> Self {
+            match value {
+                AccountContract::None => Self::None,
+                AccountContract::Local(contract) => Self::Local(CryptoHash(contract.into())),
+                AccountContract::Global(contract) => Self::Global(CryptoHash(contract.into())),
+                AccountContract::GlobalByAccount(account_id) => Self::GlobalByAccount(account_id),
+            }
+        }
+    }
+
     impl From<NearGlobalContractIdentifier> for GlobalContractId {
         fn from(value: NearGlobalContractIdentifier) -> Self {
             match value {
@@ -76,6 +87,17 @@ const _: () = {
                     Self::CodeHash(code_hash.0.into())
                 }
                 NearGlobalContractIdentifier::AccountId(account_id) => Self::AccountId(account_id),
+            }
+        }
+    }
+
+    impl From<GlobalContractId> for NearGlobalContractIdentifier {
+        fn from(value: GlobalContractId) -> Self {
+            match value {
+                GlobalContractId::CodeHash(code_hash) => {
+                    Self::CodeHash(CryptoHash(code_hash.into()))
+                }
+                GlobalContractId::AccountId(account_id) => Self::AccountId(account_id),
             }
         }
     }
