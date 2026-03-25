@@ -14,6 +14,8 @@ near-sdk = { path = "../../near-sdk" }
 hex = "0.4"
 
 [dev-dependencies]
+# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
+unicode-segmentation = ">=1, <1.13.1"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 near-workspaces = { version = "0.22", features = ["unstable"] }
 tokio = { version = "1.14", features = ["full"] }
