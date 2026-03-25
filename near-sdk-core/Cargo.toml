@@ -30,19 +30,17 @@ near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 near-sdk-macros = { path = "../near-sdk-macros/", version = "~5.24.1" }
-near-crypto = { version = "0.34", default-features = false, optional = true }
-
 near-sys = { path = "../near-sys", version = "~0.2.7", optional = true }
-
-near-primitives-core = { version = "0.34", optional = true }
-near-parameters = { version = "0.34", optional = true }
-near-vm-runner = { version = "0.34", default-features = false, optional = true }
 
 [dev-dependencies]
 # Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
 unicode-segmentation = ">=1, <1.13.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+near-crypto = { version = "0.34", default-features = false, optional = true }
+near-vm-runner = { version = "0.34", default-features = false, optional = true }
+near-primitives-core = { version = "0.34", optional = true }
+near-parameters = { version = "0.34", optional = true }
 ripemd = "0.1.1"
 sha2 = "0.10"
 sha3 = "0.10"
