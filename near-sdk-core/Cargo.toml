@@ -38,6 +38,10 @@ near-primitives-core = { version = "0.34", optional = true }
 near-parameters = { version = "0.34", optional = true }
 near-vm-runner = { version = "0.34", default-features = false, optional = true }
 
+[dev-dependencies]
+# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
+unicode-segmentation = ">=1, <1.13.1"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ripemd = "0.1.1"
 sha2 = "0.10"
