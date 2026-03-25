@@ -107,8 +107,7 @@ mod tests {
     fn test_state_init_json_serialization_externally_tagged() {
         let hash: Base58CryptoHash =
             "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ".parse().unwrap();
-        let state_init =
-            StateInit::V1(StateInitV1::code(GlobalContractId::CodeHash(hash)));
+        let state_init = StateInit::V1(StateInitV1::code(GlobalContractId::CodeHash(hash)));
 
         let json = serde_json::to_string(&state_init).unwrap();
         // Must use serde's default externally tagged format to match nearcore
