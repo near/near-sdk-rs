@@ -58,6 +58,9 @@ sha2 = { version = "0.10", optional = true }
 sha3 = { version = "0.10", optional = true }
 
 [dev-dependencies]
+# Pin: unicode-segmentation 1.13.1 uses `unsigned_is_multiple_of` (unstable until Rust 1.87)
+# but doesn't declare rust-version, so resolver v3 can't filter it out. Remove when upstream fixes MSRV.
+unicode-segmentation = ">=1, <1.13.1"
 openssl = { version = "0.10", features = ["vendored"] }
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
 rand = { version = "0.8.4", features = ["small_rng"] }
