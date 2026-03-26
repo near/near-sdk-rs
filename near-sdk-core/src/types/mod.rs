@@ -35,7 +35,7 @@ pub type CryptoHash = [u8; 32];
 /// the weights 1, 5, 2 then 5, 25, 10 gas will be added to each function call respectively,
 /// using up all remaining available gas.
 ///
-/// [`promise_batch_action_function_call_weight`]: `crate::env::promise_batch_action_function_call_weight`
+/// [`promise_batch_action_function_call_weight`]: `near-sdk::env::promise_batch_action_function_call_weight`
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct GasWeight(pub u64);
