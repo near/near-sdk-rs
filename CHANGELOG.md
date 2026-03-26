@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.25.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.24.1...near-sdk-v5.25.0) - 2026-03-26
+
+### Added
+
+- allow crypto-related `env::*` functions for non-contract-usage ([#1511](https://github.com/near/near-sdk-rs/pull/1511))
+- add `ext_self()` and document cross-contract call patterns ([#1504](https://github.com/near/near-sdk-rs/pull/1504))
+- forward `allow` attribute ([#1508](https://github.com/near/near-sdk-rs/pull/1508))
+- derive(ParticalOrd, Ord, Hash) ([#1494](https://github.com/near/near-sdk-rs/pull/1494))
+- implement missing standard trait impls for public types ([#1495](https://github.com/near/near-sdk-rs/pull/1495))
+
+### Fixed
+
+- align StateInit JSON serialization with nearcore ([#1522](https://github.com/near/near-sdk-rs/pull/1522))
+- add missing arbitrary/derive feature ([#1519](https://github.com/near/near-sdk-rs/pull/1519))
+- *(iterable-map)* different asserts for `expensive-debug` feature in `test_show` ([#1509](https://github.com/near/near-sdk-rs/pull/1509))
+- `IterableSet` and `UnorderedSet` `Drain` trait ([#1501](https://github.com/near/near-sdk-rs/pull/1501))
+
+### Other
+
+- remove `global-contracts` feature gates ([#1507](https://github.com/near/near-sdk-rs/pull/1507))
+- add RUSTSEC-2026-0009 to ignore list (time crate) ([#1493](https://github.com/near/near-sdk-rs/pull/1493))
+- add implementation details and host functions for near-macro attributes ([#1475](https://github.com/near/near-sdk-rs/pull/1475))
+- add details for `#[ext_contract]` macro at the site of re-export ([#1474](https://github.com/near/near-sdk-rs/pull/1474))
+- document auto-generated `<ContractType>Ext` structs for cross-contract calls ([#1476](https://github.com/near/near-sdk-rs/pull/1476))
+- change documentation links from tree/master to blob/commit permalinks ([#1473](https://github.com/near/near-sdk-rs/pull/1473))
+- update to Rust edition 2024 ([#1480](https://github.com/near/near-sdk-rs/pull/1480))
+
 ## [5.24.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.24.0...near-sdk-v5.24.1) - 2026-02-05
 
 ### Other
