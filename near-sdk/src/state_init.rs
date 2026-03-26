@@ -11,7 +11,6 @@ use crate::{GlobalContractId, env};
     json,
     borsh(use_discriminant = true),
 ])]
-#[serde(tag = "version", rename_all = "snake_case")]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum StateInit {
@@ -98,3 +97,30 @@ const _: () = {
         }
     }
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::json_types::Base58CryptoHash;
+
+    #[test]
+    fn test_state_init_json_serialization_externally_tagged() {
+        let hash: Base58CryptoHash =
+            "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ".parse().unwrap();
+        let state_init = StateInit::V1(StateInitV1::code(GlobalContractId::CodeHash(hash)));
+
+        let json = serde_json::to_string(&state_init).unwrap();
+        // Must use serde's default externally tagged format to match nearcore
+        assert!(json.starts_with(r#"{"V1":"#), "expected externally tagged format, got: {json}");
+
+        let deserialized: StateInit = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, state_init);
+
+        // Old internally tagged format must NOT deserialize
+        let old_format = r#"{"version":"v1","code":{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"},"data":{}}"#;
+        assert!(
+            serde_json::from_str::<StateInit>(old_format).is_err(),
+            "old internally tagged format should be rejected"
+        );
+    }
+}
