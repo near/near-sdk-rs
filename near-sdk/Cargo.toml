@@ -52,15 +52,14 @@ near-vm-runner = { version = "0.34", optional = true }
 near-primitives-core = { version = "0.34", optional = true }
 near-primitives = { version = "0.34", optional = true }
 near-crypto = { version = "0.34", default-features = false, optional = true }
+# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
+unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
 near-parameters = { version = "0.34", optional = true }
 ripemd = { version = "0.1.1", optional = true }
 sha2 = { version = "0.10", optional = true }
 sha3 = { version = "0.10", optional = true }
 
 [dev-dependencies]
-# Pin: unicode-segmentation 1.13.1 uses `unsigned_is_multiple_of` (unstable until Rust 1.87)
-# but doesn't declare rust-version, so resolver v3 can't filter it out. Remove when upstream fixes MSRV.
-unicode-segmentation = ">=1, <1.13.1"
 openssl = { version = "0.10", features = ["vendored"] }
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
 rand = { version = "0.8.4", features = ["small_rng"] }
@@ -107,11 +106,13 @@ unit-testing = [
     "near-primitives-core",
     "near-primitives",
     "near-crypto",
+    "unicode-segmentation",
     "near-parameters",
 ]
 non-contract-usage = [
     "ed25519-dalek",
     "near-crypto",
+    "unicode-segmentation",
     "near-primitives-core",
     "ripemd",
     "sha2",
