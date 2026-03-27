@@ -20,6 +20,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8](https://github.com/near/near-sdk-rs/releases/tag/near-sys-v0.2.8) - 2026-03-26
+
+### Other
+
+- release ([#1520](https://github.com/near/near-sdk-rs/pull/1520))
+- remove `global-contracts` feature gates ([#1507](https://github.com/near/near-sdk-rs/pull/1507))
+- update to Rust edition 2024 ([#1480](https://github.com/near/near-sdk-rs/pull/1480))
+
+## [0.2.8](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.7...near-sys-v0.2.8) - 2026-03-26
+
+### Other
+
+- remove `global-contracts` feature gates ([#1507](https://github.com/near/near-sdk-rs/pull/1507))
+- update to Rust edition 2024 ([#1480](https://github.com/near/near-sdk-rs/pull/1480))
+
 ## [0.2.7](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.6...near-sys-v0.2.7) - 2026-02-05
 
 ### Other
