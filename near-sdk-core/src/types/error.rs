@@ -1,10 +1,8 @@
-// TODO: rewrite those examples for non-contract usage. Contract usage will be added to the
-// near-sdk directly inside the doctests.
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
 /// with `#[handle_result]` has to implement this trait.
 ///
 /// Example:
-/// ```ignore
+/// ```rust
 /// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {
@@ -45,16 +43,14 @@ where
     T: AsRef<str>,
 {
     fn panic(&self) -> ! {
-        crate::di::EnvironmentBasedEnv::panic_str(self.as_ref())
+        crate::env_impl::panic_str(self.as_ref())
     }
 }
 
-// TODO: rewrite those examples for non-contract usage. Contract usage will be added to the
-// near-sdk directly inside the doctests.
 /// A simple type used in conjunction with [FunctionError] representing that the function should
 /// abort without a custom message.
 ///
-/// ```ignore
+/// ```rust
 /// use near_sdk::{Abort, near};
 ///
 /// #[near(contract_state)]
@@ -84,7 +80,7 @@ impl std::fmt::Display for Abort {
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
-        crate::di::EnvironmentBasedEnv::abort()
+        crate::env_impl::abort()
     }
 }
 

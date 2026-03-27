@@ -1,4 +1,4 @@
-pub(crate) mod di;
+pub(crate) mod env_impl;
 
 pub mod json_types;
 

@@ -4,7 +4,7 @@ use near_account_id::AccountId;
 use near_sdk_macros::near;
 use serde_with::base64::Base64;
 
-use crate::{di::EnvironmentBasedEnv, types::GlobalContractId};
+use crate::types::GlobalContractId;
 
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [
@@ -22,7 +22,7 @@ impl StateInit {
     #[inline]
     pub fn derive_account_id(&self) -> AccountId {
         let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-        format!("0s{}", hex::encode(&EnvironmentBasedEnv::keccak256_array(&serialized)[12..32]))
+        format!("0s{}", hex::encode(&crate::env_impl::keccak256_array(&serialized)[12..32]))
             .parse()
             .unwrap_or_else(|_| unreachable!())
     }

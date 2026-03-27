@@ -46,6 +46,10 @@ sha3 = "0.10"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 near-sys = { path = "../near-sys", version = "~0.2.7" }
 
+[dev-dependencies]
+# XXX: `near-sdk` was added in order to enable several tests requiring `#[near]` macro compiling
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+
 [features]
 default = []
 

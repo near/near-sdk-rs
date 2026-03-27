@@ -1,12 +1,10 @@
 use near_sdk_macros::near;
 use serde::{Deserialize, Deserializer, Serializer};
 
-// TODO: rewrite those examples for non-contract usage. Contract usage will be added to the
-// near-sdk directly inside the doctests.
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
 ///
 /// # Example
-/// ```ignore
+/// ```rust
 /// use near_sdk::{json_types::Base64VecU8, near};
 ///
 /// #[near(serializers=[json])]
