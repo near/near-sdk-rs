@@ -4,6 +4,7 @@
 
 pub use near_sdk_core::types::*;
 
-// VM types mostly are unused in non-sdk environment, hence, we didn't export them
+// NOTE: VM types are mostly unused outside `near-sdk`, hence, they are not exposed by
+// `near-sdk-core`
 mod vm_types;
 pub use vm_types::*;
