@@ -34,13 +34,11 @@ near-sys = { path = "../near-sys", version = "~0.2.7", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-crypto = { version = "0.34", default-features = false, optional = true }
-# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
+# XXX: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
 unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
 near-vm-runner = { version = "0.34", default-features = false, optional = true }
 near-primitives-core = { version = "0.34", optional = true }
 near-parameters = { version = "0.34", optional = true }
-ripemd = "0.1.1"
-sha2 = "0.10"
 sha3 = "0.10"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -51,7 +49,7 @@ near-sys = { path = "../near-sys", version = "~0.2.7" }
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 
 [features]
-default = []
+default = ["near-primitives-interop", "near-crypto-interop"]
 
 abi = [
     "borsh/unstable__schema",
@@ -64,11 +62,14 @@ abi = [
 
 arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 
+near-primitives-interop = ["dep:near-primitives-core"]
+near-crypto-interop = ["dep:near-crypto"]
+
 __near-sdk-unit-testing = [
-    "dep:near-crypto",
+    "near-primitives-interop",
+    "near-crypto-interop",
     "dep:unicode-segmentation",
     "dep:near-sys",
-    "dep:near-primitives-core",
     "dep:near-parameters",
     "dep:near-vm-runner",
 ]

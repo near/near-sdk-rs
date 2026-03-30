@@ -58,7 +58,7 @@ impl From<StateInitV1> for StateInit {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "__near-sdk-unit-testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "near-primitives-interop"))]
 const _: () = {
     use near_primitives_core::deterministic_account_id::{
         DeterministicAccountStateInit, DeterministicAccountStateInitV1,

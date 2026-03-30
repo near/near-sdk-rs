@@ -25,7 +25,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.25.0" }
 near-sys = { path = "../near-sys", version = "0.2.8" }
-near-sdk-core = { path = "../near-sdk-core/", version = "0.1" }
+near-sdk-core = { path = "../near-sdk-core/", version = "0.1", default-features = false }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
@@ -122,6 +122,8 @@ non-contract-usage = [
     "near-crypto",
     "unicode-segmentation",
     "near-primitives-core",
+    "near-sdk-core/near-crypto-interop",
+    "near-sdk-core/near-primitives-interop",
     "ripemd",
     "sha2",
     "sha3",
