@@ -54,11 +54,6 @@ pub fn panic_str(message: &str) -> ! {
 }
 
 #[allow(unused)]
-pub fn sha256(value: impl AsRef<[u8]>) -> Vec<u8> {
-    sha256_array(value).to_vec()
-}
-
-#[allow(unused)]
 pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
     keccak256_array(value).to_vec()
 }
@@ -66,26 +61,6 @@ pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
 #[allow(unused)]
 pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
     keccak512_array(value).to_vec()
-}
-
-pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
-    {
-        let value = value.as_ref();
-        //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
-        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-        //*         because all bytes are filled. This assumes a valid sha256 implementation.
-        unsafe {
-            sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-            read_register_fixed(ATOMIC_OP_REGISTER)
-        }
-    }
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test),))]
-    {
-        use sha2::Digest;
-
-        sha2::Sha256::digest(value).into()
-    }
 }
 
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
@@ -101,7 +76,7 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test),))]
+    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
     {
         use sha3::Digest;
 
@@ -121,31 +96,10 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
     }
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test),))]
+    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
     {
         use sha3::Digest;
 
         sha3::Keccak512::digest(value).into()
-    }
-}
-
-#[allow(unused)]
-pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
-    {
-        let value = value.as_ref();
-        //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
-        //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
-        //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
-        unsafe {
-            sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-            read_register_fixed(ATOMIC_OP_REGISTER)
-        }
-    }
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test),))]
-    {
-        use sha2::Digest;
-
-        ripemd::Ripemd160::digest(value).into()
     }
 }
