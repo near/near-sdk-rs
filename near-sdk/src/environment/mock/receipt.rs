@@ -97,6 +97,24 @@ pub enum MockAction {
         receipt_index: ReceiptIndex,
         refund_to_account_id: AccountId,
     },
+    TransferToGasKey {
+        receipt_index: ReceiptIndex,
+        public_key: near_crypto::PublicKey,
+        deposit: NearToken,
+    },
+    AddGasKeyWithFullAccess {
+        receipt_index: ReceiptIndex,
+        public_key: near_crypto::PublicKey,
+        num_nonces: u16,
+    },
+    AddGasKeyWithFunctionCall {
+        receipt_index: ReceiptIndex,
+        public_key: near_crypto::PublicKey,
+        num_nonces: u16,
+        allowance: Option<NearToken>,
+        receiver_id: AccountId,
+        method_names: Vec<Vec<u8>>,
+    },
 }
 
 impl MockAction {
@@ -120,6 +138,9 @@ impl MockAction {
             MockAction::DeterministicStateInit { receipt_index, .. } => Some(*receipt_index),
             #[cfg(feature = "deterministic-account-ids")]
             MockAction::SetRefundTo { receipt_index, .. } => Some(*receipt_index),
+            MockAction::TransferToGasKey { receipt_index, .. } => Some(*receipt_index),
+            MockAction::AddGasKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
+            MockAction::AddGasKeyWithFunctionCall { receipt_index, .. } => Some(*receipt_index),
         }
     }
 }
@@ -238,6 +259,27 @@ impl From<LogicMockAction> for MockAction {
                     "Deterministic AccountIds functionality requires the 'deterministic-account-ids' feature flag"
                 )
             }
+            LogicMockAction::TransferToGasKey { receipt_index, public_key, deposit } => {
+                Self::TransferToGasKey { receipt_index, public_key, deposit }
+            }
+            LogicMockAction::AddGasKeyWithFullAccess { receipt_index, public_key, num_nonces } => {
+                Self::AddGasKeyWithFullAccess { receipt_index, public_key, num_nonces }
+            }
+            LogicMockAction::AddGasKeyWithFunctionCall {
+                receipt_index,
+                public_key,
+                num_nonces,
+                allowance,
+                receiver_id,
+                method_names,
+            } => Self::AddGasKeyWithFunctionCall {
+                receipt_index,
+                public_key,
+                num_nonces,
+                allowance,
+                receiver_id,
+                method_names,
+            },
         }
     }
 }
