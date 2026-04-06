@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - allow crypto-related `env::*` functions for non-contract-usage ([#1511](https://github.com/near/near-sdk-rs/pull/1511))
 - add `ext_self()` and document cross-contract call patterns ([#1504](https://github.com/near/near-sdk-rs/pull/1504))
 - forward `allow` attribute ([#1508](https://github.com/near/near-sdk-rs/pull/1508))
-- derive(ParticalOrd, Ord, Hash) ([#1494](https://github.com/near/near-sdk-rs/pull/1494))
+- derive(PartialOrd, Ord, Hash) ([#1494](https://github.com/near/near-sdk-rs/pull/1494))
 - implement missing standard trait impls for public types ([#1495](https://github.com/near/near-sdk-rs/pull/1495))
 
 ### Fixed
