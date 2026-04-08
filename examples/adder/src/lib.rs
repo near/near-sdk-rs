@@ -60,7 +60,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json(())
-            .gas(near_sdk::Gas::from_tgas(300))
+            .gas(near_sdk::Gas::from_tgas(1_000))
             .transact()
             .await?;
         println!("res: {:#?}", res);
