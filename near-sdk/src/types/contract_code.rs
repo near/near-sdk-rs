@@ -21,7 +21,9 @@ pub enum AccountContract {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum GlobalContractId {
+    #[serde(rename = "hash")]
     CodeHash(Base58CryptoHash) = 0,
+    #[serde(rename = "account_id")]
     AccountId(AccountId) = 1,
 }
 
@@ -116,7 +118,7 @@ mod tests {
         let id = GlobalContractId::CodeHash(hash);
 
         let json = serde_json::to_string(&id).unwrap();
-        assert_eq!(json, r#"{"CodeHash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"}"#);
+        assert_eq!(json, r#"{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"}"#);
 
         let deserialized: GlobalContractId = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, id);
@@ -128,7 +130,7 @@ mod tests {
         let id = GlobalContractId::AccountId(account_id.clone());
 
         let json = serde_json::to_string(&id).unwrap();
-        assert_eq!(json, r#"{"AccountId":"alice.near"}"#);
+        assert_eq!(json, r#"{"account_id":"alice.near"}"#);
 
         let deserialized: GlobalContractId = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, id);
