@@ -25,16 +25,25 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      # Set build target via .cargo/config.toml instead of CARGO_BUILD_TARGET env var.
-      # cargo-binstall reads CARGO_BUILD_TARGET and would try to install a wasm32 binary,
-      # but it ignores .cargo/config.toml, so this lets the action install release-plz
-      # natively while cargo still builds for wasm32.
-      - name: Set cargo build target
-        run: echo -e '[build]\ntarget = "wasm32-unknown-unknown"' >> .cargo/config.toml
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
 
-      - name: Run release-plz
-        uses: release-plz/action@0.5
+      - name: Install release-plz
+        run: cargo-binstall release-plz cargo-semver-checks --no-confirm
+
+      # Install release-plz and cargo-semver-checks without CARGO_BUILD_TARGET
+      # so cargo-binstall downloads native binaries. Set the target only when
+      # running release-plz so cargo builds for wasm32.
+      - name: Release-plz release-pr
+        run: release-plz release-pr --git-token "$GITHUB_TOKEN" --repo-url "https://github.com/$GITHUB_REPOSITORY" -o json
         env:
-          # https://marcoieni.github.io/release-plz/github-action.html#triggering-further-workflow-runs
           GITHUB_TOKEN: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_BUILD_TARGET: wasm32-unknown-unknown
+
+      - name: Release-plz release
+        run: release-plz release --git-token "$GITHUB_TOKEN" -o json
+        env:
+          GITHUB_TOKEN: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_BUILD_TARGET: wasm32-unknown-unknown
