@@ -25,14 +25,16 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      # Pinned to last version using taiki-e/install-action for binary installation.
-      # Newer versions use cargo-binstall which compiles from source and fails with
-      # CARGO_BUILD_TARGET=wasm32-unknown-unknown (gix-sec uses Unix APIs).
-      # See: https://github.com/release-plz/action/pull/239
+      # Set build target via .cargo/config.toml instead of CARGO_BUILD_TARGET env var.
+      # cargo-binstall reads CARGO_BUILD_TARGET and would try to install a wasm32 binary,
+      # but it ignores .cargo/config.toml, so this lets the action install release-plz
+      # natively while cargo still builds for wasm32.
+      - name: Set cargo build target
+        run: echo -e '[build]\ntarget = "wasm32-unknown-unknown"' >> .cargo/config.toml
+
       - name: Run release-plz
-        uses: release-plz/action@5ab144c9d67d4346240190d0f95ed08668677928
+        uses: release-plz/action@0.5
         env:
           # https://marcoieni.github.io/release-plz/github-action.html#triggering-further-workflow-runs
           GITHUB_TOKEN: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          CARGO_BUILD_TARGET: wasm32-unknown-unknown
