@@ -22,28 +22,10 @@ jobs:
 
       - name: Install Rust toolchain 1.86 for builds
         uses: dtolnay/rust-toolchain@1.86
-        with:
-          targets: wasm32-unknown-unknown
 
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install release-plz
-        run: cargo-binstall release-plz cargo-semver-checks --no-confirm
-
-      # Install release-plz and cargo-semver-checks without CARGO_BUILD_TARGET
-      # so cargo-binstall downloads native binaries. Set the target only when
-      # running release-plz so cargo builds for wasm32.
-      - name: Release-plz release-pr
-        run: release-plz release-pr --git-token "$GITHUB_TOKEN" --repo-url "https://github.com/$GITHUB_REPOSITORY" -o json
+      - name: Run release-plz
+        uses: release-plz/action@0.5
         env:
+          # https://marcoieni.github.io/release-plz/github-action.html#triggering-further-workflow-runs
           GITHUB_TOKEN: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          CARGO_BUILD_TARGET: wasm32-unknown-unknown
-
-      - name: Release-plz release
-        run: release-plz release --git-token "$GITHUB_TOKEN" -o json
-        env:
-          GITHUB_TOKEN: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          CARGO_BUILD_TARGET: wasm32-unknown-unknown
