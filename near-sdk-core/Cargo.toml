@@ -29,7 +29,7 @@ arbitrary = { version = "1.4", optional = true }
 near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
-near-sdk-macros = { path = "../near-sdk-macros/", version = "5.25.0" }
+near-sdk-macros = { path = "../near-sdk-macros/", version = "~5.26.1" }
 near-sys = { path = "../near-sys", version = "~0.2.9", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
