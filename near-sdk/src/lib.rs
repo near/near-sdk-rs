@@ -148,7 +148,7 @@ compile_error!(
   - `#[cfg(target_family = "wasm")]`
   - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
   - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
-  - `#[cfg(feature = "__abi-generate")`
+  - `#[cfg(feature = "__abi-generate")]`
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
   - `#[cfg(docsrs)]` (set by docs.rs when building documentation)
