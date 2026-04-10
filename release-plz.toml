@@ -1,6 +1,9 @@
 [workspace]
 # Use `near-sdk` crate CHANGELOG as top-level one
 changelog_update = false
+# Skip cargo publish verification build (which requires wasm32 target).
+# CI already builds and tests all crates on every PR.
+publish_no_verify = true
 
 [[package]]
 name = "near-sdk"
