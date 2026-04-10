@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_trait_info.rs
-assertion_line: 72
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub mod test {
@@ -57,8 +56,10 @@ pub mod test {
                 match near_sdk::borsh::to_vec(&__args) {
                     Ok(serialized) => serialized,
                     Err(_) => {
-                        ::near_sdk::env::panic_str(
-                            "Failed to serialize the cross contract args using Borsh.",
+                        ::near_sdk::env::panic_err(
+                            ::near_sdk::errors::BorshSerializeError::new(
+                                "cross contract args",
+                            ),
                         )
                     }
                 }

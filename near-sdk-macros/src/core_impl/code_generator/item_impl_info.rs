@@ -1,16 +1,45 @@
 use crate::ItemImplInfo;
+use crate::core_impl::ReturnKind;
 use crate::core_impl::ext::generate_ext_function_wrappers;
+use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::ToTokens;
+use quote::{ToTokens, format_ident, quote};
 use syn::{Ident, spanned::Spanned};
 
 impl ItemImplInfo {
     /// Generate the code that wraps
     pub fn wrapper_code(&self) -> TokenStream2 {
         let mut res = TokenStream2::new();
+        let mut checks = quote! {};
         for method in &self.methods {
             res.extend(method.method_wrapper());
+            if let ReturnKind::HandlesResultImplicit { .. } =
+                method.attr_signature_info.returns.kind
+            {
+                let error_type = match &method.attr_signature_info.returns.original {
+                    syn::ReturnType::Default => quote! { () },
+                    syn::ReturnType::Type(_, ty) => {
+                        let error_type = utils::extract_error_type(ty);
+                        quote! { #error_type }
+                    }
+                };
+                let method_name = &method.attr_signature_info.ident;
+                let check_trait_method_name =
+                    format_ident!("check_contract_error_trait_{}", method_name);
+
+                checks.extend(quote! {
+                    fn #check_trait_method_name() {
+                        let _ = near_sdk::check_contract_error_trait as fn(&#error_type);
+                    }
+                });
+            }
         }
+        let current_type = &self.ty;
+        res.extend(quote! {
+            impl #current_type {
+                #checks
+            }
+        });
         res
     }
 
@@ -23,13 +52,55 @@ impl ItemImplInfo {
             Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
+
+    pub fn generate_error_method(&self) -> TokenStream2 {
+        let mut result = quote! {};
+        let mut needs_panic_callback = false;
+
+        self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
+            if let ReturnKind::HandlesResultExplicit(explicit_result) = &method.returns.kind {
+                if !explicit_result.suppress_warnings {
+                    let warning_message = format!(
+                        "Method '{}' uses #[handle_result] attribute which is deprecated. Consider using implicit Result handling instead.",
+                        method.ident
+                    );
+                    let warning_name = format_ident!("using_handle_result_{}", method.ident);
+                    result.extend(quote! {
+                        near_sdk::compile_warning!(#warning_name, #warning_message);
+                    });
+                }
+            }
+
+            if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
+                if status.unsafe_persist_on_error {
+                    needs_panic_callback = true;
+                }
+            }
+        });
+
+        // Generate a single shared panic callback if any method uses unsafe_persist_on_error
+        if needs_panic_callback {
+            let ty = self.ty.to_token_stream();
+            result.extend(quote! {
+                #[near]
+                impl #ty {
+                    #[private]
+                    pub fn __near_sdk_panic_callback(&self, err: ::near_sdk::BaseError) {
+                        ::near_sdk::env::panic_err(err);
+                    }
+                }
+            });
+        }
+
+        result
+    }
 }
 // Rustfmt removes comas.
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
     use syn::{parse_quote, parse_str, ImplItemFn, Type};
-    use crate::core_impl::info_extractor::ImplItemMethodInfo;
+    use crate::core_impl::info_extractor::{ImplItemMethodInfo, ItemImplInfo};
     use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
 
@@ -287,7 +358,7 @@ mod tests {
     fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn method(&self) -> Result::<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -299,7 +370,7 @@ mod tests {
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -311,7 +382,7 @@ mod tests {
     fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
@@ -325,7 +396,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init]
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -338,7 +409,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init(ignore_state)]
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -393,5 +464,43 @@ mod tests {
         let code2 = pretty_print_syn_str(&method_info2.method_wrapper()).unwrap();
 
         assert_eq!(code1, code2, "Attribute order should not affect generated code");
+    }
+
+
+    #[test]
+    fn result_implicit() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn unsafe_persist_on_error() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[unsafe_persist_on_error]
+            pub fn method(&mut self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+
+    fn generated_method_error() {
+        let mut impl_contract: syn::ItemImpl = parse_quote! {
+            impl Contract {
+                #[unsafe_persist_on_error]
+                pub fn method(&mut self) -> Result<u64, &'static str> { }
+            }
+        };
+        let impl_contract_info = ItemImplInfo::new(&mut impl_contract).unwrap();
+        let actual = impl_contract_info.generate_error_method();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }

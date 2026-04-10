@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::env;
+use crate::{env, errors};
 
 pub trait ContractState {
     #[inline]
@@ -20,8 +20,9 @@ pub trait ContractState {
         Self: BorshDeserialize,
     {
         env::storage_read(Self::state_key()).map(|data| {
-            borsh::from_slice(&data)
-                .unwrap_or_else(|_| env::panic_str("Cannot deserialize the contract state."))
+            borsh::from_slice(&data).unwrap_or_else(|_| {
+                env::panic_err(errors::BorshDeserializeError::new("contract state"))
+            })
         })
     }
 
@@ -33,8 +34,9 @@ pub trait ContractState {
     {
         env::storage_write(
             Self::state_key(),
-            &borsh::to_vec(self)
-                .unwrap_or_else(|_| env::panic_str("Cannot serialize the contract state.")),
+            &borsh::to_vec(self).unwrap_or_else(|_| {
+                env::panic_err(errors::BorshSerializeError::new("contract state"))
+            }),
         )
     }
 }

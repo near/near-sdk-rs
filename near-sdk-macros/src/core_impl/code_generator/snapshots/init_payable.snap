@@ -16,16 +16,25 @@ pub extern "C" fn method() {
             match ::near_sdk::serde_json::from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
+                    ::near_sdk::env::panic_err(
+                        ::near_sdk::errors::JsonDeserializeError::new(
+                            &format!("input: {e}"),
+                        ),
                     );
                 }
             }
         }
-        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
+        None => {
+            ::near_sdk::env::panic_err(
+                ::near_sdk::errors::InvalidArgument::new(
+                    "Expected input since method has arguments.",
+                ),
+            )
+        }
     };
     if <Hello as ::near_sdk::state::ContractState>::state_exists() {
-        ::near_sdk::env::panic_str("The contract has already been initialized");
+        ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized {
+        });
     }
     let contract = Hello::method(&mut k);
     <Hello as ::near_sdk::state::ContractState>::state_write(&contract);

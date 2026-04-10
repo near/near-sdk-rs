@@ -71,6 +71,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         return core_impl::near_events(attr, item);
     }
 
+    if attr.to_string().contains("contract_error") {
+        return contract_error_inner(attr, item);
+    }
+
     let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
@@ -351,11 +355,14 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
+    let error_methods = item_impl_info.generate_error_method();
+
     Ok(TokenStream::from(quote! {
         #ext_generated_code
         #input
         #generated_code
         #abi_generated
+        #error_methods
     })
     .into())
 }
@@ -620,7 +627,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl ::std::default::Default for #ident {
                         fn default() -> Self {
-                            ::near_sdk::env::panic_str("The contract is not initialized");
+                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractNotInitialized{});
                         }
                     }
                 };
@@ -682,7 +689,7 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl ::near_sdk::FunctionError for #name {
             fn panic(&self) -> ! {
-                ::near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
+                ::near_sdk::env::panic_err(::near_sdk::errors::ContractError::new(&::std::string::ToString::to_string(&self)))
             }
         }
     })
@@ -789,4 +796,103 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+#[derive(FromMeta)]
+#[allow(dead_code)]
+struct NearContractErrorArgs {
+    contract_error: bool,
+    sdk: Option<bool>,
+    inside_nearsdk: Option<bool>,
+}
+
+fn contract_error_inner(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
+    };
+    let args = match NearContractErrorArgs::from_list(&meta_list) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
+    };
+    contract_error_generate(args.sdk.unwrap_or(false), args.inside_nearsdk.unwrap_or(false), item)
+}
+
+fn contract_error_generate(sdk: bool, inside_nearsdk: bool, item: TokenStream) -> TokenStream {
+    let input = match syn::parse::<syn::DeriveInput>(item) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.to_compile_error());
+        }
+    };
+    let ident = &input.ident;
+    let generics = &input.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let error_type = if sdk {
+        quote! {"SDK_CONTRACT_ERROR"}
+    } else {
+        quote! {"CUSTOM_CONTRACT_ERROR"}
+    };
+
+    let near_sdk_crate: proc_macro2::TokenStream;
+    let mut bool_inside_nearsdk_for_macro = quote! {false};
+
+    if inside_nearsdk {
+        near_sdk_crate = quote! {crate};
+        bool_inside_nearsdk_for_macro = quote! {true};
+    } else {
+        near_sdk_crate = quote! {::near_sdk};
+    };
+
+    let serde_enum_attr = match &input.data {
+        syn::Data::Enum(_) => {
+            quote! { #[serde(tag = "tag", content = "content", rename_all = "SCREAMING_SNAKE_CASE")] }
+        }
+        _ => quote! {},
+    };
+
+    let mut expanded = quote! {
+        #[#near_sdk_crate ::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
+        #[derive(Debug)]
+        #serde_enum_attr
+        #input
+
+        impl #impl_generics #near_sdk_crate ::ContractErrorTrait for #ident #ty_generics #where_clause {
+            fn error_type(&self) -> &'static str {
+                #error_type
+            }
+
+            fn wrap(&self) -> String {
+                let info = #near_sdk_crate ::serde_json::to_string(self).unwrap_or_default();
+                #near_sdk_crate ::wrap_impl(
+                    self.error_type(),
+                    std::any::type_name::<#ident #ty_generics>(),
+                    &info
+                )
+            }
+        }
+    };
+    if *ident != "BaseError" {
+        expanded.extend(quote! {
+            impl #impl_generics From<#ident #ty_generics> for String #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
+                    #near_sdk_crate ::wrap_error(err)
+                }
+            }
+
+            impl #impl_generics From<#ident #ty_generics> for #near_sdk_crate ::BaseError #where_clause {
+                fn from(err: #ident #ty_generics) -> Self {
+                    #near_sdk_crate ::BaseError{
+                        error: #near_sdk_crate ::wrap_error(err),
+                    }
+                }
+            }
+        });
+    }
+    TokenStream::from(expanded)
 }
