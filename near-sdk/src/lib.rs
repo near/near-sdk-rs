@@ -131,6 +131,7 @@ extern crate quickcheck;
 #[cfg(not(any(
     test,
     doctest,
+    docsrs,
     clippy,
     target_family = "wasm",
     feature = "unit-testing",
@@ -147,9 +148,10 @@ compile_error!(
   - `#[cfg(target_family = "wasm")]`
   - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
   - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
-  - `#[cfg(feature = "__abi-generate")`
+  - `#[cfg(feature = "__abi-generate")]`
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
+  - `#[cfg(docsrs)]` (set by docs.rs when building documentation)
   - `#[cfg(clippy)]`
 ⚠️ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
 "#
