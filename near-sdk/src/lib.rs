@@ -131,6 +131,7 @@ extern crate quickcheck;
 #[cfg(not(any(
     test,
     doctest,
+    docsrs,
     clippy,
     target_family = "wasm",
     feature = "unit-testing",
@@ -150,6 +151,7 @@ compile_error!(
   - `#[cfg(feature = "__abi-generate")`
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
+  - `#[cfg(docsrs)]` (set by docs.rs when building documentation)
   - `#[cfg(clippy)]`
 ⚠️ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
 "#
