@@ -30,19 +30,19 @@ near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 near-sdk-macros = { path = "../near-sdk-macros/", version = "5.25.0" }
-near-sys = { path = "../near-sys", version = "~0.2.7", optional = true }
+near-sys = { path = "../near-sys", version = "~0.2.9", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-crypto = { version = "0.34", default-features = false, optional = true }
+near-crypto = { version = "0.35", default-features = false, optional = true }
 # XXX: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
 unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
-near-vm-runner = { version = "0.34", default-features = false, optional = true }
-near-primitives-core = { version = "0.34", optional = true }
-near-parameters = { version = "0.34", optional = true }
+near-vm-runner = { version = "0.35", default-features = false, optional = true }
+near-primitives-core = { version = "0.35", optional = true }
+near-parameters = { version = "0.35", optional = true }
 sha3 = "0.10"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-near-sys = { path = "../near-sys", version = "~0.2.7" }
+near-sys = { path = "../near-sys", version = "~0.2.9" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable several tests requiring `#[near]` macro compiling

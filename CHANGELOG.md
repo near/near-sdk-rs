@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.26.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.26.0...near-sdk-v5.27.0) - 2026-04-09
+
+### Added
+
+- update gas defaults to 1 PGas ([#1503](https://github.com/near/near-sdk-rs/pull/1503))
+
+### Other
+
+- revert "feat: make GlobalContractId serialization compatible with near-primitives-core" ([#1530](https://github.com/near/near-sdk-rs/pull/1530))
+
+## [5.26.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.25.0...near-sdk-v5.26.0) - 2026-04-07
+
+### Added
+
+- make GlobalContractId serialization compatible with near-primitives-core ([#1528](https://github.com/near/near-sdk-rs/pull/1528))
+
+### Other
+
+- update near-* crates to 0.35 ([#1527](https://github.com/near/near-sdk-rs/pull/1527))
+
 ## [5.25.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.24.1...near-sdk-v5.25.0) - 2026-03-26
 
 ### Added
