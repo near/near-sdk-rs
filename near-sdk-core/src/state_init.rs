@@ -22,7 +22,7 @@ impl StateInit {
     #[inline]
     pub fn derive_account_id(&self) -> AccountId {
         let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-        format!("0s{}", hex::encode(&crate::env_impl::keccak256_array(&serialized)[12..32]))
+        format!("0s{}", hex::encode(&near_env::keccak256_array(&serialized)[12..32]))
             .parse()
             .unwrap_or_else(|_| unreachable!())
     }

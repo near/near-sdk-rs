@@ -43,7 +43,7 @@ where
     T: AsRef<str>,
 {
     fn panic(&self) -> ! {
-        crate::env_impl::panic_str(self.as_ref())
+        near_env::panic_str(self.as_ref())
     }
 }
 
@@ -80,7 +80,7 @@ impl std::fmt::Display for Abort {
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
-        crate::env_impl::abort()
+        near_env::abort()
     }
 }
 

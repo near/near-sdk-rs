@@ -1,7 +1,7 @@
 [package]
 name = "near-sdk-core"
 version = "0.1.0"
-authors = ["Near Inc <vladyslav.savchyn@nearone.org>"]
+authors = ["Near Inc <hello@near.org>"]
 edition.workspace = true
 license.workspace = true
 readme = "README.md"
@@ -22,7 +22,6 @@ base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
 hex = "0.4"
-schemars = { version = "0.8.22", optional = true }
 
 arbitrary = { version = "1.4", optional = true }
 
@@ -30,26 +29,22 @@ near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 near-sdk-macros = { path = "../near-sdk-macros/", version = "~5.26.1" }
-near-sys = { path = "../near-sys", version = "~0.2.9", optional = true }
+near-env = { path = "../near-env/", version = "~0.1.0" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+schemars = { version = "0.8.22", optional = true }
+near-primitives-core = { version = "0.35", optional = true }
 near-crypto = { version = "0.35", default-features = false, optional = true }
 # XXX: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
 unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
-near-vm-runner = { version = "0.35", default-features = false, optional = true }
-near-primitives-core = { version = "0.35", optional = true }
 near-parameters = { version = "0.35", optional = true }
-sha3 = "0.10"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-near-sys = { path = "../near-sys", version = "~0.2.9" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable several tests requiring `#[near]` macro compiling
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 
 [features]
-default = ["near-primitives-interop", "near-crypto-interop"]
+default = []
 
 abi = [
     "borsh/unstable__schema",
@@ -60,16 +55,15 @@ abi = [
     "serde_with/schemars_0_8",
 ]
 
-arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
+arbitrary = ["dep:arbitrary", "arbitrary/derive", "near-account-id/arbitrary"]
 
 near-primitives-interop = ["dep:near-primitives-core"]
-near-crypto-interop = ["dep:near-crypto"]
+near-crypto-interop = ["dep:near-crypto", "dep:unicode-segmentation"]
 
 __near-sdk-unit-testing = [
+    "near-env/__near-sdk-unit-testing",
     "near-primitives-interop",
     "near-crypto-interop",
     "dep:unicode-segmentation",
-    "dep:near-sys",
     "dep:near-parameters",
-    "dep:near-vm-runner",
 ]
