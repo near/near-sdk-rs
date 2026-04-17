@@ -1,0 +1,34 @@
+[package]
+name = "near-env"
+version = "0.1.0"
+authors = ["Near Inc <hello@near.org>"]
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "./README.md"
+description = """
+Low-level abstraction over `near-sys` host functions. Provides the same
+hashing (and related) API on wasm32 (via NEAR VM host calls) and on 
+non-wasm32 (via pure-Rust crates), so off-chain code can compute identically 
+to on-chain.
+"""
+
+[dependencies]
+near-sys = { path = "../near-sys/", version = "~0.2.9", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+near-sys = { path = "../near-sys/", version = "~0.2.9" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ripemd = { version = "0.1.1" }
+sha2 = { version = "0.10" }
+sha3 = { version = "0.10" }
+
+[dev-dependencies]
+hex = { version = "0.4" }
+
+[features]
+__near-sdk-unit-testing = ["dep:near-sys"]
