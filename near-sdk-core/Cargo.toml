@@ -40,7 +40,7 @@ unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
 near-parameters = { version = "0.35", optional = true }
 
 [dev-dependencies]
-# XXX: `near-sdk` was added in order to enable several tests requiring `#[near]` macro compiling
+# XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 
 [features]

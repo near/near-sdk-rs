@@ -14,3 +14,7 @@ pub use schemars;
 pub use serde;
 pub use serde_json;
 pub use serde_with;
+
+#[cfg(test)]
+// XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
+use near_sdk as _;
