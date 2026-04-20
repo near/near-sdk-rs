@@ -1,15 +1,22 @@
 use crate::CryptoHash;
 
-#[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+#[cfg(any(
+    target_arch = "wasm32",
+    all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+))]
 use near_sys as sys;
 
-#[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+#[cfg(any(
+    target_arch = "wasm32",
+    all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+))]
 use crate::{ATOMIC_OP_REGISTER, read_register_fixed};
 
 /// Hashes the random sequence of bytes using sha256.
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::sha256;
 /// use hex;
 ///
@@ -26,6 +33,7 @@ pub fn sha256(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::keccak256;
 /// use hex;
 ///
@@ -43,6 +51,7 @@ pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::keccak512;
 /// use hex;
 ///
@@ -60,6 +69,7 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::sha256_array;
 /// use hex;
 ///
@@ -71,7 +81,10 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+    #[cfg(any(
+        target_arch = "wasm32",
+        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+    ))]
     {
         let value = value.as_ref();
         unsafe {
@@ -79,7 +92,10 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
             read_register_fixed(ATOMIC_OP_REGISTER)
         }
     }
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(not(feature = "__near-sdk-unit-testing"), test, doctest)
+    ))]
     {
         use sha2::Digest;
 
@@ -91,6 +107,7 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::keccak256_array;
 /// use hex;
 ///
@@ -102,7 +119,10 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+    #[cfg(any(
+        target_arch = "wasm32",
+        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+    ))]
     {
         let value = value.as_ref();
         //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
@@ -114,7 +134,10 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(not(feature = "__near-sdk-unit-testing"), test, doctest)
+    ))]
     {
         use sha3::Digest;
 
@@ -126,6 +149,7 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::keccak512_array;
 /// use hex;
 ///
@@ -137,7 +161,10 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// );
 /// ```
 pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+    #[cfg(any(
+        target_arch = "wasm32",
+        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+    ))]
     {
         let value = value.as_ref();
 
@@ -150,7 +177,10 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(not(feature = "__near-sdk-unit-testing"), test, doctest)
+    ))]
     {
         use sha3::Digest;
 
@@ -162,6 +192,7 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 ///
 /// # Examples
 /// ```
+/// # use near_sdk as _;
 /// use near_env::ripemd160_array;
 /// use hex;
 ///
@@ -173,7 +204,10 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+    #[cfg(any(
+        target_arch = "wasm32",
+        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+    ))]
     {
         let value = value.as_ref();
         //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
@@ -185,7 +219,10 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), any(not(feature = "__near-sdk-unit-testing"), test)))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(not(feature = "__near-sdk-unit-testing"), test, doctest)
+    ))]
     {
         use sha2::Digest;
 

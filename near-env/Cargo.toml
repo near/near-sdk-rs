@@ -28,6 +28,8 @@ sha2 = { version = "0.10" }
 sha3 = { version = "0.10" }
 
 [dev-dependencies]
+# XXX: `near-sdk` was added in order to enable testing and doctests
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 hex = { version = "0.4" }
 
 [features]
