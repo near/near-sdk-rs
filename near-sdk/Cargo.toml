@@ -27,6 +27,7 @@ near-sdk-macros = { path = "../near-sdk-macros", version = "~5.26.1" }
 near-sys = { path = "../near-sys", version = "0.2.9" }
 near-env = { path = "../near-env/", version = "~0.1.0" }
 near-sdk-core = { path = "../near-sdk-core/", version = "~0.1.0" }
+near-state-init = { path = "../near-state-init/", version = "~0.1.0" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
@@ -92,6 +93,7 @@ arbitrary = [
     "arbitrary/derive",
     "near-account-id/arbitrary",
     "near-sdk-core/arbitrary",
+    "near-state-init/arbitrary",
 ]
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
@@ -107,6 +109,7 @@ abi = [
     "near-gas/abi",
     "near-token/abi",
     "near-sdk-core/abi",
+    "near-state-init/abi",
     "serde_with/schemars_0_8",
 ]
 unit-testing = [
@@ -118,6 +121,7 @@ unit-testing = [
     "near-parameters",
     "near-env/__near-sdk-unit-testing",
     "near-sdk-core/__near-sdk-unit-testing",
+    "near-state-init/__near-sdk-unit-testing",
 ]
 non-contract-usage = [
     "ed25519-dalek",
@@ -126,9 +130,7 @@ non-contract-usage = [
     "near-primitives-core",
     "near-sdk-core/near-crypto-interop",
     "near-sdk-core/near-primitives-interop",
-    "ripemd",
-    "sha2",
-    "sha3",
+    "near-state-init/near-primitives-interop",
 ]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]

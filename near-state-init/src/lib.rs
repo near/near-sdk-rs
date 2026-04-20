@@ -1,10 +1,18 @@
 use std::collections::BTreeMap;
 
 use near_account_id::AccountId;
+use near_sdk_core::types::GlobalContractId;
 use near_sdk_macros::near;
 use serde_with::base64::Base64;
 
-use crate::types::GlobalContractId;
+pub use base64;
+pub use borsh;
+pub use bs58;
+#[cfg(feature = "abi")]
+pub use schemars;
+pub use serde;
+pub use serde_json;
+pub use serde_with;
 
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 #[near(inside_nearsdk, serializers = [
@@ -97,8 +105,9 @@ const _: () = {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::json_types::Base58CryptoHash;
+    use near_sdk_core::{json_types::Base58CryptoHash, types::GlobalContractId};
+
+    use crate::{StateInit, StateInitV1};
 
     #[test]
     fn test_state_init_json_serialization_externally_tagged() {

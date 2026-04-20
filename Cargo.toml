@@ -7,6 +7,7 @@ members = [
     "near-contract-standards",
     "near-sys",
     "near-env",
+    "near-state-init",
 ]
 exclude = ["examples/"]
 

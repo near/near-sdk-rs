@@ -1,7 +1,5 @@
 pub mod json_types;
 
-pub mod state_init;
-
 pub mod types;
 
 pub mod allowance;
