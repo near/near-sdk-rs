@@ -1,6 +1,3 @@
-use near_sdk_macros::near;
-use serde::{Deserialize, Deserializer, Serializer};
-
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
 ///
 /// # Example
@@ -12,12 +9,18 @@ use serde::{Deserialize, Deserializer, Serializer};
 ///     field: Base64VecU8,
 /// }
 /// ```
-#[near(inside_nearsdk, serializers=[borsh, json])]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct Base64VecU8(
-    #[serde(
-        serialize_with = "base64_bytes::serialize",
-        deserialize_with = "base64_bytes::deserialize"
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "base64_bytes::serialize",
+            deserialize_with = "base64_bytes::deserialize"
+        )
     )]
     pub Vec<u8>,
 );
@@ -41,31 +44,31 @@ impl AsRef<[u8]> for Base64VecU8 {
 }
 
 /// Convenience module to allow annotating a serde structure as base64 bytes.
+#[cfg(feature = "serde")]
 mod base64_bytes {
-    use super::*;
     use base64::Engine;
     use serde::de;
 
     pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer,
+        S: serde::Serializer,
     {
         serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
-        D: Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
         base64::engine::general_purpose::STANDARD.decode(s.as_str()).map_err(de::Error::custom)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
+    use super::Base64VecU8;
+    use serde_json;
     macro_rules! test_serde {
         ($v: expr) => {
             let a: Vec<u8> = $v;

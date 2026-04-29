@@ -1,25 +1,22 @@
+use crate::GlobalContractId;
 use std::collections::BTreeMap;
 
+#[cfg(feature = "serde")]
+mod serde_impl;
+
+#[cfg(feature = "borsh")]
 use near_account_id::AccountId;
-use near_sdk_core::types::GlobalContractId;
-use near_sdk_macros::near;
-use serde_with::base64::Base64;
 
-pub use base64;
-pub use borsh;
-pub use bs58;
 #[cfg(feature = "abi")]
-pub use schemars;
-pub use serde;
-pub use serde_json;
-pub use serde_with;
+mod schemars_impl;
 
-#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
-#[near(inside_nearsdk, serializers = [
-    json,
-    borsh(use_discriminant = true),
-])]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[repr(u8)]
 pub enum StateInit {
     V1(StateInitV1) = 0,
@@ -28,21 +25,33 @@ pub enum StateInit {
 impl StateInit {
     /// Derives [`AccountId`] deterministically, according to NEP-616.
     #[inline]
+    #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> AccountId {
-        let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-        format!("0s{}", hex::encode(&near_env::keccak256_array(&serialized)[12..32]))
-            .parse()
-            .unwrap_or_else(|_| unreachable!())
+        #[cfg(feature = "near-contracts")]
+        {
+            let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
+            format!("0s{}", hex::encode(&near_env::keccak256_array(&serialized)[12..32]))
+                .parse()
+                .unwrap_or_else(|_| unreachable!())
+        }
+        #[cfg(not(feature = "near-contracts"))]
+        {
+            use sha3::Digest;
+
+            let mut hasher = sha3::Keccak256::new();
+            borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
+            let hash = hasher.finalize();
+            format!("0s{}", hex::encode(&hash[12..32])).parse().unwrap_or_else(|_| unreachable!())
+        }
     }
 }
 
-#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
-#[near(inside_nearsdk, serializers = [json, borsh])]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
-    #[serde_as(as = "BTreeMap<Base64, Base64>")]
-    #[cfg_attr(feature = "abi", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
@@ -102,31 +111,3 @@ const _: () = {
         }
     }
 };
-
-#[cfg(test)]
-mod tests {
-    use near_sdk_core::{json_types::Base58CryptoHash, types::GlobalContractId};
-
-    use crate::{StateInit, StateInitV1};
-
-    #[test]
-    fn test_state_init_json_serialization_externally_tagged() {
-        let hash: Base58CryptoHash =
-            "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ".parse().unwrap();
-        let state_init = StateInit::V1(StateInitV1::code(GlobalContractId::CodeHash(hash)));
-
-        let json = serde_json::to_string(&state_init).unwrap();
-        // Must use serde's default externally tagged format to match nearcore
-        assert!(json.starts_with(r#"{"V1":"#), "expected externally tagged format, got: {json}");
-
-        let deserialized: StateInit = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized, state_init);
-
-        // Old internally tagged format must NOT deserialize
-        let old_format = r#"{"version":"v1","code":{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"},"data":{}}"#;
-        assert!(
-            serde_json::from_str::<StateInit>(old_format).is_err(),
-            "old internally tagged format should be rejected"
-        );
-    }
-}

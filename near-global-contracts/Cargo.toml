@@ -1,0 +1,76 @@
+[package]
+name = "near-global-contracts"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+near-account-id = "2.6.0"
+near-sdk-core = { path = "../near-sdk-core/", version = "0.1.0" }
+
+sha3 = "0.10"
+bs58 = "0.5"
+base64 = "0.22"
+hex = "0.4"
+
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", features = ["preserve_order"], optional = true }
+serde_with = { version = "3", features = [
+    "base64",
+    "hex",
+    "json",
+], optional = true }
+borsh = { version = "1.0.0", features = ["derive"], optional = true }
+schemars = { version = "0.8.22", optional = true }
+
+arbitrary = { version = "1.4", optional = true }
+
+near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
+
+near-primitives-core = { version = "0.35", optional = true }
+
+[dev-dependencies]
+# XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+
+[features]
+serde = [
+    "dep:serde",
+    "dep:serde_json",
+    "dep:serde_with",
+    "near-account-id/serde",
+    "near-sdk-core/serde",
+]
+
+borsh = ["dep:borsh", "near-account-id/borsh", "near-sdk-core/borsh"]
+
+abi = [
+    "dep:schemars",
+    "borsh",
+    "borsh/unstable__schema",
+    "near-account-id/abi",
+    "near-sdk-core/abi",
+]
+
+arbitrary = [
+    "dep:arbitrary",
+    "near-sdk-core/arbitrary",
+    "near-account-id/arbitrary",
+]
+
+near-primitives-interop = [
+    "dep:near-primitives-core",
+    "near-sdk-core/near-primitives-interop",
+]
+
+near-contracts = ["dep:near-env", "serde", "borsh"]
+
+__near-sdk-unit-testing = [
+    "near-contracts",
+    "near-sdk-core/__near-sdk-unit-testing",
+    "near-env/__near-sdk-unit-testing",
+]

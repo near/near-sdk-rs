@@ -1,11 +1,11 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
-use near_sdk_macros::near;
-use std::{convert::TryFrom, io};
+use std::convert::TryFrom;
 
 /// PublicKey curve
-#[near(inside_nearsdk, serializers=[borsh(use_discriminant = true)])]
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
 pub enum CurveType {
     ED25519 = 0,
@@ -116,7 +116,7 @@ const _: () = {
 ///             .parse()
 ///             .unwrap();
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Hash)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct PublicKey {
     data: Vec<u8>,
@@ -159,7 +159,16 @@ impl PublicKey {
 
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
-        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| near_env::abort())
+        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| {
+            #[cfg(feature = "near-contracts")]
+            {
+                near_env::abort()
+            }
+            #[cfg(not(feature = "near-contracts"))]
+            {
+                panic!()
+            }
+        })
     }
 }
 
@@ -189,6 +198,7 @@ impl TryFrom<Vec<u8>> for PublicKey {
     }
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -198,14 +208,23 @@ impl serde::Serialize for PublicKey {
     }
 }
 
-impl BorshDeserialize for PublicKey {
-    fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
-        <Vec<u8> as BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
-            Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+#[cfg(feature = "borsh")]
+impl borsh::BorshSerialize for PublicKey {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        borsh::BorshSerialize::serialize(&self.data, writer)
+    }
+}
+
+#[cfg(feature = "borsh")]
+impl borsh::BorshDeserialize for PublicKey {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        <Vec<u8> as borsh::BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
+            Self::try_from(s).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
         })
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -298,6 +317,7 @@ impl std::error::Error for ParsePublicKeyError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::borsh::{BorshDeserialize, BorshSerialize};
     use std::convert::TryInto;
     use std::str::FromStr;
 

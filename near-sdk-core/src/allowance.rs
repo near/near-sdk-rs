@@ -1,8 +1,6 @@
 use std::num::NonZeroU128;
 
-use borsh::{BorshDeserialize, BorshSerialize};
 use near_token::NearToken;
-use serde::{Deserialize, Serialize};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -23,7 +21,8 @@ impl Allowance {
     }
 }
 
-impl Serialize for Allowance {
+#[cfg(feature = "serde")]
+impl serde::Serialize for Allowance {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -35,7 +34,8 @@ impl Serialize for Allowance {
     }
 }
 
-impl<'de> Deserialize<'de> for Allowance {
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Allowance {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -53,7 +53,8 @@ impl<'de> Deserialize<'de> for Allowance {
     }
 }
 
-impl BorshSerialize for Allowance {
+#[cfg(feature = "borsh")]
+impl borsh::BorshSerialize for Allowance {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         let opt: Option<u128> = match self {
             Allowance::Unlimited => None,
@@ -63,7 +64,8 @@ impl BorshSerialize for Allowance {
     }
 }
 
-impl BorshDeserialize for Allowance {
+#[cfg(feature = "borsh")]
+impl borsh::BorshDeserialize for Allowance {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
         let opt: Option<u128> = borsh::de::from_reader(reader)?;
         match opt {
@@ -81,7 +83,6 @@ impl BorshDeserialize for Allowance {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod test {
     use crate::{allowance::Allowance, types::NearToken};
