@@ -1,0 +1,89 @@
+[package]
+name = "near-sdk-core"
+version = "0.1.0"
+authors = ["Near Inc <hello@near.org>"]
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = """
+Rust library of core NEAR smart contract types.
+"""
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", features = ["preserve_order"], optional = true }
+serde_with = { version = "3", features = [
+    "base64",
+    "hex",
+    "json",
+], optional = true }
+borsh = { version = "1.0.0", features = ["derive"], optional = true }
+base64 = "0.22"
+bs58 = "0.5"
+hex = "0.4"
+
+arbitrary = { version = "1.4", optional = true }
+
+near-account-id = { version = "2.3.0" }
+near-gas = { version = "0.3" }
+near-token = { version = "0.3" }
+near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+schemars = { version = "0.8.22", optional = true }
+near-primitives-core = { version = "0.35", optional = true }
+near-crypto = { version = "0.35", default-features = false, optional = true }
+# XXX: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
+unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
+near-parameters = { version = "0.35", optional = true }
+
+[dev-dependencies]
+# XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+
+[features]
+default = []
+
+serde = [
+    "dep:serde",
+    "dep:serde_json",
+    "dep:serde_with",
+    "near-account-id/serde",
+    "near-gas/serde",
+    "near-token/serde",
+]
+borsh = [
+    "dep:borsh",
+    "near-account-id/borsh",
+    "near-gas/borsh",
+    "near-token/borsh",
+]
+
+abi = [
+    "borsh/unstable__schema",
+    "near-account-id/abi",
+    "near-gas/abi",
+    "serde_with/schemars_0_8",
+    "dep:schemars",
+]
+
+arbitrary = ["dep:arbitrary", "arbitrary/derive", "near-account-id/arbitrary"]
+
+near-primitives-interop = ["dep:near-primitives-core"]
+near-crypto-interop = ["dep:near-crypto", "dep:unicode-segmentation"]
+
+near-contracts = ["serde", "borsh", "dep:near-env"]
+
+__near-sdk-unit-testing = [
+    "near-contracts",
+    "near-primitives-interop",
+    "near-crypto-interop",
+    "near-env/__near-sdk-unit-testing",
+    "dep:unicode-segmentation",
+    "dep:near-parameters",
+]

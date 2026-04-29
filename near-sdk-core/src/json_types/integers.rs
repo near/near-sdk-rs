@@ -3,13 +3,11 @@
 //! NOTE: JSON standard can only work with integer up to 53 bits. So we need helper classes for
 //! 64-bit and 128-bit integers.
 
-use near_sdk_macros::near;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
-        #[near(inside_nearsdk)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+        #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+        #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {
@@ -24,24 +22,28 @@ macro_rules! impl_str_type {
             }
         }
 
-        impl Serialize for $iden {
+        #[cfg(feature = "serde")]
+        impl serde::ser::Serialize for $iden {
             fn serialize<S>(
                 &self,
                 serializer: S,
-            ) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+            ) -> Result<<S as serde::ser::Serializer>::Ok, <S as serde::ser::Serializer>::Error>
             where
-                S: Serializer,
+                S: serde::Serializer,
             {
                 serializer.serialize_str(&self.0.to_string())
             }
         }
 
-        impl<'de> Deserialize<'de> for $iden {
-            fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+        #[cfg(feature = "serde")]
+        impl<'de> serde::de::Deserialize<'de> for $iden {
+            fn deserialize<D>(
+                deserializer: D,
+            ) -> Result<Self, <D as serde::de::Deserializer<'de>>::Error>
             where
-                D: Deserializer<'de>,
+                D: serde::de::Deserializer<'de>,
             {
-                let s: String = Deserialize::deserialize(deserializer)?;
+                let s: String = serde::de::Deserialize::deserialize(deserializer)?;
                 Ok(Self(str::parse::<$ty>(&s).map_err(serde::de::Error::custom)?))
             }
         }
@@ -73,6 +75,7 @@ impl_str_type!(I64, i64);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json;
 
     macro_rules! test_serde {
         ($str_type: tt, $int_type: tt, $number: expr) => {

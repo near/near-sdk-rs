@@ -2,7 +2,7 @@
 /// with `#[handle_result]` has to implement this trait.
 ///
 /// Example:
-/// ```no_run
+/// ```rust
 /// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {
@@ -43,14 +43,22 @@ where
     T: AsRef<str>,
 {
     fn panic(&self) -> ! {
-        crate::env::panic_str(self.as_ref())
+        #[cfg(feature = "near-contracts")]
+        {
+            near_env::panic_str(self.as_ref())
+        }
+        #[cfg(not(feature = "near-contracts"))]
+        {
+            eprintln!("{}", self.as_ref());
+            panic!()
+        }
     }
 }
 
 /// A simple type used in conjunction with [FunctionError] representing that the function should
 /// abort without a custom message.
 ///
-/// ```
+/// ```rust
 /// use near_sdk::{Abort, near};
 ///
 /// #[near(contract_state)]
@@ -80,7 +88,14 @@ impl std::fmt::Display for Abort {
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
-        crate::env::abort()
+        #[cfg(feature = "near-contracts")]
+        {
+            near_env::abort()
+        }
+        #[cfg(not(feature = "near-contracts"))]
+        {
+            panic!()
+        }
     }
 }
 

@@ -1624,6 +1624,9 @@ pub mod state;
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
 
+#[cfg(feature = "deterministic-account-ids")]
+pub use near_global_contracts::{AccountContract, GlobalContractId};
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]

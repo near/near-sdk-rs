@@ -1,10 +1,9 @@
 use near_account_id::AccountId;
-use near_sdk_macros::near;
 
-use crate::CryptoHash;
-use crate::json_types::Base58CryptoHash;
+use near_sdk_core::json_types::Base58CryptoHash;
+use near_sdk_core::types::CryptoHash;
 
-#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccountContract {
     None,
@@ -13,17 +12,18 @@ pub enum AccountContract {
     GlobalByAccount(AccountId),
 }
 
-#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
-#[near(inside_nearsdk, serializers = [
-    json,
-    borsh(use_discriminant = true),
-])]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
+#[cfg_attr(all(feature = "abi", not(target_arch = "wasm32")), derive(borsh::BorshSchema))]
+#[cfg_attr(all(feature = "abi", not(target_arch = "wasm32")), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum GlobalContractId {
-    #[serde(rename = "hash")]
+    #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     CodeHash(Base58CryptoHash) = 0,
-    #[serde(rename = "account_id")]
+    #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
 }
 
@@ -48,10 +48,7 @@ impl From<AccountId> for GlobalContractId {
     }
 }
 
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "unit-testing", feature = "non-contract-usage")
-))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "near-primitives-interop"))]
 const _: () = {
     use near_primitives_core::{
         account::AccountContract as NearAccountContract,
@@ -106,10 +103,11 @@ const _: () = {
     }
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::json_types::Base58CryptoHash;
+    use near_sdk_core::json_types::Base58CryptoHash;
 
     #[test]
     fn test_global_contract_id_json_serialization_code_hash() {

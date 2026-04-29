@@ -1,6 +1,14 @@
 [workspace]
 resolver = "3"
-members = ["near-sdk", "near-sdk-macros", "near-contract-standards", "near-sys"]
+members = [
+    "near-sdk",
+    "near-sdk-core",
+    "near-sdk-macros",
+    "near-contract-standards",
+    "near-sys",
+    "near-env",
+    "near-global-contracts",
+]
 exclude = ["examples/"]
 
 [workspace.package]

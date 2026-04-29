@@ -1,12 +1,11 @@
-use crate::CryptoHash;
+use crate::types::CryptoHash;
 use bs58::decode::Error as B58Error;
-use near_sdk_macros::near;
-use serde::{Deserialize, de, ser};
 use std::convert::TryFrom;
 
-#[near(inside_nearsdk)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(transparent)]
 pub struct Base58CryptoHash(CryptoHash);
 
@@ -64,22 +63,24 @@ impl AsRef<[u8]> for Base58CryptoHash {
     }
 }
 
-impl ser::Serialize for Base58CryptoHash {
+#[cfg(feature = "serde")]
+impl serde::Serialize for Base58CryptoHash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: ser::Serializer,
+        S: serde::Serializer,
     {
         serializer.serialize_str(&String::from(self))
     }
 }
 
-impl<'de> de::Deserialize<'de> for Base58CryptoHash {
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        s.parse::<Self>().map_err(de::Error::custom)
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        s.parse::<Self>().map_err(serde::de::Error::custom)
     }
 }
 

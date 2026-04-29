@@ -1,13 +1,13 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "near-primitives-interop"))]
 use near_primitives_core::hash::CryptoHash;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "__near-sdk-unit-testing"))]
 pub use near_parameters::RuntimeFeesConfig;
 
 //* Type aliases from near_primitives_core
 
 /// Hash used by a struct implementing the Merkle tree.
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "near-primitives-interop"))]
 #[deprecated(since = "4.0.0", note = "Type has no connection with the SDK")]
 pub type MerkleHash = CryptoHash;
 /// Validator identifier in current group.

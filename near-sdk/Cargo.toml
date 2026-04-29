@@ -25,6 +25,13 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.26.1" }
 near-sys = { path = "../near-sys", version = "0.2.9" }
+near-env = { path = "../near-env/", version = "~0.1.0" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~0.1.0", features = [
+    "near-contracts",
+] }
+near-global-contracts = { path = "../near-global-contracts/", version = "~0.1.0", features = [
+    "near-contracts",
+] }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
@@ -55,9 +62,6 @@ near-crypto = { version = "0.35", default-features = false, optional = true }
 # Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
 unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
 near-parameters = { version = "0.35", optional = true }
-ripemd = { version = "0.1.1", optional = true }
-sha2 = { version = "0.10", optional = true }
-sha3 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
@@ -85,7 +89,13 @@ insta = "1.39.0"
 [features]
 default = ["wee_alloc"]
 
-arbitrary = ["dep:arbitrary", "arbitrary/derive", "near-account-id/arbitrary"]
+arbitrary = [
+    "dep:arbitrary",
+    "arbitrary/derive",
+    "near-account-id/arbitrary",
+    "near-sdk-core/arbitrary",
+    "near-global-contracts/arbitrary",
+]
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 unstable = []
@@ -99,6 +109,8 @@ abi = [
     "near-account-id/abi",
     "near-gas/abi",
     "near-token/abi",
+    "near-sdk-core/abi",
+    "near-global-contracts/abi",
     "serde_with/schemars_0_8",
 ]
 unit-testing = [
@@ -108,15 +120,18 @@ unit-testing = [
     "near-crypto",
     "unicode-segmentation",
     "near-parameters",
+    "near-env/__near-sdk-unit-testing",
+    "near-sdk-core/__near-sdk-unit-testing",
+    "near-global-contracts/__near-sdk-unit-testing",
 ]
 non-contract-usage = [
     "ed25519-dalek",
     "near-crypto",
     "unicode-segmentation",
     "near-primitives-core",
-    "ripemd",
-    "sha2",
-    "sha3",
+    "near-sdk-core/near-crypto-interop",
+    "near-sdk-core/near-primitives-interop",
+    "near-global-contracts/near-primitives-interop",
 ]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
