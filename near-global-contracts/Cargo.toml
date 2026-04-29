@@ -71,6 +71,7 @@ near-contracts = ["dep:near-env", "serde", "borsh"]
 
 __near-sdk-unit-testing = [
     "near-contracts",
+    "near-primitives-interop",
     "near-sdk-core/__near-sdk-unit-testing",
     "near-env/__near-sdk-unit-testing",
 ]
