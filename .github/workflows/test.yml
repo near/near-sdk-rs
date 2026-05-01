@@ -8,6 +8,58 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  cargo-hack:
+    runs-on: ${{ matrix.platform.os }}
+    name: "cargo-hack ${{ matrix.target-command-features.command }} ${{ matrix.crate }} on ${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.target-command-features.target }} ${{ matrix.target-command-features.features }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - "near-sdk-core"
+          - "near-global-contracts"
+          - "near-env"
+        platform:
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "1.86.0"
+            name: linux
+          - os: warp-macos-latest-arm64-6x
+            rs: "1.86.0"
+            name: macos
+        target-command-features:
+          - target: "--target wasm32-unknown-unknown"
+            command: "check"
+            features: "--feature-powerset --exclude-features abi,__near-sdk-unit-testing"
+          - target: "--target wasm32-unknown-unknown"
+            command: "check"
+            features: "--feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps"
+          - target: ""
+            command: "check"
+            features: "--feature-powerset --no-dev-deps"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.platform.rs }} with wasm32 target
+        run: |
+          rustup toolchain install ${{ matrix.platform.rs }} --profile minimal --target wasm32-unknown-unknown
+          rustup override set ${{ matrix.platform.rs }}
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "${{ matrix.crate }}-${{ matrix.platform.name }}-${{ matrix.platform.rs }}"
+          cache-all-crates: true
+
+      - name: Print rustc && rustdoc version
+        run: rustc --version && rustdoc --version
+
+      - name: Run command with cargo-hack
+        run: cargo hack ${{ matrix.target-command-features.command }} -p ${{ matrix.crate }} ${{ matrix.target-command-features.target }} ${{ matrix.target-command-features.features }}
+
   test:
     runs-on: ${{ matrix.platform.os }}
     name: "${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.features }}"

@@ -103,12 +103,12 @@ const _: () = {
     }
 };
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::*;
     use near_sdk_core::json_types::Base58CryptoHash;
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_global_contract_id_json_serialization_code_hash() {
         let hash: Base58CryptoHash =
@@ -122,6 +122,7 @@ mod tests {
         assert_eq!(deserialized, id);
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_global_contract_id_json_serialization_account_id() {
         let account_id: AccountId = "alice.near".parse().unwrap();

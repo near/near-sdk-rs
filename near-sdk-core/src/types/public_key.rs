@@ -317,6 +317,7 @@ impl std::error::Error for ParsePublicKeyError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "borsh")]
     use crate::borsh::{BorshDeserialize, BorshSerialize};
     use std::convert::TryInto;
     use std::str::FromStr;
@@ -329,6 +330,7 @@ mod tests {
         key.try_into().unwrap()
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_public_key_deser() {
         let key: PublicKey =
@@ -337,6 +339,7 @@ mod tests {
         assert_eq!(key, expected_key());
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn test_public_key_ser() {
         let key: PublicKey = expected_key();
@@ -415,6 +418,7 @@ mod tests {
         let _: &dyn std::error::Error = &err;
     }
 
+    #[cfg(feature = "borsh")]
     #[test]
     fn test_public_key_borsh_format_change() {
         // Original struct to reference Borsh serialization from

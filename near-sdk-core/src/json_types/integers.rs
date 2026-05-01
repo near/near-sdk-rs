@@ -72,7 +72,7 @@ impl_str_type!(U64, u64);
 impl_str_type!(I128, i128);
 impl_str_type!(I64, i64);
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::*;
     use serde_json;

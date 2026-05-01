@@ -44,7 +44,9 @@ near-parameters = { version = "0.35", optional = true }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
-near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+near-sdk = { path = "../near-sdk", version = "~5.26.1", features = [
+    "unit-testing",
+] }
 
 [features]
 default = []

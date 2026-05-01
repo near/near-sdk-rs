@@ -86,6 +86,8 @@ impl borsh::BorshDeserialize for Allowance {
 #[cfg(test)]
 mod test {
     use crate::{allowance::Allowance, types::NearToken};
+
+    #[cfg(feature = "borsh")]
     #[test]
     fn test_allowance_borsh() {
         let unlimited = Allowance::Unlimited;

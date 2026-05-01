@@ -65,7 +65,7 @@ mod base64_bytes {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::Base64VecU8;
     use serde_json;
