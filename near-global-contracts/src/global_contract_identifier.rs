@@ -103,12 +103,11 @@ const _: () = {
     }
 };
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::*;
     use near_crypto_hash::Base58CryptoHash;
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_global_contract_id_json_serialization_code_hash() {
         let hash: Base58CryptoHash =
@@ -122,7 +121,6 @@ mod tests {
         assert_eq!(deserialized, id);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn test_global_contract_id_json_serialization_account_id() {
         let account_id: AccountId = "alice.near".parse().unwrap();

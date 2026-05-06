@@ -126,6 +126,7 @@ jobs:
         run: cargo fmt -- --check
 
       - run: cargo clippy --tests --all-features -- -Dclippy::all
+      - run: cargo clippy --tests -p near-global-contracts --features digest -- -Dclippy::all
 
   compilation:
     name: Compilation tests

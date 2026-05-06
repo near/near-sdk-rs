@@ -17,15 +17,9 @@ pub enum StateInit {
 }
 
 impl StateInit {
-    /// Derives [`AccountId`] deterministically, according to NEP-616.
+    /// Derives [`AccountId`](near_account_id::AccountId) deterministically, according to NEP-616.
     #[inline]
-    #[cfg(all(
-        feature = "borsh",
-        any(
-            all(feature = "near-contracts", not(feature = "digest")),
-            all(feature = "digest", not(feature = "near-contracts"))
-        )
-    ))]
+    #[cfg(all(feature = "borsh", any(feature = "near-contracts", feature = "digest",)))]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
         let encoded_acc_id: String;
 
@@ -34,7 +28,7 @@ impl StateInit {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
             encoded_acc_id = hex::encode(&near_env::keccak256_array(&serialized)[12..32]);
         }
-        #[cfg(feature = "digest")]
+        #[cfg(all(feature = "digest", not(feature = "near-contracts")))]
         {
             use sha3::Digest;
 
