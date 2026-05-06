@@ -11,9 +11,9 @@ jobs:
   # NOTE: we mainly only "check" if things can compile in extracted crates. 
   cargo-hack:
     runs-on: ${{ matrix.platform.os }}
-    name: "cargo-hack ${{ matrix.target-command-features.command }} ${{ matrix.crate }} on ${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.target-command-features.target }} ${{ matrix.target-command-features.features }}"
+    name: "cargo-hack ${{ matrix.crate }} ${{ matrix.platform.name }} ${{ matrix.platform.rs }}"
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         crate:
           - "near-crypto-hash"
@@ -27,16 +27,6 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.86.0"
             name: macos
-        target-command-features:
-          - target: "--target wasm32-unknown-unknown"
-            command: "check"
-            features: "--feature-powerset --exclude-features abi,__near-sdk-unit-testing"
-          - target: "--target wasm32-unknown-unknown"
-            command: "check"
-            features: "--feature-powerset --exclude-features near-contracts,abi,__near-sdk-unit-testing --no-dev-deps"
-          - target: ""
-            command: "check"
-            features: "--feature-powerset --no-dev-deps"
     steps:
       - uses: actions/checkout@v4
 
@@ -59,8 +49,12 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
-      - name: Run command with cargo-hack
-        run: cargo hack ${{ matrix.target-command-features.command }} -p ${{ matrix.crate }} ${{ matrix.target-command-features.target }} ${{ matrix.target-command-features.features }}
+      - name: Cargo hack check wasm32 powerset (for sdk)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --mutually-exclusive-features digest,near-contracts
+      - name: Cargo hack check wasm32 powerset (without sdk)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps --mutually-exclusive-features digest,near-contracts
+      - name: Cargo hack check non-wasm32 powerset
+        run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps --mutually-exclusive-features digest,near-contracts
 
   test:
     runs-on: ${{ matrix.platform.os }}
