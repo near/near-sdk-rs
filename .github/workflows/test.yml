@@ -8,13 +8,15 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  # NOTE: we mainly only "check" if things can compile in extracted crates. 
   cargo-hack:
     runs-on: ${{ matrix.platform.os }}
     name: "cargo-hack ${{ matrix.target-command-features.command }} ${{ matrix.crate }} on ${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.target-command-features.target }} ${{ matrix.target-command-features.features }}"
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         crate:
+          - "near-crypto-hash"
           - "near-sdk-core"
           - "near-global-contracts"
           - "near-env"
@@ -31,7 +33,7 @@ jobs:
             features: "--feature-powerset --exclude-features abi,__near-sdk-unit-testing"
           - target: "--target wasm32-unknown-unknown"
             command: "check"
-            features: "--feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps"
+            features: "--feature-powerset --exclude-features near-contracts,abi,__near-sdk-unit-testing --no-dev-deps"
           - target: ""
             command: "check"
             features: "--feature-powerset --no-dev-deps"

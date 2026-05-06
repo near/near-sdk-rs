@@ -21,7 +21,7 @@ pub type Duration = u64;
 pub type Timestamp = u64;
 
 /// Raw type for 32 bytes of the hash.
-pub type CryptoHash = [u8; 32];
+pub use near_crypto_hash::CryptoHash;
 
 /// Weight of unused gas to use with [`promise_batch_action_function_call_weight`].
 ///

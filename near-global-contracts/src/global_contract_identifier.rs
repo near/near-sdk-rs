@@ -1,7 +1,7 @@
 use near_account_id::AccountId;
 
-use near_sdk_core::json_types::Base58CryptoHash;
-use near_sdk_core::types::CryptoHash;
+use near_crypto_hash::Base58CryptoHash;
+use near_crypto_hash::CryptoHash;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -106,7 +106,7 @@ const _: () = {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk_core::json_types::Base58CryptoHash;
+    use near_crypto_hash::Base58CryptoHash;
 
     #[cfg(feature = "serde")]
     #[test]
