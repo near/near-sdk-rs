@@ -3,8 +3,10 @@
 //! non-wasm32 (via pure-Rust crates), so off-chain code can compute identically
 //! to on-chain.
 
-mod hash;
+#[macro_use]
+mod macros;
 
+mod hash;
 pub use hash::*;
 
 pub type CryptoHash = [u8; 32];
@@ -63,19 +65,13 @@ pub fn abort() -> ! {
 }
 
 pub fn panic_str(message: &str) -> ! {
-    #[cfg(any(
-        target_arch = "wasm32",
-        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
-    ))]
-    {
-        unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
-    }
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        any(not(feature = "__near-sdk-unit-testing"), test, doctest)
-    ))]
-    {
-        eprintln!("{message}");
-        panic!()
+    execute_target_specific! {
+        host: {
+            unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
+        },
+        local: {
+            eprintln!("{message}");
+            panic!()
+        }
     }
 }
