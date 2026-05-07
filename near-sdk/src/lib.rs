@@ -1616,6 +1616,8 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
+pub use near_global_contracts::{AccountContract, GlobalContractId};
+
 pub mod events;
 pub use crate::events::{AsNep297Event, Nep297Event};
 
@@ -1623,9 +1625,6 @@ pub mod state;
 
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
-
-#[cfg(feature = "deterministic-account-ids")]
-pub use near_global_contracts::{AccountContract, GlobalContractId};
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
