@@ -224,7 +224,7 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
         any(not(feature = "__near-sdk-unit-testing"), test, doctest)
     ))]
     {
-        use sha2::Digest;
+        use ripemd::Digest;
 
         ripemd::Ripemd160::digest(value).into()
     }
