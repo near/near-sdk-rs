@@ -12,5 +12,5 @@ Please be mindful that some of the functions like `random_seed_array()` or `bloc
 
 Licensed under either of:
 
-- Apache License, Version 2.0 ([LICENSE_APACHE](../LICENSE-APACHE))
+- Apache License, Version 2.0 ([LICENSE-APACHE](../LICENSE-APACHE))
 - MIT License ([LICENSE-MIT](../LICENSE-MIT))
