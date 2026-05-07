@@ -63,7 +63,10 @@ pub fn abort() -> ! {
 }
 
 pub fn panic_str(message: &str) -> ! {
-    #[cfg(any(target_arch = "wasm32", all(feature = "__near-sdk-unit-testing", not(test))))]
+    #[cfg(any(
+        target_arch = "wasm32",
+        all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+    ))]
     {
         unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
     }
