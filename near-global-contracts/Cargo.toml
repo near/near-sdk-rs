@@ -9,7 +9,7 @@ homepage.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-near-account-id = "2.6.0"
+near-account-id = "2.3.0"
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
 
 hex = { version = "0.4", optional = true }
