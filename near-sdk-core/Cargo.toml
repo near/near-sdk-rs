@@ -11,7 +11,7 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = """
-Rust library of core NEAR smart contract types.
+Core Rust types from the NEAR SDK, extracted for use without the full SDK.
 """
 
 [dependencies]

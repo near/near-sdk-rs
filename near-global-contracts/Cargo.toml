@@ -7,6 +7,9 @@ categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+description = """
+Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK. 
+"""
 
 [dependencies]
 near-account-id = "2.3.0"

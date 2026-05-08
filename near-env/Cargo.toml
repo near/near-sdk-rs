@@ -12,8 +12,7 @@ readme = "./README.md"
 description = """
 Low-level abstraction over `near-sys` host functions. Provides the same
 hashing (and related) API on wasm32 (via NEAR VM host calls) and on 
-non-wasm32 (via pure-Rust crates), so off-chain code can compute identically 
-to on-chain.
+non-wasm32 (via pure-Rust crates).
 """
 
 [dependencies]

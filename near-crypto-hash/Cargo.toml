@@ -7,6 +7,9 @@ categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+description = """
+Lightweight 32-byte hash type (CryptoHash) and its Base58 wrapper for the NEAR SDK.
+"""
 
 [dependencies]
 bs58 = "0.5"
