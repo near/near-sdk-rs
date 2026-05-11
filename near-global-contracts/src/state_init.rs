@@ -21,14 +21,18 @@ pub enum StateInit {
 impl StateInit {
     /// Derives [`AccountId`](near_account_id::AccountId) deterministically, according to NEP-616.
     #[inline]
-    #[cfg(all(feature = "borsh", any(feature = "near-contracts", feature = "digest",)))]
+    #[cfg(all(feature = "borsh", any(feature = "near-contracts", feature = "digest")))]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        let encoded_acc_id: String;
+        let hash: [u8; 20];
 
         #[cfg(feature = "near-contracts")]
         {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-            encoded_acc_id = hex::encode(&near_env::keccak256_array(&serialized)[12..32]);
+            // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
+            // 20 bytes, matching [u8; 20]
+            hash = near_env::keccak256_array(&serialized)[12..32]
+                .try_into()
+                .unwrap_or_else(|_| unreachable!());
         }
         #[cfg(all(feature = "digest", not(feature = "near-contracts")))]
         {
@@ -36,11 +40,17 @@ impl StateInit {
 
             let mut hasher = sha3::Keccak256::new();
             borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
-            encoded_acc_id = hex::encode(&hasher.finalize()[12..32]);
+            // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
+            // 20 bytes, matching [u8; 20]
+            hash = hasher.finalize()[12..32].try_into().unwrap_or_else(|_| unreachable!());
         }
 
-        // SAFETY: Keccak will always generate 32 bytes
-        format!("0s{encoded_acc_id}").parse().unwrap_or_else(|_| unreachable!())
+        // SAFETY: 20 bytes-long hash will produce 40 hex chars.
+        // "0s" + 40 hex chars = 42 chars, which is within `AccountId` length bounds (2-64).
+        // `hex::encode` always produces valid [0-9a-f] characters, hence, we can construct
+        // AccountId without validation
+        #[allow(deprecated)]
+        near_account_id::AccountId::new_unvalidated(format!("0s{}", hex::encode(hash)))
     }
 }
 
