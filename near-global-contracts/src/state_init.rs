@@ -7,10 +7,12 @@ use serde_with::base64::Base64;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
-#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = true)
+)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 #[repr(u8)]
 pub enum StateInit {
     V1(StateInitV1) = 0,
@@ -44,11 +46,14 @@ impl StateInit {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", cfg_eval::cfg_eval, serde_with::serde_as)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    cfg_eval::cfg_eval,
+    serde_with::serde_as,
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
     #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]

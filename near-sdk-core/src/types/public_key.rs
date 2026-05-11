@@ -3,8 +3,11 @@ use std::convert::TryFrom;
 
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = true)
+)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
 pub enum CurveType {

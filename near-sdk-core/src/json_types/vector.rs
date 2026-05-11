@@ -12,8 +12,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 pub struct Base64VecU8(
     #[cfg_attr(
         feature = "serde",
