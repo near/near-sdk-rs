@@ -17,14 +17,9 @@ near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
 
 hex = { version = "0.4", optional = true }
 
-cfg_eval = { version = "0.1" }
+cfg_eval = { version = "0.1", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
-serde_json = { version = "1", features = ["preserve_order"], optional = true }
-serde_with = { version = "3", features = [
-    "base64",
-    "hex",
-    "json",
-], optional = true }
+serde_with = { version = "3", features = ["base64", "hex"], optional = true }
 borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", optional = true }
@@ -37,12 +32,15 @@ near-primitives-core = { version = "0.35", optional = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 schemars = { version = "0.8.22", optional = true }
 
+[dev-dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+
 [features]
 default = []
 
 serde = [
+    "dep:cfg_eval",
     "dep:serde",
-    "dep:serde_json",
     "dep:serde_with",
     "near-account-id/serde",
     "near-crypto-hash/serde",

@@ -78,8 +78,8 @@ impl StateInitV1 {
     }
 
     #[inline]
-    pub fn with_data_entry(mut self, key: Vec<u8>, value: Vec<u8>) -> Self {
-        self.data.insert(key, value);
+    pub fn with_data_entry(mut self, key: impl Into<Vec<u8>>, value: impl Into<Vec<u8>>) -> Self {
+        self.data.insert(key.into(), value.into());
         self
     }
 }
