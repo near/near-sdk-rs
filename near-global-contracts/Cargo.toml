@@ -7,9 +7,16 @@ categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+readme = "./README.md"
 description = """
-Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK. 
+Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
 """
+
+# Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
+# backend is pulled in unconditionally on the `cfg(not(near))` path). Including all of
+# serde/borsh/abi here surfaces the full type surface.
+[package.metadata.docs.rs]
+features = ["serde", "borsh", "abi", "near-primitives-interop"]
 
 [dependencies]
 near-account-id = { version = "2.3.0", features = ["internal_unstable"] }
