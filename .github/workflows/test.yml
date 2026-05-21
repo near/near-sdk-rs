@@ -49,12 +49,18 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
-      - name: Cargo hack check wasm32 powerset (for sdk)
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --mutually-exclusive-features digest,near-contracts
-      - name: Cargo hack check wasm32 powerset (without sdk)
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps --mutually-exclusive-features digest,near-contracts
       - name: Cargo hack check non-wasm32 powerset
         run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps --mutually-exclusive-features digest,near-contracts
+
+      - name: Cargo hack check wasm32 powerset (without sdk)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps
+
+      - name: Cargo hack check wasm32 powerset (for sdk)
+        env: 
+          RUSTFLAGS: "--cfg near"
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing
+
+
 
   test:
     runs-on: ${{ matrix.platform.os }}
