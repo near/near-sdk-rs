@@ -12,14 +12,14 @@ macro_rules! execute_target_specific {
      ) => {
         #[cfg(any(
             all(near, target_arch = "wasm32"),
-            all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
+            all(feature = "__near-sdk-unit-testing", not(doctest))
         ))]
         $host_block
 
-        #[cfg(all(
-            not(near),
-            any(not(feature = "__near-sdk-unit-testing"), test, doctest)
-        ))]
+        #[cfg(not(any(
+            all(near, target_arch = "wasm32"),
+            all(feature = "__near-sdk-unit-testing", not(doctest))
+        )))]
         $local_block
     };
 }
