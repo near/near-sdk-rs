@@ -55,18 +55,20 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
+      # Powerset check across all features for the off-chain / non-NEAR path (cfg(near) not set).
+      - name: Cargo hack check wasm32 powerset (off-chain, no --cfg near)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing
+      - name: Cargo hack check wasm32 powerset, no dev-deps (off-chain)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
       - name: Cargo hack check non-wasm32 powerset
         run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps
 
-      - name: Cargo hack check wasm32 powerset (without sdk)
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
-
-      - name: Cargo hack check wasm32 powerset (for sdk)
-        env: 
+      # Same powerset but with `--cfg near` set — exercises the on-chain host-function path.
+      # cargo-near sets this automatically; we test it here so the contract path doesn't bitrot.
+      - name: Cargo hack check wasm32 powerset (on-chain, --cfg near)
+        env:
           RUSTFLAGS: "-D warnings --cfg near"
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing
-
-
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
 
   test:
     runs-on: ${{ matrix.platform.os }}
@@ -237,7 +239,7 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate
+          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate,deterministic-account-ids
           cargo doc -p near-sdk-macros --features __abi-generate
           cargo doc -p near-contract-standards --no-deps --features abi
           cargo doc -p near-sys
