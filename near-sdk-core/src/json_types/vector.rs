@@ -10,12 +10,12 @@
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(any(near, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(any(near, feature = "borsh"), derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 pub struct Base64VecU8(
     #[cfg_attr(
-        feature = "serde",
+        any(near, feature = "serde"),
         serde(
             serialize_with = "base64_bytes::serialize",
             deserialize_with = "base64_bytes::deserialize"
@@ -43,7 +43,7 @@ impl AsRef<[u8]> for Base64VecU8 {
 }
 
 /// Convenience module to allow annotating a serde structure as base64 bytes.
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 mod base64_bytes {
     use base64::Engine;
     use serde::de;

@@ -21,7 +21,7 @@ impl Allowance {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 impl serde::Serialize for Allowance {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -34,7 +34,7 @@ impl serde::Serialize for Allowance {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 impl<'de> serde::Deserialize<'de> for Allowance {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -53,7 +53,7 @@ impl<'de> serde::Deserialize<'de> for Allowance {
     }
 }
 
-#[cfg(feature = "borsh")]
+#[cfg(any(near, feature = "borsh"))]
 impl borsh::BorshSerialize for Allowance {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         let opt: Option<u128> = match self {
@@ -64,7 +64,7 @@ impl borsh::BorshSerialize for Allowance {
     }
 }
 
-#[cfg(feature = "borsh")]
+#[cfg(any(near, feature = "borsh"))]
 impl borsh::BorshDeserialize for Allowance {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
         let opt: Option<u128> = borsh::de::from_reader(reader)?;

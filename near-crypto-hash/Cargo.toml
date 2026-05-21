@@ -18,8 +18,15 @@ serde = { version = "1", features = ["derive"], optional = true }
 borsh = { version = "1", features = ["derive"], optional = true }
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
+[target.'cfg(near)'.dependencies]
+serde = { version = "1", features = ["derive"] }
+borsh = { version = "1", features = ["derive"] }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 schemars = { version = "0.8", optional = true }
+
+[lints]
+workspace = true
 
 [features]
 default = []

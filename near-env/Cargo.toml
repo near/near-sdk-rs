@@ -18,10 +18,10 @@ non-wasm32 (via pure-Rust crates).
 [dependencies]
 near-sys = { path = "../near-sys/", version = "~0.2.9", optional = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(near)'.dependencies]
 near-sys = { path = "../near-sys/", version = "~0.2.9" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(not(near))'.dependencies]
 ripemd = { version = "0.1.1" }
 sha2 = { version = "0.10" }
 sha3 = { version = "0.10" }
@@ -30,6 +30,9 @@ sha3 = { version = "0.10" }
 # XXX: `near-sdk` was added in order to enable testing and doctests
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 hex = { version = "0.4" }
+
+[lints]
+workspace = true
 
 [features]
 __near-sdk-unit-testing = ["dep:near-sys"]

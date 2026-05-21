@@ -1,14 +1,14 @@
 use crate::GlobalContractId;
 use std::collections::BTreeMap;
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 use serde_with::base64::Base64;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(any(near, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "borsh",
+    any(near, feature = "borsh"),
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
@@ -21,11 +21,11 @@ pub enum StateInit {
 impl StateInit {
     /// Derives [`AccountId`](near_account_id::AccountId) deterministically, according to NEP-616.
     #[inline]
-    #[cfg(all(feature = "borsh", any(feature = "near-contracts", feature = "digest")))]
+    #[cfg(all(feature = "borsh", any(near, feature = "digest")))]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
         let hash: [u8; 20];
 
-        #[cfg(feature = "near-contracts")]
+        #[cfg(near)]
         {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
             // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
@@ -34,7 +34,7 @@ impl StateInit {
                 .try_into()
                 .unwrap_or_else(|_| unreachable!());
         }
-        #[cfg(all(feature = "digest", not(feature = "near-contracts")))]
+        #[cfg(all(feature = "digest", not(near)))]
         {
             use sha3::Digest;
 
@@ -57,16 +57,16 @@ impl StateInit {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(
-    feature = "serde",
+    any(near, feature = "serde"),
     cfg_eval::cfg_eval,
     serde_with::serde_as,
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(any(near, feature = "borsh"), derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
-    #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
+    #[cfg_attr(any(near, feature = "serde"), serde_as(as = "BTreeMap<Base64, Base64>"))]
     #[cfg_attr(feature = "abi", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }

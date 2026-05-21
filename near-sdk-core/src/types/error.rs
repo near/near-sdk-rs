@@ -43,11 +43,11 @@ where
     T: AsRef<str>,
 {
     fn panic(&self) -> ! {
-        #[cfg(feature = "near-contracts")]
+        #[cfg(near)]
         {
             near_env::panic_str(self.as_ref())
         }
-        #[cfg(not(feature = "near-contracts"))]
+        #[cfg(not(near))]
         {
             eprintln!("{}", self.as_ref());
             panic!()
@@ -88,11 +88,11 @@ impl std::fmt::Display for Abort {
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
-        #[cfg(feature = "near-contracts")]
+        #[cfg(near)]
         {
             near_env::abort()
         }
-        #[cfg(not(feature = "near-contracts"))]
+        #[cfg(not(near))]
         {
             panic!()
         }

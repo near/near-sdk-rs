@@ -29,11 +29,28 @@ near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
 
 near-primitives-core = { version = "0.35", optional = true }
 
+[target.'cfg(near)'.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_with = { version = "3", features = ["base64", "hex"] }
+borsh = { version = "1", features = ["derive"] }
+cfg_eval = { version = "0.1" }
+hex = { version = "0.4" }
+near-account-id = { version = "2.3.0", features = [
+    "internal_unstable",
+    "serde",
+    "borsh",
+] }
+near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
+near-env = { path = "../near-env/", version = "~0.1.0" }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 schemars = { version = "0.8.22", optional = true }
 
 [dev-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
+
+[lints]
+workspace = true
 
 [features]
 default = []
@@ -66,16 +83,11 @@ near-primitives-interop = ["dep:near-primitives-core"]
 
 digest = ["borsh", "dep:sha3", "dep:hex"]
 
-near-contracts = [
+__near-sdk-unit-testing = [
     "dep:near-env",
     "dep:hex",
     "serde",
     "borsh",
-    "near-crypto-hash/near-contracts",
-]
-
-__near-sdk-unit-testing = [
-    "near-contracts",
     "near-primitives-interop",
     "near-crypto-hash/__near-sdk-unit-testing",
     "near-env/__near-sdk-unit-testing",

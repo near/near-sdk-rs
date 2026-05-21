@@ -27,10 +27,12 @@ near-sdk-macros = { path = "../near-sdk-macros", version = "~5.26.1" }
 near-sys = { path = "../near-sys", version = "0.2.9" }
 near-env = { path = "../near-env/", version = "~0.1.0" }
 near-sdk-core = { path = "../near-sdk-core/", version = "~0.1.0", features = [
-    "near-contracts",
+    "serde",
+    "borsh",
 ] }
 near-global-contracts = { path = "../near-global-contracts/", version = "~0.1.0", features = [
-    "near-contracts",
+    "serde",
+    "borsh",
 ] }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
@@ -85,6 +87,9 @@ tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
 strum_macros = "0.25.3"
 insta = "1.39.0"
+
+[lints]
+workspace = true
 
 [features]
 default = ["wee_alloc"]

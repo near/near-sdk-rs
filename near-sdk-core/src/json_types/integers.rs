@@ -6,7 +6,10 @@
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-        #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+        #[cfg_attr(
+            any(near, feature = "borsh"),
+            derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+        )]
         #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
         pub struct $iden(pub $ty);
 
@@ -22,7 +25,7 @@ macro_rules! impl_str_type {
             }
         }
 
-        #[cfg(feature = "serde")]
+        #[cfg(any(near, feature = "serde"))]
         impl serde::ser::Serialize for $iden {
             fn serialize<S>(
                 &self,
@@ -35,7 +38,7 @@ macro_rules! impl_str_type {
             }
         }
 
-        #[cfg(feature = "serde")]
+        #[cfg(any(near, feature = "serde"))]
         impl<'de> serde::de::Deserialize<'de> for $iden {
             fn deserialize<D>(
                 deserializer: D,

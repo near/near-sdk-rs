@@ -3,7 +3,7 @@ use bs58::decode::Error as B58Error;
 use std::convert::TryFrom;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(any(near, feature = "borsh"), derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
 #[repr(transparent)]
@@ -63,7 +63,7 @@ impl AsRef<[u8]> for Base58CryptoHash {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 impl serde::Serialize for Base58CryptoHash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -73,7 +73,7 @@ impl serde::Serialize for Base58CryptoHash {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

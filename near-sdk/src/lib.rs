@@ -129,6 +129,7 @@
 extern crate quickcheck;
 
 #[cfg(not(any(
+    near,
     test,
     doctest,
     docsrs,
@@ -145,8 +146,9 @@ compile_error!(
 2. ✅ Use `cargo check --target wasm32-unknown-unknown` instead of `cargo check` to error-check your contract
 
 3. ⚙️ Only following cfg-s are considered VALID for `near-sdk`:
-  - `#[cfg(target_family = "wasm")]`
-  - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
+  - `#[cfg(near)]` (set by `cargo-near`. uses on-chain host-functions)
+  - `#[cfg(target_family = "wasm")]` (uses pure-Rust fallbacks. not for on-chain use)
+  - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment. NOTE: consider using leaf crates)
   - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
   - `#[cfg(feature = "__abi-generate")]`
   - `#[cfg(test)]`

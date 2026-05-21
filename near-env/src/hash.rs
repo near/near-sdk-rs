@@ -1,13 +1,13 @@
 use crate::CryptoHash;
 
 #[cfg(any(
-    target_arch = "wasm32",
+    all(near, target_arch = "wasm32"),
     all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
 ))]
 use near_sys as sys;
 
 #[cfg(any(
-    target_arch = "wasm32",
+    all(near, target_arch = "wasm32"),
     all(feature = "__near-sdk-unit-testing", not(test), not(doctest))
 ))]
 use crate::{ATOMIC_OP_REGISTER, read_register_fixed};

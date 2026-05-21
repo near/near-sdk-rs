@@ -13,22 +13,19 @@ pub enum AccountContract {
 }
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(any(near, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "borsh",
+    any(near, feature = "borsh"),
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
-#[cfg_attr(
-    all(feature = "abi", not(target_arch = "wasm32")),
-    derive(borsh::BorshSchema, schemars::JsonSchema)
-)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum GlobalContractId {
-    #[cfg_attr(feature = "serde", serde(rename = "hash"))]
+    #[cfg_attr(any(near, feature = "serde"), serde(rename = "hash"))]
     CodeHash(Base58CryptoHash) = 0,
-    #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
+    #[cfg_attr(any(near, feature = "serde"), serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
 }
 

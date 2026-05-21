@@ -7,16 +7,16 @@ pub mod allowance;
 pub use base64;
 pub use bs58;
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 pub use serde;
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 pub use serde_json;
 
-#[cfg(feature = "serde")]
+#[cfg(any(near, feature = "serde"))]
 pub use serde_with;
 
-#[cfg(feature = "borsh")]
+#[cfg(any(near, feature = "borsh"))]
 pub use borsh;
 
 #[cfg(feature = "abi")]

@@ -21,6 +21,10 @@ repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://docs.near.org/"
 rust-version = "1.86"
 
+[workspace.lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(near)']
+
 # Special triple # comment for ci.
 [patch.crates-io]
 ### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
