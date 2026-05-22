@@ -91,6 +91,7 @@ schemars-v0_8 = [
 ]
 
 abi = [
+    "borsh",
     "schemars-v0_8",
     "borsh/unstable__schema",
     "near-account-id/abi",
