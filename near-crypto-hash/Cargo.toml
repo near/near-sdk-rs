@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 borsh = { version = "1", features = ["derive"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8", optional = true }
+schemars-v0_8 = { version = "0.8", optional = true, package = "schemars" }
 
 [lints]
 workspace = true
@@ -35,7 +35,9 @@ serde = ["dep:serde"]
 
 borsh = ["dep:borsh"]
 
-abi = ["borsh/unstable__schema", "dep:schemars"]
+schemars-v0_8 = ["dep:schemars-v0_8"]
+
+abi = ["borsh/unstable__schema", "schemars-v0_8"]
 
 arbitrary = ["dep:arbitrary"]
 

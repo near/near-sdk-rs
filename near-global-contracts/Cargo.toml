@@ -44,7 +44,7 @@ near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
 near-env = { path = "../near-env/", version = "~0.1.0" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8.22", optional = true }
+schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 
 [dev-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -65,8 +65,14 @@ serde = [
 
 borsh = ["dep:borsh", "near-account-id/borsh", "near-crypto-hash/borsh"]
 
+schemars-v0_8 = [
+    "dep:schemars-v0_8",
+    "near-account-id/schemars-v0_8",
+    "near-crypto-hash/schemars-v0_8",
+]
+
 abi = [
-    "dep:schemars",
+    "schemars-v0_8",
     "borsh",
     "borsh/unstable__schema",
     "near-account-id/abi",

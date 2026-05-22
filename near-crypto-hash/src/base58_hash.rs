@@ -84,8 +84,8 @@ impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
     }
 }
 
-#[cfg(feature = "abi")]
-impl schemars::JsonSchema for Base58CryptoHash {
+#[cfg(feature = "schemars-v0_8")]
+impl schemars_v0_8::JsonSchema for Base58CryptoHash {
     fn is_referenceable() -> bool {
         false
     }
@@ -94,7 +94,9 @@ impl schemars::JsonSchema for Base58CryptoHash {
         String::schema_name()
     }
 
-    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(
+        r#gen: &mut schemars_v0_8::r#gen::SchemaGenerator,
+    ) -> schemars_v0_8::schema::Schema {
         String::json_schema(r#gen)
     }
 }

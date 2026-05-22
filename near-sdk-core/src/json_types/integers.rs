@@ -51,8 +51,8 @@ macro_rules! impl_str_type {
             }
         }
 
-        #[cfg(feature = "abi")]
-        impl schemars::JsonSchema for $iden {
+        #[cfg(feature = "schemars-v0_8")]
+        impl schemars_v0_8::JsonSchema for $iden {
             fn is_referenceable() -> bool {
                 false
             }
@@ -62,8 +62,8 @@ macro_rules! impl_str_type {
             }
 
             fn json_schema(
-                r#gen: &mut schemars::r#gen::SchemaGenerator,
-            ) -> schemars::schema::Schema {
+                r#gen: &mut schemars_v0_8::r#gen::SchemaGenerator,
+            ) -> schemars_v0_8::schema::Schema {
                 String::json_schema(r#gen)
             }
         }

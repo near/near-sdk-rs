@@ -47,7 +47,7 @@ near-env = { path = "../near-env/", version = "~0.1.0" }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8.22", optional = true }
+schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 near-primitives-core = { version = "0.35", optional = true }
 near-crypto = { version = "0.35", default-features = false, optional = true }
 # XXX: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
@@ -83,13 +83,20 @@ borsh = [
     "near-crypto-hash/borsh",
 ]
 
+schemars-v0_8 = [
+    "dep:schemars-v0_8",
+    "near-account-id/schemars-v0_8",
+    "near-gas/schemars-v0_8",
+    "near-crypto-hash/schemars-v0_8",
+]
+
 abi = [
+    "schemars-v0_8",
     "borsh/unstable__schema",
     "near-account-id/abi",
     "near-gas/abi",
     "near-crypto-hash/abi",
     "serde_with/schemars_0_8",
-    "dep:schemars",
 ]
 
 arbitrary = [

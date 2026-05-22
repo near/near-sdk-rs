@@ -19,8 +19,8 @@ pub use serde_with;
 #[cfg(any(near, feature = "borsh"))]
 pub use borsh;
 
-#[cfg(feature = "abi")]
-pub use schemars;
+#[cfg(feature = "schemars-v0_8")]
+pub use schemars_v0_8 as schemars;
 
 #[cfg(test)]
 // XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain

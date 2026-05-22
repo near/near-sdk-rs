@@ -4,6 +4,9 @@ use std::collections::BTreeMap;
 #[cfg(any(near, feature = "serde"))]
 use serde_with::base64::Base64;
 
+#[cfg(feature = "schemars-v0_8")]
+use schemars_v0_8 as schemars;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(any(near, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
@@ -12,7 +15,8 @@ use serde_with::base64::Base64;
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
-#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars-v0_8", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
 pub enum StateInit {
     V1(StateInitV1) = 0,
@@ -63,11 +67,12 @@ impl StateInit {
     derive(serde::Serialize, serde::Deserialize)
 )]
 #[cfg_attr(any(near, feature = "borsh"), derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "abi", derive(borsh::BorshSchema, schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars-v0_8", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
     #[cfg_attr(any(near, feature = "serde"), serde_as(as = "BTreeMap<Base64, Base64>"))]
-    #[cfg_attr(feature = "abi", schemars(with = "BTreeMap<String, String>"))]
+    #[cfg_attr(feature = "schemars-v0_8", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
