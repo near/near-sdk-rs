@@ -50,6 +50,32 @@ mod tests {
     use near_abi::AbiRoot;
     use near_sdk::serde_json;
 
+    /// Build the current crate as a wasm contract with `--cfg near` set.
+    ///
+    /// `near_workspaces::compile_project` goes through `cargo_near_build::build_with_cli`,
+    /// which hardcodes `RUSTFLAGS="-C link-arg=-s"` (overriding any per-package
+    /// `.cargo/config.toml`). Until `cargo-near` ships `--cfg near` injection, we inject it
+    /// here so example contracts get the host-function path instead of the pure-Rust fallback.
+    async fn build_with_cfg_near(path: &str) -> anyhow::Result<Vec<u8>> {
+        use near_workspaces::cargo_near_build;
+        use std::str::FromStr;
+        let path = path.to_string();
+        tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+            let manifest = cargo_near_build::camino::Utf8PathBuf::from_str(&path)
+                .map_err(|e| anyhow::anyhow!("camino: {e}"))?
+                .join("Cargo.toml");
+            let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
+                no_locked: true,
+                manifest_path: Some(manifest),
+                env: vec![("RUSTFLAGS".into(), "-C link-arg=-s --cfg near".into())],
+                ..Default::default()
+            })
+            .map_err(|e| anyhow::anyhow!("cargo near build: {e:?}"))?;
+            Ok(std::fs::read(&artifact)?)
+        })
+        .await?
+    }
+
     #[test]
     #[should_panic(expected = "PANIC!")]
     fn test_panic() {
@@ -61,7 +87,7 @@ mod tests {
     // view call
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
+        let wasm = build_with_cfg_near("./").await?;
         let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
@@ -79,7 +105,7 @@ mod tests {
     /// The method should fail with "Method new_private is private".
     #[tokio::test]
     async fn private_init_cannot_be_called_by_external_account() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
+        let wasm = build_with_cfg_near("./").await?;
         let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
@@ -109,7 +135,7 @@ mod tests {
     /// This simulates the contract calling its own init method (e.g., via a callback).
     #[tokio::test]
     async fn private_init_can_be_called_by_current_account() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
+        let wasm = build_with_cfg_near("./").await?;
         let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 

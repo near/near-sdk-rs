@@ -57,7 +57,7 @@ jobs:
 
       - name: Cargo hack check wasm32 powerset (for sdk)
         env: 
-          RUSTFLAGS: "--cfg near"
+          RUSTFLAGS: "-D warnings --cfg near"
         run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing
 
 
