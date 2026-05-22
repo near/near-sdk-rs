@@ -39,6 +39,4 @@ abi = ["borsh/unstable__schema", "dep:schemars"]
 
 arbitrary = ["dep:arbitrary"]
 
-near-contracts = ["serde", "borsh"]
-
-__near-sdk-unit-testing = ["near-contracts"]
+__near-sdk-unit-testing = ["serde", "borsh"]
