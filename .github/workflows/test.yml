@@ -53,12 +53,12 @@ jobs:
         run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps
 
       - name: Cargo hack check wasm32 powerset (without sdk)
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing --no-dev-deps
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
 
       - name: Cargo hack check wasm32 powerset (for sdk)
         env: 
           RUSTFLAGS: "-D warnings --cfg near"
-        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features abi,__near-sdk-unit-testing
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing
 
 
 
