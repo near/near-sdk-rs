@@ -27,7 +27,7 @@ base64 = "0.22"
 bs58 = "0.5"
 hex = "0.4"
 
-arbitrary = { version = "1.4", optional = true }
+arbitrary = { version = "1.4", feature = ["derive"], optional = true }
 
 near-account-id = { version = "2.3.0" }
 near-gas = { version = "0.3" }

@@ -22,7 +22,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_with = { version = "3", features = ["base64", "hex"], optional = true }
 borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
-arbitrary = { version = "1.4", optional = true }
+arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
 sha3 = { version = "0.10", optional = true }
 near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
