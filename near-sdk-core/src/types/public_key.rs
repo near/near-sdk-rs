@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
 #[cfg_attr(
-    any(near, feature = "borsh"),
+    feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
@@ -163,11 +163,11 @@ impl PublicKey {
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
         CurveType::from_u8(self.data[0]).unwrap_or_else(|_| {
-            #[cfg(near)]
+            #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
             {
                 near_env::abort()
             }
-            #[cfg(not(near))]
+            #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
             {
                 panic!()
             }
@@ -201,7 +201,7 @@ impl TryFrom<Vec<u8>> for PublicKey {
     }
 }
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
 impl serde::Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -211,14 +211,14 @@ impl serde::Serialize for PublicKey {
     }
 }
 
-#[cfg(any(near, feature = "borsh"))]
+#[cfg(feature = "borsh")]
 impl borsh::BorshSerialize for PublicKey {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         borsh::BorshSerialize::serialize(&self.data, writer)
     }
 }
 
-#[cfg(any(near, feature = "borsh"))]
+#[cfg(feature = "borsh")]
 impl borsh::BorshDeserialize for PublicKey {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
         <Vec<u8> as borsh::BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
@@ -227,7 +227,7 @@ impl borsh::BorshDeserialize for PublicKey {
     }
 }
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

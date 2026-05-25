@@ -24,27 +24,16 @@ borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
-sha3 = { version = "0.10", optional = true }
 near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
-
 near-primitives-core = { version = "0.35", optional = true }
 
+schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
+
 [target.'cfg(near)'.dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_with = { version = "3", features = ["base64", "hex"] }
-borsh = { version = "1", features = ["derive"] }
-cfg_eval = { version = "0.1" }
-hex = { version = "0.4" }
-near-account-id = { version = "2.3.0", features = [
-    "internal_unstable",
-    "serde",
-    "borsh",
-] }
-near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
 near-env = { path = "../near-env/", version = "~0.1.0" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
+[target.'cfg(not(near))'.dependencies]
+sha3 = { version = "0.10" }
 
 [dev-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -63,7 +52,12 @@ serde = [
     "near-crypto-hash/serde",
 ]
 
-borsh = ["dep:borsh", "near-account-id/borsh", "near-crypto-hash/borsh"]
+borsh = [
+    "dep:borsh",
+    "dep:hex",
+    "near-account-id/borsh",
+    "near-crypto-hash/borsh",
+]
 
 schemars-v0_8 = [
     "dep:schemars-v0_8",
@@ -86,8 +80,6 @@ arbitrary = [
 ]
 
 near-primitives-interop = ["dep:near-primitives-core"]
-
-digest = ["borsh", "dep:sha3", "dep:hex"]
 
 __near-sdk-unit-testing = [
     "dep:near-env",

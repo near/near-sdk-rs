@@ -4,19 +4,21 @@ pub mod types;
 
 pub mod allowance;
 
-pub use base64;
 pub use bs58;
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
+pub use base64;
+
+#[cfg(feature = "serde")]
 pub use serde;
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
 pub use serde_json;
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
 pub use serde_with;
 
-#[cfg(any(near, feature = "borsh"))]
+#[cfg(feature = "borsh")]
 pub use borsh;
 
 #[cfg(feature = "schemars-v0_8")]

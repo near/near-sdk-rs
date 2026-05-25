@@ -1,7 +1,7 @@
 use crate::GlobalContractId;
 use std::collections::BTreeMap;
 
-#[cfg(any(near, feature = "serde"))]
+#[cfg(feature = "serde")]
 use serde_with::base64::Base64;
 
 #[cfg(feature = "schemars-v0_8")]
@@ -9,9 +9,9 @@ use schemars_v0_8 as schemars;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(any(near, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    any(near, feature = "borsh"),
+    feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
@@ -25,11 +25,11 @@ pub enum StateInit {
 impl StateInit {
     /// Derives [`AccountId`](near_account_id::AccountId) deterministically, according to NEP-616.
     #[inline]
-    #[cfg(all(feature = "borsh", any(near, feature = "digest")))]
+    #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
         let hash: [u8; 20];
 
-        #[cfg(near)]
+        #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
         {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
             // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
@@ -38,7 +38,7 @@ impl StateInit {
                 .try_into()
                 .unwrap_or_else(|_| unreachable!());
         }
-        #[cfg(all(feature = "digest", not(near)))]
+        #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {
             use sha3::Digest;
 
@@ -61,17 +61,17 @@ impl StateInit {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(
-    any(near, feature = "serde"),
+    feature = "serde",
     cfg_eval::cfg_eval,
     serde_with::serde_as,
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[cfg_attr(any(near, feature = "borsh"), derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "schemars-v0_8", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct StateInitV1 {
     pub code: GlobalContractId,
-    #[cfg_attr(any(near, feature = "serde"), serde_as(as = "BTreeMap<Base64, Base64>"))]
+    #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
     #[cfg_attr(feature = "schemars-v0_8", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
