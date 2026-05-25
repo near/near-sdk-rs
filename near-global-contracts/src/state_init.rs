@@ -27,16 +27,14 @@ impl StateInit {
     #[inline]
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        let hash: [u8; 20];
+        let hash: [u8; 32];
 
         #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
         {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
             // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
             // 20 bytes, matching [u8; 20]
-            hash = near_env::keccak256_array(&serialized)[12..32]
-                .try_into()
-                .unwrap_or_else(|_| unreachable!());
+            hash = near_env::keccak256_array(&serialized);
         }
         #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {
@@ -46,7 +44,7 @@ impl StateInit {
             borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
             // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
             // 20 bytes, matching [u8; 20]
-            hash = hasher.finalize()[12..32].try_into().unwrap_or_else(|_| unreachable!());
+            hash = hasher.finalize().into();
         }
 
         // SAFETY: 20 bytes-long hash will produce 40 hex chars.
@@ -54,7 +52,12 @@ impl StateInit {
         // `hex::encode` always produces valid [0-9a-f] characters, hence, we can construct
         // AccountId without validation
         #[allow(deprecated)]
-        near_account_id::AccountId::new_unvalidated(format!("0s{}", hex::encode(hash)))
+        near_account_id::AccountId::new_unvalidated(format!(
+            "0s{}",
+            // SAFETY:: keccak256 hahs will always generate 32 bytes; [12..32] is exactly 20 bytes,
+            // matching 20 byte-long hash requirement to fit the near's `AccountId` length bounds
+            hex::encode::<&[u8]>(hash[12..32].try_into().unwrap_or_else(|_| unreachable!()))
+        ))
     }
 }
 
