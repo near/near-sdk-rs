@@ -135,3 +135,41 @@ const _: () = {
         }
     }
 };
+
+#[cfg(test)]
+mod test {
+    use crate::StateInit;
+
+    #[test]
+    #[cfg(all(feature = "serde", feature = "borsh"))]
+    fn test_state_init_account_id_derivation() {
+        use near_account_id::AccountId;
+
+        let test_data: Vec<(StateInit, AccountId)> = vec![
+            (
+                serde_json::from_value(serde_json::json!({
+                    "V1": {
+                        "code": { "hash": "J86LNmZE9nHAxRqUYBZ64iCQYfeacMJhNqvb8WQmpZPE"},
+                        "data": { "AAEC": "AwQF" },
+                    }
+                }))
+                .unwrap(),
+                AccountId::try_from("0s48ddf87e648de3a52783ee9640e618234cadb18f").unwrap(),
+            ),
+            (
+                serde_json::from_value(serde_json::json!({
+                    "V1": {
+                        "code": { "account_id": "alice.near"},
+                        "data": { "AAEC": "AwQF" },
+                    }
+                }))
+                .unwrap(),
+                AccountId::try_from("0sf4d27a587616342eb45b8d785addbe6790695a2e").unwrap(),
+            ),
+        ];
+
+        for (state, expected_result) in test_data {
+            assert!(state.derive_account_id() == expected_result)
+        }
+    }
+}

@@ -1,3 +1,7 @@
+#[cfg(any(doctest, all(test, feature = "__near-sdk-unit-testing")))]
+// XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
+use near_sdk as _;
+
 pub mod json_types;
 
 pub mod types;
@@ -23,7 +27,3 @@ pub use borsh;
 
 #[cfg(feature = "schemars-v0_8")]
 pub use schemars_v0_8 as schemars;
-
-#[cfg(test)]
-// XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
-use near_sdk as _;
