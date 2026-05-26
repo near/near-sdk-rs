@@ -3,9 +3,6 @@ use near_account_id::AccountId;
 use near_crypto_hash::Base58CryptoHash;
 use near_crypto_hash::CryptoHash;
 
-#[cfg(feature = "schemars-v0_8")]
-use schemars_v0_8 as schemars;
-
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccountContract {
@@ -22,7 +19,11 @@ pub enum AccountContract {
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
 )]
-#[cfg_attr(feature = "schemars-v0_8", derive(schemars::JsonSchema))]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
+)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]

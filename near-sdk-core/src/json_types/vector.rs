@@ -1,6 +1,3 @@
-#[cfg(feature = "schemars-v0_8")]
-use schemars_v0_8 as schemars;
-
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
 ///
 /// # Example
@@ -15,7 +12,11 @@ use schemars_v0_8 as schemars;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "schemars-v0_8", derive(schemars::JsonSchema))]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
+)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct Base64VecU8(
     #[cfg_attr(

@@ -24,6 +24,3 @@ pub use serde_with;
 
 #[cfg(feature = "borsh")]
 pub use borsh;
-
-#[cfg(feature = "schemars-v0_8")]
-pub use schemars_v0_8 as schemars;
