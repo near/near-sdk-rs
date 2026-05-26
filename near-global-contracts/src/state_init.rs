@@ -81,8 +81,8 @@ pub struct StateInitV1 {
 
 impl StateInitV1 {
     #[inline]
-    pub const fn code(code: GlobalContractId) -> Self {
-        Self { code, data: BTreeMap::new() }
+    pub fn code(code: impl Into<GlobalContractId>) -> Self {
+        Self { code: code.into(), data: BTreeMap::new() }
     }
 
     #[inline]
