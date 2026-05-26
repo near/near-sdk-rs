@@ -36,7 +36,6 @@ near-env = { path = "../near-env/", version = "~0.1.0" }
 sha3 = { version = "0.10" }
 
 [dev-dependencies]
-
 # XXX: `near-sdk` was added in order to enable testing and doctests
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 serde_json = { version = "1", features = ["preserve_order"] }

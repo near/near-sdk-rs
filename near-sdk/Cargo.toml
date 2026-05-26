@@ -96,7 +96,6 @@ default = ["wee_alloc"]
 
 arbitrary = [
     "dep:arbitrary",
-    "arbitrary/derive",
     "near-account-id/arbitrary",
     "near-sdk-core/arbitrary",
     "near-global-contracts/arbitrary",

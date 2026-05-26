@@ -95,7 +95,6 @@ abi = [
 
 arbitrary = [
     "dep:arbitrary",
-    "arbitrary/derive",
     "near-account-id/arbitrary",
     "near-crypto-hash/arbitrary",
 ]
