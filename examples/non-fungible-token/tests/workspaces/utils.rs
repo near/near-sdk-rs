@@ -46,6 +46,8 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
+        // 2.12 RC: contracts build on rustc 1.93 > the 1.86 declared in Cargo.toml.
+        skip_rust_version_check: true,
         ..Default::default()
     })
     .expect(&format!("building `{}` contract for tests", contract_name));
