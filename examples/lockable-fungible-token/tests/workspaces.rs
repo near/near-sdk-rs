@@ -15,10 +15,6 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
-        // `cargo near build` hardcodes RUSTFLAGS="-C link-arg=-s", overriding any per-package
-        // .cargo/config.toml. Until cargo-near ships `--cfg near` injection, we set it here,
-        // so example contracts get the host-function path instead of the pure-Rust fallback.
-        env: vec![("RUSTFLAGS".into(), "-C link-arg=-s --cfg near".into())],
         ..Default::default()
     })
     .expect(&format!("building `{}` contract for tests", contract_name));
