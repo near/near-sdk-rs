@@ -36,13 +36,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set CC for wasm32 target (MacOS only)
+        if: matrix.platform.name == 'macos'
+        run: |
+          brew install llvm@20
+          echo "CC_wasm32_unknown_unknown=$(brew --prefix llvm@20)/bin/clang" >> $GITHUB_ENV
+
       - name: Install Rust ${{ matrix.toolchain }} with wasm32 target
         run: |
           rustup toolchain install ${{ matrix.toolchain }} --profile minimal --target wasm32-unknown-unknown
           rustup override set ${{ matrix.toolchain }}
 
       - name: Install cargo-near CLI
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.20.2/cargo-near-installer.sh | sh
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2

@@ -1,0 +1,116 @@
+/// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
+///
+/// # Example
+/// ```rust
+/// use near_sdk::{json_types::Base64VecU8, near};
+///
+/// #[near(serializers=[json])]
+/// struct NewStruct {
+///     field: Base64VecU8,
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
+)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
+pub struct Base64VecU8(
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "base64_bytes::serialize",
+            deserialize_with = "base64_bytes::deserialize"
+        )
+    )]
+    pub Vec<u8>,
+);
+
+impl From<Vec<u8>> for Base64VecU8 {
+    fn from(v: Vec<u8>) -> Self {
+        Self(v)
+    }
+}
+
+impl From<Base64VecU8> for Vec<u8> {
+    fn from(v: Base64VecU8) -> Vec<u8> {
+        v.0
+    }
+}
+
+impl AsRef<[u8]> for Base64VecU8 {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
+/// Convenience module to allow annotating a serde structure as base64 bytes.
+#[cfg(feature = "serde")]
+mod base64_bytes {
+    use base64::Engine;
+    use serde::de;
+
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(bytes))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        base64::engine::general_purpose::STANDARD.decode(s.as_str()).map_err(de::Error::custom)
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use super::Base64VecU8;
+    use serde_json;
+    macro_rules! test_serde {
+        ($v: expr) => {
+            let a: Vec<u8> = $v;
+            let wrapped_a: Base64VecU8 = a.clone().into();
+            let b: Vec<u8> = wrapped_a.clone().into();
+            assert_eq!(a, b);
+
+            let str: String = serde_json::to_string(&wrapped_a).unwrap();
+            let deser_a: Base64VecU8 = serde_json::from_str(&str).unwrap();
+            assert_eq!(a, deser_a.0);
+        };
+    }
+
+    #[test]
+    fn test_empty() {
+        test_serde!(vec![]);
+    }
+
+    #[test]
+    fn test_basic() {
+        test_serde!(vec![0]);
+        test_serde!(vec![1]);
+        test_serde!(vec![1, 2, 3]);
+        test_serde!(b"abc".to_vec());
+        test_serde!(vec![3, 255, 255, 13, 0, 23]);
+    }
+
+    #[test]
+    fn test_long() {
+        test_serde!(vec![123; 16000]);
+    }
+
+    #[test]
+    fn test_manual() {
+        let a = vec![100, 121, 31, 20, 0, 23, 32];
+        let a_str = serde_json::to_string(&Base64VecU8(a.clone())).unwrap();
+        assert_eq!(a_str, String::from("\"ZHkfFAAXIA==\""));
+        let a_deser: Base64VecU8 = serde_json::from_str(&a_str).unwrap();
+        assert_eq!(a_deser.0, a);
+    }
+}

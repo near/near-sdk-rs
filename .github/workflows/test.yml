@@ -8,6 +8,68 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  # NOTE: we mainly only "check" if things can compile in extracted crates. 
+  cargo-hack:
+    runs-on: ${{ matrix.platform.os }}
+    name: "cargo-hack ${{ matrix.crate }} ${{ matrix.platform.name }} ${{ matrix.platform.rs }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - "near-crypto-hash"
+          - "near-sdk-core"
+          - "near-global-contracts"
+          - "near-env"
+        platform:
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "1.86.0"
+            name: linux
+          - os: warp-macos-latest-arm64-6x
+            rs: "1.86.0"
+            name: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set CC for wasm32 target (MacOS only)
+        if: matrix.platform.name == 'macos'
+        run: |
+          brew install llvm@20
+          echo "CC_wasm32_unknown_unknown=$(brew --prefix llvm@20)/bin/clang" >> $GITHUB_ENV
+
+      - name: Install Rust ${{ matrix.platform.rs }} with wasm32 target
+        run: |
+          rustup toolchain install ${{ matrix.platform.rs }} --profile minimal --target wasm32-unknown-unknown
+          rustup override set ${{ matrix.platform.rs }}
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "${{ matrix.crate }}-${{ matrix.platform.name }}-${{ matrix.platform.rs }}"
+          cache-all-crates: true
+
+      - name: Print rustc && rustdoc version
+        run: rustc --version && rustdoc --version
+
+      # Powerset check across all features for the off-chain / non-NEAR path (cfg(near) not set).
+      - name: Cargo hack check wasm32 powerset (off-chain, no --cfg near)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing
+      - name: Cargo hack check wasm32 powerset, no dev-deps (off-chain)
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
+      - name: Cargo hack check non-wasm32 powerset
+        run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps
+
+      # Same powerset but with `--cfg near` set — exercises the on-chain host-function path.
+      # cargo-near sets this automatically; we test it here so the contract path doesn't bitrot.
+      - name: Cargo hack check wasm32 powerset (on-chain, --cfg near)
+        env:
+          RUSTFLAGS: "-D warnings --cfg near"
+        run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
+
   test:
     runs-on: ${{ matrix.platform.os }}
     name: "${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
@@ -28,13 +90,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set CC for wasm32 target (MacOS only)
+        if: matrix.platform.name == 'macos'
+        run: |
+          brew install llvm@20
+          echo "CC_wasm32_unknown_unknown=$(brew --prefix llvm@20)/bin/clang" >> $GITHUB_ENV
+
       - name: Install Rust ${{ matrix.platform.rs }} with wasm32 target
         run: |
           rustup toolchain install ${{ matrix.platform.rs }} --profile minimal --target wasm32-unknown-unknown
           rustup override set ${{ matrix.platform.rs }}
 
       - name: Install cargo-near CLI
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.17.0/cargo-near-installer.sh | sh
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.20.2/cargo-near-installer.sh | sh
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
@@ -78,6 +146,7 @@ jobs:
         run: cargo fmt -- --check
 
       - run: cargo clippy --tests --all-features -- -Dclippy::all
+      - run: cargo clippy --tests --features serde,borsh -- -Dclippy::all
 
   compilation:
     name: Compilation tests
@@ -170,7 +239,7 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate
+          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate,deterministic-account-ids
           cargo doc -p near-sdk-macros --features __abi-generate
           cargo doc -p near-contract-standards --no-deps --features abi
           cargo doc -p near-sys

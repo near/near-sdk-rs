@@ -59,6 +59,25 @@ async fn dev_generate(
     Ok((account.into_result()?, collection))
 }
 
+async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
+    use near_workspaces::cargo_near_build;
+    use std::str::FromStr;
+    let path = path.to_string();
+    tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+        let manifest = cargo_near_build::camino::Utf8PathBuf::from_str(&path)
+            .map_err(|e| anyhow::anyhow!("camino: {e}"))?
+            .join("Cargo.toml");
+        let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
+            no_locked: true,
+            manifest_path: Some(manifest),
+            ..Default::default()
+        })
+        .map_err(|e| anyhow::anyhow!("cargo near build: {e:?}"))?;
+        Ok(std::fs::read(&artifact)?)
+    })
+    .await?
+}
+
 async fn setup_worker(
     contract: Contract,
 ) -> anyhow::Result<(Arc<Worker<Sandbox>>, near_workspaces::AccountId)> {
@@ -67,7 +86,7 @@ async fn setup_worker(
         Contract::LazyContract => "./tests/test-contracts/lazy",
     };
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let wasm = near_workspaces::compile_project(contract_path).await?;
+    let wasm = build_contract(contract_path).await?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());

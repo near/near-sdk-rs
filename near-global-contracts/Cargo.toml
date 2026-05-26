@@ -1,0 +1,101 @@
+[package]
+name = "near-global-contracts"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "./README.md"
+description = """
+Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
+"""
+
+# Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
+# backend is pulled in unconditionally on the `cfg(not(near))` path). Including all of
+# serde/borsh/abi here surfaces the full type surface.
+[package.metadata.docs.rs]
+features = ["serde", "borsh", "abi", "near-primitives-interop"]
+
+[dependencies]
+near-account-id = { version = "2.3.0", features = ["internal_unstable"] }
+near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
+
+hex = { version = "0.4", optional = true }
+
+cfg_eval = { version = "0.1", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_with = { version = "3", features = ["base64", "hex"], optional = true }
+borsh = { version = "1.0.0", features = ["derive"], optional = true }
+
+arbitrary = { version = "1.4", features = ["derive"], optional = true }
+
+near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
+near-primitives-core = { version = "0.35", optional = true }
+
+schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
+
+[target.'cfg(near)'.dependencies]
+near-env = { path = "../near-env/", version = "~0.1.0" }
+
+[target.'cfg(not(near))'.dependencies]
+sha3 = { version = "0.10" }
+
+[dev-dependencies]
+# XXX: `near-sdk` was added in order to enable testing and doctests
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[lints]
+workspace = true
+
+[features]
+default = []
+
+serde = [
+    "dep:cfg_eval",
+    "dep:serde",
+    "dep:serde_with",
+    "near-account-id/serde",
+    "near-crypto-hash/serde",
+]
+
+borsh = [
+    "dep:borsh",
+    "dep:hex",
+    "near-account-id/borsh",
+    "near-crypto-hash/borsh",
+]
+
+schemars-v0_8 = [
+    "dep:schemars-v0_8",
+    "near-account-id/schemars-v0_8",
+    "near-crypto-hash/schemars-v0_8",
+]
+
+abi = [
+    "schemars-v0_8",
+    "borsh",
+    "borsh/unstable__schema",
+    "near-account-id/abi",
+    "near-crypto-hash/abi",
+]
+
+arbitrary = [
+    "dep:arbitrary",
+    "near-account-id/arbitrary",
+    "near-crypto-hash/arbitrary",
+]
+
+near-primitives-interop = ["dep:near-primitives-core"]
+
+__near-sdk-unit-testing = [
+    "dep:near-env",
+    "dep:hex",
+    "serde",
+    "borsh",
+    "near-primitives-interop",
+    "near-crypto-hash/__near-sdk-unit-testing",
+    "near-env/__near-sdk-unit-testing",
+]

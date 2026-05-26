@@ -1,6 +1,15 @@
 [workspace]
 resolver = "3"
-members = ["near-sdk", "near-sdk-macros", "near-contract-standards", "near-sys"]
+members = [
+    "near-sdk",
+    "near-sdk-core",
+    "near-sdk-macros",
+    "near-contract-standards",
+    "near-sys",
+    "near-env",
+    "near-global-contracts",
+    "near-crypto-hash",
+]
 exclude = ["examples/"]
 
 [workspace.package]
@@ -11,6 +20,10 @@ categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://docs.near.org/"
 rust-version = "1.86"
+
+[workspace.lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(near)']
 
 # Special triple # comment for ci.
 [patch.crates-io]
