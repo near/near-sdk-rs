@@ -120,6 +120,7 @@ const _: () = {
 ///             .unwrap();
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde_with::SerializeDisplay, serde_with::DeserializeFromStr))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct PublicKey {
     data: Vec<u8>,
@@ -201,16 +202,6 @@ impl TryFrom<Vec<u8>> for PublicKey {
     }
 }
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&String::from(self))
-    }
-}
-
 #[cfg(feature = "borsh")]
 impl borsh::BorshSerialize for PublicKey {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
@@ -224,17 +215,6 @@ impl borsh::BorshDeserialize for PublicKey {
         <Vec<u8> as borsh::BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
             Self::try_from(s).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
         })
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        s.parse::<PublicKey>().map_err(serde::de::Error::custom)
     }
 }
 

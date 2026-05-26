@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "serde", derive(serde_with::SerializeDisplay, serde_with::DeserializeFromStr))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
 #[repr(transparent)]
@@ -63,27 +64,6 @@ impl AsRef<[u8]> for Base58CryptoHash {
     }
 }
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for Base58CryptoHash {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&String::from(self))
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        s.parse::<Self>().map_err(serde::de::Error::custom)
-    }
-}
-
 #[cfg(feature = "schemars-v0_8")]
 impl schemars_v0_8::JsonSchema for Base58CryptoHash {
     fn is_referenceable() -> bool {
@@ -135,6 +115,12 @@ impl std::str::FromStr for Base58CryptoHash {
             });
         }
         Ok(Self(crypto_hash))
+    }
+}
+
+impl std::fmt::Display for Base58CryptoHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&String::from(self))
     }
 }
 
