@@ -19,11 +19,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y llvm lld
 
-      - name: Install Rust 1.86 with rust-src component
+      - name: Install Rust 1.93 with rust-src component
         run: |
-          rustup toolchain install 1.86 --profile minimal --target wasm32-unknown-unknown
-          rustup override set 1.86
-          rustup component add rust-src --toolchain 1.86
+          rustup toolchain install 1.93 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.93
+          rustup component add rust-src --toolchain 1.93
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -35,7 +35,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-provider: warpbuild
-          shared-key: "linux-1.86-coverage"
+          shared-key: "linux-1.93-coverage"
           cache-all-crates: true
 
       - name: Install cargo-near CLI
