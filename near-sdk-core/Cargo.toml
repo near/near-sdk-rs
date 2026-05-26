@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk-core"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Near Inc <hello@near.org>"]
 edition.workspace = true
 license.workspace = true
@@ -33,7 +33,7 @@ near-account-id = { version = "2.3.0" }
 near-gas = { version = "0.3" }
 near-token = { version = "0.3" }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.1.0" }
-near-env = { path = "../near-env/", version = "~0.1.0", optional = true }
+near-env = { path = "../near-env/", version = "~0.1.1", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 near-primitives-core = { version = "0.35", optional = true }
@@ -43,11 +43,11 @@ unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
 near-parameters = { version = "0.35", optional = true }
 
 [target.'cfg(near)'.dependencies]
-near-env = { path = "../near-env/", version = "~0.1.0" }
+near-env = { path = "../near-env/", version = "~0.1.1" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
-near-sdk = { path = "../near-sdk", version = "~5.26.1", features = [
+near-sdk = { path = "../near-sdk", version = "~5.26.2", features = [
     "unit-testing",
 ] }
 
