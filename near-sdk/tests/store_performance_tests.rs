@@ -2,12 +2,8 @@
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
 #![cfg(target_os = "linux")]
 
-// TODO(2.12 RC): re-enable once near-sandbox (via near-workspaces) ships a binary on
-// protocol version 84, which is required to load wasm produced by Rust >= 1.93 (the bumped
-// MSRV). near-sandbox 0.3.9 currently bundles nearcore v2.11.0, whose VM rejects the
-// bulk-memory/reftypes that newer rustc emits. All tokio tests in this file deploy
-// contracts to the sandbox via near_workspaces::compile_project, which both (a) rejects
-// rustc >= 1.87 in its build step and (b) would produce wasm the sandbox can't run.
+#[path = "common/mod.rs"]
+mod common;
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -69,12 +65,12 @@ async fn dev_generate(
 async fn setup_worker(
     contract: Contract,
 ) -> anyhow::Result<(Arc<Worker<Sandbox>>, near_workspaces::AccountId)> {
-    let contract_path = match contract {
-        Contract::StoreContract => "./tests/test-contracts/store",
-        Contract::LazyContract => "./tests/test-contracts/lazy",
+    let contract_name = match contract {
+        Contract::StoreContract => "store",
+        Contract::LazyContract => "lazy",
     };
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let wasm = near_workspaces::compile_project(contract_path).await?;
+    let wasm = common::build_test_contract(contract_name)?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
@@ -121,7 +117,6 @@ async fn setup(contract: Contract) -> anyhow::Result<(Account, near_workspaces::
     Ok((account, contract_id))
 }
 
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn insert_and_remove() -> anyhow::Result<()> {
     let collection_types = &[
@@ -189,7 +184,6 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn iter() -> anyhow::Result<()> {
     // LookupMap and LookupSet are not iterable.
@@ -244,7 +238,6 @@ async fn iter() -> anyhow::Result<()> {
 }
 
 #[allow(clippy::ifs_same_cond)]
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn random_access() -> anyhow::Result<()> {
     // LookupMap and LookupSet are not iterable.
@@ -306,7 +299,6 @@ async fn random_access() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn contains() -> anyhow::Result<()> {
     // Vector does not implement contains.
@@ -364,7 +356,6 @@ async fn contains() -> anyhow::Result<()> {
 
 // This test demonstrates the difference in gas consumption between iterable and unordered collections,
 // when most of the elements have been deleted.
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn iterable_vs_unordered() -> anyhow::Result<()> {
     let element_number = 300;
@@ -448,7 +439,6 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore = "needs near-sandbox on protocol version 84; see top-of-file note"]
 #[tokio::test]
 async fn test_lazy() -> anyhow::Result<()> {
     let (account, contract_id) = setup(Contract::LazyContract).await?;
@@ -483,7 +473,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     // Override min gas to avoid constant tuning, it's pretty clear this is performant. Somehow
     // this is pretty flaky.
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush", Some(60));
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush", Some(40));
 
     let res = account
         .call(&contract_id, "get")
