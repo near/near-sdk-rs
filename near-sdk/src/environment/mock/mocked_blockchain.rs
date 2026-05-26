@@ -123,7 +123,7 @@ where
             .filter(|(_receipt_idx, action)| matches!(action, MockAction::CreateReceipt { .. }))
             .collect();
 
-        let result = create_receipts
+        create_receipts
             .into_iter()
             .map(|(receipt_idx, create_receipt)| {
                 let (receiver_id, receipt_indices) = match create_receipt {
@@ -144,8 +144,7 @@ where
                     .collect();
                 Receipt { receiver_id, actions, receipt_indices }
             })
-            .collect();
-        result
+            .collect()
     }
 
     pub fn gas(&mut self, gas_amount: u64) {
