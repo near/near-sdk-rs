@@ -119,15 +119,15 @@ impl ArgInfo {
                                 more_errors.push(spanned_error);
                             };
 
-                            if let Some(borsh) = args.borsh {
-                                if borsh {
-                                    serializer_ty = SerializerType::Borsh;
-                                }
+                            if let Some(borsh) = args.borsh
+                                && borsh
+                            {
+                                serializer_ty = SerializerType::Borsh;
                             }
-                            if let Some(json) = args.json {
-                                if json {
-                                    serializer_ty = SerializerType::JSON;
-                                }
+                            if let Some(json) = args.json
+                                && json
+                            {
+                                serializer_ty = SerializerType::JSON;
                             }
                         }
                         Err(e) => more_errors.push(Error::new(e.span(), e.to_string())),

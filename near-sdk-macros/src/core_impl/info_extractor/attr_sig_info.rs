@@ -126,15 +126,15 @@ impl AttrSigInfo {
                         ));
                     };
                     let mut serializer = SerializerAttr { serializer_type: SerializerType::JSON };
-                    if let Some(borsh) = args.borsh {
-                        if borsh {
-                            serializer.serializer_type = SerializerType::Borsh;
-                        }
+                    if let Some(borsh) = args.borsh
+                        && borsh
+                    {
+                        serializer.serializer_type = SerializerType::Borsh;
                     }
-                    if let Some(json) = args.json {
-                        if json {
-                            serializer.serializer_type = SerializerType::JSON;
-                        }
+                    if let Some(json) = args.json
+                        && json
+                    {
+                        serializer.serializer_type = SerializerType::JSON;
                     }
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }

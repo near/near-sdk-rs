@@ -20,7 +20,7 @@ jobs:
             name: linux
           - os: warp-macos-latest-arm64-6x
             name: macos
-        toolchain: ["1.86"]
+        toolchain: ["1.93"]
         example:
           [
             lockable-fungible-token,

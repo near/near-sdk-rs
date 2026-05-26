@@ -20,8 +20,8 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.NEARPROTOCOL_CI_PR_ACCESS }}
 
-      - name: Install Rust toolchain 1.86 for builds
-        uses: dtolnay/rust-toolchain@1.86
+      - name: Install Rust toolchain 1.93 for builds
+        uses: dtolnay/rust-toolchain@1.93
         with:
           targets: wasm32-unknown-unknown
 
