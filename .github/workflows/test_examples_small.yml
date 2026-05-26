@@ -44,6 +44,23 @@ jobs:
         with:
           tool: nextest
 
+      # 2.12 RC: contracts built with rustc 1.93 emit bulk-memory/reftypes wasm
+      # that only the PV-84 runtime can deserialize. near-sandbox 0.3.9 still ships
+      # the v2.11.0 (PV-83) binary, so download the 2.12.0-rc.1 sandbox and point
+      # near-workspaces at it via NEAR_SANDBOX_BIN_PATH.
+      - name: Download near-sandbox 2.12.0-rc.1
+        run: |
+          case "${{ matrix.platform.name }}" in
+            linux) plat=Linux-x86_64 ;;
+            macos) plat=Darwin-arm64 ;;
+            *) echo "unsupported platform"; exit 1 ;;
+          esac
+          mkdir -p "$HOME/.near-sandbox-2.12.0-rc.1"
+          curl -sL "https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/${plat}/2.12.0-rc.1/near-sandbox.tar.gz" \
+            | tar -xz -C "$HOME/.near-sandbox-2.12.0-rc.1" --strip-components=1
+          chmod +x "$HOME/.near-sandbox-2.12.0-rc.1/near-sandbox"
+          echo "NEAR_SANDBOX_BIN_PATH=$HOME/.near-sandbox-2.12.0-rc.1/near-sandbox" >> "$GITHUB_ENV"
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-provider: warpbuild
