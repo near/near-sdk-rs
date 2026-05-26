@@ -1,15 +1,12 @@
 use near_sdk::Gas;
 use serde_json::json;
 
-// TODO(2.12 RC): re-enable once `near-sandbox` (via `near-workspaces`) ships a binary on
-// protocol version 84, which is required to load wasm produced by Rust >= 1.93 (the bumped
-// MSRV). `near-sandbox` 0.3.9 currently bundles nearcore v2.11.0, whose VM rejects the
-// bulk-memory/reftypes that newer rustc emits.
-#[ignore]
+#[path = "common/mod.rs"]
+mod common;
+
 #[tokio::test]
 async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>> {
-    let contract_wasm =
-        near_workspaces::compile_project("./tests/test-contracts/deny_unknown_arguments").await?;
+    let contract_wasm = common::build_test_contract("deny_unknown_arguments")?;
     let sandbox = near_workspaces::sandbox().await?;
 
     // Create basic accounts and deploy main contract
