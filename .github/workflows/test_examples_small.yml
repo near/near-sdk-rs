@@ -31,6 +31,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set CC for wasm32 target (MacOS only)
+        if: matrix.platform.name == 'macos'
+        run: |
+          brew install llvm@20
+          echo "CC_wasm32_unknown_unknown=$(brew --prefix llvm@20)/bin/clang" >> $GITHUB_ENV
+
       - name: Install Rust ${{ matrix.toolchain }} with wasm32 target
         run: |
           rustup toolchain install ${{ matrix.toolchain }} --profile minimal --target wasm32-unknown-unknown
