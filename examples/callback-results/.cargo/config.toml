@@ -1,5 +1,0 @@
-[build]
-rustflags = ["--cfg", "near"]
-
-[target.wasm32-unknown-unknown]
-rustflags = ["-C", "link-arg=-s", "--cfg", "near"]

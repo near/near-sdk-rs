@@ -59,13 +59,7 @@ async fn dev_generate(
     Ok((account.into_result()?, collection))
 }
 
-/// Build the current crate as a wasm contract with `--cfg near` set.
-///
-/// `near_workspaces::compile_project` goes through `cargo_near_build::build_with_cli`,
-/// which hardcodes `RUSTFLAGS="-C link-arg=-s"` (overriding any per-package
-/// `.cargo/config.toml`). Until `cargo-near` ships `--cfg near` injection, we inject it
-/// here so example contracts get the host-function path instead of the pure-Rust fallback.
-async fn build_with_cfg_near(path: &str) -> anyhow::Result<Vec<u8>> {
+async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
     use near_workspaces::cargo_near_build;
     use std::str::FromStr;
     let path = path.to_string();
@@ -76,7 +70,6 @@ async fn build_with_cfg_near(path: &str) -> anyhow::Result<Vec<u8>> {
         let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
             no_locked: true,
             manifest_path: Some(manifest),
-            env: vec![("RUSTFLAGS".into(), "-C link-arg=-s --cfg near".into())],
             ..Default::default()
         })
         .map_err(|e| anyhow::anyhow!("cargo near build: {e:?}"))?;
@@ -93,7 +86,7 @@ async fn setup_worker(
         Contract::LazyContract => "./tests/test-contracts/lazy",
     };
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let wasm = build_with_cfg_near(contract_path).await?;
+    let wasm = build_contract(contract_path).await?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
