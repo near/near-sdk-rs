@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.26.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.26.1...near-sdk-v5.26.2) - 2026-05-26
+## [5.27.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.26.1...near-sdk-v5.27.0) - 2026-05-26
 
 ### Fixed
 

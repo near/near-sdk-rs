@@ -47,9 +47,7 @@ near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.0" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
-near-sdk = { path = "../near-sdk", version = "~5.26.2", features = [
-    "unit-testing",
-] }
+near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 
 [lints]
 workspace = true
