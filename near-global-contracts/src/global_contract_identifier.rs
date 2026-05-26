@@ -54,7 +54,7 @@ impl From<AccountId> for GlobalContractId {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "near-primitives-interop"))]
+#[cfg(feature = "near-primitives-interop")]
 const _: () = {
     use near_primitives_core::{
         account::AccountContract as NearAccountContract,
