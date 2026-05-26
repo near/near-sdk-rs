@@ -19,7 +19,7 @@
 //! backend is then selected automatically:
 //!
 //! - On-chain contract builds: set `--cfg near` (the `cargo-near` toolchain does this
-//!   automatically). Hashing routes through the `keccak256` host function via `near-env`.
+//!   automatically). Hashing routes through the `keccak256` host function via `near-sdk-env`.
 //! - Off-chain / non-NEAR wasm builds: hashing is performed in pure Rust via [`sha3`],
 //!   pulled in unconditionally on the `cfg(not(near))` path.
 //!

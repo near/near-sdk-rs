@@ -51,7 +51,7 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 
 `StateInit::derive_account_id` requires the `borsh` feature. Hashing backend is selected
 automatically: on `--cfg near` (set by `cargo-near`) it routes through NEAR host functions
-via `near-env`; otherwise it uses pure-Rust `sha3`, which is pulled in unconditionally on
+via `near-sdk-env`; otherwise it uses pure-Rust `sha3`, which is pulled in unconditionally on
 the `cfg(not(near))` path.
 
 ## License

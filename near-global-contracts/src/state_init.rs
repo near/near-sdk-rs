@@ -32,7 +32,7 @@ impl StateInit {
     /// - the `borsh` feature is enabled (needed to serialize the input for hashing), AND
     /// - one of the following is true:
     ///   - `--cfg near` is set (on-chain contract build; `cargo-near` sets this automatically) —
-    ///     routes through the `keccak256` host function via the `near-env` crate.
+    ///     routes through the `keccak256` host function via the `near-sdk-env` crate.
     ///   - the `digest` feature is enabled (off-chain or non-NEAR wasm build) — uses pure-Rust
     ///     `sha3::Keccak256`.
     ///
@@ -46,9 +46,8 @@ impl StateInit {
         #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
         {
             let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
-            // 20 bytes, matching [u8; 20]
-            hash = near_env::keccak256_array(&serialized);
+            // SAFETY: keccak256 hash will always generate 32 bytes
+            hash = near_sdk_env::keccak256_array(&serialized);
         }
         #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {
@@ -56,8 +55,7 @@ impl StateInit {
 
             let mut hasher = sha3::Keccak256::new();
             borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly
-            // 20 bytes, matching [u8; 20]
+            // SAFETY: keccak256 hash will always generate 32 bytes
             hash = hasher.finalize().into();
         }
 
@@ -68,7 +66,7 @@ impl StateInit {
         #[allow(deprecated)]
         near_account_id::AccountId::new_unvalidated(format!(
             "0s{}",
-            // SAFETY:: keccak256 hahs will always generate 32 bytes; [12..32] is exactly 20 bytes,
+            // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly 20 bytes,
             // matching 20 byte-long hash requirement to fit the near's `AccountId` length bounds
             hex::encode::<&[u8]>(hash[12..32].try_into().unwrap_or_else(|_| unreachable!()))
         ))

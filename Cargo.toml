@@ -3,10 +3,10 @@ resolver = "3"
 members = [
     "near-sdk",
     "near-sdk-core",
+    "near-sdk-env",
     "near-sdk-macros",
     "near-contract-standards",
     "near-sys",
-    "near-env",
     "near-global-contracts",
     "near-crypto-hash",
 ]

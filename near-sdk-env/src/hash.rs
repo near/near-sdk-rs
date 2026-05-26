@@ -10,14 +10,14 @@ use near_sys as sys;
     all(near, target_arch = "wasm32"),
     all(feature = "__near-sdk-unit-testing", not(doctest))
 ))]
-use crate::{ATOMIC_OP_REGISTER, read_register_fixed};
+use crate::{read_register_fixed, ATOMIC_OP_REGISTER};
 
 /// Hashes the random sequence of bytes using sha256.
 ///
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::sha256;
+/// use near_sdk_env::sha256;
 /// use hex;
 ///
 /// assert_eq!(
@@ -34,7 +34,7 @@ pub fn sha256(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::keccak256;
+/// use near_sdk_env::keccak256;
 /// use hex;
 ///
 /// assert_eq!(
@@ -52,7 +52,7 @@ pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::keccak512;
+/// use near_sdk_env::keccak512;
 /// use hex;
 ///
 /// assert_eq!(
@@ -70,7 +70,7 @@ pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::sha256_array;
+/// use near_sdk_env::sha256_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -102,7 +102,7 @@ pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::keccak256_array;
+/// use near_sdk_env::keccak256_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -137,7 +137,7 @@ pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::keccak512_array;
+/// use near_sdk_env::keccak512_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -173,7 +173,7 @@ pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
 /// # Examples
 /// ```
 /// # use near_sdk as _;
-/// use near_env::ripemd160_array;
+/// use near_sdk_env::ripemd160_array;
 /// use hex;
 ///
 /// assert_eq!(
