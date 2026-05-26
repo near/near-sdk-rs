@@ -154,11 +154,7 @@ pub fn read_register_bounded(register_id: u64, max_len: usize) -> Option<Result<
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = unsafe { sys::register_len(register_id) };
-    if len == u64::MAX {
-        None
-    } else {
-        Some(len)
-    }
+    if len == u64::MAX { None } else { Some(len) }
 }
 
 macro_rules! maybe_cached {
@@ -582,11 +578,7 @@ pub fn ecrecover(
                 malleability_flag as u64,
                 ATOMIC_OP_REGISTER,
             );
-            if return_code == 0 {
-                None
-            } else {
-                Some(read_register_fixed(ATOMIC_OP_REGISTER))
-            }
+            if return_code == 0 { None } else { Some(read_register_fixed(ATOMIC_OP_REGISTER)) }
         }
     }
 
@@ -2477,9 +2469,9 @@ mod tests {
 
     #[test]
     fn random_seed_smoke_test() {
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .random_seed([8; 32])
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().random_seed([8; 32]).build()
+        );
 
         assert_eq!(super::random_seed(), [8; 32]);
     }
@@ -2531,9 +2523,9 @@ mod tests {
         let key: PublicKey =
             "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
 
-        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .signer_account_pk(key.clone())
-            .build());
+        crate::testing_env!(
+            crate::test_utils::VMContextBuilder::new().signer_account_pk(key.clone()).build()
+        );
         assert_eq!(super::signer_account_pk(), key);
     }
 
