@@ -22,10 +22,10 @@ jobs:
           - "near-env"
         platform:
           - os: warp-ubuntu-latest-x64-4x
-            rs: "1.86.0"
+            rs: "1.93.0"
             name: linux
           - os: warp-macos-latest-arm64-6x
-            rs: "1.86.0"
+            rs: "1.93.0"
             name: macos
     steps:
       - uses: actions/checkout@v4
