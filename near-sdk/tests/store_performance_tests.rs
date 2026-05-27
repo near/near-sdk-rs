@@ -348,14 +348,11 @@ async fn contains() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        // 2.12 RC: the more gas-efficient nearcore VM drops TreeMap `contains`
-        // just below the default 90 Tgas floor (~85 Tgas), so relax its lower
-        // bound while keeping regression detection for the other collections.
-        let override_min_gas = match col {
-            Collection::TreeMap => Some(80),
-            _ => None,
-        };
-        perform_asserts(total_gas, col, override_min_gas);
+        // 2.12 RC: the more gas-efficient nearcore VM drops `contains` for
+        // several collections (TreeMap, IterableSet, ...) to ~85 Tgas, below
+        // the default 90 Tgas floor. Relax the lower bound for the whole loop
+        // while the 115 Tgas upper bound still guards against regressions.
+        perform_asserts(total_gas, col, Some(70));
     }
 
     Ok(())
