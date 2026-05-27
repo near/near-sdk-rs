@@ -61,8 +61,7 @@ near-vm-runner = { version = "0.36.0-rc.1", optional = true }
 near-primitives-core = { version = "0.36.0-rc.1", optional = true }
 near-primitives = { version = "0.36.0-rc.1", optional = true }
 near-crypto = { version = "0.36.0-rc.1", default-features = false, optional = true }
-# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
-unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
+unicode-segmentation = { version = "1", optional = true }
 near-parameters = { version = "0.36.0-rc.1", optional = true }
 
 [dev-dependencies]
