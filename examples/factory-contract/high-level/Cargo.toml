@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
 [build-dependencies]
-cargo-near-build = { version = "0.6.0" }
+cargo-near-build = { version = "0.11.2" }
 duct = "0.13.7"
 
 [package.metadata.near.reproducible_build]
