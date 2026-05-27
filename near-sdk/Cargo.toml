@@ -23,10 +23,10 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.26.1" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.27.0" }
 near-sys = { path = "../near-sys", version = "0.2.9" }
-near-env = { path = "../near-env/", version = "~0.1.0" }
-near-sdk-core = { path = "../near-sdk-core/", version = "~0.1.0", features = [
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.0" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.1.0", features = [
     "serde",
     "borsh",
 ] }
@@ -124,7 +124,7 @@ unit-testing = [
     "near-crypto",
     "unicode-segmentation",
     "near-parameters",
-    "near-env/__near-sdk-unit-testing",
+    "near-sdk-env/__near-sdk-unit-testing",
     "near-sdk-core/__near-sdk-unit-testing",
     "near-global-contracts/__near-sdk-unit-testing",
 ]

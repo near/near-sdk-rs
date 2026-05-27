@@ -25,8 +25,8 @@ use crate::{CryptoHash, GasWeight, PromiseError};
 use crate::{AccountContract, ActionIndex, GlobalContractId};
 use near_sys as sys;
 
-// Extracted types from `near-env`
-pub use near_env::{
+// Extracted types from `near-sdk-env`
+pub use near_sdk_env::{
     abort, keccak256, keccak256_array, keccak512, keccak512_array, panic_str, ripemd160_array,
     sha256, sha256_array,
 };

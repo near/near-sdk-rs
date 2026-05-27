@@ -45,7 +45,7 @@ where
     fn panic(&self) -> ! {
         #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
         {
-            near_env::panic_str(self.as_ref())
+            near_sdk_env::panic_str(self.as_ref())
         }
         #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {
@@ -90,7 +90,7 @@ impl FunctionError for Abort {
     fn panic(&self) -> ! {
         #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
         {
-            near_env::abort()
+            near_sdk_env::abort()
         }
         #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {

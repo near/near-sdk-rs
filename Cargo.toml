@@ -3,17 +3,17 @@ resolver = "3"
 members = [
     "near-sdk",
     "near-sdk-core",
+    "near-sdk-env",
     "near-sdk-macros",
     "near-contract-standards",
     "near-sys",
-    "near-env",
     "near-global-contracts",
     "near-crypto-hash",
 ]
 exclude = ["examples/"]
 
 [workspace.package]
-version = "5.26.1"
+version = "5.27.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 categories = ["wasm"]

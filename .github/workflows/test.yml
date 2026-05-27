@@ -19,7 +19,7 @@ jobs:
           - "near-crypto-hash"
           - "near-sdk-core"
           - "near-global-contracts"
-          - "near-env"
+          - "near-sdk-env"
         platform:
           - os: warp-ubuntu-latest-x64-4x
             rs: "1.86.0"

@@ -166,7 +166,7 @@ impl PublicKey {
         CurveType::from_u8(self.data[0]).unwrap_or_else(|_| {
             #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
             {
-                near_env::abort()
+                near_sdk_env::abort()
             }
             #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
             {
