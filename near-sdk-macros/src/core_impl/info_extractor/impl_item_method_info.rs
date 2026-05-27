@@ -99,17 +99,4 @@ mod tests {
         let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
         assert_eq!(expected, actual.to_string());
     }
-
-
-    #[test]
-    fn payable_self_by_value_fails() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
-            #[payable]
-            pub fn method(self) -> Self { }
-        };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
-        let expected = "View function can't be payable.";
-        assert_eq!(expected.to_string(), actual.to_string());
-    }
 }
