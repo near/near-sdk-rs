@@ -142,6 +142,13 @@ __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 __macro-docs = []
 
+[package.metadata.near]
+# Minimum nearcore protocol version this release of near-sdk targets.
+# Read by cargo-near to determine the maximum rustc version allowed when
+# building contracts that depend on this near-sdk. PV 84 (nearcore 2.12)
+# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+.
+min_protocol_version = 84
+
 [package.metadata.docs.rs]
 features = [
     "unstable",
