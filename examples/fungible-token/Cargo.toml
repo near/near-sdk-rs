@@ -3,7 +3,7 @@ name = "fungible-token-wrapper"
 version = "0.0.2"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.93"
 repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]
@@ -26,3 +26,9 @@ overflow-checks = true
 resolver = "3"
 # remember to include a member for each contract
 members = ["ft", "test-contract-defi"]
+
+# 2.12 RC: pull in-flight patches until the dependent crates publish stable releases.
+# Remove these once near-workspaces and near-jsonrpc-client publish their 2.12-compatible versions.
+[patch.crates-io]
+near-workspaces = { git = "https://github.com/near/near-workspaces-rs.git", branch = "bump/nearcore-2.12" }
+near-jsonrpc-client = { git = "https://github.com/near/near-jsonrpc-client-rs.git", branch = "bump/nearcore-2.12" }

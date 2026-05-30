@@ -1,10 +1,12 @@
 use near_sdk::Gas;
 use serde_json::json;
 
+#[path = "common/mod.rs"]
+mod common;
+
 #[tokio::test]
 async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>> {
-    let contract_wasm =
-        near_workspaces::compile_project("./tests/test-contracts/deny_unknown_arguments").await?;
+    let contract_wasm = common::build_test_contract("deny_unknown_arguments")?;
     let sandbox = near_workspaces::sandbox().await?;
 
     // Create basic accounts and deploy main contract

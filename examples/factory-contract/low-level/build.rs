@@ -12,7 +12,11 @@ fn main() {
         .run()
         .expect("no `cargo update` err");
     // =================================
-    let build_opts = cargo_near_build::BuildOpts::builder().manifest_path(manifest_path).build();
+    let mut build_opts =
+        cargo_near_build::BuildOpts::builder().manifest_path(manifest_path).build();
+    // 2.12 RC: contracts build on rustc 1.93 > the 1.86 declared in Cargo.toml.
+    // The OptsBuilder doesn't expose this, so set the public field directly.
+    build_opts.skip_rust_version_check = true;
 
     let extended_build_opts = cargo_near_build::extended::BuildOptsExtended::builder()
         .build_opts(build_opts)

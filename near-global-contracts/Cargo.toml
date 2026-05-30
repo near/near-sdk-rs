@@ -32,7 +32,7 @@ borsh = { version = "1.0.0", features = ["derive"], optional = true }
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.0", optional = true }
-near-primitives-core = { version = "0.35", optional = true }
+near-primitives-core = { version = "0.36.0-rc.2", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 

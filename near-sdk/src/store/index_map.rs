@@ -52,27 +52,27 @@ where
         // Capacity is prefix length plus bytes needed for u32 bytes (4*u8)
         let mut key_buf = Vec::with_capacity(self.prefix.len() + 4);
         for (k, v) in self.cache.inner().iter_mut() {
-            if let Some(v) = v.get_mut() {
-                if v.is_modified() {
-                    key_buf.clear();
-                    Self::index_to_lookup_key(&self.prefix, *k, &mut key_buf);
-                    match v.value().as_ref() {
-                        Some(modified) => {
-                            buf.clear();
-                            BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-                            env::storage_write(&key_buf, &buf);
-                        }
-                        None => {
-                            // Element was removed, clear the storage for the value
-                            env::storage_remove(&key_buf);
-                        }
+            if let Some(v) = v.get_mut()
+                && v.is_modified()
+            {
+                key_buf.clear();
+                Self::index_to_lookup_key(&self.prefix, *k, &mut key_buf);
+                match v.value().as_ref() {
+                    Some(modified) => {
+                        buf.clear();
+                        BorshSerialize::serialize(modified, &mut buf)
+                            .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+                        env::storage_write(&key_buf, &buf);
                     }
-
-                    // Update state of flushed state as cached, to avoid duplicate writes/removes
-                    // while also keeping the cached values in memory.
-                    v.replace_state(EntryState::Cached);
+                    None => {
+                        // Element was removed, clear the storage for the value
+                        env::storage_remove(&key_buf);
+                    }
                 }
+
+                // Update state of flushed state as cached, to avoid duplicate writes/removes
+                // while also keeping the cached values in memory.
+                v.replace_state(EntryState::Cached);
             }
         }
     }

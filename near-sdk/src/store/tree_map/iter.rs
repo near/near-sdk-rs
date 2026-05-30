@@ -361,22 +361,23 @@ where
 {
     let last_key_idx = stack_asc.pop();
     let mut seen: Option<&K> = None;
-    if let Some(last_idx) = last_key_idx {
-        if let Some(node) = tree.node(last_idx) {
-            //If the last returned key has right node then return minimum key from the
-            //tree where the right node is the root.
-            seen = match node.rgt {
-                Some(rgt) => find_min(tree, Some(&rgt), stack_asc, Bound::Unbounded),
-                None => None,
-            }
+    if let Some(last_idx) = last_key_idx
+        && let Some(node) = tree.node(last_idx)
+    {
+        //If the last returned key has right node then return minimum key from the
+        //tree where the right node is the root.
+        seen = match node.rgt {
+            Some(rgt) => find_min(tree, Some(&rgt), stack_asc, Bound::Unbounded),
+            None => None,
         }
     }
     //If the last returned key does not have right node then return the
     //last value in the stack.
-    if seen.is_none() && !stack_asc.is_empty() {
-        if let Some(result_idx) = stack_asc.last() {
-            seen = tree.node(*result_idx).map(|f| &f.key);
-        }
+    if seen.is_none()
+        && !stack_asc.is_empty()
+        && let Some(result_idx) = stack_asc.last()
+    {
+        seen = tree.node(*result_idx).map(|f| &f.key);
     }
     seen
 }
@@ -387,22 +388,23 @@ where
 {
     let last_key_idx = stack_desc.pop();
     let mut seen: Option<&K> = None;
-    if let Some(last_idx) = last_key_idx {
-        if let Some(node) = tree.node(last_idx) {
-            //If the last returned key has left node then return maximum key from the
-            //tree where the left node is the root.
-            seen = match node.lft {
-                Some(lft) => find_max(tree, Some(&lft), stack_desc, Bound::Unbounded),
-                None => None,
-            }
+    if let Some(last_idx) = last_key_idx
+        && let Some(node) = tree.node(last_idx)
+    {
+        //If the last returned key has left node then return maximum key from the
+        //tree where the left node is the root.
+        seen = match node.lft {
+            Some(lft) => find_max(tree, Some(&lft), stack_desc, Bound::Unbounded),
+            None => None,
         }
     }
     //If the last returned key does not have left node then return the
     //last value in the stack.
-    if seen.is_none() && !stack_desc.is_empty() {
-        if let Some(result_idx) = stack_desc.last() {
-            seen = tree.node(*result_idx).map(|f| &f.key);
-        }
+    if seen.is_none()
+        && !stack_desc.is_empty()
+        && let Some(result_idx) = stack_desc.last()
+    {
+        seen = tree.node(*result_idx).map(|f| &f.key);
     }
     seen
 }

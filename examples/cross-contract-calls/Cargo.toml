@@ -3,7 +3,7 @@ name = "cross-contract-wrapper"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.93"
 repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]
@@ -27,5 +27,11 @@ panic = "abort"
 [workspace]
 resolver = "3"
 package.edition = "2024"
-package.rust-version = "1.86"
+package.rust-version = "1.93"
 members = ["high-level", "low-level"]
+
+# 2.12 RC: pull in-flight patches until the dependent crates publish stable releases.
+# Remove these once near-workspaces and near-jsonrpc-client publish their 2.12-compatible versions.
+[patch.crates-io]
+near-workspaces = { git = "https://github.com/near/near-workspaces-rs.git", branch = "bump/nearcore-2.12" }
+near-jsonrpc-client = { git = "https://github.com/near/near-jsonrpc-client-rs.git", branch = "bump/nearcore-2.12" }
