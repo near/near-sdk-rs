@@ -26,7 +26,7 @@ hex = { version = "0.4", optional = true }
 
 cfg_eval = { version = "0.1", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
-serde_with = { version = "3", features = ["base64", "hex"], optional = true }
+serde_with = { version = "3.20", features = ["base58", "base64", "hex"], optional = true }
 borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
