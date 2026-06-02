@@ -2,9 +2,6 @@ use near_account_id::AccountId;
 
 use near_crypto_hash::CryptoHash;
 
-#[cfg(feature = "serde")]
-use serde_with::base58::Base58;
-
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccountContract {
@@ -37,8 +34,7 @@ pub enum AccountContract {
 pub enum GlobalContractId {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     CodeHash(
-        #[cfg_attr(feature = "serde", serde_as(as = "Base58"))]
-        CryptoHash,
+        #[cfg_attr(feature = "serde", serde_as(as = "::serde_with::base58::Base58"))] CryptoHash,
     ) = 0,
     #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
