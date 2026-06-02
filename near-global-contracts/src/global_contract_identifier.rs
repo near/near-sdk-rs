@@ -38,7 +38,6 @@ pub enum GlobalContractId {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     CodeHash(
         #[cfg_attr(feature = "serde", serde_as(as = "Base58"))]
-        #[cfg_attr(feature = "schemars-v0_8", schemars(with = "String"))]
         CryptoHash,
     ) = 0,
     #[cfg_attr(feature = "serde", serde(rename = "account_id"))]

@@ -91,7 +91,6 @@ impl StateInit {
 pub struct StateInitV1 {
     pub code: GlobalContractId,
     #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
-    #[cfg_attr(feature = "schemars-v0_8", schemars(with = "BTreeMap<String, String>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
