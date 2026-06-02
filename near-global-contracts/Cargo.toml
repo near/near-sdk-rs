@@ -72,6 +72,7 @@ schemars-v0_8 = [
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "near-crypto-hash/schemars-v0_8",
+    "serde_with/schemars_0_8",
 ]
 
 abi = [
