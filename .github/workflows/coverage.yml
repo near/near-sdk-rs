@@ -43,13 +43,13 @@ jobs:
 
       # 2.12 RC: point `near-workspaces` at a PV-84 sandbox so wasm produced by
       # rustc 1.93 is accepted. See the same step in `test.yml` for the rationale.
-      - name: Download near-sandbox 2.12.0-rc.2
+      - name: Download near-sandbox 2.12.0
         run: |
-          mkdir -p "$HOME/.near-sandbox-2.12.0-rc.2"
-          curl -sL "https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.12.0-rc.2/near-sandbox.tar.gz" \
-            | tar -xz -C "$HOME/.near-sandbox-2.12.0-rc.2" --strip-components=1
-          chmod +x "$HOME/.near-sandbox-2.12.0-rc.2/near-sandbox"
-          echo "NEAR_SANDBOX_BIN_PATH=$HOME/.near-sandbox-2.12.0-rc.2/near-sandbox" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.near-sandbox-2.12.0"
+          curl -sL "https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.12.0/near-sandbox.tar.gz" \
+            | tar -xz -C "$HOME/.near-sandbox-2.12.0" --strip-components=1
+          chmod +x "$HOME/.near-sandbox-2.12.0/near-sandbox"
+          echo "NEAR_SANDBOX_BIN_PATH=$HOME/.near-sandbox-2.12.0/near-sandbox" >> "$GITHUB_ENV"
 
       - name: Llvm version
         run: llvm-config --version
