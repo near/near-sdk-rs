@@ -24,13 +24,3 @@ rust-version = "1.93"
 [workspace.lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ['cfg(near)']
-
-# Special triple # comment for ci.
-[patch.crates-io]
-### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
-### near-vm-logic = { git = "https://github.com/near/nearcore", branch = "master" }
-### near-primitives-core = { git = "https://github.com/near/nearcore", branch = "master" }
-# 2.12 RC: pull in-flight patches until the dependent crates publish stable releases.
-# Remove these once near-workspaces and near-jsonrpc-client publish their 2.12-compatible versions.
-near-workspaces = { git = "https://github.com/near/near-workspaces-rs.git", branch = "bump/nearcore-2.12" }
-near-jsonrpc-client = { git = "https://github.com/near/near-jsonrpc-client-rs.git", branch = "bump/nearcore-2.12" }

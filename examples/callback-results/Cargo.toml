@@ -46,9 +46,3 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
-
-# 2.12 RC: pull in-flight patches until the dependent crates publish stable releases.
-# Remove these once near-workspaces and near-jsonrpc-client publish their 2.12-compatible versions.
-[patch.crates-io]
-near-workspaces = { git = "https://github.com/near/near-workspaces-rs.git", branch = "bump/nearcore-2.12" }
-near-jsonrpc-client = { git = "https://github.com/near/near-jsonrpc-client-rs.git", branch = "bump/nearcore-2.12" }
