@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk-core"
-version = "4.1.0"
+version = "4.1.1"
 authors = ["Near Inc <hello@near.org>"]
 edition.workspace = true
 license.workspace = true
