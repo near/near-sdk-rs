@@ -13,12 +13,6 @@ async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
         let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
             no_locked: true,
             manifest_path: Some(manifest),
-            // cargo-near caps the building rustc based on near-sdk's declared
-            // `package.metadata.near.min_protocol_version`: < 84 (or unset) caps
-            // at 1.86 and rejects the bulk-memory opcodes rustc >= 1.87 emits.
-            // near-sdk now declares PV 84, which lifts that cap, so this is no
-            // longer required; left only to keep older near-sdk pins building.
-            skip_rust_version_check: true,
             ..Default::default()
         })
         .map_err(|e| anyhow::anyhow!("cargo near build: {e:?}"))?;
