@@ -102,7 +102,7 @@ jobs:
           rustup override set ${{ matrix.platform.rs }}
 
       - name: Install cargo-near CLI
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.20.2/cargo-near-installer.sh | sh
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.21.0/cargo-near-installer.sh | sh
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
