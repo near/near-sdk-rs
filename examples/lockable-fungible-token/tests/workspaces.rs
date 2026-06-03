@@ -15,12 +15,6 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
-        // cargo-near caps the building rustc based on near-sdk's declared
-        // `package.metadata.near.min_protocol_version`: < 84 (or unset) caps at
-        // 1.86 and rejects the bulk-memory opcodes rustc >= 1.87 emits. near-sdk
-        // now declares PV 84, which lifts that cap, so this is no longer required;
-        // left only to keep older near-sdk pins building.
-        skip_rust_version_check: true,
         ..Default::default()
     })
     .expect(&format!("building `{}` contract for tests", contract_name));

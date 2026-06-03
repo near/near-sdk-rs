@@ -12,15 +12,8 @@ fn main() {
         .run()
         .expect("no `cargo update` err");
     // =================================
-    let mut build_opts =
+    let build_opts =
         cargo_near_build::BuildOpts::builder().manifest_path(manifest_path).build();
-    // cargo-near caps the building rustc based on near-sdk's declared
-    // `package.metadata.near.min_protocol_version`: < 84 (or unset) caps at 1.86
-    // and rejects the bulk-memory opcodes rustc >= 1.87 emits. near-sdk now
-    // declares PV 84, which lifts that cap, so this is no longer required; left
-    // only to keep older near-sdk pins building.
-    // The OptsBuilder doesn't expose this, so set the public field directly.
-    build_opts.skip_rust_version_check = true;
 
     let extended_build_opts = cargo_near_build::extended::BuildOptsExtended::builder()
         .build_opts(build_opts)
