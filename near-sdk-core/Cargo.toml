@@ -63,21 +63,18 @@ serde = [
     "near-account-id/serde",
     "near-gas/serde",
     "near-token/serde",
-    "near-crypto-hash/serde",
 ]
 borsh = [
     "dep:borsh",
     "near-account-id/borsh",
     "near-gas/borsh",
     "near-token/borsh",
-    "near-crypto-hash/borsh",
 ]
 
 schemars-v0_8 = [
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "near-gas/schemars-v0_8",
-    "near-crypto-hash/schemars-v0_8",
 ]
 
 abi = [
@@ -86,14 +83,12 @@ abi = [
     "borsh/unstable__schema",
     "near-account-id/abi",
     "near-gas/abi",
-    "near-crypto-hash/abi",
     "serde_with/schemars_0_8",
 ]
 
 arbitrary = [
     "dep:arbitrary",
     "near-account-id/arbitrary",
-    "near-crypto-hash/arbitrary",
 ]
 
 near-primitives-interop = ["dep:near-primitives-core"]
@@ -105,7 +100,6 @@ __near-sdk-unit-testing = [
     "near-primitives-interop",
     "near-crypto-interop",
     "near-sdk-env/__near-sdk-unit-testing",
-    "near-crypto-hash/__near-sdk-unit-testing",
     "dep:unicode-segmentation",
     "dep:near-parameters",
     "dep:near-sdk-env",
