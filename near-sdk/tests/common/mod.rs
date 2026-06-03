@@ -2,19 +2,21 @@
 //! artifact for `tests/test-contracts/*`.
 //!
 //! Builds the wasm directly with `cargo build` instead of going through
-//! `near-workspaces::compile_project` / `cargo near build`. This bypasses two
-//! problems that block sandbox-backed integration tests after the 2.12-RC bump:
+//! `near-workspaces::compile_project` / `cargo near build`.
 //!
-//! 1. `cargo near build` (the path `compile_project` takes) hard-refuses to
-//!    build contracts with rustc >= 1.87 unless `--skip-rust-version-check` is
-//!    passed, and the `compile_project` API does not expose that knob.
-//! 2. A plain `cargo build --target wasm32-unknown-unknown --release` produces
-//!    the same `.wasm` we ultimately deploy — we just lose the ABI embedding
-//!    step, which none of the sandbox tests in this directory care about.
+//! Historical context: this bypass was added during the 2.12-RC bump because
+//! `cargo near build` (the path `compile_project` takes) capped the building
+//! rustc based on near-sdk's declared `package.metadata.near.min_protocol_version`
+//! — when that was < 84 (or unset) it rejected the bulk-memory opcodes rustc
+//! >= 1.87 emits, and `compile_project` did not expose `skip_rust_version_check`.
+//! A plain `cargo build --target wasm32-unknown-unknown --release` produces the
+//! same `.wasm` we ultimately deploy — we just lose the ABI embedding step,
+//! which none of the sandbox tests in this directory care about.
 //!
-//! Once `near-workspaces` exposes a `skip_rust_version_check` option (or
-//! `cargo-near` itself relaxes the check for >=1.93), this helper can be
-//! replaced with `near_workspaces::compile_project(...)` again.
+//! Both halves of that are now resolved: near-sdk declares PV 84 (no rustc cap),
+//! and near-workspaces 0.22.2 `compile_project` passes `skip_rust_version_check`
+//! internally anyway — so this helper can be replaced with
+//! `near_workspaces::compile_project(...)`.
 
 #![allow(dead_code)]
 
