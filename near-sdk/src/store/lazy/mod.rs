@@ -111,16 +111,16 @@ where
     /// value is dropped through [`Drop`] so this should only be used when the changes need to be
     /// reflected in the underlying storage before then.
     pub fn flush(&mut self) {
-        if let Some(v) = self.cache.get_mut() {
-            if v.is_modified() {
-                // Value was modified, serialize and put the serialized bytes in storage.
-                let value = expect_consistent_state(v.value().as_ref());
-                serialize_and_store(&self.storage_key, value);
+        if let Some(v) = self.cache.get_mut()
+            && v.is_modified()
+        {
+            // Value was modified, serialize and put the serialized bytes in storage.
+            let value = expect_consistent_state(v.value().as_ref());
+            serialize_and_store(&self.storage_key, value);
 
-                // Replaces cache entry state to cached because the value in memory matches the
-                // stored value. This avoids writing the same value twice.
-                v.replace_state(EntryState::Cached);
-            }
+            // Replaces cache entry state to cached because the value in memory matches the
+            // stored value. This avoids writing the same value twice.
+            v.replace_state(EntryState::Cached);
         }
     }
 

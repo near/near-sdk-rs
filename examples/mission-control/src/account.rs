@@ -10,6 +10,7 @@ use near_sdk::near;
 pub struct Quantity(pub i32);
 
 #[near]
+#[allow(dead_code)] // never constructed; 1.93's dead_code lint flags it under -D warnings
 pub struct X;
 
 #[derive(Clone)]

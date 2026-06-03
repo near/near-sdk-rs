@@ -430,30 +430,30 @@ where
     pub fn flush(&mut self) {
         let mut buf = Vec::new();
         for (k, v) in self.cache.inner().iter_mut() {
-            if let Some(val) = v.value.get_mut() {
-                if val.is_modified() {
-                    let prefix = &self.prefix;
-                    let key = v.hash.get_or_init(|| {
+            if let Some(val) = v.value.get_mut()
+                && val.is_modified()
+            {
+                let prefix = &self.prefix;
+                let key = v.hash.get_or_init(|| {
+                    buf.clear();
+                    H::to_key(prefix, k, &mut buf)
+                });
+                match val.value().as_ref() {
+                    Some(modified) => {
                         buf.clear();
-                        H::to_key(prefix, k, &mut buf)
-                    });
-                    match val.value().as_ref() {
-                        Some(modified) => {
-                            buf.clear();
-                            BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-                            env::storage_write(key.as_ref(), &buf);
-                        }
-                        None => {
-                            // Element was removed, clear the storage for the value
-                            env::storage_remove(key.as_ref());
-                        }
+                        BorshSerialize::serialize(modified, &mut buf)
+                            .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+                        env::storage_write(key.as_ref(), &buf);
                     }
-
-                    // Update state of flushed state as cached, to avoid duplicate writes/removes
-                    // while also keeping the cached values in memory.
-                    val.replace_state(EntryState::Cached);
+                    None => {
+                        // Element was removed, clear the storage for the value
+                        env::storage_remove(key.as_ref());
+                    }
                 }
+
+                // Update state of flushed state as cached, to avoid duplicate writes/removes
+                // while also keeping the cached values in memory.
+                val.replace_state(EntryState::Cached);
             }
         }
     }

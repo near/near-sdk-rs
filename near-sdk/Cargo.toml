@@ -57,13 +57,12 @@ ed25519-dalek = { version = "2.2.0", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.35", optional = true }
-near-primitives-core = { version = "0.35", optional = true }
-near-primitives = { version = "0.35", optional = true }
-near-crypto = { version = "0.35", default-features = false, optional = true }
-# Pin: unicode-segmentation 1.13.1 requires Rust 1.87 but does not declare rust-version
-unicode-segmentation = { version = ">=1, <1.13.1", optional = true }
-near-parameters = { version = "0.35", optional = true }
+near-vm-runner = { version = "0.36.0", optional = true }
+near-primitives-core = { version = "0.36.0", optional = true }
+near-primitives = { version = "0.36.0", optional = true }
+near-crypto = { version = "0.36.0", default-features = false, optional = true }
+unicode-segmentation = { version = "1", optional = true }
+near-parameters = { version = "0.36.0", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
@@ -142,6 +141,13 @@ __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 __macro-docs = []
+
+[package.metadata.near]
+# Minimum nearcore protocol version this release of near-sdk targets.
+# Read by cargo-near to determine the maximum rustc version allowed when
+# building contracts that depend on this near-sdk. PV 84 (nearcore 2.12)
+# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+.
+min_protocol_version = 84
 
 [package.metadata.docs.rs]
 features = [

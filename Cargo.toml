@@ -19,14 +19,8 @@ license = "MIT OR Apache-2.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://docs.near.org/"
-rust-version = "1.86"
+rust-version = "1.93"
 
 [workspace.lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ['cfg(near)']
-
-# Special triple # comment for ci.
-[patch.crates-io]
-### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
-### near-vm-logic = { git = "https://github.com/near/nearcore", branch = "master" }
-### near-primitives-core = { git = "https://github.com/near/nearcore", branch = "master" }

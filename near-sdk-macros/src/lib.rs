@@ -125,17 +125,16 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let new_expr = &mut old_expr.clone();
                 match &mut *new_expr {
                     Expr::Call(call_expr) => {
-                        if let Expr::Path(path) = &mut *call_expr.func {
-                            if let Some(ident) = path.path.get_ident() {
-                                if *ident == "json" {
-                                    has_json = true;
-                                    path.path =
-                                        syn::Path::from(Ident::new("serde", Span::call_site()));
-                                    call_expr.args.push(parse_quote! {crate=#string_serde_crate});
-                                } else if *ident == "borsh" {
-                                    has_borsh = true;
-                                    call_expr.args.push(parse_quote! {crate=#string_borsh_crate});
-                                }
+                        if let Expr::Path(path) = &mut *call_expr.func
+                            && let Some(ident) = path.path.get_ident()
+                        {
+                            if *ident == "json" {
+                                has_json = true;
+                                path.path = syn::Path::from(Ident::new("serde", Span::call_site()));
+                                call_expr.args.push(parse_quote! {crate=#string_serde_crate});
+                            } else if *ident == "borsh" {
+                                has_borsh = true;
+                                call_expr.args.push(parse_quote! {crate=#string_borsh_crate});
                             }
                         }
                         borsh_attr = quote! {#[#new_expr]};
