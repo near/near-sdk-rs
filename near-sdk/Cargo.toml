@@ -30,7 +30,7 @@ near-sdk-core = { path = "../near-sdk-core/", version = "~4.1.1", features = [
     "serde",
     "borsh",
 ] }
-near-global-contracts = { path = "../near-global-contracts/", version = "~0.1.1", features = [
+near-global-contracts = { path = "../near-global-contracts/", version = "~0.2.0", features = [
     "serde",
     "borsh",
 ] }
