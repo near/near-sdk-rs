@@ -1,19 +1,23 @@
 use near_account_id::AccountId;
 
-use near_crypto_hash::Base58CryptoHash;
 use near_crypto_hash::CryptoHash;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccountContract {
     None,
-    Local(Base58CryptoHash),
-    Global(Base58CryptoHash),
+    Local(CryptoHash),
+    Global(CryptoHash),
     GlobalByAccount(AccountId),
 }
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    cfg_eval::cfg_eval,
+    serde_with::serde_as,
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[cfg_attr(
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
@@ -29,7 +33,9 @@ pub enum AccountContract {
 #[repr(u8)]
 pub enum GlobalContractId {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
-    CodeHash(Base58CryptoHash) = 0,
+    CodeHash(
+        #[cfg_attr(feature = "serde", serde_as(as = "::serde_with::base58::Base58"))] CryptoHash,
+    ) = 0,
     #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
 }
@@ -37,13 +43,6 @@ pub enum GlobalContractId {
 impl From<CryptoHash> for GlobalContractId {
     #[inline]
     fn from(hash: CryptoHash) -> Self {
-        Self::CodeHash(hash.into())
-    }
-}
-
-impl From<Base58CryptoHash> for GlobalContractId {
-    #[inline]
-    fn from(hash: Base58CryptoHash) -> Self {
         Self::CodeHash(hash)
     }
 }
@@ -67,8 +66,8 @@ const _: () = {
         fn from(value: NearAccountContract) -> Self {
             match value {
                 NearAccountContract::None => Self::None,
-                NearAccountContract::Local(contract) => Self::Local(contract.0.into()),
-                NearAccountContract::Global(contract) => Self::Global(contract.0.into()),
+                NearAccountContract::Local(contract) => Self::Local(contract.0),
+                NearAccountContract::Global(contract) => Self::Global(contract.0),
                 NearAccountContract::GlobalByAccount(account_id) => {
                     Self::GlobalByAccount(account_id)
                 }
@@ -80,8 +79,8 @@ const _: () = {
         fn from(value: AccountContract) -> Self {
             match value {
                 AccountContract::None => Self::None,
-                AccountContract::Local(contract) => Self::Local(CryptoHash(contract.into())),
-                AccountContract::Global(contract) => Self::Global(CryptoHash(contract.into())),
+                AccountContract::Local(contract) => Self::Local(CryptoHash(contract)),
+                AccountContract::Global(contract) => Self::Global(CryptoHash(contract)),
                 AccountContract::GlobalByAccount(account_id) => Self::GlobalByAccount(account_id),
             }
         }
@@ -90,9 +89,7 @@ const _: () = {
     impl From<NearGlobalContractIdentifier> for GlobalContractId {
         fn from(value: NearGlobalContractIdentifier) -> Self {
             match value {
-                NearGlobalContractIdentifier::CodeHash(code_hash) => {
-                    Self::CodeHash(code_hash.0.into())
-                }
+                NearGlobalContractIdentifier::CodeHash(code_hash) => Self::CodeHash(code_hash.0),
                 NearGlobalContractIdentifier::AccountId(account_id) => Self::AccountId(account_id),
             }
         }
@@ -101,9 +98,7 @@ const _: () = {
     impl From<GlobalContractId> for NearGlobalContractIdentifier {
         fn from(value: GlobalContractId) -> Self {
             match value {
-                GlobalContractId::CodeHash(code_hash) => {
-                    Self::CodeHash(CryptoHash(code_hash.into()))
-                }
+                GlobalContractId::CodeHash(code_hash) => Self::CodeHash(CryptoHash(code_hash)),
                 GlobalContractId::AccountId(account_id) => Self::AccountId(account_id),
             }
         }
@@ -113,19 +108,18 @@ const _: () = {
 #[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::*;
-    use near_crypto_hash::Base58CryptoHash;
 
     #[test]
     fn test_global_contract_id_json_serialization_code_hash() {
-        let hash: Base58CryptoHash =
-            "4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ".parse().unwrap();
-        let id = GlobalContractId::CodeHash(hash);
+        // The code hash is a raw `CryptoHash` but (de)serializes as a Base58 string.
+        let json = r#"{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"}"#;
 
-        let json = serde_json::to_string(&id).unwrap();
-        assert_eq!(json, r#"{"hash":"4reLvkAWfqk5fsqio1KLudk46cqRz9erQdaHkWZKMJDZ"}"#);
+        let id: GlobalContractId = serde_json::from_str(json).unwrap();
+        assert!(matches!(id, GlobalContractId::CodeHash(_)));
 
-        let deserialized: GlobalContractId = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized, id);
+        // Round-trips back to the same Base58 string, and deserialization is stable.
+        assert_eq!(serde_json::to_string(&id).unwrap(), json);
+        assert_eq!(serde_json::from_str::<GlobalContractId>(json).unwrap(), id);
     }
 
     #[test]
