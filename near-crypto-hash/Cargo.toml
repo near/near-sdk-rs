@@ -6,7 +6,7 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version.workspace = true
+rust-version = "1.88"
 description = """
 Lightweight 32-byte hash type (CryptoHash) for the NEAR SDK.
 """

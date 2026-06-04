@@ -6,7 +6,7 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version.workspace = true
+rust-version = "1.88"
 readme = "./README.md"
 description = """
 Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
