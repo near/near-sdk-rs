@@ -68,7 +68,7 @@ impl StateInit {
             "0s{}",
             // SAFETY: keccak256 hash will always generate 32 bytes; [12..32] is exactly 20 bytes,
             // matching 20 byte-long hash requirement to fit the near's `AccountId` length bounds
-            hex::encode::<&[u8]>(hash[12..32].try_into().unwrap_or_else(|_| unreachable!()))
+            hex::encode(&hash[12..32])
         ))
     }
 }
