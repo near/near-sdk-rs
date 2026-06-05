@@ -149,12 +149,18 @@ jobs:
       - name: Print rustc version
         run: rustc --version
 
+      - name: Install latest cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+
       # `examples/` is excluded from the workspace, so build from within the example.
-      # Use `rustup run stable` so a future rust-toolchain.toml pin can't silently
-      # downgrade this job off stable and defeat the regression guard.
-      - name: Build adder example for wasm32 (release)
+      # Build through cargo-near (the canonical user path: build + ABI generation +
+      # metadata-driven toolchain gating) so this job guards both raw-toolchain linker
+      # breakage and the cargo-near pipeline on current stable. Use `rustup run stable`
+      # so a future rust-toolchain.toml pin can't silently downgrade this job off stable
+      # and defeat the regression guard.
+      - name: Build adder example with cargo-near on stable
         working-directory: examples/adder
-        run: rustup run stable cargo build --target wasm32-unknown-unknown --release
+        run: rustup run stable cargo near build non-reproducible-wasm
 
   lint:
     name: Clippy and fmt
