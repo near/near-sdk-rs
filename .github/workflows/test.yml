@@ -125,6 +125,37 @@ jobs:
       - name: Run doctests
         run: cargo test --all ${{ matrix.features }} --doc
 
+  # Regression guard: the rest of CI only `cargo check`s for wasm32, which never
+  # invokes the linker. A toolchain change can therefore break contract *linking*
+  # (e.g. rustc 1.96 dropping wasm-ld `--allow-undefined`) without any CI signal.
+  # This job link-builds a real example contract on stable so such breakage surfaces.
+  wasm-link:
+    name: Example contract links on stable
+    runs-on: warp-ubuntu-latest-x64-4x
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with wasm32 target
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup override set stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "linux-stable-wasm-link"
+          cache-all-crates: true
+
+      - name: Print rustc version
+        run: rustc --version
+
+      # `examples/` is excluded from the workspace, so build from within the example.
+      # Use `rustup run stable` so a future rust-toolchain.toml pin can't silently
+      # downgrade this job off stable and defeat the regression guard.
+      - name: Build adder example for wasm32 (release)
+        working-directory: examples/adder
+        run: rustup run stable cargo build --target wasm32-unknown-unknown --release
+
   lint:
     name: Clippy and fmt
     runs-on: warp-ubuntu-latest-x64-4x
