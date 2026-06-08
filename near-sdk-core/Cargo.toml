@@ -21,6 +21,7 @@ serde_with = { version = "3", features = [
     "base64",
     "hex",
     "json",
+    "base58",
 ], optional = true }
 borsh = { version = "1.0.0", features = ["derive"], optional = true }
 base64 = { version = "0.22", optional = true }
