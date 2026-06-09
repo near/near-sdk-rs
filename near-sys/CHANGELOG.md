@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.10](https://github.com/near/near-sdk-rs/releases/tag/near-sys-v0.2.10) - 2026-06-09
+
+### Fixed
+
+- *(near-sys)* declare host function imports from the "env" wasm module ([#1550](https://github.com/near/near-sdk-rs/pull/1550))
+
+### Other
+
+- release ([#1545](https://github.com/near/near-sdk-rs/pull/1545))
+
 ## [0.2.10](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.9...near-sys-v0.2.10) - 2026-06-09
 
 ### Fixed
