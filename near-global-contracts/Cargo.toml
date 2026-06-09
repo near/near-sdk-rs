@@ -40,7 +40,8 @@ schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.0" }
 
 [target.'cfg(not(near))'.dependencies]
-sha3 = { version = "0.10" }
+digest-io = { version = "0.1" }
+sha3 = { version = "0.11" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable testing and doctests
