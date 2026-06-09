@@ -3,7 +3,7 @@ use near_crypto_hash::CryptoHash;
 use std::convert::TryFrom;
 
 #[cfg(feature = "serde")]
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::serde_as;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
@@ -13,8 +13,7 @@ use serde_with::{serde_as, DisplayFromStr};
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
 #[repr(transparent)]
 pub struct Base58CryptoHash(
-    #[cfg_attr(feature = "serde", serde_as(as = "DisplayFromStr"))]
-    CryptoHash
+    #[cfg_attr(feature = "serde", serde_as(as = "serde_with::DisplayFromStr"))] CryptoHash,
 );
 
 impl PartialEq<CryptoHash> for Base58CryptoHash {
