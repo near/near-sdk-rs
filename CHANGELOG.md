@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.28.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.0...near-sdk-v5.28.1) - 2026-06-09
+
+### Other
+
+- relocate Base58CryptoHash to near-sdk-core and modernize near-global-contracts serde ([#1544](https://github.com/near/near-sdk-rs/pull/1544))
+
 ## [5.28.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.27.0...near-sdk-v5.28.0) - 2026-06-03
 
 ### Other
