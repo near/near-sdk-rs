@@ -51,12 +51,13 @@ impl StateInit {
         }
         #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
         {
+            use digest_io::IoWrapper;
             use sha3::Digest;
 
-            let mut hasher = sha3::Keccak256::new();
+            let mut hasher = IoWrapper(sha3::Keccak256::new());
             borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
             // SAFETY: keccak256 hash will always generate 32 bytes
-            hash = hasher.finalize().into();
+            hash = hasher.0.finalize().into();
         }
 
         // SAFETY: 20 bytes-long hash will produce 40 hex chars.
