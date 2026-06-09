@@ -70,7 +70,7 @@ async fn setup_worker(
         Contract::LazyContract => "lazy",
     };
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let wasm = common::build_test_contract(contract_name)?;
+    let wasm = common::build_test_contract(contract_name).await?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
