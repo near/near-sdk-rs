@@ -61,6 +61,8 @@ pub struct CallMethod {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ViewMethod {
+    /// Whether method accepts attached $NEAR deposits (panic by default to avoid users attaching tokens to the function that do not handle/register them).
+    pub is_payable: bool,
     /// Whether method only accepts calls from self (current account)
     pub is_private: bool,
     /// Whether method only accepts known JSON fields (useful for sensitive functions to prevent typos or malicious actors spoofing users with fields that are not going to be used)
