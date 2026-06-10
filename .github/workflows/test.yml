@@ -131,8 +131,19 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
+      # The gas-budget assertions in `store_performance_tests` are toolchain-specific:
+      # they guard the gas a contract burns when built with the *production-pinned*
+      # toolchain (1.93, what cargo-near uses). On the floating `stable` job the gas
+      # number drifts with each rustc codegen change, so we skip that one binary there
+      # rather than weaken the shared threshold. Stable still verifies the suite
+      # compiles, links, and passes functionally.
       - name: Run tests with nextest
-        run: cargo nextest run --all ${{ matrix.features }} --profile ci
+        run: |
+          if [ "${{ matrix.platform.rs }}" = "stable" ]; then
+            cargo nextest run --all ${{ matrix.features }} --profile ci -E 'not binary(store_performance_tests)'
+          else
+            cargo nextest run --all ${{ matrix.features }} --profile ci
+          fi
 
       # Run doctests separately (nextest doesn't support doctests yet)
       - name: Run doctests
