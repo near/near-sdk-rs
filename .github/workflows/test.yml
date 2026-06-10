@@ -27,6 +27,12 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.93.0"
             name: macos
+          # Floating `stable` (linux only): blocking, moving-target coverage so the
+          # feature-powerset checks also surface breakage on current Rust. See the
+          # matching note in the `test` job for why we accept the surprise-red cost.
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "stable"
+            name: linux
     steps:
       - uses: actions/checkout@v4
 
@@ -83,6 +89,13 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.93.0"
             name: macos
+          # Floating `stable`: a moving target on purpose. This is a blocking gate,
+          # so a new Rust release can turn CI red on an unrelated PR — that's the
+          # cost we accept to *guarantee* near-sdk builds on whatever Rust users
+          # actually have installed, rather than only the version we pinned.
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "stable"
+            name: linux
         features:
           - ""
           - "--features unstable,legacy,__abi-generate,deterministic-account-ids"
@@ -118,8 +131,19 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
+      # The gas-budget assertions in `store_performance_tests` are toolchain-specific:
+      # they guard the gas a contract burns when built with the *production-pinned*
+      # toolchain (1.93, what cargo-near uses). On the floating `stable` job the gas
+      # number drifts with each rustc codegen change, so we skip that one binary there
+      # rather than weaken the shared threshold. Stable still verifies the suite
+      # compiles, links, and passes functionally.
       - name: Run tests with nextest
-        run: cargo nextest run --all ${{ matrix.features }} --profile ci
+        run: |
+          if [ "${{ matrix.platform.rs }}" = "stable" ]; then
+            cargo nextest run --all ${{ matrix.features }} --profile ci -E 'not binary(store_performance_tests)'
+          else
+            cargo nextest run --all ${{ matrix.features }} --profile ci
+          fi
 
       # Run doctests separately (nextest doesn't support doctests yet)
       - name: Run doctests
