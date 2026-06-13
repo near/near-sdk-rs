@@ -13,6 +13,13 @@ use std::convert::TryFrom;
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
+    /// FIPS 204 ML-DSA-65 post-quantum signature scheme.
+    ///
+    /// Added in nearcore 2.13 (protocol v85) as a third access-key/signature
+    /// scheme alongside ed25519 and secp256k1. Only the full public-key form is
+    /// represented here (1952 raw bytes); the runtime-internal SHA3-256 trie hash
+    /// handle form (`ml-dsa-65-hash:`) is never exposed to contracts.
+    MLDSA65 = 2,
 }
 
 impl CurveType {
@@ -20,6 +27,7 @@ impl CurveType {
         match val {
             0 => Ok(CurveType::ED25519),
             1 => Ok(CurveType::SECP256K1),
+            2 => Ok(CurveType::MLDSA65),
             _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
         }
     }
@@ -29,6 +37,7 @@ impl CurveType {
         match self {
             CurveType::ED25519 => 32,
             CurveType::SECP256K1 => 64,
+            CurveType::MLDSA65 => 1952,
         }
     }
 }
@@ -38,6 +47,7 @@ impl std::fmt::Display for CurveType {
         match self {
             CurveType::ED25519 => write!(f, "ed25519"),
             CurveType::SECP256K1 => write!(f, "secp256k1"),
+            CurveType::MLDSA65 => write!(f, "ml-dsa-65"),
         }
     }
 }
@@ -50,6 +60,8 @@ impl std::str::FromStr for CurveType {
             Ok(CurveType::ED25519)
         } else if value.eq_ignore_ascii_case("secp256k1") {
             Ok(CurveType::SECP256K1)
+        } else if value.eq_ignore_ascii_case("ml-dsa-65") {
+            Ok(CurveType::MLDSA65)
         } else {
             Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve })
         }
@@ -86,6 +98,12 @@ const _: () = {
                     );
                     Ok(public_key)
                 }
+                // TODO(post-quantum): wire up once near-crypto exposes MLDSA65
+                CurveType::MLDSA65 => Err(ParsePublicKeyError {
+                    kind: ParsePublicKeyErrorKind::Unsupported(
+                        "ML-DSA-65 <-> near_crypto interop not supported until near-crypto adds the variant (nearcore 2.13)",
+                    ),
+                }),
             }
         }
     }
@@ -110,9 +128,10 @@ const _: () = {
 };
 
 /// Public key in a binary format with base58 string serialization with human-readable curve.
-/// The key types currently supported are `secp256k1` and `ed25519`.
+/// The key types currently supported are `ed25519`, `secp256k1`, and `ml-dsa-65`.
 ///
-/// Ed25519 public keys accepted are 32 bytes and secp256k1 keys are the uncompressed 64 format.
+/// Ed25519 public keys accepted are 32 bytes, secp256k1 keys are the uncompressed 64 format,
+/// and ml-dsa-65 (FIPS 204 ML-DSA-65, added in nearcore 2.13) keys are 1952 bytes.
 ///
 /// # Example
 /// ```
@@ -243,6 +262,9 @@ impl std::fmt::Display for PublicKey {
             CurveType::SECP256K1 => {
                 write!(f, "secp256k1:{}", bs58::encode(&self.data[1..]).into_string())
             }
+            CurveType::MLDSA65 => {
+                write!(f, "ml-dsa-65:{}", bs58::encode(&self.data[1..]).into_string())
+            }
         }
     }
 }
@@ -272,6 +294,11 @@ enum ParsePublicKeyErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
     UnknownCurve,
+    /// A curve is known to the SDK but unsupported by the operation being
+    /// performed (e.g. ML-DSA-65 conversion to `near_crypto`, which is gated
+    /// until near-crypto exposes the variant).
+    #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
+    Unsupported(&'static str),
 }
 
 impl std::fmt::Display for ParsePublicKeyError {
@@ -281,11 +308,13 @@ impl std::fmt::Display for ParsePublicKeyError {
                 write!(
                     f,
                     "invalid length of the public key: got {l} bytes \
-                     (expected 32 for ed25519, 64 for secp256k1)"
+                     (expected 32 for ed25519, 64 for secp256k1, 1952 for ml-dsa-65)"
                 )
             }
             ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {e}"),
             ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
+            #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
+            ParsePublicKeyErrorKind::Unsupported(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -366,6 +395,7 @@ mod tests {
     fn test_curve_type_display() {
         assert_eq!(CurveType::ED25519.to_string(), "ed25519");
         assert_eq!(CurveType::SECP256K1.to_string(), "secp256k1");
+        assert_eq!(CurveType::MLDSA65.to_string(), "ml-dsa-65");
     }
 
     #[test]
@@ -378,16 +408,29 @@ mod tests {
         let secp = CurveType::SECP256K1;
         let parsed: CurveType = secp.to_string().parse().unwrap();
         assert_eq!(secp, parsed);
+
+        let mldsa = CurveType::MLDSA65;
+        let parsed: CurveType = mldsa.to_string().parse().unwrap();
+        assert_eq!(mldsa, parsed);
+    }
+
+    #[test]
+    fn test_curve_type_from_u8_mldsa65() {
+        // Borsh tag / discriminant for ML-DSA-65 must be 2 (matches nearcore).
+        assert_eq!(CurveType::MLDSA65 as u8, 2);
+        let parsed = CurveType::from_u8(2).unwrap();
+        assert_eq!(parsed, CurveType::MLDSA65);
     }
 
     #[test]
     fn test_parse_public_key_error_invalid_length_message() {
-        // Ensure the error message mentions both expected lengths
+        // Ensure the error message mentions all expected lengths
         let err = ParsePublicKeyError { kind: ParsePublicKeyErrorKind::InvalidLength(48) };
         let msg = err.to_string();
         assert!(msg.contains("48"), "should show actual length");
         assert!(msg.contains("32"), "should mention ed25519 expected length");
         assert!(msg.contains("64"), "should mention secp256k1 expected length");
+        assert!(msg.contains("1952"), "should mention ml-dsa-65 expected length");
     }
 
     #[test]
@@ -429,5 +472,40 @@ mod tests {
 
         let decoded_key = PublicKey::try_from_slice(&new_encoded_key).unwrap();
         assert_eq!(decoded_key, new_key);
+    }
+
+    #[test]
+    fn test_public_key_mldsa65_string_roundtrip() {
+        // ML-DSA-65 full public keys are 1952 raw bytes.
+        let data = vec![1u8; CurveType::MLDSA65.data_len()];
+        let key = PublicKey::from_parts(CurveType::MLDSA65, data).unwrap();
+
+        let encoded = key.to_string();
+        assert!(encoded.starts_with("ml-dsa-65:"), "expected `ml-dsa-65:` prefix, got {encoded}");
+
+        let parsed = PublicKey::from_str(&encoded).unwrap();
+        assert_eq!(parsed, key);
+        assert_eq!(parsed.curve_type(), CurveType::MLDSA65);
+    }
+
+    #[cfg(feature = "borsh")]
+    #[test]
+    fn test_public_key_mldsa65_borsh_roundtrip() {
+        // Proves `signer_account_pk`-style decoding of a 1953-byte (tag + key)
+        // borsh blob works for ML-DSA-65.
+        let data = vec![7u8; CurveType::MLDSA65.data_len()];
+        let key = PublicKey::from_parts(CurveType::MLDSA65, data).unwrap();
+
+        let encoded = borsh::to_vec(&key).unwrap();
+        let decoded = PublicKey::try_from_slice(&encoded).unwrap();
+        assert_eq!(decoded, key);
+        assert_eq!(decoded.curve_type(), CurveType::MLDSA65);
+    }
+
+    #[test]
+    fn test_public_key_mldsa65_invalid_length() {
+        // A key with the ml-dsa-65 prefix but the wrong number of bytes must error.
+        let err = PublicKey::from_parts(CurveType::MLDSA65, vec![1u8; 100]).unwrap_err();
+        assert!(matches!(err.kind, ParsePublicKeyErrorKind::InvalidLength(100)));
     }
 }
