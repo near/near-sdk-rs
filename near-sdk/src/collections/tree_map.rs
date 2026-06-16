@@ -396,7 +396,7 @@ where
                     parent = node;
                 }
                 None => {
-                    return node.and_then(|n| parent.map(|p| (n, p)));
+                    return node.zip(parent);
                 }
             }
         }
@@ -415,7 +415,7 @@ where
                     at = rgt;
                 }
                 None => {
-                    return node.and_then(|n| parent.map(|p| (n, p)));
+                    return node.zip(parent);
                 }
             }
         }
