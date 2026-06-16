@@ -51,6 +51,41 @@ mod tests {
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
+    /// `#[inline]` is meaningless on the generated `#[no_mangle] extern "C"` wrapper and
+    /// triggers the `unused_attributes` lint on wasm32 builds, so it must not be forwarded.
+    #[test]
+    fn inline_not_forwarded_to_wrapper() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[inline]
+            pub fn method(&self) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        let generated = pretty_print_syn_str(&actual).unwrap();
+        assert!(
+            !generated.contains("inline"),
+            "`#[inline]` must not be forwarded to the exported wrapper, got:\n{generated}"
+        );
+    }
+
+    /// `#[inline(always)]` / `#[inline(never)]` must be dropped from the wrapper too.
+    #[test]
+    fn inline_variants_not_forwarded_to_wrapper() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[inline(always)]
+            pub fn method(&self) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        let generated = pretty_print_syn_str(&actual).unwrap();
+        assert!(
+            !generated.contains("inline"),
+            "`#[inline(always)]` must not be forwarded to the exported wrapper, got:\n{generated}"
+        );
+    }
+
     #[test]
     fn owned_no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
