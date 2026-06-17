@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.28.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.1...near-sdk-v5.28.2) - 2026-06-17
+
+### Other
+
+- remove RUSTSEC-2026-0009 audit ignore and update README MSRV to 1.93 ([#1547](https://github.com/near/near-sdk-rs/pull/1547))
+
 ## [5.28.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.0...near-sdk-v5.28.1) - 2026-06-09
 
 ### Other
