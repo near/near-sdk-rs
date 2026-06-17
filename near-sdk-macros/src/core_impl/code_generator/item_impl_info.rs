@@ -28,7 +28,7 @@ impl ItemImplInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, parse_str, ImplItemFn, Type};
+    use syn::{parse_quote, parse_str, Attribute, ImplItemFn, ItemFn, Type};
     use crate::core_impl::info_extractor::ImplItemMethodInfo;
     use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
@@ -51,39 +51,41 @@ mod tests {
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
+    /// Builds the exported wrapper for `method` and returns the original method's
+    /// (post-processing) attributes alongside the parsed wrapper function.
+    fn wrapper_of(mut method: ImplItemFn) -> (Vec<Attribute>, ItemFn) {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let wrapper: ItemFn = syn::parse2(method_info.method_wrapper()).unwrap();
+        (method.attrs, wrapper)
+    }
+
+    fn has_inline(attrs: &[Attribute]) -> bool {
+        attrs.iter().any(|attr| attr.path().is_ident("inline"))
+    }
+
     /// `#[inline]` is meaningless on the generated `#[no_mangle] extern "C"` wrapper and
-    /// triggers the `unused_attributes` lint on wasm32 builds, so it must not be forwarded.
+    /// triggers the `unused_attributes` lint on wasm32 builds, so it must not be forwarded
+    /// — but it must stay on the original method, where it has its intended effect.
     #[test]
     fn inline_not_forwarded_to_wrapper() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemFn = parse_quote! {
+        let (original_attrs, wrapper) = wrapper_of(parse_quote! {
             #[inline]
             pub fn method(&self) { }
-        };
-        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
-        let actual = method_info.method_wrapper();
-        let generated = pretty_print_syn_str(&actual).unwrap();
-        assert!(
-            !generated.contains("inline"),
-            "`#[inline]` must not be forwarded to the exported wrapper, got:\n{generated}"
-        );
+        });
+        assert!(!has_inline(&wrapper.attrs), "`#[inline]` must not be forwarded to the wrapper");
+        assert!(has_inline(&original_attrs), "`#[inline]` must be kept on the original method");
     }
 
     /// `#[inline(always)]` / `#[inline(never)]` must be dropped from the wrapper too.
     #[test]
     fn inline_variants_not_forwarded_to_wrapper() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemFn = parse_quote! {
+        let (original_attrs, wrapper) = wrapper_of(parse_quote! {
             #[inline(always)]
             pub fn method(&self) { }
-        };
-        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
-        let actual = method_info.method_wrapper();
-        let generated = pretty_print_syn_str(&actual).unwrap();
-        assert!(
-            !generated.contains("inline"),
-            "`#[inline(always)]` must not be forwarded to the exported wrapper, got:\n{generated}"
-        );
+        });
+        assert!(!has_inline(&wrapper.attrs), "`#[inline(always)]` must not reach the wrapper");
+        assert!(has_inline(&original_attrs), "`#[inline(always)]` must be kept on the method");
     }
 
     #[test]
