@@ -432,11 +432,21 @@ impl ImplItemMethodInfo {
     }
 
     fn non_bindgen_attrs_tokens(&self) -> TokenStream2 {
-        self.attr_signature_info.non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
-            quote! {
-                #acc
-                #value
-            }
-        })
+        self.attr_signature_info
+            .non_bindgen_attrs
+            .iter()
+            // `#[inline]` (and its `always`/`never` variants) is ignored by rustc on the
+            // generated `#[no_mangle] extern "C"` wrapper and triggers the
+            // `unused_attributes` lint ("`#[inline]` is ignored on externally exported
+            // functions") when the contract is built for wasm32. The attribute is still
+            // forwarded to the original method, where it has its intended effect, so it is
+            // safe to drop it here.
+            .filter(|attr| !attr.path().is_ident("inline"))
+            .fold(TokenStream2::new(), |acc, value| {
+                quote! {
+                    #acc
+                    #value
+                }
+            })
     }
 }
