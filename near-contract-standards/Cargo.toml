@@ -14,7 +14,7 @@ NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "~5.28.1", default-features = false, features = [
+near-sdk = { path = "../near-sdk", version = "~5.28.2", default-features = false, features = [
     "legacy",
 ] }
 
