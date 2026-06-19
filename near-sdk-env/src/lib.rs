@@ -11,25 +11,16 @@ pub use hash::*;
 
 pub type CryptoHash = [u8; 32];
 
-#[cfg(any(
-    all(near, target_arch = "wasm32"),
-    all(feature = "__near-sdk-unit-testing", not(doctest))
-))]
+#[cfg(any(near, all(feature = "__near-sdk-unit-testing", not(doctest))))]
 use near_sys as sys;
 
-#[cfg(any(
-    all(near, target_arch = "wasm32"),
-    all(feature = "__near-sdk-unit-testing", not(doctest))
-))]
+#[cfg(any(near, all(feature = "__near-sdk-unit-testing", not(doctest))))]
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
 /// guest code is not parallel.
 pub(crate) const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
-#[cfg(any(
-    all(near, target_arch = "wasm32"),
-    all(feature = "__near-sdk-unit-testing", not(doctest))
-))]
+#[cfg(any(near, all(feature = "__near-sdk-unit-testing", not(doctest))))]
 #[inline]
 pub(crate) unsafe fn read_register_fixed<const N: usize>(register_id: u64) -> [u8; N] {
     let mut buf = [0; N];

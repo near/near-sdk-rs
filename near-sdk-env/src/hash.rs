@@ -1,15 +1,9 @@
 use crate::CryptoHash;
 
-#[cfg(any(
-    all(near, target_arch = "wasm32"),
-    all(feature = "__near-sdk-unit-testing", not(doctest))
-))]
+#[cfg(any(near, all(feature = "__near-sdk-unit-testing", not(doctest))))]
 use near_sys as sys;
 
-#[cfg(any(
-    all(near, target_arch = "wasm32"),
-    all(feature = "__near-sdk-unit-testing", not(doctest))
-))]
+#[cfg(any(near, all(feature = "__near-sdk-unit-testing", not(doctest))))]
 use crate::{ATOMIC_OP_REGISTER, read_register_fixed};
 
 /// Hashes the random sequence of bytes using sha256.

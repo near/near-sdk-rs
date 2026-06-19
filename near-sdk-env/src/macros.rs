@@ -11,13 +11,13 @@ macro_rules! execute_target_specific {
         local: $local_block:block $(,)?
      ) => {
         #[cfg(any(
-            all(near, target_arch = "wasm32"),
+            near,
             all(feature = "__near-sdk-unit-testing", not(doctest))
         ))]
         $host_block
 
         #[cfg(not(any(
-            all(near, target_arch = "wasm32"),
+            near,
             all(feature = "__near-sdk-unit-testing", not(doctest))
         )))]
         $local_block
