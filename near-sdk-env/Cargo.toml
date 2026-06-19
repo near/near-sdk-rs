@@ -18,10 +18,10 @@ non-wasm32 (via pure-Rust crates).
 [dependencies]
 near-sys = { path = "../near-sys/", version = "~0.2.10", optional = true }
 
-[target.'cfg(near)'.dependencies]
+[target.'cfg(all(near, target_arch = "wasm32"))'.dependencies]
 near-sys = { path = "../near-sys/", version = "~0.2.10" }
 
-[target.'cfg(not(near))'.dependencies]
+[target.'cfg(not(all(near, target_arch = "wasm32")))'.dependencies]
 ripemd = { version = "0.1.1" }
 sha2 = { version = "0.11" }
 sha3 = { version = "0.11" }
