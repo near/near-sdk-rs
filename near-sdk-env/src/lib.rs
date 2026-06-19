@@ -12,13 +12,13 @@ pub use hash::*;
 pub type CryptoHash = [u8; 32];
 
 #[cfg(any(
-    all(near, target_arch = "wasm32"),
+    near,
     all(feature = "__near-sdk-unit-testing", not(doctest))
 ))]
 use near_sys as sys;
 
 #[cfg(any(
-    all(near, target_arch = "wasm32"),
+    near,
     all(feature = "__near-sdk-unit-testing", not(doctest))
 ))]
 /// Register used internally for atomic operations. This register is safe to use by the user,
@@ -27,7 +27,7 @@ use near_sys as sys;
 pub(crate) const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
 #[cfg(any(
-    all(near, target_arch = "wasm32"),
+    near,
     all(feature = "__near-sdk-unit-testing", not(doctest))
 ))]
 #[inline]
