@@ -713,6 +713,43 @@ mod mock_chain {
         })
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_yield_create_with_id(
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        gas_weight: u64,
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_yield_create_with_id(
+                function_name_len,
+                function_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+                gas_weight,
+                yield_id_len,
+                yield_id_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_yield_resume_with_yield_id(
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+        payload_len: u64,
+        payload_ptr: u64,
+    ) -> u32 {
+        with_mock_interface(|b| {
+            b.promise_yield_resume_with_yield_id(yield_id_len, yield_id_ptr, payload_len, payload_ptr)
+        })
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_results_count() -> u64 {
         with_mock_interface(|b| b.promise_results_count())
     }

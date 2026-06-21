@@ -95,6 +95,14 @@ const _: () = {
             let curve_type = match value {
                 near_crypto::PublicKey::ED25519(_) => CurveType::ED25519,
                 near_crypto::PublicKey::SECP256K1(_) => CurveType::SECP256K1,
+                // near_sdk's PublicKey/CurveType only models ed25519 and secp256k1. ML-DSA-65
+                // (post-quantum, added in nearcore 2.13) has no representation here. Matched
+                // explicitly so a future near_crypto variant re-triggers this exhaustiveness error.
+                near_crypto::PublicKey::MLDSA65(_) => {
+                    panic!(
+                        "near_sdk::PublicKey does not support ML-DSA-65 (post-quantum) near_crypto::PublicKey keys"
+                    )
+                }
             };
             Self { data: [[curve_type as u8].as_slice(), value.key_data()].concat() }
         }

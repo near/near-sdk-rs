@@ -214,6 +214,23 @@ unsafe extern "C" {
         payload_len: u64,
         payload_ptr: u64,
     ) -> u32;
+    pub fn promise_yield_create_with_id(
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        gas_weight: u64,
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+    ) -> u64;
+    pub fn promise_yield_resume_with_yield_id(
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+        payload_len: u64,
+        payload_ptr: u64,
+    ) -> u32;
     // #######################
     // # Promise API results #
     // #######################
