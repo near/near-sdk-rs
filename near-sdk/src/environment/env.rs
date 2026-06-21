@@ -2056,11 +2056,7 @@ pub fn promise_yield_create_with_id(
         )
     };
     // `u64::MAX` is the host's "already pending" sentinel, not a valid promise index.
-    if promise_index == u64::MAX {
-        None
-    } else {
-        Some(PromiseIndex(promise_index))
-    }
+    if promise_index == u64::MAX { None } else { Some(PromiseIndex(promise_index)) }
 }
 
 /// Resumes a yield previously created with [`promise_yield_create_with_id`], using the same
