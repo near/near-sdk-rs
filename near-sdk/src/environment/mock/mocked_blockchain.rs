@@ -746,7 +746,12 @@ mod mock_chain {
         payload_ptr: u64,
     ) -> u32 {
         with_mock_interface(|b| {
-            b.promise_yield_resume_with_yield_id(yield_id_len, yield_id_ptr, payload_len, payload_ptr)
+            b.promise_yield_resume_with_yield_id(
+                yield_id_len,
+                yield_id_ptr,
+                payload_len,
+                payload_ptr,
+            )
         })
     }
     #[unsafe(no_mangle)]
