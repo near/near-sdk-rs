@@ -81,6 +81,10 @@ pub enum MockAction {
     YieldCreate {
         data_id: near_primitives::hash::CryptoHash,
         receiver_id: AccountId,
+        /// The caller-provided yield id when the yield was created via
+        /// `promise_yield_create_with_id`, or `None` for a runtime-generated yield from
+        /// `promise_yield_create`.
+        yield_id: Option<near_primitives::hash::YieldId>,
     },
     YieldResume {
         data: Vec<u8>,
@@ -236,8 +240,8 @@ impl From<LogicMockAction> for MockAction {
             LogicMockAction::AddKeyWithFullAccess { receipt_index, public_key, nonce } => {
                 Self::AddKeyWithFullAccess { receipt_index, public_key, nonce }
             }
-            LogicMockAction::YieldCreate { data_id, receiver_id } => {
-                Self::YieldCreate { data_id, receiver_id }
+            LogicMockAction::YieldCreate { data_id, receiver_id, yield_id } => {
+                Self::YieldCreate { data_id, receiver_id, yield_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
             #[cfg(feature = "deterministic-account-ids")]
