@@ -656,6 +656,64 @@ mod mock_chain {
         })
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_transfer_to_gas_key(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        amount_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_transfer_to_gas_key(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                amount_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_add_gas_key_with_full_access(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_add_gas_key_with_full_access(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                num_nonces,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_add_gas_key_with_function_call(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+        allowance_ptr: u64,
+        receiver_id_len: u64,
+        receiver_id_ptr: u64,
+        method_names_len: u64,
+        method_names_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_add_gas_key_with_function_call(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                num_nonces,
+                allowance_ptr,
+                receiver_id_len,
+                receiver_id_ptr,
+                method_names_len,
+                method_names_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,

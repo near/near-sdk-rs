@@ -61,6 +61,21 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    TransferToGasKey {
+        public_key: PublicKey,
+        amount: NearToken,
+    },
+    AddGasKeyFullAccess {
+        public_key: PublicKey,
+        num_nonces: u32,
+    },
+    AddGasKeyFunctionCall {
+        public_key: PublicKey,
+        num_nonces: u32,
+        allowance: Allowance,
+        receiver_id: AccountId,
+        function_names: String,
+    },
     DeployGlobalContract {
         code: Vec<u8>,
     },
@@ -134,6 +149,34 @@ impl PromiseAction {
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, &beneficiary_id)
             }
+            TransferToGasKey { public_key, amount } => {
+                crate::env::promise_batch_action_transfer_to_gas_key(
+                    promise_index,
+                    &public_key,
+                    amount,
+                )
+            }
+            AddGasKeyFullAccess { public_key, num_nonces } => {
+                crate::env::promise_batch_action_add_gas_key_with_full_access(
+                    promise_index,
+                    &public_key,
+                    num_nonces,
+                )
+            }
+            AddGasKeyFunctionCall {
+                public_key,
+                num_nonces,
+                allowance,
+                receiver_id,
+                function_names,
+            } => crate::env::promise_batch_action_add_gas_key_with_function_call(
+                promise_index,
+                &public_key,
+                num_nonces,
+                allowance,
+                &receiver_id,
+                &function_names,
+            ),
             DeployGlobalContract { code } => {
                 crate::env::promise_batch_action_deploy_global_contract(promise_index, &code)
             }
@@ -687,6 +730,54 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
+    }
+
+    /// Transfer tokens to a gas key on the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_transfer_to_gas_key`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn transfer_to_gas_key(self, public_key: PublicKey, amount: NearToken) -> Self {
+        self.add_action(PromiseAction::TransferToGasKey { public_key, amount })
+    }
+
+    /// Add a full access gas key to the given account, reserving `num_nonces` parallel nonces.
+    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_full_access`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn add_gas_key_full_access(self, public_key: PublicKey, num_nonces: u32) -> Self {
+        self.add_action(PromiseAction::AddGasKeyFullAccess { public_key, num_nonces })
+    }
+
+    /// Add a gas key restricted to only calling a smart contract on some account using only a
+    /// restricted set of methods, reserving `num_nonces` parallel nonces. Here `function_names`
+    /// is a comma separated list of methods, e.g. `"method_a,method_b"`.
+    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_function_call`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn add_gas_key_allowance_function_call(
+        self,
+        public_key: PublicKey,
+        num_nonces: u32,
+        allowance: Allowance,
+        receiver_id: AccountId,
+        function_names: String,
+    ) -> Self {
+        self.add_action(PromiseAction::AddGasKeyFunctionCall {
+            public_key,
+            num_nonces,
+            allowance,
+            receiver_id,
+            function_names,
+        })
     }
 
     /// Merge this promise with another promise, so that we can schedule execution of another
@@ -1357,6 +1448,101 @@ mod tests {
             function_names,
             Some(nonce)
         ));
+    }
+
+    #[test]
+    fn test_transfer_to_gas_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let amount = NearToken::from_yoctonear(1000);
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .transfer_to_gas_key(public_key.clone(), amount)
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::TransferToGasKey { public_key: p, deposit, receipt_index: _ }
+                if p == public_key && deposit == amount
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[test]
+    fn test_add_gas_key_full_access() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_gas_key_full_access(public_key.clone(), 3)
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::AddGasKeyWithFullAccess { public_key: p, num_nonces: 3, receipt_index: _ }
+                if p == public_key
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[test]
+    fn test_add_gas_key_allowance_function_call() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_gas_key_allowance_function_call(
+                    public_key.clone(),
+                    5,
+                    Allowance::Limited(allowance.try_into().unwrap()),
+                    receiver_id.clone(),
+                    function_names.clone(),
+                )
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::AddGasKeyWithFunctionCall {
+                    public_key: p,
+                    num_nonces: 5,
+                    allowance: a,
+                    receiver_id: r,
+                    method_names,
+                    receipt_index: _,
+                }
+                if p == public_key
+                    && a == Some(NearToken::from_yoctonear(allowance))
+                    && r == receiver_id
+                    && method_names == function_names
+                        .split(',')
+                        .map(|s| s.as_bytes().to_vec())
+                        .collect::<Vec<_>>()
+            )
+        });
+        assert!(has_action);
     }
 
     #[test]

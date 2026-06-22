@@ -1574,6 +1574,145 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     }
 }
 
+/// Attach a transfer-to-gas-key promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_transfer_to_gas_key, promise_batch_create};
+/// use near_sdk::{NearToken, PublicKey, AccountId};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// promise_batch_action_transfer_to_gas_key(
+///     promise,
+///     &pk,
+///     NearToken::from_near(1)
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer_to_gas_key`]
+pub fn promise_batch_action_transfer_to_gas_key(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    amount: NearToken,
+) {
+    unsafe {
+        sys::promise_batch_action_transfer_to_gas_key(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        )
+    }
+}
+
+/// Attach promise action that adds a gas key with full access to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_add_gas_key_with_full_access, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let num_nonces = 3;
+/// promise_batch_action_add_gas_key_with_full_access(
+///     promise,
+///     &pk,
+///     num_nonces
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_full_access`]
+pub fn promise_batch_action_add_gas_key_with_full_access(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    num_nonces: u32,
+) {
+    unsafe {
+        sys::promise_batch_action_add_gas_key_with_full_access(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            num_nonces as u64,
+        )
+    }
+}
+
+/// Attach promise action that adds a gas key restricted to function calls with a specific allowance
+/// to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_add_gas_key_with_function_call, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId, Allowance, NearToken};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let num_nonces = 3;
+/// promise_batch_action_add_gas_key_with_function_call(
+///     promise,
+///     &pk,
+///     num_nonces,
+///     Allowance::limited(NearToken::from_near(1)).unwrap(),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     "increase,decrease"
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_function_call`]
+pub fn promise_batch_action_add_gas_key_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    num_nonces: u32,
+    allowance: Allowance,
+    receiver_id: &AccountId,
+    function_names: &str,
+) {
+    let receiver_id: &str = receiver_id.as_ref();
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
+    unsafe {
+        sys::promise_batch_action_add_gas_key_with_function_call(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            num_nonces as u64,
+            &allowance as *const u128 as _,
+            receiver_id.len() as _,
+            receiver_id.as_ptr() as _,
+            function_names.len() as _,
+            function_names.as_ptr() as _,
+        )
+    }
+}
+
 /// Attach promise action that deletes the key to the NEAR promise index with the provided promise index.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)

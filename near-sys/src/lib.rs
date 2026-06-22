@@ -166,6 +166,29 @@ unsafe extern "C" {
         function_names_len: u64,
         function_names_ptr: u64,
     );
+    pub fn promise_batch_action_transfer_to_gas_key(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        amount_ptr: u64,
+    );
+    pub fn promise_batch_action_add_gas_key_with_full_access(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+    );
+    pub fn promise_batch_action_add_gas_key_with_function_call(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+        allowance_ptr: u64,
+        receiver_id_len: u64,
+        receiver_id_ptr: u64,
+        method_names_len: u64,
+        method_names_ptr: u64,
+    );
     pub fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,
