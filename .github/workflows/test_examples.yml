@@ -36,21 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use nearcore 2.13 RC sandbox (protocol v85)
-        run: |
-          set -euo pipefail
-          case "${{ matrix.platform.name }}" in
-            linux) url="https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.13.0-rc.1/near-sandbox.tar.gz" ;;
-            macos) url="https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Darwin-arm64/2.13.0-rc.1/near-sandbox.tar.gz" ;;
-            *) echo "unknown platform: ${{ matrix.platform.name }}" >&2; exit 1 ;;
-          esac
-          dest="$RUNNER_TEMP/near-sandbox-2.13.0-rc.1"
-          mkdir -p "$dest"
-          curl --proto '=https' --tlsv1.2 -fLsS "$url" | tar xz -C "$dest" --strip-components=1
-          chmod +x "$dest/near-sandbox"
-          "$dest/near-sandbox" --version
-          echo "NEAR_SANDBOX_BIN_PATH=$dest/near-sandbox" >> "$GITHUB_ENV"
-
       - name: Set CC for wasm32 target (MacOS only)
         if: matrix.platform.name == 'macos'
         run: |
