@@ -6,7 +6,7 @@ use std::borrow::Cow;
 /// reference under `data` so callers retain type safety and avoid eager serialization.
 ///
 /// # Type Parameters
-/// - `T`: Event payload, that is borrowed so it can be serialized lazily. Must implement
+/// - `T`: Event payload that is borrowed so it can be serialized lazily. Must implement
 ///   [`serde::Serialize`] when the `serde` feature is enabled.
 #[derive(Debug)]
 #[cfg_attr(
@@ -53,7 +53,7 @@ impl<'a, T> Nep297Event<'a, T> {
         &self.event
     }
 
-    /// Returns raw payload without serializing or extracting the value stored under the ``data` key.
+    /// Returns raw payload without serializing or extracting the value stored under the `data` key.
     pub fn data_raw(&self) -> &'a T {
         self.data
     }
@@ -91,8 +91,8 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
 /// Helper trait implemented by events that expose a NEP-297 representation.
+#[cfg(feature = "serde")]
 pub trait AsNep297Event: serde::Serialize + Sized {
     /// Converts the event into a [`Nep297Event`] representation.
     ///
@@ -101,8 +101,8 @@ pub trait AsNep297Event: serde::Serialize + Sized {
     fn to_nep297_event(&self) -> Nep297Event<'_, Self>;
 }
 
-#[cfg(not(feature = "serde"))]
 /// Helper trait implemented by events that expose a NEP-297 representation.
+#[cfg(not(feature = "serde"))]
 pub trait AsNep297Event: Sized {
     /// Converts the event into a [`Nep297Event`] representation.
     ///
