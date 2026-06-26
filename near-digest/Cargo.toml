@@ -1,0 +1,47 @@
+[package]
+name = "near-digest"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+digest = "0.11.3"
+
+zeroize = { version = "1.9.0", features = ["derive"], optional = true }
+
+[target.'cfg(not(near))'.dependencies]
+ripemd = { version = "0.2.0", optional = true }
+sha2 = { version = "0.11.0", optional = true }
+sha3 = { version = "0.11.0", optional = true }
+
+[target.'cfg(near)'.dependencies]
+near-sdk-env = { path = "../near-sdk-env/" }
+impl-tools = "0.12.0"
+
+[features]
+ripemd = ["dep:ripemd"]
+sha2 = ["dep:sha2"]
+sha3 = ["dep:sha3"]
+
+zeroize = [
+    "dep:zeroize",
+    "digest/zeroize",
+    "ripemd?/zeroize",
+    "sha2?/zeroize",
+    "sha3?/zeroize",
+]
+
+[dev-dependencies]
+near-digest = { path = ".", features = ["ripemd", "sha2", "sha3", "zeroize"] }
+rstest = "0.26.1"
+hex = "0.4.3"
+
+[target.'cfg(near)'.dev-dependencies]
+near-sdk = { path = "../near-sdk/", features = ["unit-testing"] }
+
+[lints]
+workspace = true
