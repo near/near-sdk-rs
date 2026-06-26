@@ -81,6 +81,14 @@ near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
 near-workspaces = { version = "0.22.2", features = ["unstable"] }
+# near-workspaces 0.22.2 requires near-primitives ^0.36, but its transitive
+# near-jsonrpc-client ^0.21 only moves to near-primitives ^0.36 in 0.21.1 (which
+# needs rustc 1.93). The MSRV-aware resolver targets the workspace floor (1.88,
+# declared by near-crypto-hash/near-global-contracts) and would otherwise pick
+# near-jsonrpc-client 0.21.0 (^0.35), splitting near-primitives across 0.35/0.36
+# and failing to compile near-workspaces. Pin >= 0.21.1 to keep the whole graph
+# on near-primitives 0.36.
+near-jsonrpc-client = "0.21.1"
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
