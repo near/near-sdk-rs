@@ -163,16 +163,7 @@ impl PublicKey {
 
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
-        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| {
-            #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-            {
-                near_sdk_env::abort()
-            }
-            #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-            {
-                panic!()
-            }
-        })
+        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| abort!())
     }
 }
 
