@@ -6,7 +6,7 @@ mod common;
 
 #[tokio::test]
 async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>> {
-    let contract_wasm = common::build_test_contract("deny_unknown_arguments")?;
+    let contract_wasm = common::build_test_contract("deny_unknown_arguments").await?;
     let sandbox = near_workspaces::sandbox().await?;
 
     // Create basic accounts and deploy main contract

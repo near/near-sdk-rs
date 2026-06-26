@@ -61,9 +61,6 @@ mod tests {
             let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
                 no_locked: true,
                 manifest_path: Some(manifest),
-                // 2.12 RC: contracts build on rustc 1.93 > the 1.86 declared in
-                // Cargo.toml; cargo-near otherwise refuses wasm built with >= 1.87.
-                skip_rust_version_check: true,
                 ..Default::default()
             })
             .map_err(|e| anyhow::anyhow!("cargo near build: {e:?}"))?;
