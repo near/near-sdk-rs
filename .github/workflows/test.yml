@@ -27,6 +27,10 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.93.0"
             name: macos
+          # Floating `stable` (linux): blocking coverage against current Rust. See the `test` job note.
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "stable"
+            name: linux
     steps:
       - uses: actions/checkout@v4
 
@@ -83,6 +87,12 @@ jobs:
           - os: warp-macos-latest-arm64-6x
             rs: "1.93.0"
             name: macos
+          # Floating `stable` (linux): a blocking gate, so a new Rust release can turn CI
+          # red on an unrelated PR. Deliberate — guarantees near-sdk builds on whatever
+          # Rust users have, not just the pinned version.
+          - os: warp-ubuntu-latest-x64-4x
+            rs: "stable"
+            name: linux
         features:
           - ""
           - "--features unstable,legacy,__abi-generate,deterministic-account-ids"
@@ -118,17 +128,24 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
+      # `store_performance_tests` asserts gas budgets tied to the pinned 1.93 toolchain;
+      # the numbers drift with rustc codegen, so skip it on stable rather than loosen
+      # the shared threshold. Stable still checks the suite compiles, links, and passes.
       - name: Run tests with nextest
-        run: cargo nextest run --all ${{ matrix.features }} --profile ci
+        run: |
+          if [ "${{ matrix.platform.rs }}" = "stable" ]; then
+            cargo nextest run --all ${{ matrix.features }} --profile ci -E 'not binary(store_performance_tests)'
+          else
+            cargo nextest run --all ${{ matrix.features }} --profile ci
+          fi
 
       # Run doctests separately (nextest doesn't support doctests yet)
       - name: Run doctests
         run: cargo test --all ${{ matrix.features }} --doc
 
-  # Regression guard: the rest of CI only `cargo check`s for wasm32, which never
-  # invokes the linker. A toolchain change can therefore break contract *linking*
-  # (e.g. rustc 1.96 dropping wasm-ld `--allow-undefined`) without any CI signal.
-  # This job link-builds a real example contract on stable so such breakage surfaces.
+  # Regression guard: the rest of CI only `cargo check`s wasm32, never linking. A
+  # toolchain change can break contract linking (e.g. 1.96 dropping wasm-ld
+  # `--allow-undefined`) unnoticed, so link-build a real contract on stable.
   wasm-link:
     name: Example contract links on stable
     runs-on: warp-ubuntu-latest-x64-4x
@@ -152,12 +169,9 @@ jobs:
       - name: Install latest cargo-near CLI
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
 
-      # `examples/` is excluded from the workspace, so build from within the example.
-      # Build through cargo-near (the canonical user path: build + ABI generation +
-      # metadata-driven toolchain gating) so this job guards both raw-toolchain linker
-      # breakage and the cargo-near pipeline on current stable. Use `rustup run stable`
-      # so a future rust-toolchain.toml pin can't silently downgrade this job off stable
-      # and defeat the regression guard.
+      # `examples/` is outside the workspace, so build from within it. Go through
+      # cargo-near (the canonical user path) via `rustup run stable` so a future
+      # rust-toolchain.toml pin can't silently downgrade this job off stable.
       - name: Build adder example with cargo-near on stable
         working-directory: examples/adder
         run: rustup run stable cargo near build non-reproducible-wasm
