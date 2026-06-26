@@ -98,12 +98,12 @@ const _: () = {
                     );
                     Ok(public_key)
                 }
-                // TODO(post-quantum): wire up once near-crypto exposes MLDSA65
-                CurveType::MLDSA65 => Err(ParsePublicKeyError {
-                    kind: ParsePublicKeyErrorKind::Unsupported(
-                        "ML-DSA-65 <-> near_crypto interop not supported until near-crypto adds the variant (nearcore 2.13)",
-                    ),
-                }),
+                CurveType::MLDSA65 => {
+                    let public_key = near_crypto::PublicKey::MLDSA65(
+                        near_crypto::MlDsa65PublicKey::try_from(data).unwrap(),
+                    );
+                    Ok(public_key)
+                }
             }
         }
     }
@@ -113,14 +113,7 @@ const _: () = {
             let curve_type = match value {
                 near_crypto::PublicKey::ED25519(_) => CurveType::ED25519,
                 near_crypto::PublicKey::SECP256K1(_) => CurveType::SECP256K1,
-                // near_sdk's PublicKey/CurveType only models ed25519 and secp256k1. ML-DSA-65
-                // (post-quantum, added in nearcore 2.13) has no representation here. Matched
-                // explicitly so a future near_crypto variant re-triggers this exhaustiveness error.
-                near_crypto::PublicKey::MLDSA65(_) => {
-                    panic!(
-                        "near_sdk::PublicKey does not support ML-DSA-65 (post-quantum) near_crypto::PublicKey keys"
-                    )
-                }
+                near_crypto::PublicKey::MLDSA65(_) => CurveType::MLDSA65,
             };
             Self { data: [[curve_type as u8].as_slice(), value.key_data()].concat() }
         }
@@ -294,11 +287,6 @@ enum ParsePublicKeyErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
     UnknownCurve,
-    /// A curve is known to the SDK but unsupported by the operation being
-    /// performed (e.g. ML-DSA-65 conversion to `near_crypto`, which is gated
-    /// until near-crypto exposes the variant).
-    #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
-    Unsupported(&'static str),
 }
 
 impl std::fmt::Display for ParsePublicKeyError {
@@ -313,8 +301,6 @@ impl std::fmt::Display for ParsePublicKeyError {
             }
             ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {e}"),
             ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
-            ParsePublicKeyErrorKind::Unsupported(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -507,5 +493,25 @@ mod tests {
         // A key with the ml-dsa-65 prefix but the wrong number of bytes must error.
         let err = PublicKey::from_parts(CurveType::MLDSA65, vec![1u8; 100]).unwrap_err();
         assert!(matches!(err.kind, ParsePublicKeyErrorKind::InvalidLength(100)));
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
+    #[test]
+    fn test_public_key_mldsa65_near_crypto_roundtrip() {
+        // A valid 1952-byte ML-DSA-65 public key must survive a full
+        // SDK <-> near_crypto round-trip in both directions. Built from raw
+        // bytes so the test does not depend on near-crypto's `rand` feature.
+        let raw = vec![7u8; CurveType::MLDSA65.data_len()];
+        let sdk_pk = PublicKey::from_parts(CurveType::MLDSA65, raw.clone()).unwrap();
+
+        // SDK -> near_crypto
+        let near_pk: near_crypto::PublicKey = sdk_pk.clone().try_into().unwrap();
+        assert!(matches!(near_pk, near_crypto::PublicKey::MLDSA65(_)));
+        assert_eq!(near_pk.key_data(), raw.as_slice());
+
+        // near_crypto -> SDK, recovering the original key.
+        let back: PublicKey = near_pk.into();
+        assert_eq!(back, sdk_pk);
+        assert_eq!(back.curve_type(), CurveType::MLDSA65);
     }
 }
