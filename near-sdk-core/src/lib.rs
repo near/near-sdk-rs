@@ -2,11 +2,26 @@
 // XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
 use near_sdk as _;
 
+macro_rules! abort {
+    () => {{
+        #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
+        {
+            near_sdk_env::abort()
+        }
+        #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
+        {
+            panic!()
+        }
+    }};
+}
+
 pub mod json_types;
 
 pub mod types;
 
 pub mod allowance;
+
+pub mod events;
 
 pub use bs58;
 

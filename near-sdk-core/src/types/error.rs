@@ -88,14 +88,7 @@ impl std::fmt::Display for Abort {
 
 impl FunctionError for Abort {
     fn panic(&self) -> ! {
-        #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-        {
-            near_sdk_env::abort()
-        }
-        #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-        {
-            panic!()
-        }
+        abort!()
     }
 }
 
