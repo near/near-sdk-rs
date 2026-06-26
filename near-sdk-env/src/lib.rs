@@ -3,6 +3,23 @@
 //! non-wasm32 (via pure-Rust crates), so off-chain code can compute identically
 //! to on-chain.
 
+#[cfg(all(
+    near,
+    not(target_arch = "wasm32"),
+    not(feature = "__near-sdk-unit-testing"),
+    not(test),
+    not(doctest),
+    not(docsrs),
+    not(clippy)
+))]
+compile_error!(
+    r#"⚙️ `near-sdk-env`: `--cfg near` is set, but is not wasm32.
+  - NEAR host functions are only available on `wasm32-unknown-unknown` 
+    or with `--feature __near-sdk-unit-testing` via mockchain.
+⚠️ Either target wasm32 or remove `--cfg near`.
+"#
+);
+
 #[macro_use]
 mod macros;
 
