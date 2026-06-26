@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.28.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.2...near-sdk-v5.28.3) - 2026-06-26
+
+### Fixed
+
+- two lint failures on newer Rust / wasm32 builds ([#1558](https://github.com/near/near-sdk-rs/pull/1558))
+
+### Other
+
+- drop skip_rust_version_check workarounds now that MSRV is 1.93 / PV 84 ([#1548](https://github.com/near/near-sdk-rs/pull/1548))
+- move `Nep297Event` to `near-sdk-core` ([#1570](https://github.com/near/near-sdk-rs/pull/1570))
+
 ## [5.28.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.1...near-sdk-v5.28.2) - 2026-06-17
 
 ### Other
