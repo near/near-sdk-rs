@@ -2,7 +2,7 @@
 //! artifact for `tests/test-contracts/*`.
 //!
 //! Builds the wasm through `near_workspaces::compile_project`, which shells out
-//! to `cargo near build`. near-workspaces >= 0.22.2 (the dev-dependency floor)
+//! to `cargo near build`. near-workspaces >= 0.22.4 (the dev-dependency floor)
 //! makes `compile_project` pass `skip_rust_version_check` internally, and near-sdk
 //! declares `package.metadata.near.min_protocol_version = 84` (which lifts
 //! cargo-near's rustc cap), so building these contracts with current toolchains
