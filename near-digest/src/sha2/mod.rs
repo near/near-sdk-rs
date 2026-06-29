@@ -9,10 +9,3 @@ digest_cfg! {
         local => ::sha2::Sha256,
     }
 }
-
-digest_cfg! {
-    pub struct Sha512 {
-        near => self::near::Sha512,
-        local => ::sha2::Sha512,
-    }
-}
