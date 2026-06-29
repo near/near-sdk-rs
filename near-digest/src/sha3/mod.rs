@@ -16,3 +16,19 @@ digest_cfg! {
         local => ::sha3::Keccak512,
     }
 }
+
+#[cfg(feature = "unstable")]
+digest_cfg! {
+    pub struct Sha3_256 {
+        // TODO: Add `cfg(near)` path
+        local => ::sha3::Sha3_256
+    }
+}
+
+#[cfg(feature = "unstable")]
+digest_cfg! {
+    pub struct Sha3_512 {
+        // TODO: Add `cfg(near)` path
+        local => ::sha3::Sha3_512
+    }
+}

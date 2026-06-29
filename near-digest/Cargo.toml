@@ -35,8 +35,16 @@ zeroize = [
     "sha3?/zeroize",
 ]
 
+unstable = []
+
 [dev-dependencies]
-near-digest = { path = ".", features = ["ripemd", "sha2", "sha3", "zeroize"] }
+near-digest = { path = ".", features = [
+    "ripemd",
+    "sha2",
+    "sha3",
+    "zeroize",
+    "unstable",
+] }
 rstest = "0.26.1"
 hex = "0.4.3"
 

@@ -61,5 +61,38 @@ macro_rules! digest_cfg {
         #[cfg(feature = "zeroize")]
         impl ::zeroize::ZeroizeOnDrop for $name {}
     };
+
+    ($vis:vis struct $name:ident {
+        local => $local_path:path $(,)?
+    }) => {
+        #[cfg(not(near))]
+        #[derive(Debug, Clone, Default)]
+        #[repr(transparent)]
+        $vis struct $name($local_path);
+
+        #[cfg(not(near))]
+        impl ::digest::OutputSizeUser for $name {
+            type OutputSize = <$local_path as ::digest::OutputSizeUser>::OutputSize;
+        }
+
+        impl ::digest::Update for $name {
+            #[inline]
+            fn update(&mut self, data: &[u8]) {
+                ::digest::Update::update(&mut self.0, data);
+            }
+        }
+
+        impl ::digest::FixedOutput for $name {
+            #[inline]
+            fn finalize_into(self, out: &mut ::digest::Output<Self>) {
+                ::digest::FixedOutput::finalize_into(self.0, out);
+            }
+        }
+
+        impl ::digest::HashMarker for $name {}
+
+        #[cfg(feature = "zeroize")]
+        impl ::zeroize::ZeroizeOnDrop for $name {}
+    }
 }
 pub(crate) use digest_cfg;
