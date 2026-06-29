@@ -20,7 +20,7 @@ mod utils;
 macro_rules! digest_cfg {
     ($vis:vis struct $name:ident {
         near => $near_path:path,
-        local => $local_path:path $(,)?
+        _ => $local_path:path $(,)?
     }) => {
         #[cfg(near)]
         #[derive(Debug, Clone, Default)]
@@ -63,14 +63,12 @@ macro_rules! digest_cfg {
     };
 
     ($vis:vis struct $name:ident {
-        local => $local_path:path $(,)?
+        _ => $local_path:path $(,)?
     }) => {
-        #[cfg(not(near))]
         #[derive(Debug, Clone, Default)]
         #[repr(transparent)]
         $vis struct $name($local_path);
 
-        #[cfg(not(near))]
         impl ::digest::OutputSizeUser for $name {
             type OutputSize = <$local_path as ::digest::OutputSizeUser>::OutputSize;
         }

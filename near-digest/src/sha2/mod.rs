@@ -6,7 +6,7 @@ mod near;
 digest_cfg! {
     pub struct Sha256 {
         near => self::near::Sha256,
-        local => ::sha2::Sha256,
+        _ => ::sha2::Sha256,
     }
 }
 
@@ -14,6 +14,6 @@ digest_cfg! {
 digest_cfg! {
     pub struct Sha512 {
         // TODO: Add `cfg(near)` path
-        local => ::sha2::Sha512,
+        _ => ::sha2::Sha512,
     }
 }

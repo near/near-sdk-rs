@@ -6,14 +6,14 @@ mod near;
 digest_cfg! {
     pub struct Keccak256 {
         near => self::near::Keccak256,
-        local => ::sha3::Keccak256,
+        _ => ::sha3::Keccak256,
     }
 }
 
 digest_cfg! {
     pub struct Keccak512 {
         near => self::near::Keccak512,
-        local => ::sha3::Keccak512,
+        _ => ::sha3::Keccak512,
     }
 }
 
@@ -21,7 +21,7 @@ digest_cfg! {
 digest_cfg! {
     pub struct Sha3_256 {
         // TODO: Add `cfg(near)` path
-        local => ::sha3::Sha3_256
+        _ => ::sha3::Sha3_256
     }
 }
 
@@ -29,6 +29,6 @@ digest_cfg! {
 digest_cfg! {
     pub struct Sha3_512 {
         // TODO: Add `cfg(near)` path
-        local => ::sha3::Sha3_512
+        _ => ::sha3::Sha3_512
     }
 }
