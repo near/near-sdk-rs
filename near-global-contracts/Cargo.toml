@@ -21,6 +21,7 @@ features = ["serde", "borsh", "abi", "near-primitives-interop"]
 [dependencies]
 near-account-id = { version = "2.3.0", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 hex = { version = "0.4", optional = true }
 

@@ -29,7 +29,7 @@ pub enum AccountContract {
     schemars(crate = "::schemars_v0_8")
 )]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
 #[repr(u8)]
 pub enum GlobalContractId {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
@@ -38,20 +38,6 @@ pub enum GlobalContractId {
     ) = 0,
     #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
-}
-
-impl From<CryptoHash> for GlobalContractId {
-    #[inline]
-    fn from(hash: CryptoHash) -> Self {
-        Self::CodeHash(hash)
-    }
-}
-
-impl From<AccountId> for GlobalContractId {
-    #[inline]
-    fn from(account_id: AccountId) -> Self {
-        Self::AccountId(account_id)
-    }
 }
 
 #[cfg(feature = "near-primitives-interop")]
