@@ -166,6 +166,29 @@ unsafe extern "C" {
         function_names_len: u64,
         function_names_ptr: u64,
     );
+    pub fn promise_batch_action_transfer_to_gas_key(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        amount_ptr: u64,
+    );
+    pub fn promise_batch_action_add_gas_key_with_full_access(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+    );
+    pub fn promise_batch_action_add_gas_key_with_function_call(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+        allowance_ptr: u64,
+        receiver_id_len: u64,
+        receiver_id_ptr: u64,
+        method_names_len: u64,
+        method_names_ptr: u64,
+    );
     pub fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,
@@ -211,6 +234,23 @@ unsafe extern "C" {
     pub fn promise_yield_resume(
         data_id_len: u64,
         data_id_ptr: u64,
+        payload_len: u64,
+        payload_ptr: u64,
+    ) -> u32;
+    pub fn promise_yield_create_with_id(
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        gas_weight: u64,
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+    ) -> u64;
+    pub fn promise_yield_resume_with_yield_id(
+        yield_id_len: u64,
+        yield_id_ptr: u64,
         payload_len: u64,
         payload_ptr: u64,
     ) -> u32;

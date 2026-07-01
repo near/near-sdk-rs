@@ -656,6 +656,64 @@ mod mock_chain {
         })
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_transfer_to_gas_key(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        amount_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_transfer_to_gas_key(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                amount_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_add_gas_key_with_full_access(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_add_gas_key_with_full_access(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                num_nonces,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_add_gas_key_with_function_call(
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        num_nonces: u64,
+        allowance_ptr: u64,
+        receiver_id_len: u64,
+        receiver_id_ptr: u64,
+        method_names_len: u64,
+        method_names_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_add_gas_key_with_function_call(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                num_nonces,
+                allowance_ptr,
+                receiver_id_len,
+                receiver_id_ptr,
+                method_names_len,
+                method_names_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,
@@ -710,6 +768,48 @@ mod mock_chain {
     ) -> u32 {
         with_mock_interface(|b| {
             b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_yield_create_with_id(
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        gas_weight: u64,
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_yield_create_with_id(
+                function_name_len,
+                function_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+                gas_weight,
+                yield_id_len,
+                yield_id_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_yield_resume_with_yield_id(
+        yield_id_len: u64,
+        yield_id_ptr: u64,
+        payload_len: u64,
+        payload_ptr: u64,
+    ) -> u32 {
+        with_mock_interface(|b| {
+            b.promise_yield_resume_with_yield_id(
+                yield_id_len,
+                yield_id_ptr,
+                payload_len,
+                payload_ptr,
+            )
         })
     }
     #[unsafe(no_mangle)]

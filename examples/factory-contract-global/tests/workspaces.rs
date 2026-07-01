@@ -9,7 +9,7 @@ const GLOBAL_STORAGE_COST_PER_BYTE: NearToken = STORAGE_DEPOSIT_PER_BYTE.saturat
 async fn test_deploy_global_contract() -> anyhow::Result<()> {
     // Initialize the sandbox environment with specific commit that includes global contract support
     println!("Initializing worker");
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
 
     println!("Deploying global contract");
 
@@ -57,7 +57,7 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
 /// Test using a global contract by hash
 #[tokio::test]
 async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 
@@ -102,7 +102,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 /// Test using a global contract by account ID
 #[tokio::test]
 async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 
@@ -139,7 +139,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 /// Test error cases and edge conditions
 #[tokio::test]
 async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 

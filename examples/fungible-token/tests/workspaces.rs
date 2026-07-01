@@ -60,7 +60,7 @@ async fn initialized_contracts(
     fungible_contract_wasm: &Vec<u8>,
     defi_contract_wasm: &Vec<u8>,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
 
     let ft_contract = worker.dev_deploy(fungible_contract_wasm).await?;
 
@@ -150,7 +150,9 @@ async fn test_storage_deposit_not_enough_deposit(
         contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so it should gain some NEAR
     assert!(contract_balance_diff > NearToken::from_near(0));
-    assert!(contract_balance_diff < NearToken::from_yoctonear(30_000_000_000_000_000_000));
+    // raised for protocol v85 (nearcore 2.13): function-call gas reward increased vs v84
+    // (measured ~502e18 yocto under 2.13.0-rc.2; bound kept well under 1 milliNEAR)
+    assert!(contract_balance_diff < NearToken::from_yoctonear(800_000_000_000_000_000_000));
 
     Ok(())
 }
@@ -283,9 +285,11 @@ async fn test_storage_deposit_refunds_excessive_deposit(
         contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so the difference should be slightly more than minimal_deposit
     assert!(contract_balance_diff > minimal_deposit);
+    // raised for protocol v85 (nearcore 2.13): function-call gas reward increased vs v84
+    // (measured ~517e18 yocto over minimal_deposit under 2.13.0-rc.2)
     assert!(
         contract_balance_diff
-            < minimal_deposit.saturating_add(NearToken::from_yoctonear(50_000_000_000_000_000_000))
+            < minimal_deposit.saturating_add(NearToken::from_yoctonear(800_000_000_000_000_000_000))
     );
 
     Ok(())
@@ -430,13 +434,20 @@ async fn simulate_transfer_call_with_burned_amount(
     assert!(logs.contains(&"The account of the sender was deleted"));
     assert!(logs.contains(&(expected.as_str())));
 
-    match res.receipt_outcomes()[4].clone().into_result()? {
-        ValueOrReceiptId::Value(val) => {
-            let used_amount = val.json::<U128>()?;
-            assert_eq!(used_amount, transfer_amount);
-        }
-        _ => panic!("Unexpected receipt id"),
-    }
+    // The `ft_resolve_transfer` callback returns the used amount as a U128. Its position in
+    // `receipt_outcomes()` shifted between protocol versions (v85 / nearcore 2.13 added receipts),
+    // so locate it by content instead of a hardcoded index: it is the last outcome whose value
+    // parses as a U128. (The inner `value_please` outcome also parses as U128, hence "last".)
+    let used_amount = res
+        .receipt_outcomes()
+        .iter()
+        .filter_map(|outcome| match outcome.clone().into_result() {
+            Ok(ValueOrReceiptId::Value(val)) => val.json::<U128>().ok(),
+            _ => None,
+        })
+        .next_back()
+        .expect("no receipt outcome returned a U128 (ft_resolve_transfer used-amount)");
+    assert_eq!(used_amount, transfer_amount);
     assert!(res.json::<bool>()?);
 
     let res = contract.call("ft_total_supply").view().await?;

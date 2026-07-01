@@ -1574,6 +1574,145 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     }
 }
 
+/// Attach a transfer-to-gas-key promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_transfer_to_gas_key, promise_batch_create};
+/// use near_sdk::{NearToken, PublicKey, AccountId};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// promise_batch_action_transfer_to_gas_key(
+///     promise,
+///     &pk,
+///     NearToken::from_near(1)
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer_to_gas_key`]
+pub fn promise_batch_action_transfer_to_gas_key(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    amount: NearToken,
+) {
+    unsafe {
+        sys::promise_batch_action_transfer_to_gas_key(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        )
+    }
+}
+
+/// Attach promise action that adds a gas key with full access to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_add_gas_key_with_full_access, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let num_nonces = 3;
+/// promise_batch_action_add_gas_key_with_full_access(
+///     promise,
+///     &pk,
+///     num_nonces
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_full_access`]
+pub fn promise_batch_action_add_gas_key_with_full_access(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    num_nonces: u32,
+) {
+    unsafe {
+        sys::promise_batch_action_add_gas_key_with_full_access(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            num_nonces as u64,
+        )
+    }
+}
+
+/// Attach promise action that adds a gas key restricted to function calls with a specific allowance
+/// to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+///
+/// # Requirements
+///
+/// Requires the host to support gas-key host functions (nearcore protocol version 85+, shipped in nearcore 2.13).
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_add_gas_key_with_function_call, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId, Allowance, NearToken};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let num_nonces = 3;
+/// promise_batch_action_add_gas_key_with_function_call(
+///     promise,
+///     &pk,
+///     num_nonces,
+///     Allowance::limited(NearToken::from_near(1)).unwrap(),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     "increase,decrease"
+/// );
+/// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_function_call`]
+pub fn promise_batch_action_add_gas_key_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    num_nonces: u32,
+    allowance: Allowance,
+    receiver_id: &AccountId,
+    function_names: &str,
+) {
+    let receiver_id: &str = receiver_id.as_ref();
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
+    unsafe {
+        sys::promise_batch_action_add_gas_key_with_function_call(
+            promise_index.0,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
+            num_nonces as u64,
+            &allowance as *const u128 as _,
+            receiver_id.len() as _,
+            receiver_id.as_ptr() as _,
+            function_names.len() as _,
+            function_names.as_ptr() as _,
+        )
+    }
+}
+
 /// Attach promise action that deletes the key to the NEAR promise index with the provided promise index.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
@@ -2011,6 +2150,73 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
         sys::promise_yield_resume(
             data_id.len() as _,
             data_id.as_ptr() as _,
+            data.len() as _,
+            data.as_ptr() as _,
+        ) != 0
+    }
+}
+
+/// Like [`promise_yield_create`], but the caller supplies a custom 32-byte `yield_id` and may
+/// attach a `deposit`. The yield is later resumed with the same `yield_id` via
+/// [`promise_yield_resume_with_yield_id`], so both the creator and the resumer can derive the id
+/// deterministically (e.g. from a request id) without first reading a runtime-generated `data_id`
+/// out of a register.
+///
+/// Returns `None` if a yield with the same `yield_id` is already pending for the current account.
+/// The host reports this duplicate with the `u64::MAX` sentinel and does not charge for receipt
+/// creation, so callers can branch on `None` to recover instead of aborting.
+///
+/// # Requirements
+/// Requires the host to support the yield-with-id functions (nearcore protocol version 85+,
+/// shipped in nearcore 2.13). `yield_id` must be exactly 32 bytes or the host aborts execution
+/// with `YieldIdMalformed`.
+///
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create_with_id`]
+pub fn promise_yield_create_with_id(
+    function_name: &str,
+    arguments: impl AsRef<[u8]>,
+    deposit: NearToken,
+    gas: Gas,
+    weight: GasWeight,
+    yield_id: &[u8],
+) -> Option<PromiseIndex> {
+    let arguments = arguments.as_ref();
+    let promise_index = unsafe {
+        sys::promise_yield_create_with_id(
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &deposit.as_yoctonear() as *const u128 as _,
+            gas.as_gas(),
+            weight.0,
+            yield_id.len() as _,
+            yield_id.as_ptr() as _,
+        )
+    };
+    // `u64::MAX` is the host's "already pending" sentinel, not a valid promise index.
+    if promise_index == u64::MAX { None } else { Some(PromiseIndex(promise_index)) }
+}
+
+/// Resumes a yield previously created with [`promise_yield_create_with_id`], using the same
+/// caller-provided `yield_id`. `data` is the payload passed to the yield callback as a promise
+/// result.
+///
+/// Returns `false` if no pending yield with the given `yield_id` exists for the current account
+/// (already resumed, timed out, or never created); `true` otherwise, guaranteeing the callback
+/// will run with the payload.
+///
+/// # Requirements
+/// Requires the host to support the yield-with-id functions (nearcore protocol version 85+,
+/// shipped in nearcore 2.13).
+///
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume_with_yield_id`]
+pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]>) -> bool {
+    let data = data.as_ref();
+    unsafe {
+        sys::promise_yield_resume_with_yield_id(
+            yield_id.len() as _,
+            yield_id.as_ptr() as _,
             data.len() as _,
             data.as_ptr() as _,
         ) != 0

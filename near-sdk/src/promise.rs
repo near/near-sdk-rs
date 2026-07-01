@@ -61,6 +61,21 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    TransferToGasKey {
+        public_key: PublicKey,
+        amount: NearToken,
+    },
+    AddGasKeyFullAccess {
+        public_key: PublicKey,
+        num_nonces: u32,
+    },
+    AddGasKeyFunctionCall {
+        public_key: PublicKey,
+        num_nonces: u32,
+        allowance: Allowance,
+        receiver_id: AccountId,
+        function_names: String,
+    },
     DeployGlobalContract {
         code: Vec<u8>,
     },
@@ -134,6 +149,34 @@ impl PromiseAction {
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, &beneficiary_id)
             }
+            TransferToGasKey { public_key, amount } => {
+                crate::env::promise_batch_action_transfer_to_gas_key(
+                    promise_index,
+                    &public_key,
+                    amount,
+                )
+            }
+            AddGasKeyFullAccess { public_key, num_nonces } => {
+                crate::env::promise_batch_action_add_gas_key_with_full_access(
+                    promise_index,
+                    &public_key,
+                    num_nonces,
+                )
+            }
+            AddGasKeyFunctionCall {
+                public_key,
+                num_nonces,
+                allowance,
+                receiver_id,
+                function_names,
+            } => crate::env::promise_batch_action_add_gas_key_with_function_call(
+                promise_index,
+                &public_key,
+                num_nonces,
+                allowance,
+                &receiver_id,
+                &function_names,
+            ),
             DeployGlobalContract { code } => {
                 crate::env::promise_batch_action_deploy_global_contract(promise_index, &code)
             }
@@ -388,6 +431,55 @@ impl Promise {
         (promise, yield_id)
     }
 
+    /// Create a yielded promise with a caller-provided [`UserYieldId`] and an optional `deposit`.
+    ///
+    /// Like [`Promise::new_yield`], but the caller supplies the resumption identifier instead of
+    /// the runtime generating one. The promise is later resumed with the same id via
+    /// [`UserYieldId::resume`], so the creator and the resumer can derive the id independently
+    /// (e.g. from a request id) without round-tripping a runtime-generated `data_id`.
+    ///
+    /// Returns `None` if a yield with the same `yield_id` is already pending for the current
+    /// account, letting the caller detect and recover from duplicates instead of aborting.
+    ///
+    /// # Arguments
+    /// * `function_name` - The callback function to invoke when the promise is resumed
+    /// * `arguments` - Arguments to pass to the callback function
+    /// * `deposit` - Amount of NEAR to attach to the callback (use `NearToken::from_yoctonear(0)` for none)
+    /// * `gas` - Base gas to allocate for the callback
+    /// * `weight` - Gas weight for distributing remaining gas
+    /// * `yield_id` - The caller-provided 32-byte resumption identifier
+    ///
+    /// # Requirements
+    /// Requires the host to support the yield-with-id functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    ///
+    /// # Important
+    /// Like [`Promise::new_yield`], the resulting promise cannot be used as a continuation
+    /// (`other.then(yielded)` panics); it must come first in a chain.
+    ///
+    /// Uses low-level [`crate::env::promise_yield_create_with_id`]
+    pub fn new_yield_with_id(
+        function_name: &str,
+        arguments: impl AsRef<[u8]>,
+        deposit: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        yield_id: UserYieldId,
+    ) -> Option<Self> {
+        let promise_index = crate::env::promise_yield_create_with_id(
+            function_name,
+            arguments,
+            deposit,
+            gas,
+            weight,
+            yield_id.as_bytes(),
+        )?;
+        let promise = Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
+            PromiseSingleSubtype::Yielded(promise_index),
+        )));
+        Some(promise)
+    }
+
     /// Set a different [`AccountId`] instead of current one to which refunds
     /// should go for all failed (e.g. [function_call](Promise::function_call_weight))
     /// or unused (e.g. [state_init](Promise::state_init)) deposits in
@@ -638,6 +730,54 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
+    }
+
+    /// Transfer tokens to a gas key on the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_transfer_to_gas_key`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn transfer_to_gas_key(self, public_key: PublicKey, amount: NearToken) -> Self {
+        self.add_action(PromiseAction::TransferToGasKey { public_key, amount })
+    }
+
+    /// Add a full access gas key to the given account, reserving `num_nonces` parallel nonces.
+    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_full_access`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn add_gas_key_full_access(self, public_key: PublicKey, num_nonces: u32) -> Self {
+        self.add_action(PromiseAction::AddGasKeyFullAccess { public_key, num_nonces })
+    }
+
+    /// Add a gas key restricted to only calling a smart contract on some account using only a
+    /// restricted set of methods, reserving `num_nonces` parallel nonces. Here `function_names`
+    /// is a comma separated list of methods, e.g. `"method_a,method_b"`.
+    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_function_call`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+    /// shipped in nearcore 2.13).
+    pub fn add_gas_key_allowance_function_call(
+        self,
+        public_key: PublicKey,
+        num_nonces: u32,
+        allowance: Allowance,
+        receiver_id: AccountId,
+        function_names: String,
+    ) -> Self {
+        self.add_action(PromiseAction::AddGasKeyFunctionCall {
+            public_key,
+            num_nonces,
+            allowance,
+            receiver_id,
+            function_names,
+        })
     }
 
     /// Merge this promise with another promise, so that we can schedule execution of another
@@ -903,6 +1043,72 @@ impl YieldId {
     /// Uses low-level [`crate::env::promise_yield_resume`]
     pub fn resume(self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
         if crate::env::promise_yield_resume(&self.0, data) { Ok(()) } else { Err(ResumeError) }
+    }
+}
+
+/// A caller-provided identifier for a yielded promise created with [`Promise::new_yield_with_id`].
+///
+/// Unlike [`YieldId`] — which wraps the runtime-generated `data_id` returned by
+/// [`Promise::new_yield`] — a `UserYieldId` is chosen by the contract itself (any 32 bytes, e.g.
+/// derived from a request id). Because both the creator and the resumer can compute it
+/// independently, the resumer doesn't need the creator to hand back a runtime-generated token.
+///
+/// # Example
+/// ```ignore
+/// use near_sdk::{Promise, NearToken, Gas, GasWeight, UserYieldId};
+///
+/// let yield_id = UserYieldId::new([7u8; 32]);
+/// let promise = Promise::new_yield_with_id(
+///     "on_resume",
+///     vec![],
+///     NearToken::from_yoctonear(0),
+///     Gas::from_tgas(5),
+///     GasWeight(1),
+///     yield_id,
+/// )
+/// .expect("a yield with this id is already pending");
+///
+/// // Later, from another transaction, resume with the same id:
+/// yield_id.resume(b"result data").unwrap();
+/// ```
+#[near(inside_nearsdk, serializers = [json, borsh])]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct UserYieldId(
+    #[serde_as(as = "::serde_with::base64::Base64")]
+    #[cfg_attr(feature = "abi", schemars(with = "String"))]
+    pub CryptoHash,
+);
+
+impl UserYieldId {
+    /// Construct a `UserYieldId` from 32 raw bytes.
+    pub const fn new(bytes: CryptoHash) -> Self {
+        Self(bytes)
+    }
+
+    /// The 32-byte identifier.
+    pub const fn as_bytes(&self) -> &CryptoHash {
+        &self.0
+    }
+
+    /// Resume the yielded promise created with this id, passing `data` to the callback as a
+    /// promise result.
+    ///
+    /// Returns `Ok(())` if a pending yield with this id was found and resume was submitted, or
+    /// `Err(ResumeError)` if none exists (already resumed, timed out, or never created).
+    ///
+    /// Uses low-level [`crate::env::promise_yield_resume_with_yield_id`]
+    pub fn resume(&self, data: impl AsRef<[u8]>) -> Result<(), ResumeError> {
+        if crate::env::promise_yield_resume_with_yield_id(&self.0, data) {
+            Ok(())
+        } else {
+            Err(ResumeError)
+        }
+    }
+}
+
+impl From<CryptoHash> for UserYieldId {
+    fn from(bytes: CryptoHash) -> Self {
+        Self(bytes)
     }
 }
 
@@ -1242,6 +1448,101 @@ mod tests {
             function_names,
             Some(nonce)
         ));
+    }
+
+    #[test]
+    fn test_transfer_to_gas_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let amount = NearToken::from_yoctonear(1000);
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .transfer_to_gas_key(public_key.clone(), amount)
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::TransferToGasKey { public_key: p, deposit, receipt_index: _ }
+                if p == public_key && deposit == amount
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[test]
+    fn test_add_gas_key_full_access() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_gas_key_full_access(public_key.clone(), 3)
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::AddGasKeyWithFullAccess { public_key: p, num_nonces: 3, receipt_index: _ }
+                if p == public_key
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[test]
+    fn test_add_gas_key_allowance_function_call() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_gas_key_allowance_function_call(
+                    public_key.clone(),
+                    5,
+                    Allowance::Limited(allowance.try_into().unwrap()),
+                    receiver_id.clone(),
+                    function_names.clone(),
+                )
+                .detach();
+        }
+
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::AddGasKeyWithFunctionCall {
+                    public_key: p,
+                    num_nonces: 5,
+                    allowance: a,
+                    receiver_id: r,
+                    method_names,
+                    receipt_index: _,
+                }
+                if p == public_key
+                    && a == Some(NearToken::from_yoctonear(allowance))
+                    && r == receiver_id
+                    && method_names == function_names
+                        .split(',')
+                        .map(|s| s.as_bytes().to_vec())
+                        .collect::<Vec<_>>()
+            )
+        });
+        assert!(has_action);
     }
 
     #[test]
@@ -1676,6 +1977,87 @@ mod tests {
         assert_eq!(
             bob_receipt.actions[0],
             MockAction::Transfer { receipt_index, deposit: NearToken::from_yoctonear(1000) }
+        );
+    }
+
+    #[test]
+    fn test_new_yield_with_id_returns_promise() {
+        use crate::{Gas, GasWeight, UserYieldId};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let yield_id = UserYieldId::new([7u8; 32]);
+        let promise = Promise::new_yield_with_id(
+            "on_callback",
+            b"args",
+            NearToken::from_yoctonear(0),
+            Gas::from_tgas(10),
+            GasWeight(1),
+            yield_id,
+        );
+
+        assert!(promise.is_some(), "new_yield_with_id should return Some for a fresh yield id");
+    }
+
+    #[test]
+    fn test_new_yield_with_id_duplicate_returns_none() {
+        use crate::{Gas, GasWeight, UserYieldId};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let yield_id = UserYieldId::new([3u8; 32]);
+        let make = || {
+            Promise::new_yield_with_id(
+                "on_callback",
+                vec![],
+                NearToken::from_yoctonear(0),
+                Gas::from_tgas(5),
+                GasWeight(1),
+                yield_id,
+            )
+        };
+
+        let _first = make().expect("first create with a fresh id should succeed");
+        assert!(
+            make().is_none(),
+            "second create with the same yield id should return None (duplicate detected)"
+        );
+    }
+
+    #[test]
+    fn test_user_yield_id_resume() {
+        use crate::{Gas, GasWeight, UserYieldId};
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let yield_id = UserYieldId::new([9u8; 32]);
+        let _promise = Promise::new_yield_with_id(
+            "on_resume",
+            vec![],
+            NearToken::from_yoctonear(0),
+            Gas::from_tgas(5),
+            GasWeight(1),
+            yield_id,
+        )
+        .expect("create with a fresh id should succeed");
+
+        assert!(
+            yield_id.resume(b"payload").is_ok(),
+            "resuming a pending yield by its id should succeed"
+        );
+    }
+
+    #[test]
+    fn test_user_yield_id_resume_unknown_returns_err() {
+        use crate::UserYieldId;
+
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        // No yield was ever created for this id.
+        let unknown = UserYieldId::new([1u8; 32]);
+        assert!(
+            unknown.resume(b"payload").is_err(),
+            "resuming an unknown yield id should return Err(ResumeError)"
         );
     }
 }
