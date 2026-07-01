@@ -81,7 +81,7 @@ mod tests {
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
         let wasm = build_contract("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         let res = contract.view("__contract_abi").await?;
@@ -99,7 +99,7 @@ mod tests {
     #[tokio::test]
     async fn private_init_cannot_be_called_by_external_account() -> anyhow::Result<()> {
         let wasm = build_contract("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Create an external account (alice)
@@ -129,7 +129,7 @@ mod tests {
     #[tokio::test]
     async fn private_init_can_be_called_by_current_account() -> anyhow::Result<()> {
         let wasm = build_contract("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Contract calls its own private init method - should succeed

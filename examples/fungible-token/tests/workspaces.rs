@@ -60,7 +60,7 @@ async fn initialized_contracts(
     fungible_contract_wasm: &Vec<u8>,
     defi_contract_wasm: &Vec<u8>,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
-    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
 
     let ft_contract = worker.dev_deploy(fungible_contract_wasm).await?;
 
@@ -151,7 +151,7 @@ async fn test_storage_deposit_not_enough_deposit(
     // contract receives a gas rewards for the function call, so it should gain some NEAR
     assert!(contract_balance_diff > NearToken::from_near(0));
     // raised for protocol v85 (nearcore 2.13): function-call gas reward increased vs v84
-    // (measured ~502e18 yocto under 2.13.0-rc.1; bound kept well under 1 milliNEAR)
+    // (measured ~502e18 yocto under 2.13.0-rc.2; bound kept well under 1 milliNEAR)
     assert!(contract_balance_diff < NearToken::from_yoctonear(800_000_000_000_000_000_000));
 
     Ok(())
@@ -286,7 +286,7 @@ async fn test_storage_deposit_refunds_excessive_deposit(
     // contract receives a gas rewards for the function call, so the difference should be slightly more than minimal_deposit
     assert!(contract_balance_diff > minimal_deposit);
     // raised for protocol v85 (nearcore 2.13): function-call gas reward increased vs v84
-    // (measured ~517e18 yocto over minimal_deposit under 2.13.0-rc.1)
+    // (measured ~517e18 yocto over minimal_deposit under 2.13.0-rc.2)
     assert!(
         contract_balance_diff
             < minimal_deposit.saturating_add(NearToken::from_yoctonear(800_000_000_000_000_000_000))

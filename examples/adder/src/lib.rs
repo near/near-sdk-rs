@@ -54,7 +54,8 @@ mod tests {
     #[tokio::test]
     async fn test_add_callback_vec() -> anyhow::Result<()> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+        // TODO: drop explicit version once near-sandbox-rs ships a v85 DEFAULT_NEAR_SANDBOX_VERSION
+        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         let res = contract

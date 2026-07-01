@@ -36,7 +36,7 @@ async fn initialized_contract(
     initial_balance: U128,
     lockable_fungible_contract_wasm: &Vec<u8>,
 ) -> anyhow::Result<(Contract, Account)> {
-    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.1").await?;
+    let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
 
     let contract = worker.dev_deploy(lockable_fungible_contract_wasm).await?;
 
