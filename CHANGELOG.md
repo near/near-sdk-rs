@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.29.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.3...near-sdk-v5.29.0) - 2026-07-01
+
+### Added
+
+- add gas-key host functions (nearcore 2.13) ([#1568](https://github.com/near/near-sdk-rs/pull/1568))
+
 ## [5.28.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.2...near-sdk-v5.28.3) - 2026-06-26
 
 ### Fixed

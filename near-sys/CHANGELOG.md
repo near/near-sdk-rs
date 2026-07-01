@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.11](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.10...near-sys-v0.2.11) - 2026-07-01
+
+### Added
+
+- add gas-key host functions (nearcore 2.13) ([#1568](https://github.com/near/near-sdk-rs/pull/1568))
+
 ## [0.2.10](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.9...near-sys-v0.2.10) - 2026-06-09
 
 ### Fixed
