@@ -1628,6 +1628,9 @@ pub mod state;
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
 
+#[cfg(feature = "digest")]
+pub use near_digest as digest;
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
