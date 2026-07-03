@@ -1,9 +1,15 @@
+//! SHA-2 hash family.
+
 use crate::digest_cfg;
 
 #[cfg(near)]
 mod near;
 
 digest_cfg! {
+    /// SHA-256 hasher.
+    ///
+    /// Backed by the `sha256_array` host function when compiled as a NEAR contract (`cfg(near)`),
+    /// and by the pure-Rust implementation from the [`sha2`](https://docs.rs/sha2) crate otherwise.
     pub struct Sha256 {
         near => self::near::Sha256,
         _ => ::sha2::Sha256,

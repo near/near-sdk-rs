@@ -1,9 +1,16 @@
+//! RIPEMD hash family.
+
 use crate::digest_cfg;
 
 #[cfg(near)]
 mod near;
 
 digest_cfg! {
+    /// RIPEMD-160 hasher.
+    ///
+    /// Backed by the `ripemd160_array` host function when compiled as a NEAR contract
+    /// (`cfg(near)`), and by the pure-Rust implementation from the
+    /// [`ripemd`](https://docs.rs/ripemd) crate otherwise.
     pub struct Ripemd160 {
         near => self::near::Ripemd160,
         _ => ::ripemd::Ripemd160,

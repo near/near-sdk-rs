@@ -1,9 +1,16 @@
+//! SHA-3 hash family: Keccak and (unstable) SHA-3 variants
+
 use crate::digest_cfg;
 
 #[cfg(near)]
 mod near;
 
 digest_cfg! {
+    /// Keccak-256 hasher
+    ///
+    /// Backed by the `keccak256_array` host function when compiled as a NEAR contract
+    /// (`cfg(near)`), and by the pure-Rust implementation from the [`sha3`](https://docs.rs/sha3)
+    /// crate otherwise.
     pub struct Keccak256 {
         near => self::near::Keccak256,
         _ => ::sha3::Keccak256,
@@ -11,6 +18,11 @@ digest_cfg! {
 }
 
 digest_cfg! {
+    /// Keccak-512 hasher
+    ///
+    /// Backed by the `keccak512_array` host function when compiled as a NEAR contract
+    /// (`cfg(near)`), and by the pure-Rust implementation from the [`sha3`](https://docs.rs/sha3)
+    /// crate otherwise.
     pub struct Keccak512 {
         near => self::near::Keccak512,
         _ => ::sha3::Keccak512,
@@ -19,6 +31,11 @@ digest_cfg! {
 
 #[cfg(feature = "unstable")]
 digest_cfg! {
+    /// Sha3-256 hasher
+    ///
+    /// There is currently no NEAR host function for SHA3, so this is computed in pure Rust on all
+    /// targets, including on-chain. A host-function backend may be added in the future - hence the
+    /// `unstable` feature gate.
     pub struct Sha3_256 {
         // TODO: Add `cfg(near)` path
         _ => ::sha3::Sha3_256
@@ -27,6 +44,11 @@ digest_cfg! {
 
 #[cfg(feature = "unstable")]
 digest_cfg! {
+    /// Sha3-512 hasher
+    ///
+    /// There is currently no NEAR host function for SHA3, so this is computed in pure Rust on all
+    /// targets, including on-chain. A host-function backend may be added in the future - hence the
+    /// `unstable` feature gate.
     pub struct Sha3_512 {
         // TODO: Add `cfg(near)` path
         _ => ::sha3::Sha3_512

@@ -21,6 +21,8 @@ sha3 = { version = "0.11.0", optional = true }
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { path = "../near-sdk-env/" }
 impl-tools = "0.12.0"
+# for `unstable` Sha3-256/512
+sha3 = { version = "0.11.0", optional = true }
 
 [features]
 ripemd = ["dep:ripemd"]
@@ -53,3 +55,6 @@ near-sdk = { path = "../near-sdk/", features = ["unit-testing"] }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
