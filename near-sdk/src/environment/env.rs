@@ -689,6 +689,54 @@ pub fn ed25519_verify(
     }
 }
 
+/// Verifies a P-256 (secp256r1) ECDSA signature of a prehashed message using provided public key
+///
+/// Unlike [`ed25519_verify`], the message is **not** hashed by the host function: the caller is
+/// responsible for applying the appropriate hash (for example SHA-256) before calling, per [NEP-635](https://github.com/near/NEPs/pull/635).
+///
+/// - `signature` - 64 bytes, encoded as `r || s` (32 bytes each, big-endian).
+/// - `message` - the prehashed digest to verify, typically a 32-byte SHA-256 digest.
+/// - `public_key` - a 33-byte compressed SEC1 encoding.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{p256_verify, sha256_array};
+/// use hex;
+///
+/// assert_eq!(
+///     p256_verify(
+///         hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///         sha256_array(b"sample"),
+///         hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///     ),
+///     true
+/// );
+///
+/// assert_eq!(
+///     p256_verify(
+///         hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///         sha256_array(b"Modified message!"),
+///         hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///     ),
+///     false
+/// );
+/// ```
 pub fn p256_verify(signature: &[u8; 64], message: impl AsRef<[u8]>, public_key: &[u8; 33]) -> bool {
     let message = message.as_ref();
 
@@ -2817,6 +2865,52 @@ mod tests {
         assert!(!super::ed25519_verify(&BAD_SIGNATURE, MESSAGE, &FORGED_PUBLIC_KEY));
         assert!(!super::ed25519_verify(&SIGNATURE, MESSAGE, &FORGED_PUBLIC_KEY));
         assert!(!super::ed25519_verify(&FORGED_SIGNATURE, MESSAGE, &PUBLIC_KEY));
+    }
+
+    #[test]
+    fn p256_verify() {
+        // RFC 6979 A.2.5 test vector: curve P-256, SHA-256, message "sample".
+        // https://www.rfc-editor.org/info/rfc6979/#appendix-A.2.5
+        const SIGNATURE: [u8; 64] = [
+            0xEF, 0xD4, 0x8B, 0x2A, 0xAC, 0xB6, 0xA8, 0xFD, 0x11, 0x40, 0xDD, 0x9C, 0xD4, 0x5E,
+            0x81, 0xD6, 0x9D, 0x2C, 0x87, 0x7B, 0x56, 0xAA, 0xF9, 0x91, 0xC3, 0x4D, 0x0E, 0xA8,
+            0x4E, 0xAF, 0x37, 0x16, 0xF7, 0xCB, 0x1C, 0x94, 0x2D, 0x65, 0x7C, 0x41, 0xD4, 0x36,
+            0xC7, 0xA1, 0xB6, 0xE2, 0x9F, 0x65, 0xF3, 0xE9, 0x00, 0xDB, 0xB9, 0xAF, 0xF4, 0x06,
+            0x4D, 0xC4, 0xAB, 0x2F, 0x84, 0x3A, 0xCD, 0xA8,
+        ];
+
+        const BAD_SIGNATURE: [u8; 64] = [0; 64];
+
+        // 33-byte compressed SEC1 encoding pub key
+        const PUBLIC_KEY: [u8; 33] = [
+            0x03, 0x60, 0xFE, 0xD4, 0xBA, 0x25, 0x5A, 0x9D, 0x31, 0xC9, 0x61, 0xEB, 0x74, 0xC6,
+            0x35, 0x6D, 0x68, 0xC0, 0x49, 0xB8, 0x92, 0x3B, 0x61, 0xFA, 0x6C, 0xE6, 0x69, 0x62,
+            0x2E, 0x60, 0xF2, 0x9F, 0xB6,
+        ];
+
+        // flipped SEC1 parity byte (0x03 -> 0x02) gives the negated point.
+        // still on the curve, but different pub key
+        const NEGATED_PUBLIC_KEY: [u8; 33] = {
+            let mut key = PUBLIC_KEY;
+            key[0] = 0x02;
+            key
+        };
+
+        // Invalid public key
+        const INVALID_PUBLIC_KEY: [u8; 33] = [0; 33];
+
+        // the host function does not hash the message; the caller applies SHA-256
+        let message = super::sha256_array(b"sample");
+
+        // changed message
+        let changed_message = super::sha256_array(b"sampleE");
+
+        assert!(super::p256_verify(&SIGNATURE, message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, changed_message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, [0u8; 0], &PUBLIC_KEY));
+        assert!(!super::p256_verify(&BAD_SIGNATURE, message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, message, &NEGATED_PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, message, &INVALID_PUBLIC_KEY));
     }
 
     #[test]
