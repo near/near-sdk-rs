@@ -15,8 +15,8 @@
 //! Both backends produce identical output for identical input, so code using these
 //! types behaves the same on-chain and off-chain.
 //!
-//! All types implement the traits of the [`digest`] crate ([`Digest`](digest::Digest),
-//! [`Update`](digest::Update), [`FixedOutput`](digest::FixedOutput), ...), which makes
+//! All types implement the traits of the [`digest`] crate ([`Digest`],
+//! [`Update`], [`FixedOutput`], ...), which makes
 //! them drop-in replacements for the RustCrypto types in any generic API that accepts
 //! a `D: Digest` parameter.
 //!
@@ -60,13 +60,15 @@
 //! # On-chain buffering
 //!
 //! The NEAR host functions are one-shot: they take the whole message and return the
-//! hash. To still support the [`Update`](digest::Update) API, the `cfg(near)`
+//! hash. To still support the [`Update`] API, the `cfg(near)`
 //! backend buffers all input in memory and invokes the host function once at
 //! finalization.
 //!
 
 // re-export of the `digest` crate
 pub use digest;
+#[doc(no_inline)]
+pub use digest::{Digest, FixedOutput, HashMarker, OutputSizeUser, Update};
 
 #[cfg(any(doctest, test))]
 // XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain (`--cfg
