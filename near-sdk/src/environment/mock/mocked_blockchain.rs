@@ -332,6 +332,26 @@ mod mock_chain {
         })
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn p256_verify(
+        signature_len: u64,
+        signature_ptr: u64,
+        message_len: u64,
+        message_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.p256_verify(
+                signature_len,
+                signature_ptr,
+                message_len,
+                message_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn value_return(value_len: u64, value_ptr: u64) {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }

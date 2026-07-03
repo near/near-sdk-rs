@@ -689,6 +689,46 @@ pub fn ed25519_verify(
     }
 }
 
+pub fn p256_verify(signature: &[u8; 64], message: impl AsRef<[u8]>, public_key: &[u8; 33]) -> bool {
+    let message = message.as_ref();
+
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            sys::p256_verify(
+                signature.len() as _,
+                signature.as_ptr() as _,
+                message.len() as _,
+                message.as_ptr() as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            ) == 1
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use p256::ecdsa::signature::hazmat::PrehashVerifier;
+        use p256::ecdsa::{Signature, VerifyingKey};
+
+        let Ok(verifying_key) = VerifyingKey::from_sec1_bytes(public_key) else {
+            return false;
+        };
+        let Ok(signature) = Signature::from_bytes(signature.into()) else {
+            return false;
+        };
+        verifying_key.verify_prehash(message, &signature).is_ok()
+    }
+}
+
 /// Compute alt_bn128 g1 multiexp.
 ///
 /// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
