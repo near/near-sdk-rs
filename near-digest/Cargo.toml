@@ -7,6 +7,9 @@ categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+description = """
+`digest` trait implementations for hash functions in NEAR smart contracts: backed by NEAR host functions on-chain, pure Rust off-chain.
+"""
 
 [dependencies]
 digest = "0.11.3"
