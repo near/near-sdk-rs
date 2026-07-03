@@ -9,3 +9,24 @@ digest_cfg! {
         _ => ::ripemd::Ripemd160,
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use digest::Digest;
+    use hex_literal::hex;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(
+        b"",
+        hex!("9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+    )]
+    #[case(
+        b"near is cool!",
+        hex!("320214cbbb6821fb23d3cd96dc0731ff5644323b"),
+    )]
+    fn ripemd10_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 20]) {
+        assert!(Ripemd160::digest(data) == output, "has changed")
+    }
+}

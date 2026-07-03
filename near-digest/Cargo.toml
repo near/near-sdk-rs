@@ -46,7 +46,7 @@ near-digest = { path = ".", features = [
     "unstable",
 ] }
 rstest = "0.26.1"
-hex = "0.4.3"
+hex-literal = "1.1.0"
 
 [target.'cfg(near)'.dev-dependencies]
 near-sdk = { path = "../near-sdk/", features = ["unit-testing"] }

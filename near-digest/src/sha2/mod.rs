@@ -10,10 +10,23 @@ digest_cfg! {
     }
 }
 
-#[cfg(feature = "unstable")]
-digest_cfg! {
-    pub struct Sha512 {
-        // TODO: Add `cfg(near)` path
-        _ => ::sha2::Sha512,
+#[cfg(test)]
+mod test {
+    use super::*;
+    use digest::Digest;
+    use hex_literal::hex;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(
+        b"",
+        hex!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+    )]
+    #[case(
+        b"near is cool!",
+        hex!("ba2b2a7c9d2c2c2505232a24f2b0e1b0c5781423957db7f8439b80a0292e9485"),
+    )]
+    fn sha256_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 32]) {
+        assert!(Sha256::digest(data) == output, "has changed")
     }
 }
