@@ -23,6 +23,7 @@
 //! # Example
 //!
 //! ```
+//! # use near_sdk as _;
 //! use near_digest::digest::Digest;
 //! use near_digest::sha2::Sha256;
 //!
