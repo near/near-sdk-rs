@@ -34,6 +34,6 @@ mod test {
         hex!("320214cbbb6821fb23d3cd96dc0731ff5644323b"),
     )]
     fn ripemd160_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 20]) {
-        assert!(Ripemd160::digest(data) == output, "has changed")
+        assert_eq!(Ripemd160::digest(data), output, "hash has changed")
     }
 }

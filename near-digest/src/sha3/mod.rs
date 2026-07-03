@@ -72,7 +72,7 @@ mod test {
         hex!("5e7a77762908019844ab5c5432f9fc030ace77d2776b9535c03a9a184c9d3c59"),
     )]
     fn keccak_256_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 32]) {
-        assert!(Keccak256::digest(data) == output, "has changed")
+        assert_eq!(Keccak256::digest(data), output, "hash has changed")
     }
 
     #[rstest]
@@ -85,7 +85,7 @@ mod test {
         hex!("2e302ac2b8fca89a000940ff9264ffa2c46e3600bac574cddf3300b9b0d7cca7c974214a1b8ba2850ce894038c84bd835338b9673535da9fd13ab68ffd14df27"),
     )]
     fn keccak_512_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 64]) {
-        assert!(Keccak512::digest(data) == output, "has changed")
+        assert_eq!(Keccak512::digest(data), output, "hash has changed")
     }
 
     #[cfg(feature = "unstable")]
@@ -99,7 +99,7 @@ mod test {
         hex!("a839a0507ddbc3e7b23145a85bb11696e988cd771620b17de6be5063e8a721f7"),
     )]
     fn sha3_256_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 32]) {
-        assert!(Sha3_256::digest(data) == output, "has changed")
+        assert_eq!(Sha3_256::digest(data), output, "hash has changed")
     }
 
     #[cfg(feature = "unstable")]
@@ -113,6 +113,6 @@ mod test {
         hex!("a787e4851d76e71c9ab4cd0061d31570a6511430faeffe5637a60340bbc94f2d1dde1080e4c2d6d22d01084b174bf214140b2dc5dae196e4741e6a42d1f49b96"),
     )]
     fn sha3_512_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 64]) {
-        assert!(Sha3_512::digest(data) == output, "has changed")
+        assert_eq!(Sha3_512::digest(data), output, "hash has changed")
     }
 }

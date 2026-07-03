@@ -33,6 +33,6 @@ mod test {
         hex!("ba2b2a7c9d2c2c2505232a24f2b0e1b0c5781423957db7f8439b80a0292e9485"),
     )]
     fn sha256_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 32]) {
-        assert!(Sha256::digest(data) == output, "has changed")
+        assert_eq!(Sha256::digest(data), output, "hash has changed")
     }
 }
