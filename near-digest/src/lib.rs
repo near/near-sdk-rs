@@ -67,6 +67,11 @@
 // re-export of the `digest` crate
 pub use digest;
 
+#[cfg(any(doctest, test))]
+// XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain (`--cfg
+// near` path)
+use near_sdk as _;
+
 #[cfg(feature = "ripemd")]
 pub mod ripemd;
 #[cfg(feature = "sha2")]
