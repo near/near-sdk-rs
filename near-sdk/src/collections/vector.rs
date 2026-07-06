@@ -60,17 +60,38 @@ impl<T> Vector<T> {
     /// This new [`Vector`]'s API matches the Rust [`Vec`] API more closely and has a caching
     /// layer to avoid reading/writing redundant times to storage.
     ///
+    /// This [`collections::Vector`](Vector) keys its elements with an 8-byte (`u64`) index
+    /// suffix, while [`store::Vector`] keys them with a 4-byte (`u32`) index suffix. Simply
+    /// reusing the storage prefix would silently orphan every element under its old key, so
+    /// this method re-keys each element in storage from the old 8-byte layout to the new
+    /// 4-byte layout in place. Because the two key widths can never collide, this migration
+    /// is safe to perform in index order.
+    ///
+    /// This mutates the underlying storage, so it takes `&mut self`. Treat `self` as consumed
+    /// after calling this: the source vector must be discarded (its elements no longer exist
+    /// at their old keys) and only the returned [`store::Vector`] should be used afterwards.
+    ///
     /// [`Vector`]: crate::store::Vector
+    /// [`store::Vector`]: crate::store::Vector
     #[cfg(feature = "unstable")]
-    pub fn to_v2(&self) -> crate::store::Vector<T>
+    pub fn to_v2(&mut self) -> crate::store::Vector<T>
     where
         T: BorshSerialize,
     {
-        crate::store::Vector {
-            // Length cannot feasibly exceed u32::MAX, but checked conversion anyway.
-            len: self.len.try_into().unwrap(),
-            values: crate::store::IndexMap::new(self.prefix.as_slice()),
+        // Length cannot feasibly exceed u32::MAX, but checked conversion anyway.
+        let len: u32 = self.len.try_into().unwrap();
+
+        // Re-key every element in place: move the raw bytes from the old 8-byte-suffixed key
+        // to the new 4-byte-suffixed key that `store::IndexMap` expects.
+        for index in 0..self.len {
+            let old_key = append_slice(&self.prefix, &index.to_le_bytes()[..]);
+            let raw = expect_consistent_state(env::storage_read(&old_key));
+            let new_key = append_slice(&self.prefix, &(index as u32).to_le_bytes()[..]);
+            env::storage_write(&new_key, &raw);
+            env::storage_remove(&old_key);
         }
+
+        crate::store::Vector { len, values: crate::store::IndexMap::new(self.prefix.as_slice()) }
     }
 
     fn index_to_lookup_key(&self, index: u64) -> Vec<u8> {
@@ -555,5 +576,56 @@ mod tests {
 
         // Count check
         assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn to_v2_migrates_and_rekeys_elements() {
+        fn key_with(prefix: &[u8], suffix: &[u8]) -> Vec<u8> {
+            let mut k = prefix.to_vec();
+            k.extend_from_slice(suffix);
+            k
+        }
+
+        let mut v: Vector<u64> = Vector::new(b"v".to_vec());
+        v.push(&10);
+        v.push(&20);
+        v.push(&30);
+
+        // Legacy element 0 physically lives at prefix ++ u64(0) (8-byte suffix).
+        let k_u64 = key_with(b"v", &0u64.to_le_bytes());
+        let k_u32 = key_with(b"v", &0u32.to_le_bytes());
+        assert!(crate::env::storage_has_key(&k_u64), "legacy element at 8-byte key");
+        assert!(!crate::env::storage_has_key(&k_u32), "nothing at the 4-byte key yet");
+
+        let v2 = v.to_v2();
+
+        // Length preserved AND data is readable under the new layout.
+        assert_eq!(v2.len(), 3);
+        assert_eq!(v2.get(0), Some(&10));
+        assert_eq!(v2.get(1), Some(&20));
+        assert_eq!(v2.get(2), Some(&30));
+
+        // Data now lives at the new 4-byte key and the old 8-byte key is cleaned up (no leak).
+        assert!(crate::env::storage_has_key(&k_u32), "migrated element at 4-byte key");
+        assert!(!crate::env::storage_has_key(&k_u64), "old 8-byte key must be removed");
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn to_v2_migrates_full_vector_end_to_end() {
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
+        let mut vec = Vector::new(b"v".to_vec());
+        let mut baseline = vec![];
+        for _ in 0..250 {
+            let value = rng.r#gen::<u64>();
+            vec.push(&value);
+            baseline.push(value);
+        }
+
+        let v2 = vec.to_v2();
+        assert_eq!(v2.len() as u64, vec.len());
+        let migrated: Vec<u64> = v2.iter().copied().collect();
+        assert_eq!(migrated, baseline);
     }
 }
