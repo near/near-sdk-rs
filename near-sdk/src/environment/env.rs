@@ -2940,6 +2940,14 @@ mod tests {
             0x4D, 0xC4, 0xAB, 0x2F, 0x84, 0x3A, 0xCD, 0xA8,
         ];
 
+        const LOW_S_SIGNATURE: [u8; 64] = [
+            0xEF, 0xD4, 0x8B, 0x2A, 0xAC, 0xB6, 0xA8, 0xFD, 0x11, 0x40, 0xDD, 0x9C, 0xD4, 0x5E,
+            0x81, 0xD6, 0x9D, 0x2C, 0x87, 0x7B, 0x56, 0xAA, 0xF9, 0x91, 0xC3, 0x4D, 0x0E, 0xA8,
+            0x4E, 0xAF, 0x37, 0x16, 0x08, 0x34, 0xE3, 0x6A, 0xD2, 0x9A, 0x83, 0xBF, 0x2B, 0xC9,
+            0x38, 0x5E, 0x49, 0x1D, 0x60, 0x99, 0xC8, 0xFD, 0xF9, 0xD1, 0xED, 0x67, 0xAA, 0x7E,
+            0xA5, 0xF5, 0x1F, 0x93, 0x78, 0x28, 0x57, 0xA9,
+        ];
+
         const BAD_SIGNATURE: [u8; 64] = [0; 64];
 
         // 33-byte compressed SEC1 encoding pub key
@@ -2967,11 +2975,15 @@ mod tests {
         let changed_message = super::sha256_array(b"sampleE");
 
         assert!(super::p256_verify(&SIGNATURE, message, &PUBLIC_KEY));
+        assert!(super::p256_verify(&LOW_S_SIGNATURE, message, &PUBLIC_KEY));
         assert!(!super::p256_verify(&SIGNATURE, changed_message, &PUBLIC_KEY));
         assert!(!super::p256_verify(&SIGNATURE, [0u8; 0], &PUBLIC_KEY));
         assert!(!super::p256_verify(&BAD_SIGNATURE, message, &PUBLIC_KEY));
         assert!(!super::p256_verify(&SIGNATURE, message, &NEGATED_PUBLIC_KEY));
         assert!(!super::p256_verify(&SIGNATURE, message, &INVALID_PUBLIC_KEY));
+
+        assert!(!super::p256_signature_is_low_s(&SIGNATURE));
+        assert!(super::p256_signature_is_low_s(&LOW_S_SIGNATURE));
     }
 
     #[test]
