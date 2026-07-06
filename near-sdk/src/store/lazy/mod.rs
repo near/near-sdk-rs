@@ -126,7 +126,11 @@ where
 
     /// Removes the underlying storage item. Useful for deprecating the obsolete [`Lazy`] values.
     pub fn remove(&mut self) -> bool {
-        env::storage_remove(&self.storage_key)
+        let existed = env::storage_remove(&self.storage_key);
+        // Reset the cache to a non-modified `None` so a later flush (e.g. on Drop) does
+        // not resurrect the removed value.
+        self.cache = OnceCell::from(CacheEntry::new_cached(None));
+        existed
     }
 }
 
@@ -201,6 +205,56 @@ mod tests {
         assert!(env::storage_has_key(b"m"));
         lazy.remove();
         assert!(!env::storage_has_key(b"m"));
+    }
+
+    #[test]
+    fn remove_after_mutation_is_reverted_by_drop() {
+        {
+            let mut a: Lazy<u32> = Lazy::new(b"remove_drop_key".to_vec(), 1u32);
+            a.flush(); // persist 1; cache state -> Cached
+            assert!(env::storage_has_key(b"remove_drop_key"), "precondition: value persisted");
+
+            a.set(7); // cache state -> Modified (holds 7)
+            assert!(a.remove(), "remove() reports the key existed and was removed");
+            assert!(
+                !env::storage_has_key(b"remove_drop_key"),
+                "key is gone immediately after remove()"
+            );
+        } // <- Drop runs flush(); with the bug, cache is Modified(7) and re-writes key
+
+        // After the fix the removed key must stay gone.
+        assert!(
+            !env::storage_has_key(b"remove_drop_key"),
+            "removed key must not be resurrected by Drop-flush"
+        );
+    }
+
+    #[test]
+    fn remove_then_explicit_flush_keeps_key_gone() {
+        let mut a: Lazy<u32> = Lazy::new(b"remove_flush_key".to_vec(), 1u32);
+        a.flush();
+        assert!(env::storage_has_key(b"remove_flush_key"));
+
+        a.set(7);
+        assert!(a.remove());
+        assert!(!env::storage_has_key(b"remove_flush_key"));
+
+        // An explicit flush after remove() must also not resurrect the key.
+        a.flush();
+        assert!(!env::storage_has_key(b"remove_flush_key"));
+    }
+
+    #[test]
+    fn remove_never_persisted_value_leaves_nothing_after_drop() {
+        {
+            // Value was never flushed, so nothing has been written to storage yet.
+            let mut a: Lazy<u32> = Lazy::new(b"remove_never_persisted_key".to_vec(), 1u32);
+            a.set(7);
+            assert!(!a.remove(), "remove() reports the key never existed in storage");
+            assert!(!env::storage_has_key(b"remove_never_persisted_key"));
+        } // <- Drop runs flush(); must remain a no-op.
+
+        assert!(!env::storage_has_key(b"remove_never_persisted_key"));
     }
 
     #[test]
