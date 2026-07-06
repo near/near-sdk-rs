@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_after_mutation_is_reverted_by_drop() {
+    fn remove_after_mutation_not_resurrected_by_drop() {
         {
             let mut a: Lazy<u32> = Lazy::new(b"remove_drop_key".to_vec(), 1u32);
             a.flush(); // persist 1; cache state -> Cached
