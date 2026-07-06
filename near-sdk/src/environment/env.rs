@@ -49,6 +49,13 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+/// `floor(n / 2)` where `n` is the P-256 group order
+/// `n = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551`
+const P256_HALF_ORDER: [u8; 32] = [
+    0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xDE, 0x73, 0x7D, 0x56, 0xD3, 0x8B, 0xCF, 0x42, 0x79, 0xDC, 0xE5, 0x61, 0x7E, 0x31, 0x92, 0xA8,
+];
+
 #[inline]
 #[track_caller]
 fn expect_register<T>(option: Option<T>) -> T {
@@ -698,6 +705,16 @@ pub fn ed25519_verify(
 /// - `message` - the prehashed digest to verify, typically a 32-byte SHA-256 digest.
 /// - `public_key` - a 33-byte compressed SEC1 encoding.
 ///
+/// Note that this function accepts both forms of a signature (`(r, s)` and `(r, n - s)`) matching
+/// the underlying host function and ECSDA standard (NIST FIPS 186-5), which treats both as equally valid.
+/// This means that two different byte strings can verify for the same message and key. Contracts
+/// that treat signature bytes as unique must additionally require that signatures are in low-S
+/// form using [`p256_signature_is_low_s`]:
+///
+/// ```ignore
+/// assert!(p256_signature_is_low_s(&sig) && p256_verify(&sig, digest, &public_key));
+/// ```
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{p256_verify, sha256_array};
@@ -775,6 +792,50 @@ pub fn p256_verify(signature: &[u8; 64], message: impl AsRef<[u8]>, public_key: 
         };
         verifying_key.verify_prehash(message, &signature).is_ok()
     }
+}
+
+/// Checks whether a P-256 ECDSA signature is in low-S form.
+///
+/// Returns `true` if the signature is not malleable via `(r, n - s)`.
+///
+/// This is a pure byte comparison: it does **not** verify the signature and performs no host calls.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{p256_signature_is_low_s, p256_verify, sha256_array};
+/// use hex;
+///
+/// let high_s: [u8; 64] =
+///     hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// let low_s: [u8; 64] =
+///     hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF37160834E36AD29A83BF2BC9385E491D6099C8FDF9D1ED67AA7EA5F51F93782857A9")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// let public_key: [u8; 33] =
+///     hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// // Both verify: ECDSA is malleable by construction...
+/// assert!(p256_verify(&high_s, sha256_array(b"sample"), &public_key));
+/// assert!(p256_verify(&low_s, sha256_array(b"sample"), &public_key));
+///
+/// // ... but exactly one of the two is in low-S form.
+/// assert!(!p256_signature_is_low_s(&high_s));
+/// assert!(p256_signature_is_low_s(&low_s));
+/// ```
+pub fn p256_signature_is_low_s(signature: &[u8; 64]) -> bool {
+    signature[32..] <= P256_HALF_ORDER[..]
 }
 
 /// Compute alt_bn128 g1 multiexp.
