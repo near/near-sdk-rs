@@ -127,9 +127,11 @@ where
     /// Removes the underlying storage item. Useful for deprecating the obsolete [`Lazy`] values.
     pub fn remove(&mut self) -> bool {
         let existed = env::storage_remove(&self.storage_key);
-        // Reset the cache to a non-modified `None` so a later flush (e.g. on Drop) does
-        // not resurrect the removed value.
-        self.cache = OnceCell::from(CacheEntry::new_cached(None));
+        // Clear the cache so a later flush (e.g. on Drop) cannot resurrect the removed value:
+        // an uninitialized cache makes `flush` a no-op. A subsequent read then reloads from
+        // storage and reports the value as absent (`ERR_NOT_FOUND`), matching the documented
+        // `get`/`get_mut` behavior, instead of a misleading inconsistent-state error.
+        self.cache = OnceCell::new();
         existed
     }
 }
