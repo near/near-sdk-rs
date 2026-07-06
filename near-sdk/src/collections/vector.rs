@@ -67,14 +67,15 @@ impl<T> Vector<T> {
     /// 4-byte layout in place. Because the two key widths can never collide, this migration
     /// is safe to perform in index order.
     ///
-    /// This mutates the underlying storage, so it takes `&mut self`. Treat `self` as consumed
-    /// after calling this: the source vector must be discarded (its elements no longer exist
-    /// at their old keys) and only the returned [`store::Vector`] should be used afterwards.
+    /// This consumes `self`: re-keying mutates the underlying storage, so the source vector's
+    /// elements no longer exist at their old keys once it returns. Taking `self` by value makes
+    /// accidental reuse of the migrated-away vector a compile error; only the returned
+    /// [`store::Vector`] should be used afterwards.
     ///
     /// [`Vector`]: crate::store::Vector
     /// [`store::Vector`]: crate::store::Vector
     #[cfg(feature = "unstable")]
-    pub fn to_v2(&mut self) -> crate::store::Vector<T>
+    pub fn to_v2(self) -> crate::store::Vector<T>
     where
         T: BorshSerialize,
     {
@@ -623,8 +624,11 @@ mod tests {
             baseline.push(value);
         }
 
+        // Capture the length before migrating: `to_v2` consumes the legacy vector, so the
+        // source must not be used afterwards.
+        let expected_len = vec.len();
         let v2 = vec.to_v2();
-        assert_eq!(v2.len() as u64, vec.len());
+        assert_eq!(v2.len() as u64, expected_len);
         let migrated: Vec<u64> = v2.iter().copied().collect();
         assert_eq!(migrated, baseline);
     }
