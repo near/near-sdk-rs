@@ -35,4 +35,9 @@ mod test {
     fn sha256_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 32]) {
         assert_eq!(Sha256::digest(data), output, "hash has changed")
     }
+
+    #[test]
+    fn sha256_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Sha256>();
+    }
 }

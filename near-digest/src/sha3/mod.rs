@@ -75,6 +75,11 @@ mod test {
         assert_eq!(Keccak256::digest(data), output, "hash has changed")
     }
 
+    #[test]
+    fn keccak256_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Keccak256>();
+    }
+
     #[rstest]
     #[case(
         b"",
@@ -86,6 +91,11 @@ mod test {
     )]
     fn keccak_512_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 64]) {
         assert_eq!(Keccak512::digest(data), output, "hash has changed")
+    }
+
+    #[test]
+    fn keccak512_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Keccak512>();
     }
 
     #[cfg(feature = "unstable")]
@@ -103,6 +113,12 @@ mod test {
     }
 
     #[cfg(feature = "unstable")]
+    #[test]
+    fn sha3_256_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Sha3_256>();
+    }
+
+    #[cfg(feature = "unstable")]
     #[rstest]
     #[case(
         b"",
@@ -114,5 +130,11 @@ mod test {
     )]
     fn sha3_512_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 64]) {
         assert_eq!(Sha3_512::digest(data), output, "hash has changed")
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn sha3_512_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Sha3_512>();
     }
 }

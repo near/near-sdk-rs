@@ -131,6 +131,20 @@ macro_rules! digest_cfg {
             }
         }
 
+        impl ::digest::Reset for $name {
+            #[inline]
+            fn reset(&mut self) {
+                ::digest::Reset::reset(&mut self.0);
+            }
+        }
+
+        impl ::digest::FixedOutputReset for $name {
+            #[inline]
+            fn finalize_into_reset(&mut self, out: &mut ::digest::Output<Self>) {
+                ::digest::FixedOutputReset::finalize_into_reset(&mut self.0, out);
+            }
+        }
+
         impl ::digest::HashMarker for $name {}
 
         #[cfg(feature = "zeroize")]
@@ -163,6 +177,20 @@ macro_rules! digest_cfg {
             }
         }
 
+        impl ::digest::Reset for $name {
+            #[inline]
+            fn reset(&mut self) {
+                ::digest::Reset::reset(&mut self.0);
+            }
+        }
+
+        impl ::digest::FixedOutputReset for $name {
+            #[inline]
+            fn finalize_into_reset(&mut self, out: &mut ::digest::Output<Self>) {
+                ::digest::FixedOutputReset::finalize_into_reset(&mut self.0, out);
+            }
+        }
+
         impl ::digest::HashMarker for $name {}
 
         #[cfg(feature = "zeroize")]
@@ -171,3 +199,29 @@ macro_rules! digest_cfg {
 }
 #[cfg(any(feature = "ripemd", feature = "sha2", feature = "sha3"))]
 pub(crate) use digest_cfg;
+
+#[cfg(test)]
+pub(crate) mod test_utils {
+    use digest::{Digest, FixedOutputReset, Reset};
+
+    /// Asserts that `reset`/`finalize_reset` return a hasher to its initial state on
+    /// whichever backend was selected for the compilation target.
+    pub(crate) fn assert_reset_roundtrip<D: Digest + FixedOutputReset + Reset>() {
+        let expected_first = D::digest(b"example ");
+        let expected_second = D::digest(b"example2");
+
+        // `finalize_reset` produces the digest of the input so far and clears the state
+        let mut hasher = D::new();
+        Digest::update(&mut hasher, b"example ");
+        assert_eq!(Digest::finalize_reset(&mut hasher), expected_first);
+        Digest::update(&mut hasher, b"example2");
+        assert_eq!(Digest::finalize(hasher), expected_second);
+
+        // `reset` discards buffered input without producing a digest
+        let mut hasher = D::new();
+        Digest::update(&mut hasher, b"example ");
+        Digest::reset(&mut hasher);
+        Digest::update(&mut hasher, b"example2");
+        assert_eq!(Digest::finalize(hasher), expected_second);
+    }
+}

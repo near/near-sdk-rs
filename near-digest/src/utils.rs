@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use digest::{FixedOutput, HashMarker, Output, OutputSizeUser, Update};
+use digest::{FixedOutput, FixedOutputReset, HashMarker, Output, OutputSizeUser, Reset, Update};
 use impl_tools::autoimpl;
 
 pub trait DigestFinalizer: OutputSizeUser {
@@ -29,6 +29,21 @@ impl<F: DigestFinalizer> FixedOutput for DigestFn<F> {
     #[inline]
     fn finalize_into(self, out: &mut digest::Output<Self>) {
         *out = F::digest(&self.data);
+    }
+}
+
+impl<F> Reset for DigestFn<F> {
+    #[inline]
+    fn reset(&mut self) {
+        self.data.clear();
+    }
+}
+
+impl<F: DigestFinalizer> FixedOutputReset for DigestFn<F> {
+    #[inline]
+    fn finalize_into_reset(&mut self, out: &mut digest::Output<Self>) {
+        *out = F::digest(&self.data);
+        self.data.clear();
     }
 }
 

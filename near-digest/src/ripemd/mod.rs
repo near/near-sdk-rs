@@ -36,4 +36,9 @@ mod test {
     fn ripemd160_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 20]) {
         assert_eq!(Ripemd160::digest(data), output, "hash has changed")
     }
+
+    #[test]
+    fn ripemd160_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Ripemd160>();
+    }
 }
