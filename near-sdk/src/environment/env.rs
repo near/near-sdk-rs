@@ -706,7 +706,7 @@ pub fn ed25519_verify(
 /// - `public_key` - a 33-byte compressed SEC1 encoding.
 ///
 /// Note that this function accepts both forms of a signature (`(r, s)` and `(r, n - s)`) matching
-/// the underlying host function and ECSDA standard (NIST FIPS 186-5), which treats both as equally valid.
+/// the underlying host function and ECDSA standard (NIST FIPS 186-5), which treats both as equally valid.
 /// This means that two different byte strings can verify for the same message and key. Contracts
 /// that treat signature bytes as unique must additionally require that signatures are in low-S
 /// form using [`p256_signature_is_low_s`]:
@@ -753,6 +753,31 @@ pub fn ed25519_verify(
 ///     ),
 ///     false
 /// );
+/// ```
+///
+/// # WebAuthn
+///
+/// One of the primary use cases for this host function is verifying WebAuthn assertions, which use
+/// ECDSA P-256 with SHA-256. Per the [WebAuthn spec](https://www.w3.org/TR/webauthn-2/), the authenticator signs the concatenation
+/// `authenticator_data || SHA-256(client_data_json)`, so that concatenation must be hashed once
+/// more to produce the digest for `p256_verify`. Note that browsers return the assertion as ASN.1
+/// DER; the client must convert it to raw `r || s` (each component zero-padded to 32 bytes) before
+/// submitting.
+///
+/// ```ignore
+/// use near_sdk::env::{p256_verify, sha256_array};
+///
+/// pub fn verify_passkey(
+///     authenticator_data: &[u8],
+///     client_data_json: &[u8],
+///     signature: &[u8; 64],
+///     public_key: &[u8; 33],
+/// ) -> bool {
+///     let mut signed_payload = Vec::with_capacity(authenticator_data.len() + 32);
+///     signed_payload.extend_from_slice(authenticator_data);
+///     signed_payload.extend_from_slice(&sha256_array(client_data_json));
+///     p256_verify(signature, sha256_array(&signed_payload), public_key)
+/// }
 /// ```
 pub fn p256_verify(signature: &[u8; 64], message: impl AsRef<[u8]>, public_key: &[u8; 33]) -> bool {
     let message = message.as_ref();
