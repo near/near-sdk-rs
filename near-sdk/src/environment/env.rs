@@ -49,6 +49,13 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+/// `floor(n / 2)` where `n` is the P-256 group order
+/// `n = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551`
+const P256_HALF_ORDER: [u8; 32] = [
+    0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xDE, 0x73, 0x7D, 0x56, 0xD3, 0x8B, 0xCF, 0x42, 0x79, 0xDC, 0xE5, 0x61, 0x7E, 0x31, 0x92, 0xA8,
+];
+
 #[inline]
 #[track_caller]
 fn expect_register<T>(option: Option<T>) -> T {
@@ -687,6 +694,173 @@ pub fn ed25519_verify(
         let signature = Signature::from_bytes(signature);
         verifying_key.verify(message, &signature).is_ok()
     }
+}
+
+/// Verifies a P-256 (secp256r1) ECDSA signature of a prehashed message using provided public key
+///
+/// Unlike [`ed25519_verify`], the message is **not** hashed by the host function: the caller is
+/// responsible for applying the appropriate hash (for example SHA-256) before calling, per [NEP-635](https://github.com/near/NEPs/pull/635).
+///
+/// - `signature` - 64 bytes, encoded as `r || s` (32 bytes each, big-endian).
+/// - `message` - the prehashed digest to verify, typically a 32-byte SHA-256 digest.
+/// - `public_key` - a 33-byte compressed SEC1 encoding.
+///
+/// Note that this function accepts both forms of a signature (`(r, s)` and `(r, n - s)`) matching
+/// the underlying host function and ECDSA standard (NIST FIPS 186-5), which treats both as equally valid.
+/// This means that two different byte strings can verify for the same message and key. Contracts
+/// that treat signature bytes as unique must additionally require that signatures are in low-S
+/// form using [`p256_signature_is_low_s`]:
+///
+/// ```ignore
+/// assert!(p256_signature_is_low_s(&sig) && p256_verify(&sig, digest, &public_key));
+/// ```
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{p256_verify, sha256_array};
+/// use hex;
+///
+/// assert_eq!(
+///     p256_verify(
+///         hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///         sha256_array(b"sample"),
+///         hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///     ),
+///     true
+/// );
+///
+/// assert_eq!(
+///     p256_verify(
+///         hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///         sha256_array(b"Modified message!"),
+///         hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///             .expect("Decoding failed")
+///             .as_slice()
+///             .try_into()
+///             .unwrap(),
+///     ),
+///     false
+/// );
+/// ```
+///
+/// # WebAuthn
+///
+/// One of the primary use cases for this host function is verifying WebAuthn assertions, which use
+/// ECDSA P-256 with SHA-256. Per the [WebAuthn spec](https://www.w3.org/TR/webauthn-2/), the authenticator signs the concatenation
+/// `authenticator_data || SHA-256(client_data_json)`, so that concatenation must be hashed once
+/// more to produce the digest for `p256_verify`. Note that browsers return the assertion as ASN.1
+/// DER; the client must convert it to raw `r || s` (each component zero-padded to 32 bytes) before
+/// submitting.
+///
+/// ```ignore
+/// use near_sdk::env::{p256_verify, sha256_array};
+///
+/// pub fn verify_passkey(
+///     authenticator_data: &[u8],
+///     client_data_json: &[u8],
+///     signature: &[u8; 64],
+///     public_key: &[u8; 33],
+/// ) -> bool {
+///     let mut signed_payload = Vec::with_capacity(authenticator_data.len() + 32);
+///     signed_payload.extend_from_slice(authenticator_data);
+///     signed_payload.extend_from_slice(&sha256_array(client_data_json));
+///     p256_verify(signature, sha256_array(&signed_payload), public_key)
+/// }
+/// ```
+pub fn p256_verify(signature: &[u8; 64], message: impl AsRef<[u8]>, public_key: &[u8; 33]) -> bool {
+    let message = message.as_ref();
+
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            sys::p256_verify(
+                signature.len() as _,
+                signature.as_ptr() as _,
+                message.len() as _,
+                message.as_ptr() as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            ) == 1
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        use p256::ecdsa::signature::hazmat::PrehashVerifier;
+        use p256::ecdsa::{Signature, VerifyingKey};
+
+        let Ok(verifying_key) = VerifyingKey::from_sec1_bytes(public_key) else {
+            return false;
+        };
+        let Ok(signature) = Signature::from_bytes(signature.into()) else {
+            return false;
+        };
+        verifying_key.verify_prehash(message, &signature).is_ok()
+    }
+}
+
+/// Checks whether a P-256 ECDSA signature is in low-S form.
+///
+/// Returns `true` if the signature is not malleable via `(r, n - s)`.
+///
+/// This is a pure byte comparison: it does **not** verify the signature and performs no host calls.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{p256_signature_is_low_s, p256_verify, sha256_array};
+/// use hex;
+///
+/// let high_s: [u8; 64] =
+///     hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716F7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// let low_s: [u8; 64] =
+///     hex::decode("EFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF37160834E36AD29A83BF2BC9385E491D6099C8FDF9D1ED67AA7EA5F51F93782857A9")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// let public_key: [u8; 33] =
+///     hex::decode("0360FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6")
+///         .expect("Decoding failed")
+///         .as_slice()
+///         .try_into()
+///         .unwrap();
+///
+/// // Both verify: ECDSA is malleable by construction...
+/// assert!(p256_verify(&high_s, sha256_array(b"sample"), &public_key));
+/// assert!(p256_verify(&low_s, sha256_array(b"sample"), &public_key));
+///
+/// // ... but exactly one of the two is in low-S form.
+/// assert!(!p256_signature_is_low_s(&high_s));
+/// assert!(p256_signature_is_low_s(&low_s));
+/// ```
+pub fn p256_signature_is_low_s(signature: &[u8; 64]) -> bool {
+    signature[32..] <= P256_HALF_ORDER[..]
 }
 
 /// Compute alt_bn128 g1 multiexp.
@@ -2777,6 +2951,64 @@ mod tests {
         assert!(!super::ed25519_verify(&BAD_SIGNATURE, MESSAGE, &FORGED_PUBLIC_KEY));
         assert!(!super::ed25519_verify(&SIGNATURE, MESSAGE, &FORGED_PUBLIC_KEY));
         assert!(!super::ed25519_verify(&FORGED_SIGNATURE, MESSAGE, &PUBLIC_KEY));
+    }
+
+    #[test]
+    fn p256_verify() {
+        // RFC 6979 A.2.5 test vector: curve P-256, SHA-256, message "sample".
+        // https://www.rfc-editor.org/info/rfc6979/#appendix-A.2.5
+        const SIGNATURE: [u8; 64] = [
+            0xEF, 0xD4, 0x8B, 0x2A, 0xAC, 0xB6, 0xA8, 0xFD, 0x11, 0x40, 0xDD, 0x9C, 0xD4, 0x5E,
+            0x81, 0xD6, 0x9D, 0x2C, 0x87, 0x7B, 0x56, 0xAA, 0xF9, 0x91, 0xC3, 0x4D, 0x0E, 0xA8,
+            0x4E, 0xAF, 0x37, 0x16, 0xF7, 0xCB, 0x1C, 0x94, 0x2D, 0x65, 0x7C, 0x41, 0xD4, 0x36,
+            0xC7, 0xA1, 0xB6, 0xE2, 0x9F, 0x65, 0xF3, 0xE9, 0x00, 0xDB, 0xB9, 0xAF, 0xF4, 0x06,
+            0x4D, 0xC4, 0xAB, 0x2F, 0x84, 0x3A, 0xCD, 0xA8,
+        ];
+
+        const LOW_S_SIGNATURE: [u8; 64] = [
+            0xEF, 0xD4, 0x8B, 0x2A, 0xAC, 0xB6, 0xA8, 0xFD, 0x11, 0x40, 0xDD, 0x9C, 0xD4, 0x5E,
+            0x81, 0xD6, 0x9D, 0x2C, 0x87, 0x7B, 0x56, 0xAA, 0xF9, 0x91, 0xC3, 0x4D, 0x0E, 0xA8,
+            0x4E, 0xAF, 0x37, 0x16, 0x08, 0x34, 0xE3, 0x6A, 0xD2, 0x9A, 0x83, 0xBF, 0x2B, 0xC9,
+            0x38, 0x5E, 0x49, 0x1D, 0x60, 0x99, 0xC8, 0xFD, 0xF9, 0xD1, 0xED, 0x67, 0xAA, 0x7E,
+            0xA5, 0xF5, 0x1F, 0x93, 0x78, 0x28, 0x57, 0xA9,
+        ];
+
+        const BAD_SIGNATURE: [u8; 64] = [0; 64];
+
+        // 33-byte compressed SEC1 encoding pub key
+        const PUBLIC_KEY: [u8; 33] = [
+            0x03, 0x60, 0xFE, 0xD4, 0xBA, 0x25, 0x5A, 0x9D, 0x31, 0xC9, 0x61, 0xEB, 0x74, 0xC6,
+            0x35, 0x6D, 0x68, 0xC0, 0x49, 0xB8, 0x92, 0x3B, 0x61, 0xFA, 0x6C, 0xE6, 0x69, 0x62,
+            0x2E, 0x60, 0xF2, 0x9F, 0xB6,
+        ];
+
+        // flipped SEC1 parity byte (0x03 -> 0x02) gives the negated point.
+        // still on the curve, but different pub key
+        const NEGATED_PUBLIC_KEY: [u8; 33] = {
+            let mut key = PUBLIC_KEY;
+            key[0] = 0x02;
+            key
+        };
+
+        // Invalid public key
+        const INVALID_PUBLIC_KEY: [u8; 33] = [0; 33];
+
+        // the host function does not hash the message; the caller applies SHA-256
+        let message = super::sha256_array(b"sample");
+
+        // changed message
+        let changed_message = super::sha256_array(b"sampleE");
+
+        assert!(super::p256_verify(&SIGNATURE, message, &PUBLIC_KEY));
+        assert!(super::p256_verify(&LOW_S_SIGNATURE, message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, changed_message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, [0u8; 0], &PUBLIC_KEY));
+        assert!(!super::p256_verify(&BAD_SIGNATURE, message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, message, &NEGATED_PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, message, &INVALID_PUBLIC_KEY));
+
+        assert!(!super::p256_signature_is_low_s(&SIGNATURE));
+        assert!(super::p256_signature_is_low_s(&LOW_S_SIGNATURE));
     }
 
     #[test]

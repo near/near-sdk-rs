@@ -57,6 +57,14 @@ unsafe extern "C" {
         pub_key_len: u64,
         pub_key_ptr: u64,
     ) -> u64;
+    pub fn p256_verify(
+        sig_len: u64,
+        sig_ptr: u64,
+        msg_len: u64,
+        msg_ptr: u64,
+        pub_key_len: u64,
+        pub_key_ptr: u64,
+    ) -> u64;
     // #####################
     // # Miscellaneous API #
     // #####################
