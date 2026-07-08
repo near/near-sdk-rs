@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.29.0-rc.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0-rc.1...near-sdk-v5.29.0-rc.2) - 2026-07-08
+
+### Added
+
+- `near-digest` crate ([#1571](https://github.com/near/near-sdk-rs/pull/1571))
+- add `p256_verify` ([#1577](https://github.com/near/near-sdk-rs/pull/1577))
+
 ## [5.29.0-rc.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.3...near-sdk-v5.29.0-rc.1) - 2026-07-01
 
 ### Added

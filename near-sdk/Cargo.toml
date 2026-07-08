@@ -23,14 +23,14 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.0-rc.1" }
-near-sys = { path = "../near-sys", version = "0.2.11" }
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.3" }
-near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.0", features = [
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.0-rc.2" }
+near-sys = { path = "../near-sys", version = "0.2.12" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.1", features = [
     "serde",
     "borsh",
 ] }
-near-global-contracts = { path = "../near-global-contracts/", version = "~0.2.3", features = [
+near-global-contracts = { path = "../near-global-contracts/", version = "~0.2.4", features = [
     "serde",
     "borsh",
 ] }

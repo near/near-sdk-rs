@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk-env"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Near Inc <hello@near.org>"]
 edition.workspace = true
 license.workspace = true
@@ -16,10 +16,10 @@ non-wasm32 (via pure-Rust crates).
 """
 
 [dependencies]
-near-sys = { path = "../near-sys/", version = "~0.2.11", optional = true }
+near-sys = { path = "../near-sys/", version = "~0.2.12", optional = true }
 
 [target.'cfg(near)'.dependencies]
-near-sys = { path = "../near-sys/", version = "~0.2.11" }
+near-sys = { path = "../near-sys/", version = "~0.2.12" }
 
 [target.'cfg(not(near))'.dependencies]
 ripemd = { version = "0.1.1" }
