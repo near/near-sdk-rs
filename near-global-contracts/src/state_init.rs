@@ -28,37 +28,28 @@ impl StateInit {
     ///
     /// # Availability
     ///
-    /// This method is only compiled when:
-    /// - the `borsh` feature is enabled (needed to serialize the input for hashing), AND
-    /// - one of the following is true:
-    ///   - `--cfg near` is set (on-chain contract build; `cargo-near` sets this automatically) —
-    ///     routes through the `keccak256` host function via the `near-sdk-env` crate.
-    ///   - the `digest` feature is enabled (off-chain or non-NEAR wasm build) — uses pure-Rust
-    ///     `sha3::Keccak256`.
+    /// This method requires the `borsh` feature (needed to serialize the input for hashing).
+    /// If you see "no method named `derive_account_id`" on a `StateInit`, enable `borsh` on
+    /// your `near-global-contracts` dependency.
     ///
-    /// If you see "no method named `derive_account_id`" on a `StateInit`, add the `digest`
-    /// feature to your `near-global-contracts` dependency.
+    /// The keccak256 backend is selected automatically by
+    /// [`near-digest`](https://docs.rs/near-digest): on-chain contract builds (`--cfg near`, set
+    /// automatically by `cargo-near`) route through the `keccak256` host function, while
+    /// off-chain and non-NEAR wasm builds use the pure-Rust implementation. Both produce
+    /// identical output.
     #[inline]
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        let hash: [u8; 32];
+        use digest_io::IoWrapper;
+        use near_digest::{Digest, sha3::Keccak256};
 
-        #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-        {
-            let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes
-            hash = near_sdk_env::keccak256_array(&serialized);
-        }
-        #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-        {
-            use digest_io::IoWrapper;
-            use sha3::Digest;
-
-            let mut hasher = IoWrapper(sha3::Keccak256::new());
-            borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes
-            hash = hasher.0.finalize().into();
-        }
+        // Stream the borsh serialization straight into the hasher to avoid an intermediate
+        // `Vec`. On `--cfg near` the host function is one-shot, so `near-digest` buffers the
+        // input and hashes once at `finalize`.
+        let mut hasher = IoWrapper(Keccak256::new());
+        borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
+        // SAFETY: keccak256 hash will always generate 32 bytes
+        let hash: [u8; 32] = hasher.0.finalize().into();
 
         // SAFETY: 20 bytes-long hash will produce 40 hex chars.
         // "0s" + 40 hex chars = 42 chars, which is within `AccountId` length bounds (2-64).

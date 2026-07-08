@@ -6,7 +6,13 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version.workspace = true
+# Deliberately below the workspace 1.93. The off-chain surface (pure-Rust RustCrypto
+# backends) only needs edition 2024's 1.85 floor, and downstream off-chain consumers such as
+# near-kit depend on this crate at 1.88. The `cfg(near)` deps (near-sdk-env, impl-tools) do
+# require 1.93, but the on-chain path is always built with rustc 1.93+ (enforced by
+# cargo-near / the protocol version), so it never constrains an off-chain 1.88 build — the
+# same arrangement near-global-contracts and near-crypto-hash already use.
+rust-version = "1.88"
 description = """
 `digest` trait implementations for hash functions in NEAR smart contracts: backed by NEAR host functions on-chain, pure Rust off-chain.
 """
