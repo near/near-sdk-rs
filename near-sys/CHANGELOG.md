@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.12](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.11...near-sys-v0.2.12) - 2026-07-08
+
+### Added
+
+- add `p256_verify` ([#1577](https://github.com/near/near-sdk-rs/pull/1577))
+
 ## [0.2.11](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.10...near-sys-v0.2.11) - 2026-07-01
 
 ### Added

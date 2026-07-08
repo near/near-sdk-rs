@@ -1,6 +1,6 @@
 [package]
 name = "near-global-contracts"
-version = "0.2.3"
+version = "0.2.4"
 edition.workspace = true
 license.workspace = true
 categories.workspace = true
@@ -31,14 +31,14 @@ borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.3", optional = true }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4", optional = true }
 # Pinned to the published nearcore 2.13 release candidate `0.37.0-rc.2`; see near-sdk/Cargo.toml for the rationale.
 near-primitives-core = { version = "=0.37.0-rc.2", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 
 [target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.3" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4" }
 
 [target.'cfg(not(near))'.dependencies]
 digest-io = { version = "0.1" }
