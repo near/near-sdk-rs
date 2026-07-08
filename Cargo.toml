@@ -9,6 +9,7 @@ members = [
     "near-sys",
     "near-global-contracts",
     "near-crypto-hash",
+    "near-digest",
 ]
 exclude = ["examples/"]
 

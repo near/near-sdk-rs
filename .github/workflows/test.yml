@@ -8,7 +8,7 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # NOTE: we mainly only "check" if things can compile in extracted crates. 
+  # NOTE: we mainly only "check" if things can compile in extracted crates. Testing is done later by nextest.
   cargo-hack:
     runs-on: ${{ matrix.platform.os }}
     name: "cargo-hack ${{ matrix.crate }} ${{ matrix.platform.name }} ${{ matrix.platform.rs }}"
@@ -20,6 +20,7 @@ jobs:
           - "near-sdk-core"
           - "near-global-contracts"
           - "near-sdk-env"
+          - "near-digest"
         platform:
           - os: warp-ubuntu-latest-x64-4x
             rs: "1.93.0"

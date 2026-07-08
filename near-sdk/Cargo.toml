@@ -48,6 +48,12 @@ near-token = { version = "0.3", features = ["serde", "borsh"] }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
+near-digest = { path = "../near-digest/", version = "0.1.0", features = [
+    "sha2",
+    "sha3",
+    "ripemd",
+], optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
@@ -108,6 +114,7 @@ arbitrary = [
 ]
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
+digest = ["dep:near-digest"]
 unstable = []
 legacy = []
 global-contracts = []
