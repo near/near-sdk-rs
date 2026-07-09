@@ -36,19 +36,18 @@ near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
-# Pinned to the published nearcore 2.13 release candidate `0.37.0-rc.2`; see near-sdk/Cargo.toml for
-# the rationale. All nearcore-versioned crates across the workspace must use the same version so their
-# types unify. Bump to `0.37.0` (drop the `=`) once 2.13 ships stable.
-near-primitives-core = { version = "=0.37.0-rc.2", optional = true }
+# Pinned to the nearcore 2.13.0 stable release `0.37.0`; see near-sdk/Cargo.toml for the rationale.
+# All nearcore-versioned crates across the workspace must use the same version so their types unify.
+near-primitives-core = { version = "0.37.0", optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "=0.37.0-rc.2", optional = true }
+near-parameters = { version = "0.37.0", optional = true }
 
 # near-crypto is only used by the `near-crypto-interop` conversions, which are host-only (gated
 # `cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))`). Keep it off wasm targets
 # so contracts that enable `unit-testing` still build for wasm — since nearcore 2.13, near-crypto
 # pulls a non-optional aws-lc-rs (C) dependency that cannot compile for wasm32. Mirrors near-sdk.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-crypto = { version = "=0.37.0-rc.2", default-features = false, optional = true }
+near-crypto = { version = "0.37.0", default-features = false, optional = true }
 
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4" }

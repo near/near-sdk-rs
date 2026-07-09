@@ -14,7 +14,7 @@ members = [
 exclude = ["examples/"]
 
 [workspace.package]
-version = "5.29.0-rc.2"
+version = "5.29.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 categories = ["wasm"]

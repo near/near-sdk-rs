@@ -93,7 +93,7 @@ mod tests {
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
+        let worker = near_workspaces::sandbox_with_version("2.13.0").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
@@ -151,7 +151,7 @@ mod tests {
     #[tokio::test]
     async fn workspaces_test_reverse() -> anyhow::Result<()> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
+        let worker = near_workspaces::sandbox_with_version("2.13.0").await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // No failures

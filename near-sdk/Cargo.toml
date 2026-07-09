@@ -23,7 +23,7 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.0-rc.2" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.0" }
 near-sys = { path = "../near-sys", version = "0.2.12" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4" }
 near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.1", features = [
@@ -69,13 +69,13 @@ near-abi = { version = "0.4.0", features = [
 ], optional = true }
 # nearcore 2.13 adds the promise_yield_create_with_id / promise_yield_resume_with_yield_id host
 # functions (protocol v85), so the unit-testing mock can delegate to VMLogic for them. Pinned to the
-# published 2.13 release candidate `0.37.0-rc.2`. Bump to `0.37.0` (drop the `=`) once 2.13 ships stable.
-near-vm-runner = { version = "=0.37.0-rc.2", optional = true }
-near-primitives-core = { version = "=0.37.0-rc.2", optional = true }
-near-primitives = { version = "=0.37.0-rc.2", optional = true }
-near-crypto = { version = "=0.37.0-rc.2", default-features = false, optional = true }
+# nearcore 2.13.0 stable release `0.37.0`.
+near-vm-runner = { version = "0.37.0", optional = true }
+near-primitives-core = { version = "0.37.0", optional = true }
+near-primitives = { version = "0.37.0", optional = true }
+near-crypto = { version = "0.37.0", default-features = false, optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "=0.37.0-rc.2", optional = true }
+near-parameters = { version = "0.37.0", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
