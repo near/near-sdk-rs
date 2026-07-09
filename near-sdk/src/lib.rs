@@ -498,7 +498,7 @@ compile_error!(
 /// You can also use [`#[serde_as(as = "...")]` attributes](https://docs.rs/serde_with/latest/serde_with/attr.serde_as.html)
 /// as if `#[serde_as]` is added to the type (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
 ///
-/// Note: When using the `abi` feature with base64/hex encoding, prefer the SDK's [`json_types`](crate::json_types)
+/// Note: When using the `abi` feature with base64/hex encoding, prefer the SDK's [`json_types`]
 /// like [`Base64VecU8`](crate::json_types::Base64VecU8), which have full JSON Schema support.
 ///
 /// For hex encoding with ABI support, you can use `#[serde_as(as = "serde_with::hex::Hex")]` by enabling
@@ -612,7 +612,7 @@ compile_error!(
 /// For a method annotated with `#[init]`:
 ///
 /// 1. Before invoking the constructor, the macro checks if the contract state already exists by calling
-///    [`state::ContractState::state_exists`](crate::state::ContractState::state_exists), which internally uses
+///    [`state::ContractState::state_exists`], which internally uses
 ///    [`env::storage_has_key`] to check for the state key
 /// 2. If the state already exists, [`env::panic_str`] host function is called with the message
 ///    `"The contract has already been initialized"`
@@ -1105,7 +1105,7 @@ compile_error!(
 ///    - `#[serde(tag = "event", content = "data")]` for the NEP-297 format
 ///    - `#[serde(rename_all = "snake_case")]` for event name formatting
 /// 3. A constant `{EnumName}_event_standard` is generated with the standard name
-/// 4. The [`EventMetadata`](crate::EventMetadata) derive macro generates:
+/// 4. The [`EventMetadata`] derive macro generates:
 ///    - `emit()` method: Serializes the event to JSON and calls [`env::log_str`] with the format
 ///      `EVENT_JSON:{json}` as specified by [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
 ///    - `to_json()` method: Returns the event as a [`serde_json::Value`]
