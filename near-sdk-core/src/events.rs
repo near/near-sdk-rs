@@ -7,7 +7,7 @@ use std::borrow::Cow;
 ///
 /// # Type Parameters
 /// - `T`: Event payload that is borrowed so it can be serialized lazily. Must implement
-///   [`serde::Serialize`] when the `serde` feature is enabled.
+///   `serde::Serialize` to use the serialization helpers available with the `serde` feature.
 #[derive(Debug)]
 #[cfg_attr(
     feature = "serde",
@@ -92,6 +92,11 @@ where
 }
 
 /// Helper trait implemented by events that expose a NEP-297 representation.
+///
+/// This trait does not require `serde::Serialize`, regardless of enabled cargo features, so its
+/// shape stays the same across feature combinations (feature additivity). Serialization-dependent
+/// functionality (e.g. `Nep297Event::to_event_log`) is gated behind the `serde` feature and
+/// bounded on `T: serde::Serialize` at the impl level instead.
 pub trait AsNep297Event: Sized {
     /// Converts the event into a [`Nep297Event`] representation.
     ///
