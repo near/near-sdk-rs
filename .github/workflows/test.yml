@@ -75,6 +75,26 @@ jobs:
           RUSTFLAGS: "-D warnings --cfg near"
         run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
 
+  # Mechanical half of the "Workspace crate policy" in CONTRIBUTING.md: features must be
+  # additive-only, so a leaf crate can never gate a public item behind `not(feature = ...)`.
+  # near-sdk itself is excluded — it has legitimate internal-only uses (e.g. `expensive-debug`
+  # Debug impls, mock internals) that aren't part of its published feature-additivity contract.
+  feature-additivity:
+    name: Feature additivity (leaf crates)
+    runs-on: warp-ubuntu-latest-x64-4x
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No cfg(not(feature = ...)) in leaf crates
+        run: |
+          if grep -rnE 'cfg\s*\(\s*not\s*\(\s*feature' \
+            near-sdk-core/src near-sdk-env/src near-crypto-hash/src \
+            near-global-contracts/src near-digest/src
+          then
+            echo "::error::Found cfg(not(feature = ...)) in a leaf crate. Enabling a feature must only add API, never remove it — see 'Workspace crate policy' in CONTRIBUTING.md."
+            exit 1
+          fi
+
   test:
     runs-on: ${{ matrix.platform.os }}
     name: "${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.features }}"

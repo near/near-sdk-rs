@@ -14,6 +14,18 @@ We have an open and welcoming environment, please review our [code of conduct](C
 
 Please use descriptive PR titles. We loosely follow the [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) style, but this is not a requirement to follow exactly. PRs will be addressed more quickly if it is clear what the intention is.
 
+### Workspace crate policy
+
+This workspace is a set of independently-published crates, not a place to file every new idea as its own crate. A few rules keep it maintainable:
+
+- **Crates are compilation boundaries, not topics.** A new workspace crate needs a hard technical justification: a proc-macro crate, an FFI/`sys` layer, or an external consumer that demonstrably cannot use a feature-gated module instead. By default, new NEP types and utilities go into an existing crate as a feature-gated module.
+
+- **Features are additive-only.** Enabling a feature may add public API, but must never change or remove it — concretely, no `cfg(not(feature = "..."))` on a public item. This isn't hypothetical: [#1585](https://github.com/near/near-sdk-rs/issues/1585) was a real downstream feature-unification break caused by exactly this pattern on a trait supertrait. The mechanical part is enforced by CI (the `feature-additivity` job) across `near-sdk-core`, `near-sdk-env`, `near-crypto-hash`, `near-global-contracts`, and `near-digest`.
+
+- **The leaf-crate dependency graph stays one-directional and acyclic.** Low-level crates (`near-sys`, `near-sdk-env`, `near-crypto-hash`) must not depend on higher-level ones, and there must be no cycles between leaves.
+
+- **Leaf crates published for off-chain use** — `near-crypto-hash`, `near-global-contracts`, `near-digest` — keep a frozen, non-optional dependency list and a documented MSRV floor (currently 1.88). Raising either requires explicit maintainer sign-off, called out in the PR description.
+
 ### Before opening a PR
 
 Ensure the following are satisfied before opening a PR:
