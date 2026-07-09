@@ -92,17 +92,6 @@ where
 }
 
 /// Helper trait implemented by events that expose a NEP-297 representation.
-#[cfg(feature = "serde")]
-pub trait AsNep297Event: serde::Serialize + Sized {
-    /// Converts the event into a [`Nep297Event`] representation.
-    ///
-    /// Wraps the event with its NEP-297 metadata. The payload is borrowed so it can be serialized
-    /// on demand without cloning.
-    fn to_nep297_event(&self) -> Nep297Event<'_, Self>;
-}
-
-/// Helper trait implemented by events that expose a NEP-297 representation.
-#[cfg(not(feature = "serde"))]
 pub trait AsNep297Event: Sized {
     /// Converts the event into a [`Nep297Event`] representation.
     ///
