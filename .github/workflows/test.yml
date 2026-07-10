@@ -76,7 +76,8 @@ jobs:
         run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
 
   # Mechanical half of the "Workspace crate policy" in CONTRIBUTING.md: features must be
-  # additive-only, so a leaf crate can never gate a public item behind `not(feature = ...)`.
+  # additive-only. This is a blunt tripwire, not a visibility-aware lint — it bans
+  # `not(feature = ...)` cfg predicates outright in the leaf crates' src/, public item or not.
   # near-sdk itself is excluded — it has legitimate internal-only uses (e.g. `expensive-debug`
   # Debug impls, mock internals) that aren't part of its published feature-additivity contract.
   feature-additivity:
