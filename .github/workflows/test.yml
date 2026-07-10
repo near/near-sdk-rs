@@ -86,13 +86,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: No cfg(not(feature = ...)) in leaf crates
+      - name: No not(feature = ...) cfg predicates in leaf crates
+        # Not anchored on `cfg(`: also catches negations nested in all()/any(), e.g.
+        # `cfg(all(not(feature = ...), ...))`, and `not(any(feature = ...))`.
+        # Underscore-prefixed (internal, never user-enabled) features are exempt —
+        # near-sdk-env gates a compile_error! guard and the abort() body on
+        # `__near-sdk-unit-testing` without changing public API shape.
         run: |
-          if grep -rnE 'cfg\s*\(\s*not\s*\(\s*feature\s*=' \
+          if grep -rnE 'not\s*\(\s*(any\s*\(\s*)?feature\s*=\s*"[^_]' \
             near-sdk-core/src near-sdk-env/src near-crypto-hash/src \
             near-global-contracts/src near-digest/src
           then
-            echo "::error::Found cfg(not(feature = ...)) in a leaf crate. Enabling a feature must only add API, never remove it — see 'Workspace crate policy' in CONTRIBUTING.md."
+            echo "::error::Found a not(feature = ...) cfg predicate in a leaf crate. Enabling a feature must only add API, never remove it — see 'Workspace crate policy' in CONTRIBUTING.md."
             exit 1
           fi
 
