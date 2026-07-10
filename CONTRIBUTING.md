@@ -24,7 +24,7 @@ This workspace is a set of independently-published crates, not a place to file e
 
 - **The leaf-crate dependency graph stays one-directional and acyclic.** Low-level crates (`near-sys`, `near-sdk-env`, `near-crypto-hash`) must not depend on higher-level ones, and there must be no cycles between leaves.
 
-- **Leaf crates published for off-chain use** — `near-crypto-hash`, `near-global-contracts`, `near-digest` — keep a frozen, non-optional dependency list and a documented MSRV floor (currently 1.88). Raising either requires explicit maintainer sign-off, called out in the PR description.
+- **Leaf crates published for off-chain use** — `near-crypto-hash`, `near-global-contracts`, `near-digest` — keep a frozen, non-optional dependency list and a documented MSRV floor (currently 1.88 for `near-crypto-hash` and `near-global-contracts`; `near-digest` still tracks the workspace MSRV). Raising either requires explicit maintainer sign-off, called out in the PR description.
 
 ### Before opening a PR
 
