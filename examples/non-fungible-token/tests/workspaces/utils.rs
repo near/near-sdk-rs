@@ -85,7 +85,7 @@ pub async fn initialized_contracts(
     token_receiver_contract_wasm: &Vec<u8>,
     approval_receiver_contract_wasm: &Vec<u8>,
 ) -> anyhow::Result<(Contract, Account, Contract, Contract)> {
-    let worker = near_workspaces::sandbox_with_version("2.13.0").await?;
+    let worker = near_workspaces::sandbox().await?;
     let nft_contract = worker.dev_deploy(non_fungible_contract_wasm).await?;
 
     let res = nft_contract

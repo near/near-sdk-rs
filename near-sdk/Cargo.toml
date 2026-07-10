@@ -67,10 +67,6 @@ p256 = { version = "0.13.2", default-features = false, features = [
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-# nearcore 2.13 adds the promise_yield_create_with_id / promise_yield_resume_with_yield_id host
-# functions (protocol v85), so the unit-testing mock can delegate to VMLogic for them. Tracks the
-# nearcore 2.13.0 stable release (`^0.37.0`). Every nearcore-versioned crate across the workspace
-# shares this requirement so a single 0.37.x resolves for all of them and their types unify.
 near-vm-runner = { version = "0.37.0", optional = true }
 near-primitives-core = { version = "0.37.0", optional = true }
 near-primitives = { version = "0.37.0", optional = true }
@@ -94,7 +90,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.22.4", features = ["unstable"] }
+near-workspaces = { version = "0.23.0", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"

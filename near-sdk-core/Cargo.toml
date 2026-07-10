@@ -36,9 +36,6 @@ near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
-# Tracks the nearcore 2.13.0 stable release (`^0.37.0`); see near-sdk/Cargo.toml for the rationale.
-# All nearcore-versioned crates across the workspace share the same requirement so a single 0.37.x
-# resolves for all of them and their types unify.
 near-primitives-core = { version = "0.37.0", optional = true }
 unicode-segmentation = { version = "1", optional = true }
 near-parameters = { version = "0.37.0", optional = true }
