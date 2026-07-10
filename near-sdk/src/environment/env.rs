@@ -325,6 +325,21 @@ pub fn input() -> Option<Vec<u8>> {
     try_method_into_register(sys::input)
 }
 
+/// Returns the chain ID of the NEAR network the contract is deployed on, as configured in the
+/// network's `genesis.config.chain_id` (for example `"mainnet"` or `"testnet"`).
+///
+/// In unit tests the mocked environment always returns `"test"`.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::chain_id;
+///
+/// assert_eq!(chain_id(), "test");
+/// ```
+pub fn chain_id() -> String {
+    String::from_utf8(method_into_register(sys::chain_id)).unwrap_or_else(|_| abort())
+}
+
 /// Current block index.
 ///
 /// # Examples
@@ -2854,6 +2869,15 @@ mod tests {
         );
 
         assert_eq!(super::random_seed(), [8; 32]);
+    }
+
+    #[test]
+    fn chain_id_returns_mock_value() {
+        // The mocked runtime backs `chain_id` with a hardcoded `"test"` value that isn't
+        // configurable via `VMContextBuilder`; on-chain it returns `genesis.config.chain_id`.
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new().build());
+
+        assert_eq!(super::chain_id(), "test");
     }
 
     #[cfg(not(target_arch = "wasm32"))]

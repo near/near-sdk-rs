@@ -242,6 +242,10 @@ mod mock_chain {
         with_mock_interface(|b| b.input(register_id))
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn chain_id(register_id: u64) {
+        with_mock_interface(|b| b.chain_id(register_id))
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn block_index() -> u64 {
         with_mock_interface(|b| b.block_index())
     }
