@@ -337,7 +337,9 @@ pub fn input() -> Option<Vec<u8>> {
 /// assert_eq!(chain_id(), "test");
 /// ```
 pub fn chain_id() -> String {
-    String::from_utf8(method_into_register(sys::chain_id)).unwrap_or_else(|_| abort())
+    maybe_cached!(String: {
+        String::from_utf8(method_into_register(sys::chain_id)).unwrap_or_else(|_| abort())
+    })
 }
 
 /// Current block index.
