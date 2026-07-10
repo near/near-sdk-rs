@@ -2,7 +2,7 @@
 //!
 //! `near-sdk` is a Rust toolkit for developing smart contracts on the [NEAR blockchain](https://near.org).
 //! It provides abstractions, macros, and utilities to make building robust and secure contracts easy.
-//! More information on how to develop smart contracts can be found in the [NEAR documentation](https://docs.near.org/build/smart-contracts/what-is).
+//! More information on how to develop smart contracts can be found in the [NEAR documentation](https://docs.near.org/smart-contracts/what-is).
 //! With near-sdk you can create DeFi applications, NFTs and marketplaces, DAOs, gaming and metaverse apps, and much more.
 //!
 //! ## Features
@@ -394,7 +394,7 @@ compile_error!(
 /// - [`Promise`] - The type returned by `<ContractType>Ext` methods
 /// - [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments) - For handling results from cross-contract calls
 /// - [`#[private]`](near#private-annotates-methods-of-a-type-in-its-impl-block) - For restricting callback methods
-/// - [NEAR Cross-Contract Calls Documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
+/// - [NEAR Cross-Contract Calls Documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract)
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
@@ -577,7 +577,7 @@ compile_error!(
 ///
 /// ## `#[init]` (annotates methods of a type in its `impl` block)
 ///
-/// Contract initialization method annotation. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/storage#initializing-the-state)
+/// Contract initialization method annotation. More details can be found [here](https://docs.near.org/smart-contracts/anatomy/storage#initializing-the-state)
 ///
 /// By default, the `Default::default()` implementation of a contract will be used to initialize a contract.
 /// There can be a custom initialization function which takes parameters or performs custom logic with the following `#[init]` annotation.
@@ -624,7 +624,7 @@ compile_error!(
 ///
 /// ## `#[payable]` (annotates methods of a type in its `impl` block)
 ///
-/// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#payable-functions)
+/// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/smart-contracts/anatomy/functions#payable-functions)
 ///
 /// Methods can be annotated with `#[payable]` to allow tokens to be transferred with the method invocation. For more information, see payable methods.
 ///
@@ -669,7 +669,7 @@ compile_error!(
 /// The attribute forbids to call the method except from within the contract.
 /// This is useful for internal methods that should not be called from outside the contract.
 ///
-/// More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions)
+/// More details can be found [here](https://docs.near.org/smart-contracts/anatomy/functions#private-functions)
 ///
 /// ### Basic example
 ///
@@ -1485,14 +1485,14 @@ pub use near_sdk_macros::near_bindgen;
 /// }
 /// ```
 ///
-/// See more information about cross-contract calls in the [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract).
+/// See more information about cross-contract calls in the [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract).
 pub use near_sdk_macros::ext_contract;
 
 /// `BorshStorageKey` generates implementation for [BorshIntoStorageKey](crate::__private::BorshIntoStorageKey) trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
 /// The type should also implement or derive [BorshSerialize](borsh::BorshSerialize) trait.
 ///
-/// More information about storage keys in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage)
+/// More information about storage keys in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/storage)
 /// ## Example
 /// ```rust
 /// use near_sdk::{BorshStorageKey, collections::Vector, near};

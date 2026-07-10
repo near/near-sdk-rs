@@ -342,7 +342,7 @@ impl PromiseJoint {
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
 ///
-/// More information about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
+/// More information about promises in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract#promises)
 #[must_use = "return or detach explicitly via `.detach()`"]
 pub struct Promise {
     subtype: PromiseSubtype,

@@ -2,7 +2,7 @@
 ///
 /// [`into_storage_key`]: IntoStorageKey::into_storage_key
 ///
-/// More information about storage is in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage).
+/// More information about storage is in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/storage).
 pub trait IntoStorageKey {
     /// Consumes self and returns [`Vec<u8>`] bytes which are used as a storage key.
     fn into_storage_key(self) -> Vec<u8>;
