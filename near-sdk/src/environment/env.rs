@@ -325,6 +325,23 @@ pub fn input() -> Option<Vec<u8>> {
     try_method_into_register(sys::input)
 }
 
+/// Returns the chain ID of the NEAR network the contract is deployed on, as configured in the
+/// network's `genesis.config.chain_id` (for example `"mainnet"` or `"testnet"`).
+///
+/// In unit tests the mocked environment always returns `"test"`.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::chain_id;
+///
+/// assert_eq!(chain_id(), "test");
+/// ```
+pub fn chain_id() -> String {
+    maybe_cached!(String: {
+        String::from_utf8(method_into_register(sys::chain_id)).unwrap_or_else(|_| abort())
+    })
+}
+
 /// Current block index.
 ///
 /// # Examples
@@ -542,7 +559,7 @@ pub fn random_seed() -> Vec<u8> {
 ///     }
 /// }
 /// ```
-/// More info in [documentation](https://docs.near.org/develop/contracts/security/random)
+/// More info in [documentation](https://docs.near.org/smart-contracts/security/random)
 pub fn random_seed_array() -> [u8; 32] {
     maybe_cached!([u8; 32]: {
         //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
@@ -1039,7 +1056,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 /// );
 /// ```
 ///
-/// More info about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
+/// More info about promises in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract#promises)
 ///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
 ///
@@ -1200,7 +1217,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// ```
 /// All actions in a batch are executed in the order they were added.
 /// Batched actions act as a unit: they execute in the same receipt, and if any fails, then they all get reverted.
-/// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/actions)
+/// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/actions)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
@@ -2854,6 +2871,15 @@ mod tests {
         );
 
         assert_eq!(super::random_seed(), [8; 32]);
+    }
+
+    #[test]
+    fn chain_id_returns_mock_value() {
+        // The mocked runtime backs `chain_id` with a hardcoded `"test"` value that isn't
+        // configurable via `VMContextBuilder`; on-chain it returns `genesis.config.chain_id`.
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new().build());
+
+        assert_eq!(super::chain_id(), "test");
     }
 
     #[cfg(not(target_arch = "wasm32"))]

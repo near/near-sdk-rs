@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- add `env::chain_id` ([#1592](https://github.com/near/near-sdk-rs/pull/1592))
 - `near-digest` crate ([#1571](https://github.com/near/near-sdk-rs/pull/1571))
 - add `p256_verify` ([#1577](https://github.com/near/near-sdk-rs/pull/1577))
 
