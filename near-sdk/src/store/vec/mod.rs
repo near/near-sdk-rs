@@ -849,6 +849,54 @@ mod tests {
     }
 
     #[test]
+    fn drain_partial_consumption_removes_storage_entries() {
+        let mut vec = Vector::new(b"v");
+        vec.extend(0..5u8);
+        vec.flush();
+
+        {
+            let mut drain = vec.drain(..);
+            drain.next();
+            // Dropped with four elements unconsumed
+        }
+        vec.flush();
+
+        assert_eq!(vec.len(), 0);
+        for i in 0..5u32 {
+            let key = [b"v".as_slice(), &i.to_le_bytes()].concat();
+            assert!(
+                crate::env::storage_read(&key).is_none(),
+                "storage entry for index {} not removed by dropped drain",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn drain_subrange_partial_consumption_removes_storage_entries() {
+        let mut vec = Vector::new(b"v");
+        vec.extend(0..5u8);
+        vec.flush();
+
+        {
+            let mut drain = vec.drain(1..4);
+            drain.next();
+            // Dropped with elements at indices 2 and 3 unconsumed
+        }
+        vec.flush();
+
+        assert_eq!(vec.iter().copied().collect::<Vec<_>>(), [0, 4]);
+        for i in vec.len()..5 {
+            let key = [b"v".as_slice(), &i.to_le_bytes()].concat();
+            assert!(
+                crate::env::storage_read(&key).is_none(),
+                "storage entry for index {} not removed by dropped drain",
+                i
+            );
+        }
+    }
+
+    #[test]
     fn test_indexing() {
         let mut v: Vector<i32> = Vector::new(b"b");
         v.push(10);
