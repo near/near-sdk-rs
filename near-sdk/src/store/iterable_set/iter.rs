@@ -316,6 +316,18 @@ where
     }
 }
 
+impl<'a, T, H> Drop for Drain<'a, T, H>
+where
+    T: BorshSerialize + BorshDeserialize + Ord,
+    H: ToKey,
+{
+    fn drop(&mut self) {
+        for key in self.elements.by_ref() {
+            self.index.set(key, None);
+        }
+    }
+}
+
 impl<'a, T, H> Iterator for Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord + Clone,
