@@ -1421,4 +1421,30 @@ mod test_map {
 
         insta::assert_snapshot!(format!("{:#?}", defs));
     }
+
+    #[test]
+    fn test_drain_partial_consumption_clears_values() {
+        let mut map = IterableMap::new(b"b");
+        for i in 1..=3 {
+            map.insert(i, i * 10);
+        }
+
+        {
+            let mut drain = map.drain();
+            drain.next().unwrap();
+            // Dropped with two entries unconsumed
+        }
+
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+
+        for i in 1..=3 {
+            assert!(!map.contains_key(&i), "stale value entry for key {} after partial drain", i);
+            assert_eq!(map.get(&i), None, "get({}) should be None on an empty map", i);
+            assert_eq!(map.remove(&i), None, "remove({}) should be a no-op on an empty map", i);
+            assert_eq!(map.insert(i, i * 100), None, "re-insert of {} should be a fresh insert", i);
+        }
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get(&2), Some(&200));
+    }
 }
