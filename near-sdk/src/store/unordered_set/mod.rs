@@ -571,8 +571,15 @@ where
     ///
     /// set.defrag();
     /// ```
-    pub fn defrag(&mut self) {
-        self.elements.defrag(|_, _| {});
+    pub fn defrag(&mut self)
+    where
+        T: Clone,
+    {
+        self.elements.defrag(|element, new_index| {
+            if let Some(existing) = self.index.get_mut(element) {
+                *existing = FreeListIndex(new_index);
+            }
+        });
     }
 }
 
@@ -953,6 +960,33 @@ mod tests {
 
         // Check the last removed value.
         assert_eq!(set.elements.get(FreeListIndex(6)), None);
+    }
+
+    #[test]
+    fn test_defrag_rekeys_index() {
+        let mut set = UnorderedSet::new(b"d");
+        for i in 0..=8 {
+            set.insert(i);
+        }
+        for id in [2, 4, 6] {
+            set.remove(&id);
+        }
+        // Remaining: {0, 1, 3, 5, 7, 8}
+        set.defrag();
+
+        let existing = [0, 1, 3, 5, 7, 8];
+        for i in existing {
+            assert!(set.contains(&i), "contains({}) after defrag", i);
+        }
+        assert_eq!(set.len(), 6);
+
+        // Removing every surviving element must succeed. If the index kept stale
+        // pre-defrag slot indices, this either panics (ERR_INCONSISTENT_STATE) or
+        // deletes the wrong element.
+        for i in existing {
+            assert!(set.remove(&i), "remove({}) after defrag", i);
+        }
+        assert!(set.is_empty());
     }
 
     #[cfg(feature = "abi")]
