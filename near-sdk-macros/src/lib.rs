@@ -44,6 +44,31 @@ struct NearMacroArgs {
     #[darling(default, flatten)]
     near_bindgen_args: NearBindgenMacroArgs,
     inside_nearsdk: Option<bool>,
+    /// Path to the `near-sdk` crate to use in the generated code, e.g.
+    /// `#[near(crate = "::my_wrapper::near_sdk")]`. Lets downstream crates that re-export or
+    /// rename `near-sdk` point macro expansions at the re-export instead of a direct dependency.
+    /// Mutually exclusive with `inside_nearsdk`, which remains as sugar for `crate = "crate"`
+    /// (used internally by `near-sdk` itself).
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
+}
+
+/// Resolves the `near-sdk` crate path to use in generated code from the `crate` / `inside_nearsdk`
+/// arguments of `#[near(...)]` or `#[derive(NearSchema)]`. Errors if both are set, since they're
+/// mutually exclusive.
+fn resolve_near_sdk_crate(
+    krate: Option<syn::Path>,
+    inside_nearsdk: Option<bool>,
+) -> Result<syn::Path, syn::Error> {
+    match (krate, inside_nearsdk.unwrap_or(false)) {
+        (Some(_), true) => Err(syn::Error::new(
+            Span::call_site(),
+            "cannot specify both `crate` and `inside_nearsdk`",
+        )),
+        (Some(path), false) => Ok(path),
+        (None, true) => Ok(parse_quote!(crate)),
+        (None, false) => Ok(parse_quote!(::near_sdk)),
+    }
 }
 
 fn has_nested_near_macros(item: TokenStream) -> bool {
@@ -85,11 +110,13 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let near_sdk_crate = if near_macro_args.inside_nearsdk.unwrap_or(false) {
-        quote! {crate}
-    } else {
-        quote! {::near_sdk}
-    };
+    let near_sdk_crate: syn::Path =
+        match resolve_near_sdk_crate(near_macro_args.krate.clone(), near_macro_args.inside_nearsdk)
+        {
+            Ok(krate) => krate,
+            Err(e) => return TokenStream::from(e.to_compile_error()),
+        };
+    let near_sdk_crate_str = quote! {#near_sdk_crate}.to_string();
 
     // Check for nested near macros by parsing the input and examining actual attributes
     if has_nested_near_macros(item.clone()) {
@@ -109,7 +136,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if near_macro_args.near_bindgen_args.contract_state.is_some() {
         let near_bindgen_args = near_macro_args.near_bindgen_args;
-        expanded = quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args)]};
+        expanded = quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args crate = #near_sdk_crate_str)]};
     };
 
     let mut has_borsh = false;
@@ -179,7 +206,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     #[cfg(feature = "abi")]
     {
         let schema_derive: proc_macro2::TokenStream =
-            get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+            get_schema_derive(has_json, has_borsh, quote! {#near_sdk_crate}, false);
         expanded = quote! {
             #expanded
             #schema_derive
@@ -206,7 +233,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         expanded = quote! {
-            #[#near_sdk_crate::near_bindgen]
+            #[#near_sdk_crate::near_bindgen(crate = #near_sdk_crate_str)]
             #input
         };
     } else {
@@ -227,6 +254,11 @@ struct NearBindgenMacroArgs {
     contract_state: Option<core_impl::state::ContractStateArgs>,
     #[darling(default)]
     contract_metadata: core_impl::ContractMetadata,
+    /// Path to the `near-sdk` crate to use in the generated code. Populated either directly, when
+    /// a user writes `#[near_bindgen(crate = "...")]`, or by `#[near(crate = "...")]` forwarding
+    /// its own resolved crate path into the `#[near_bindgen(...)]` attribute it emits.
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
 }
 
 impl quote::ToTokens for NearBindgenMacroArgs {
@@ -245,6 +277,22 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
         return core_impl::near_events(attr, item);
     }
+
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Error::from(e).write_errors().into();
+        }
+    };
+
+    let args = match NearBindgenMacroArgs::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => {
+            return e.write_errors().into();
+        }
+    };
+
+    let near_sdk_crate: syn::Path = args.krate.clone().unwrap_or_else(|| parse_quote!(::near_sdk));
 
     let (ident, generics) = if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         (input.ident, input.generics)
@@ -265,7 +313,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        return match process_impl_block(input) {
+        return match process_impl_block(input, &near_sdk_crate) {
             Ok(output) => output,
             Err(output) => output,
         }
@@ -280,29 +328,17 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         );
     };
 
-    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return Error::from(e).write_errors().into();
-        }
-    };
-
-    let args = match NearBindgenMacroArgs::from_list(&attr_args) {
-        Ok(v) => v,
-        Err(e) => {
-            return e.write_errors().into();
-        }
-    };
-
-    let impl_contract_state = args.contract_state.map(|s| s.impl_contract_state(&ident, &generics));
+    let impl_contract_state =
+        args.contract_state.map(|s| s.impl_contract_state(&ident, &generics, &near_sdk_crate));
     let metadata = args.contract_metadata.contract_source_metadata_const();
 
     let metadata_impl_gen = {
-        let metadata_impl_gen = generate_contract_metadata_method(&ident, &generics).into();
+        let metadata_impl_gen =
+            generate_contract_metadata_method(&ident, &generics, &near_sdk_crate).into();
 
         let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
             .expect("failed to generate contract metadata");
-        process_impl_block(metadata_impl_gen)
+        process_impl_block(metadata_impl_gen, &near_sdk_crate)
     };
 
     let metadata_impl_gen = match metadata_impl_gen {
@@ -310,9 +346,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         Err(err) => return err.into(),
     };
 
-    let ext_gen = generate_ext_structs(&ident, Some(&generics));
+    let ext_gen = generate_ext_structs(&ident, Some(&generics), &near_sdk_crate);
     #[cfg(feature = "__abi-embed-checked")]
-    let abi_embedded = abi::embed();
+    let abi_embedded = abi::embed(&near_sdk_crate);
     #[cfg(not(feature = "__abi-embed-checked"))]
     let abi_embedded = quote! {};
     let item = proc_macro2::TokenStream::from(item);
@@ -330,15 +366,18 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 //
 // # Arguments
 // * input - impl block to process.
+// * krate - path to the `near-sdk` crate to use in the generated code.
 //
 // The Result has a TokenStream error type, because those need to be propagated to the compiler.
 fn process_impl_block(
     mut input: ItemImpl,
+    krate: &syn::Path,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    let item_impl_info = match ItemImplInfo::new(&mut input) {
+    let mut item_impl_info = match ItemImplInfo::new(&mut input) {
         Ok(x) => x,
         Err(err) => return Err(err.to_compile_error()),
     };
+    item_impl_info.set_krate(krate);
 
     #[cfg(not(feature = "__abi-generate"))]
     let abi_generated = quote! {};
@@ -403,6 +442,11 @@ struct DeriveNearSchema {
     attrs: Vec<syn::Attribute>,
     json: Option<bool>,
     borsh: Option<bool>,
+    /// Path to the `near-sdk` crate to use in the generated code, e.g.
+    /// `#[abi(json, crate = "::my_wrapper::near_sdk")]`. Mutually exclusive with the bare
+    /// `#[inside_nearsdk]` marker attribute, which remains as sugar for `crate = "crate"`.
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
 }
 
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
@@ -476,12 +520,13 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             }
         }
 
-        let near_sdk_crate =
-            if derive_input.attrs.iter().any(|attr| attr.path().is_ident("inside_nearsdk")) {
-                quote! {crate}
-            } else {
-                quote! {::near_sdk}
-            };
+        let inside_nearsdk =
+            derive_input.attrs.iter().any(|attr| attr.path().is_ident("inside_nearsdk"));
+        let near_sdk_crate = match resolve_near_sdk_crate(args.krate.clone(), Some(inside_nearsdk))
+        {
+            Ok(krate) => quote! {#krate},
+            Err(e) => return TokenStream::from(e.to_compile_error()),
+        };
 
         // <unspecified> or #[abi(json)]
         let json_schema = json_schema || !borsh_schema;
@@ -610,16 +655,32 @@ fn get_where_clause(
     where_clause
 }
 
-#[proc_macro_derive(PanicOnDefault)]
+#[derive(Default, darling::FromAttributes)]
+#[darling(attributes(panic_on_default))]
+struct PanicOnDefaultArgs {
+    /// Path to the `near-sdk` crate to use in the generated code, e.g.
+    /// `#[panic_on_default(crate = "::my_wrapper::near_sdk")]`.
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
+}
+
+#[proc_macro_derive(PanicOnDefault, attributes(panic_on_default))]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     match syn::parse::<Item>(item) {
-        Ok(Item::Enum(ItemEnum { ident, .. })) | Ok(Item::Struct(ItemStruct { ident, .. })) => {
+        Ok(Item::Enum(ItemEnum { ident, attrs, .. }))
+        | Ok(Item::Struct(ItemStruct { ident, attrs, .. })) => {
+            use darling::FromAttributes;
+            let args = match PanicOnDefaultArgs::from_attributes(&attrs) {
+                Ok(v) => v,
+                Err(e) => return TokenStream::from(e.write_errors()),
+            };
+            let near_sdk_crate = args.krate.unwrap_or_else(|| parse_quote!(::near_sdk));
             TokenStream::from(quote! {
                 const _: () = {
                     #[automatically_derived]
                     impl ::std::default::Default for #ident {
                         fn default() -> Self {
-                            ::near_sdk::env::panic_str("The contract is not initialized");
+                            #near_sdk_crate::env::panic_str("The contract is not initialized");
                         }
                     }
                 };
