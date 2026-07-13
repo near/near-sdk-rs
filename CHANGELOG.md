@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.29.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0-rc.1...near-sdk-v5.29.0) - 2026-07-09
+## [5.29.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0-rc.1...near-sdk-v5.29.0) - 2026-07-13
 
 ### Added
 
 - add `env::chain_id` ([#1592](https://github.com/near/near-sdk-rs/pull/1592))
 - `near-digest` crate ([#1571](https://github.com/near/near-sdk-rs/pull/1571))
 - add `p256_verify` ([#1577](https://github.com/near/near-sdk-rs/pull/1577))
+
+### Fixed
+
+- return correct account id in `current_contract_code` for the `GlobalByAccount` case ([#1601](https://github.com/near/near-sdk-rs/pull/1601))
+- read `LazyOption` value as `None` when the storage key does not exist ([#1599](https://github.com/near/near-sdk-rs/pull/1599))
+- update indexes on `UnorderedSet::defrag` ([#1597](https://github.com/near/near-sdk-rs/pull/1597))
+- remove correct indices on drop in `Vec` drain ([#1595](https://github.com/near/near-sdk-rs/pull/1595))
+- remove stale entries for a partially consumed `Drain` after drop ([#1593](https://github.com/near/near-sdk-rs/pull/1593))
+- unify `AsNep297Event` trait definition across the serde feature gate ([#1587](https://github.com/near/near-sdk-rs/pull/1587))
+- re-key elements in `collections::Vector::to_v2()` ([#1581](https://github.com/near/near-sdk-rs/pull/1581))
+- prevent `Lazy::remove()` from being resurrected by Drop-flush ([#1580](https://github.com/near/near-sdk-rs/pull/1580))
 
 ## [5.29.0-rc.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.28.3...near-sdk-v5.29.0-rc.1) - 2026-07-01
 
