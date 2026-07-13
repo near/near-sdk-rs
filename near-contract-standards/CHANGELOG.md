@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.29.0](https://github.com/near/near-sdk-rs/releases/tag/near-contract-standards-v5.29.0) - 2026-07-13
+
+### Other
+
+- pin to nearcore 2.13.0 stable ([#1586](https://github.com/near/near-sdk-rs/pull/1586))
+- fix outdated docs.near.org links in doc comments ([#1591](https://github.com/near/near-sdk-rs/pull/1591))
+
 ## [5.25.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.24.1...near-contract-standards-v5.25.0) - 2026-03-26
 
 ### Added
