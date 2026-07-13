@@ -78,7 +78,7 @@ mod tests {
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
+        let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         let res = contract.view("__contract_abi").await?;

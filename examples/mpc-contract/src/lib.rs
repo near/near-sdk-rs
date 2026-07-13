@@ -292,7 +292,7 @@ mod tests {
     #[tokio::test]
     async fn happy_path() -> Result<(), Box<dyn std::error::Error>> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let workspace = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
+        let workspace = near_workspaces::sandbox().await?;
 
         let contract_account = workspace.dev_create_account().await?;
         let contract = contract_account.deploy(wasm.as_slice()).await?.into_result()?;
@@ -323,7 +323,7 @@ mod tests {
     #[tokio::test]
     async fn negative_path() -> Result<(), Box<dyn std::error::Error>> {
         let wasm = near_workspaces::compile_project("./").await?;
-        let workspace = near_workspaces::sandbox_with_version("2.13.0-rc.2").await?;
+        let workspace = near_workspaces::sandbox().await?;
 
         let contract_account = workspace.dev_create_account().await?;
         let contract = contract_account.deploy(wasm.as_slice()).await?.into_result()?;
