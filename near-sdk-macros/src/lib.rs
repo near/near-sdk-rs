@@ -748,9 +748,25 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(EventMetadata, attributes(event_version))]
+#[derive(Default, darling::FromAttributes)]
+#[darling(attributes(event_metadata))]
+struct EventMetadataArgs {
+    /// Path to the `near-sdk` crate to use in the generated code. Populated by `near_events`
+    /// forwarding the resolved crate path from `#[near(event_json(...), crate = "...")]`.
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
+}
+
+#[proc_macro_derive(EventMetadata, attributes(event_version, event_metadata))]
 pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemEnum>(item) {
+        use darling::FromAttributes;
+        let args = match EventMetadataArgs::from_attributes(&input.attrs) {
+            Ok(v) => v,
+            Err(e) => return TokenStream::from(e.write_errors()),
+        };
+        let near_sdk_crate = args.krate.unwrap_or_else(|| parse_quote!(::near_sdk));
+
         let name = &input.ident;
         // get `standard` const injected from `near_events`
         let standard_name = format!("{name}_event_standard");
@@ -797,12 +813,12 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
                 pub fn emit(&self) {
-                    use ::near_sdk::AsNep297Event;
-                    ::near_sdk::env::log_str(&self.to_nep297_event().to_event_log());
+                    use #near_sdk_crate::AsNep297Event;
+                    #near_sdk_crate::env::log_str(&self.to_nep297_event().to_event_log());
                 }
 
-                pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
-                    use ::near_sdk::AsNep297Event;
+                pub fn to_json(&self) -> #near_sdk_crate::serde_json::Value {
+                    use #near_sdk_crate::AsNep297Event;
                     self.to_nep297_event().to_json()
                 }
 
@@ -823,9 +839,9 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl #impl_generics ::near_sdk::events::AsNep297Event for #name #type_generics #where_clause{
-                fn to_nep297_event(&self) -> ::near_sdk::events::Nep297Event<'_, Self> {
-                    ::near_sdk::events::Nep297Event::new(
+            impl #impl_generics #near_sdk_crate::events::AsNep297Event for #name #type_generics #where_clause{
+                fn to_nep297_event(&self) -> #near_sdk_crate::events::Nep297Event<'_, Self> {
+                    #near_sdk_crate::events::Nep297Event::new(
                         ::std::borrow::Cow::Borrowed(#standard_ident),
                         match self {
                             #(#version_arms),*

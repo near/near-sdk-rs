@@ -8,9 +8,17 @@ use darling::FromMeta;
 use darling::ast::NestedMeta;
 use syn::{ItemEnum, LitStr, parse_quote};
 
+use crate::core_impl::utils::crate_path_string;
+
 #[derive(Default, FromMeta, Clone, Debug)]
 pub struct MacroConfig {
     pub event_json: Option<EventsConfig>,
+    /// Path to the `near-sdk` crate to use in the generated code, forwarded from
+    /// `#[near(event_json(...), crate = "...")]` / `#[near_bindgen(event_json(...), crate =
+    /// "...")]`. Also forwarded into the `EventMetadata` derive via `#[event_metadata(crate =
+    /// "...")]`, since that derive has no other way to learn the resolved crate path.
+    #[darling(rename = "crate")]
+    krate: Option<syn::Path>,
 }
 #[derive(Default, FromMeta, Clone, Debug)]
 pub struct EventsConfig {
@@ -36,6 +44,9 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
             return TokenStream::from(e.write_errors());
         }
     };
+    let near_sdk_crate: syn::Path = args.krate.clone().unwrap_or_else(|| parse_quote!(::near_sdk));
+    let near_sdk_crate_str = crate_path_string(&near_sdk_crate);
+    let serde_crate_str = format!("{near_sdk_crate_str}::serde");
     if let Some(standard) = args.event_json.and_then(|event_json| event_json.standard) {
         if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
             let name = &input.ident;
@@ -43,11 +54,14 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
             let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
             // NearEvent Macro handles implementation
             input.attrs.push(
-                parse_quote! (#[derive(::near_sdk::serde::Serialize, ::near_sdk::EventMetadata)]),
+                parse_quote! (#[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::EventMetadata)]),
             );
-            input.attrs.push(parse_quote! (#[serde(crate="::near_sdk::serde")]));
+            input.attrs.push(parse_quote! (#[serde(crate = #serde_crate_str)]));
             input.attrs.push(parse_quote! (#[serde(tag = "event", content = "data")]));
             input.attrs.push(parse_quote! (#[serde(rename_all = "snake_case")]));
+            // Forwarded so the `EventMetadata` derive (which can't otherwise see how it was
+            // invoked) knows the resolved crate path too.
+            input.attrs.push(parse_quote! (#[event_metadata(crate = #near_sdk_crate_str)]));
 
             TokenStream::from(quote! {
                 const #standard_ident: &'static str = #standard;
