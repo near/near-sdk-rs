@@ -443,6 +443,8 @@ where
 
     /// Clears the set, returning all elements in an iterator.
     ///
+    /// This will clear all elements, even if only some of them are yielded.
+    ///
     /// # Examples
     ///
     /// ```
@@ -571,8 +573,15 @@ where
     ///
     /// set.defrag();
     /// ```
-    pub fn defrag(&mut self) {
-        self.elements.defrag(|_, _| {});
+    pub fn defrag(&mut self)
+    where
+        T: Clone,
+    {
+        self.elements.defrag(|element, new_index| {
+            if let Some(existing) = self.index.get_mut(element) {
+                *existing = FreeListIndex(new_index);
+            }
+        });
     }
 }
 
@@ -955,6 +964,33 @@ mod tests {
         assert_eq!(set.elements.get(FreeListIndex(6)), None);
     }
 
+    #[test]
+    fn test_defrag_rekeys_index() {
+        let mut set = UnorderedSet::new(b"d");
+        for i in 0..=8 {
+            set.insert(i);
+        }
+        for id in [2, 4, 6] {
+            set.remove(&id);
+        }
+        // Remaining: {0, 1, 3, 5, 7, 8}
+        set.defrag();
+
+        let existing = [0, 1, 3, 5, 7, 8];
+        for i in existing {
+            assert!(set.contains(&i), "contains({}) after defrag", i);
+        }
+        assert_eq!(set.len(), 6);
+
+        // Removing every surviving element must succeed. If the index kept stale
+        // pre-defrag slot indices, this either panics (ERR_INCONSISTENT_STATE) or
+        // deletes the wrong element.
+        for i in existing {
+            assert!(set.remove(&i), "remove({}) after defrag", i);
+        }
+        assert!(set.is_empty());
+    }
+
     #[cfg(feature = "abi")]
     #[test]
     fn test_borsh_schema() {
@@ -1025,5 +1061,79 @@ mod tests {
         // Should be able to re-insert both
         assert!(set.insert(first));
         assert!(set.insert(last));
+    }
+
+    #[test]
+    fn test_drain_partial_consumption_clears_index() {
+        let mut set = UnorderedSet::new(b"t");
+        for i in 1..=3 {
+            set.insert(i);
+        }
+
+        {
+            let mut drain = set.drain();
+            drain.next().unwrap();
+            // Dropped with two elements unconsumed
+        }
+
+        assert_eq!(set.len(), 0);
+        assert!(set.is_empty());
+
+        for i in 1..=3 {
+            assert!(!set.contains(&i), "stale index entry for {} after partial drain", i);
+            assert!(!set.remove(&i), "remove({}) should be a no-op on an empty set", i);
+            assert!(set.insert(i), "re-insert of {} should succeed after drain", i);
+        }
+        assert_eq!(set.len(), 3);
+    }
+
+    #[test]
+    fn test_drain_mixed_direction_partial_consumption() {
+        let mut set = UnorderedSet::new(b"t");
+        for i in 1..=5 {
+            set.insert(i);
+        }
+
+        {
+            let mut drain = set.drain();
+            drain.next().unwrap();
+            drain.next_back().unwrap();
+            // Dropped with three elements unconsumed
+        }
+
+        assert!(set.is_empty());
+        for i in 1..=5 {
+            assert!(!set.contains(&i), "stale index entry for {} after mixed-direction drain", i);
+            assert!(set.insert(i), "re-insert of {} should succeed after drain", i);
+        }
+        assert_eq!(set.len(), 5);
+    }
+
+    #[test]
+    fn test_drain_partial_consumption_with_free_list_holes() {
+        let mut set = UnorderedSet::new(b"t");
+        for i in 1..=6 {
+            set.insert(i);
+        }
+        // Create Slot::Empty holes in the backing free list.
+        assert!(set.remove(&2));
+        assert!(set.remove(&5));
+        assert_eq!(set.len(), 4);
+
+        {
+            let mut drain = set.drain();
+            drain.next().unwrap();
+            drain.next_back().unwrap();
+            // Dropped with two elements unconsumed
+        }
+
+        assert_eq!(set.len(), 0);
+        assert!(set.is_empty());
+
+        for i in 1..=6 {
+            assert!(!set.contains(&i), "stale index entry for {} after drain over holes", i);
+            assert!(set.insert(i), "re-insert of {} should succeed after drain", i);
+        }
+        assert_eq!(set.len(), 6);
     }
 }

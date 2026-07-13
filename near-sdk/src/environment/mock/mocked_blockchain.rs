@@ -1088,6 +1088,29 @@ mod tests {
         }
 
         #[test]
+        fn test_current_contract_code_global_by_account_returns_referenced_account() {
+            let provider: AccountId = "a.near".parse().unwrap();
+            let context = VMContextBuilder::new()
+                .current_account_id("b.near".parse().unwrap())
+                .account_contract(AccountContract::GlobalByAccount(provider.clone()))
+                .build();
+            testing_env!(context);
+
+            assert_eq!(
+                env::current_contract_code(),
+                crate::AccountContract::GlobalByAccount(provider.clone()),
+                "current_contract_code() must return the referenced global-code provider \
+         (a.near), not the executing account (b.near)"
+            );
+
+            assert_eq!(
+                env::current_global_contract_id(),
+                Some(GlobalContractId::AccountId(provider)),
+                "current_global_contract_id() must map to the referenced provider account"
+            );
+        }
+
+        #[test]
         fn test_deterministic_update() {
             let context = VMContextBuilder::new().build();
 

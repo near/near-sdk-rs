@@ -448,6 +448,30 @@ mod tests {
         crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
 
+    #[test]
+    fn drain_removes_empty_slot_storage_entries() {
+        let mut bucket = FreeList::new(b"b");
+        bucket.extend(0..6u8);
+        // Create holes, including trailing ones that a full drain never yields.
+        bucket.remove(FreeListIndex(1));
+        bucket.remove(FreeListIndex(4));
+        bucket.remove(FreeListIndex(5));
+        bucket.flush();
+
+        for _ in bucket.drain() {}
+        bucket.flush();
+
+        assert!(bucket.is_empty());
+        for i in 0..6u32 {
+            let key = [b"b".as_slice(), &i.to_le_bytes()].concat();
+            assert!(
+                crate::env::storage_read(&key).is_none(),
+                "storage entry for slot {} not removed by drain",
+                i
+            );
+        }
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Insert(u8),

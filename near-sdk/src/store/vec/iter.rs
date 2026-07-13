@@ -199,11 +199,8 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn drop(&mut self) {
-        let delete_indices = (self.delete_range.start..self.range.start)
-            .chain(self.range.end..self.delete_range.end);
-
         // Delete any non-deleted elements from iterator (not loading from storage)
-        for i in delete_indices {
+        for i in self.range.clone() {
             self.vec.values.set(i, None);
         }
 

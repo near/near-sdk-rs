@@ -42,6 +42,20 @@ where
     CacheEntry::new_cached(Some(val))
 }
 
+/// Like [`load_and_deserialize`], but for a value that may legitimately be absent:
+/// a missing storage key is loaded as `None` instead of panicking. Used by
+/// [`LazyOption`](crate::store::LazyOption), whose `None` state is encoded as the
+/// absence of the storage key.
+pub(crate) fn load_and_deserialize_option<T>(key: &[u8]) -> CacheEntry<T>
+where
+    T: BorshDeserialize,
+{
+    let value = env::storage_read(key).map(|bytes| {
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION))
+    });
+    CacheEntry::new_cached(value)
+}
+
 pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,

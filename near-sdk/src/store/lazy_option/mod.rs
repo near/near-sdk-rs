@@ -6,7 +6,7 @@ use once_cell::unsync::OnceCell;
 
 use crate::IntoStorageKey;
 use crate::env;
-use crate::store::lazy::{load_and_deserialize, serialize_and_store};
+use crate::store::lazy::{load_and_deserialize_option, serialize_and_store};
 use crate::utils::{CacheEntry, EntryState};
 
 /// An persistent lazily loaded option, that stores a `value` in the storage when `Some(value)`
@@ -108,7 +108,7 @@ where
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get(&self) -> &Option<T> {
-        let entry = self.cache.get_or_init(|| load_and_deserialize(&self.prefix));
+        let entry = self.cache.get_or_init(|| load_and_deserialize_option(&self.prefix));
         entry.value()
     }
 
@@ -116,7 +116,7 @@ where
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get_mut(&mut self) -> &mut Option<T> {
-        self.cache.get_or_init(|| load_and_deserialize(&self.prefix));
+        self.cache.get_or_init(|| load_and_deserialize_option(&self.prefix));
         let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
         entry.value_mut()
     }
@@ -197,5 +197,38 @@ mod tests {
                 "LazyOption { storage_key: [109], cache: None }"
             );
         }
+    }
+
+    #[test]
+    pub fn test_reload_none_reads_as_none() {
+        // Construct a `None`, then persist + reload (borsh round-trip, exactly
+        // like the contract state lifecycle between calls).
+        let a = LazyOption::<u32>::new(b"r", None);
+        let serialized = borsh::to_vec(&a).unwrap();
+        drop(a);
+        assert!(!env::storage_has_key(b"r"), "None must not write a storage key");
+
+        let reloaded = LazyOption::<u32>::try_from_slice(&serialized).unwrap();
+
+        // Reading a reloaded `None` must not panic.
+        assert!(reloaded.is_none());
+        assert_eq!(reloaded.get(), &None);
+    }
+
+    #[test]
+    pub fn test_reload_none_after_take_reads_as_none() {
+        let mut a = LazyOption::new(b"s", Some(7u32));
+        a.flush();
+        assert!(env::storage_has_key(b"s"));
+        assert_eq!(a.take(), Some(7));
+        a.flush();
+        assert!(!env::storage_has_key(b"s"));
+
+        let serialized = borsh::to_vec(&a).unwrap();
+        drop(a);
+
+        let reloaded = LazyOption::<u32>::try_from_slice(&serialized).unwrap();
+        assert!(reloaded.is_none());
+        assert_eq!(reloaded.get(), &None);
     }
 }
