@@ -5,29 +5,31 @@ use syn::{Attribute, Generics, Path, Signature, parse_quote};
 
 /// Generates inner ext code for structs and modules. If intended for a struct, generic details
 /// for the struct should be passed in through `generic_details` and the `ext` method will be
-/// added as an impl to the struct ident.
+/// added as an impl to the struct ident. `near_sdk_crate` is the path to the `near-sdk` crate to
+/// use in the generated code (defaults to `::near_sdk`).
 pub(crate) fn generate_ext_structs(
     ident: &Ident,
     generic_details: Option<&Generics>,
+    near_sdk_crate: &syn::Path,
 ) -> proc_macro2::TokenStream {
     let name = format_ident!("{}Ext", ident);
     let mut ext_code = quote! {
         /// API for calling this contract's functions in a subsequent execution.
-        pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
+        pub fn ext(account_id: #near_sdk_crate::AccountId) -> #name {
             #name {
-                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id),
-                deposit: ::near_sdk::NearToken::from_near(0),
-                static_gas: ::near_sdk::Gas::from_gas(0),
-                gas_weight: ::near_sdk::GasWeight::default(),
+                promise_or_create_on: #near_sdk_crate::PromiseOrValue::Value(account_id),
+                deposit: #near_sdk_crate::NearToken::from_near(0),
+                static_gas: #near_sdk_crate::Gas::from_gas(0),
+                gas_weight: #near_sdk_crate::GasWeight::default(),
             }
         }
 
-        pub fn ext_on(promise: ::near_sdk::Promise) -> #name {
+        pub fn ext_on(promise: #near_sdk_crate::Promise) -> #name {
             #name {
-                promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(promise),
-                deposit: ::near_sdk::NearToken::from_near(0),
-                static_gas: ::near_sdk::Gas::from_gas(0),
-                gas_weight: ::near_sdk::GasWeight::default(),
+                promise_or_create_on: #near_sdk_crate::PromiseOrValue::Promise(promise),
+                deposit: #near_sdk_crate::NearToken::from_near(0),
+                static_gas: #near_sdk_crate::Gas::from_gas(0),
+                gas_weight: #near_sdk_crate::GasWeight::default(),
             }
         }
     };
@@ -40,12 +42,12 @@ pub(crate) fn generate_ext_structs(
             /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
             pub fn ext_self() -> #name {
                 #name {
-                    promise_or_create_on: ::near_sdk::PromiseOrValue::Value(
-                        ::near_sdk::env::current_account_id(),
+                    promise_or_create_on: #near_sdk_crate::PromiseOrValue::Value(
+                        #near_sdk_crate::env::current_account_id(),
                     ),
-                    deposit: ::near_sdk::NearToken::from_near(0),
-                    static_gas: ::near_sdk::Gas::from_gas(0),
-                    gas_weight: ::near_sdk::GasWeight::default(),
+                    deposit: #near_sdk_crate::NearToken::from_near(0),
+                    static_gas: #near_sdk_crate::Gas::from_gas(0),
+                    gas_weight: #near_sdk_crate::GasWeight::default(),
                 }
             }
         }
@@ -65,23 +67,23 @@ pub(crate) fn generate_ext_structs(
     quote! {
       #[must_use]
       pub struct #name {
-          pub(crate) promise_or_create_on: ::near_sdk::PromiseOrValue<::near_sdk::AccountId>,
-          pub(crate) deposit: ::near_sdk::NearToken,
-          pub(crate) static_gas: ::near_sdk::Gas,
-          pub(crate) gas_weight: ::near_sdk::GasWeight,
+          pub(crate) promise_or_create_on: #near_sdk_crate::PromiseOrValue<#near_sdk_crate::AccountId>,
+          pub(crate) deposit: #near_sdk_crate::NearToken,
+          pub(crate) static_gas: #near_sdk_crate::Gas,
+          pub(crate) gas_weight: #near_sdk_crate::GasWeight,
       }
 
       impl #name {
-          pub fn with_attached_deposit(mut self, amount: ::near_sdk::NearToken) -> Self {
+          pub fn with_attached_deposit(mut self, amount: #near_sdk_crate::NearToken) -> Self {
               self.deposit = amount;
               self
           }
-          pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
+          pub fn with_static_gas(mut self, static_gas: #near_sdk_crate::Gas) -> Self {
               self.static_gas = static_gas;
               self
           }
           pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-              self.gas_weight = ::near_sdk::GasWeight(gas_weight);
+              self.gas_weight = #near_sdk_crate::GasWeight(gas_weight);
               self
           }
       }
@@ -153,6 +155,7 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
 }
 
 fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
+    let krate = &attr_signature_info.krate;
     let pat_type_list = attr_signature_info.pat_type_list();
     let serialize =
         serializer::generate_serializer(attr_signature_info, &attr_signature_info.input_serializer);
@@ -168,12 +171,12 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let Signature { generics, .. } = original_sig;
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
+        pub fn #ident #generics(self, #pat_type_list) -> #krate::Promise {
             let __args = #serialize;
             match self.promise_or_create_on {
-                ::near_sdk::PromiseOrValue::Promise(p) => p,
-                ::near_sdk::PromiseOrValue::Value(account_id) => {
-                    ::near_sdk::Promise::new(account_id)
+                #krate::PromiseOrValue::Promise(p) => p,
+                #krate::PromiseOrValue::Value(account_id) => {
+                    #krate::Promise::new(account_id)
                 }
             }
                 .function_call_weight(
@@ -199,15 +202,27 @@ mod tests {
     #[test]
     fn ext_gen() {
         let st: ItemStruct = parse_quote! { struct Test { a: u8 } };
-        let actual = generate_ext_structs(&st.ident, Some(&st.generics));
-       
+        let actual = generate_ext_structs(&st.ident, Some(&st.generics), &parse_quote!(::near_sdk));
+
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn ext_gen_custom_crate() {
+        let st: ItemStruct = parse_quote! { struct Test { a: u8 } };
+        let actual = generate_ext_structs(
+            &st.ident,
+            Some(&st.generics),
+            &parse_quote!(::renamed_sdk::near_sdk),
+        );
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     #[test]
     fn module_ext_gen() {
         let ident: Ident = parse_quote! { Test };
-        let actual = generate_ext_structs(&ident, None);
+        let actual = generate_ext_structs(&ident, None, &parse_quote!(::near_sdk));
     
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -238,7 +253,22 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
-     
+
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    /// Exercises `#[near(crate = "...")]`-style overrides: the `_Ext` wrapper should
+    /// reference the custom crate path instead of the hardcoded `::near_sdk`.
+    #[test]
+    fn ext_basic_json_custom_crate() {
+        let impl_type: Type = parse_quote! { Hello };
+        let mut method: ImplItemFn = parse_quote! {
+            pub fn method(&self, k: &String) { }
+        };
+        let mut method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        method_info.attr_signature_info.krate = parse_quote!(::renamed_sdk::near_sdk);
+        let actual = generate_ext_function(&method_info.attr_signature_info);
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
