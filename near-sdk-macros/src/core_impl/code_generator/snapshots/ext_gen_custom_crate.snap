@@ -52,7 +52,7 @@ impl Test {
     }
     /// Convenience method for creating a cross-contract call to the current contract.
     ///
-    /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
+    /// Equivalent to `Self::ext(env::current_account_id())`.
     pub fn ext_self() -> TestExt {
         TestExt {
             promise_or_create_on: ::renamed_sdk::near_sdk::PromiseOrValue::Value(

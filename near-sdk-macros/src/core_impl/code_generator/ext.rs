@@ -39,7 +39,7 @@ pub(crate) fn generate_ext_structs(
         quote! {
             /// Convenience method for creating a cross-contract call to the current contract.
             ///
-            /// Equivalent to `Self::ext(near_sdk::env::current_account_id())`.
+            /// Equivalent to `Self::ext(env::current_account_id())`.
             pub fn ext_self() -> #name {
                 #name {
                     promise_or_create_on: #near_sdk_crate::PromiseOrValue::Value(
