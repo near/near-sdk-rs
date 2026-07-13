@@ -49,10 +49,10 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 | `arbitrary`                | `arbitrary::Arbitrary` impls for fuzzing                                |
 | `near-primitives-interop`  | `From`/`Into` between these types and the `near-primitives-core` ones   |
 
-`StateInit::derive_account_id` requires the `borsh` feature. Hashing backend is selected
-automatically: on `--cfg near` (set by `cargo-near`) it routes through NEAR host functions
-via `near-sdk-env`; otherwise it uses pure-Rust `sha3`, which is pulled in unconditionally on
-the `cfg(not(near))` path.
+`StateInit::derive_account_id` requires the `borsh` feature. The keccak256 backend is selected
+automatically by [`near-digest`](https://docs.rs/near-digest): on `--cfg near` (set by
+`cargo-near`) it routes through the NEAR host function; otherwise it uses a pure-Rust
+implementation. Both produce identical output.
 
 ## License
 

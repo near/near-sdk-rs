@@ -139,7 +139,9 @@ unit-testing = [
     "near-parameters",
     "near-sdk-env/__near-sdk-unit-testing",
     "near-sdk-core/__near-sdk-unit-testing",
-    "near-global-contracts/__near-sdk-unit-testing",
+    # The mock converts nearcore's `DeterministicAccountStateInit` into this crate's `StateInit`
+    # (see `environment/mock/receipt.rs`), which needs the interop `From` impls.
+    "near-global-contracts/near-primitives-interop",
 ]
 non-contract-usage = [
     "ed25519-dalek",

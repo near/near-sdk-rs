@@ -75,6 +75,50 @@ jobs:
           RUSTFLAGS: "-D warnings --cfg near"
         run: cargo hack check -p ${{ matrix.crate }} --target "wasm32-unknown-unknown" --feature-powerset --exclude-features schemars-v0_8,abi,__near-sdk-unit-testing --no-dev-deps
 
+  # These leaf crates deliberately support an older MSRV than the workspace 1.93 so off-chain
+  # consumers on an older toolchain (indexers, CLIs, near-kit) can use them. Their `cfg(near)`
+  # on-chain path does need 1.93, but it is only ever built with a newer toolchain (cargo-near /
+  # the protocol version enforce it), so only the off-chain surface is checked here.
+  msrv:
+    runs-on: warp-ubuntu-latest-x64-4x
+    name: "MSRV off-chain ${{ matrix.crate }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - "near-crypto-hash"
+          - "near-digest"
+          - "near-global-contracts"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain
+        run: |
+          # Read the crate's declared MSRV so this job always tests exactly what is published.
+          MSRV=$(grep -m1 '^rust-version = ' ${{ matrix.crate }}/Cargo.toml | sed -E 's/.*"([0-9.]+)".*/\1/')
+          if [ -z "$MSRV" ]; then echo "::error::could not read rust-version from ${{ matrix.crate }}/Cargo.toml"; exit 1; fi
+          echo "Package MSRV: $MSRV"
+          rustup toolchain install "$MSRV" --profile minimal
+          rustup override set "$MSRV"
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-provider: warpbuild
+          shared-key: "msrv-${{ matrix.crate }}"
+          cache-all-crates: true
+
+      - name: Print rustc version
+        run: rustc --version
+
+      # Off-chain surface only (no `--cfg near`); the on-chain path requires the workspace 1.93.
+      - name: Cargo hack check off-chain powerset on MSRV
+        run: cargo hack check -p ${{ matrix.crate }} --feature-powerset --no-dev-deps
+
   test:
     runs-on: ${{ matrix.platform.os }}
     name: "${{ matrix.platform.name }} ${{ matrix.platform.rs }} ${{ matrix.features }}"

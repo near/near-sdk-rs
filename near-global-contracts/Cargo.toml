@@ -6,21 +6,30 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
+# Kept below the workspace 1.93 for off-chain consumers (indexers, CLIs, near-kit, ...); the
+# off-chain hashing path (near-digest, also 1.88) builds on 1.88. See near-digest/Cargo.toml.
 rust-version = "1.88"
 readme = "./README.md"
 description = """
 Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
 """
 
-# Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
-# backend is pulled in unconditionally on the `cfg(not(near))` path). Including all of
-# serde/borsh/abi here surfaces the full type surface.
+# Make `derive_account_id` visible on docs.rs (it requires `borsh`, which pulls in the
+# `near-digest` hashing backend). Including all of serde/borsh/abi here surfaces the full
+# type surface.
 [package.metadata.docs.rs]
 features = ["serde", "borsh", "abi", "near-primitives-interop"]
 
 [dependencies]
 near-account-id = { version = "2.3.0", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+
+# keccak256 backend for `derive_account_id`: routed through the NEAR host function on-chain
+# (`--cfg near`) and pure-Rust off-chain, selected automatically by `near-digest`. `digest-io`
+# streams the borsh serialization straight into the hasher. Both are gated behind `borsh`, the
+# only feature that exposes `derive_account_id`.
+near-digest = { path = "../near-digest/", version = "0.1", features = ["sha3"], optional = true }
+digest-io = { version = "0.1", optional = true }
 
 hex = { version = "0.4", optional = true }
 
@@ -31,22 +40,12 @@ borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4", optional = true }
 # Pinned to the published nearcore 2.13 release candidate `0.37.0-rc.2`; see near-sdk/Cargo.toml for the rationale.
 near-primitives-core = { version = "=0.37.0-rc.2", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 
-[target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.4" }
-
-[target.'cfg(not(near))'.dependencies]
-digest-io = { version = "0.1" }
-sha3 = { version = "0.11" }
-
 [dev-dependencies]
-# XXX: `near-sdk` was added in order to enable testing and doctests
-near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 [lints]
@@ -65,6 +64,8 @@ serde = [
 borsh = [
     "dep:borsh",
     "dep:hex",
+    "dep:near-digest",
+    "dep:digest-io",
     "near-account-id/borsh",
 ]
 
@@ -87,12 +88,3 @@ arbitrary = [
 ]
 
 near-primitives-interop = ["dep:near-primitives-core"]
-
-__near-sdk-unit-testing = [
-    "dep:near-sdk-env",
-    "dep:hex",
-    "serde",
-    "borsh",
-    "near-primitives-interop",
-    "near-sdk-env/__near-sdk-unit-testing",
-]
