@@ -43,6 +43,7 @@ pub enum GlobalContractId {
 }
 
 impl GlobalContractId {
+    /// Derive (immutable) global contract id as hash of given code
     #[cfg(feature = "digest")]
     #[inline]
     pub fn hash_of(code: impl AsRef<[u8]>) -> Self {
