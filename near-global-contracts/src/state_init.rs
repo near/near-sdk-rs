@@ -4,6 +4,19 @@ use std::collections::BTreeMap;
 #[cfg(feature = "serde")]
 use serde_with::base64::Base64;
 
+/// Initial on-chain state used to derive a [deterministic account].
+///
+/// A deterministic account ([NEP-616]) lives at an address computed from its own initial
+/// state instead of one chosen up front, so anyone who knows the state can work out the
+/// address ahead of time. This type is that state; pass it to
+/// [`StateInit::derive_account_id`] to get the resulting [`AccountId`].
+///
+/// It is versioned so the layout can change later without breaking existing data.
+/// [`V1`](StateInit::V1) is the only version today.
+///
+/// [deterministic account]: https://github.com/near/NEPs/pull/616
+/// [NEP-616]: https://github.com/near/NEPs/pull/616
+/// [`AccountId`]: near_account_id::AccountId
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -20,6 +33,7 @@ use serde_with::base64::Base64;
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
 pub enum StateInit {
+    /// Version 1: see [`StateInitV1`].
     V1(StateInitV1) = 0,
 }
 
@@ -74,6 +88,9 @@ impl StateInit {
     }
 }
 
+/// Version 1 of the [`StateInit`] payload.
+///
+/// Holds the global contract to run and the account's initial storage entries.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(
@@ -90,17 +107,24 @@ impl StateInit {
 )]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct StateInitV1 {
+    /// The global contract whose code the derived account will run.
     pub code: GlobalContractId,
+    /// Key/value entries written to the account's trie storage at creation.
     #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
 impl StateInitV1 {
+    /// Creates a payload that runs `code` with no initial storage.
+    ///
+    /// Chain [`with_data_entry`](Self::with_data_entry) to add storage entries.
     #[inline]
     pub fn code(code: impl Into<GlobalContractId>) -> Self {
         Self { code: code.into(), data: BTreeMap::new() }
     }
 
+    /// Adds one key/value entry to the initial storage, returning `self` so calls can be
+    /// chained.
     #[inline]
     pub fn with_data_entry(mut self, key: impl Into<Vec<u8>>, value: impl Into<Vec<u8>>) -> Self {
         self.data.insert(key.into(), value.into());

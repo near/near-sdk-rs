@@ -11,6 +11,13 @@ pub enum AccountContract {
     GlobalByAccount(AccountId),
 }
 
+/// Identifies which [global contract] an account should run.
+///
+/// Global contracts let contract code be deployed once and shared across the whole
+/// network, so many accounts can run the same code without each storing its own copy.
+/// A global contract is referenced in one of two ways, one per variant below.
+///
+/// [global contract]: https://github.com/near/NEPs/pull/591
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(
     feature = "serde",
@@ -32,10 +39,20 @@ pub enum AccountContract {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum GlobalContractId {
+    /// Reference the contract by the hash of its code.
+    ///
+    /// This pins that exact bytecode: the reference never changes, even if the account
+    /// that originally deployed the code later deploys something else. Use it when you
+    /// want an immutable dependency.
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     CodeHash(
         #[cfg_attr(feature = "serde", serde_as(as = "::serde_with::base58::Base58"))] CryptoHash,
     ) = 0,
+    /// Reference the contract by the account that deployed it globally.
+    ///
+    /// This follows whatever code that account currently has deployed as a global
+    /// contract, so the referenced code changes if the deployer upgrades it. Use it when
+    /// you want to track the deployer's latest version.
     #[cfg_attr(feature = "serde", serde(rename = "account_id"))]
     AccountId(AccountId) = 1,
 }
