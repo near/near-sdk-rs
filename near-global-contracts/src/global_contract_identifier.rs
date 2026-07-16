@@ -59,6 +59,13 @@ impl From<CryptoHash> for GlobalContractId {
     }
 }
 
+impl From<&CryptoHash> for GlobalContractId {
+    #[inline]
+    fn from(hash: &CryptoHash) -> Self {
+        Self::CodeHash(*hash)
+    }
+}
+
 impl From<AccountId> for GlobalContractId {
     #[inline]
     fn from(account_id: AccountId) -> Self {
