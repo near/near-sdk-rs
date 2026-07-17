@@ -22,8 +22,8 @@ pub fn embed() -> TokenStream2 {
         // Feature activated without cargo-near setting the env var: skip embedding, but keep
         // the contract crate tracking the variable so a later build that provides it re-embeds.
         quote! {
-            const _: ::core::option::Option<&'static str> =
-                ::core::option_env!("CARGO_NEAR_ABI_PATH");
+            const _: ::std::option::Option<&'static str> =
+                ::std::option_env!("CARGO_NEAR_ABI_PATH");
         }
     }
 }
