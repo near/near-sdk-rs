@@ -1086,8 +1086,9 @@ pub mod bls12381 {
     //!
     //! # Encoding
     //!
-    //! All encodings match the ones used by the NEAR protocol host functions (big-endian field
-    //! elements; the same serialization as [EIP-2537] / the ZCash BLS12-381 spec):
+    //! All encodings match the ones used by the NEAR protocol host functions: the "ZCash"
+    //! BLS12-381 byte layout with big-endian field elements (the same serialization the zkcrypto
+    //! `bls12_381` crate produces):
     //!
     //! | Type             | Size (bytes) | Layout                                          |
     //! |------------------|-------------:|-------------------------------------------------|
@@ -1104,6 +1105,10 @@ pub mod bls12381 {
     //!
     //! The point at infinity is encoded with the infinity flag set (`0x40` in the first byte),
     //! not as all zeros.
+    //!
+    //! Note this is **not** the EIP-2537 encoding used by the Ethereum precompiles: that spec
+    //! zero-pads field elements to 64 bytes (128-byte `G1`, 256-byte `G2`) and defines no
+    //! compressed form, so EIP-2537 byte vectors are not interchangeable with these types.
     //!
     //! These functions are batch primitives — folding or mapping every element in a single host
     //! call. Prefer passing all your inputs to one call over calling them in a loop.
@@ -1133,7 +1138,6 @@ pub mod bls12381 {
     //! ```
     //!
     //! [BLS12-381]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves
-    //! [EIP-2537]: https://eips.ethereum.org/EIPS/eip-2537
     use super::{ATOMIC_OP_REGISTER, read_register, read_register_fixed, sys};
 
     /// Size in bytes of an uncompressed G1 point.
