@@ -8,8 +8,8 @@ use serde_with::base64::Base64;
 ///
 /// A deterministic account ([NEP-616]) lives at an address computed from its own initial
 /// state instead of one chosen up front, so anyone who knows the state can work out the
-/// address ahead of time. This type is that state; pass it to
-/// [`StateInit::derive_account_id`] to get the resulting [`AccountId`].
+/// address ahead of time. This type is that state; enable the `borsh` feature and call
+/// `StateInit::derive_account_id` to get the resulting [`AccountId`].
 ///
 /// It is versioned so the layout can change later without breaking existing data.
 /// [`V1`](StateInit::V1) is the only version today.
