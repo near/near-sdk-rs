@@ -40,16 +40,14 @@ impl StateInit {
     ///
     /// # Availability
     ///
-    /// This method is only compiled when:
-    /// - the `borsh` feature is enabled (needed to serialize the input for hashing), AND
-    /// - one of the following is true:
-    ///   - `--cfg near` is set (on-chain contract build; `cargo-near` sets this automatically) —
-    ///     routes through the `keccak256` host function via the `near-sdk-env` crate.
-    ///   - the `digest` feature is enabled (off-chain or non-NEAR wasm build) — uses pure-Rust
-    ///     `sha3::Keccak256`.
+    /// This method requires the `borsh` feature (needed to serialize the input for hashing).
+    /// If you see "no method named `derive_account_id`" on a `StateInit`, enable `borsh` on
+    /// your `near-global-contracts` dependency.
     ///
-    /// If you see "no method named `derive_account_id`" on a `StateInit`, add the `digest`
-    /// feature to your `near-global-contracts` dependency.
+    /// The keccak256 backend is selected automatically: on-chain contract builds (`--cfg near`,
+    /// set automatically by `cargo-near`) route through the `keccak256` host function via the
+    /// `near-sdk-env` crate, while all other builds use pure-Rust `sha3::Keccak256`. Both
+    /// produce identical output.
     #[inline]
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
