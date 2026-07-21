@@ -9,6 +9,26 @@ pub enum AccountContract {
     Local(CryptoHash),
     Global(CryptoHash),
     GlobalByAccount(AccountId),
+/// What contract code an account currently runs.
+///
+/// An account either has its own copy of the code (`Local`) or points to shared
+/// [`GlobalContractId`] (`Global` / `GlobalByAccount`), letting many accounts run the
+/// same code without each storing it.
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AccountContract {
+    /// The account has no contract deployed and cannot be called.
+    None,
+    /// The code deployed directly to this account and stored in its own state, identified
+    /// by the code hash.
+    Local(CryptoHash),
+    /// A global contract referenced by code hash - pins exact bytecode.
+    /// Corresponds to [`GlobalContractId::CodeHash`]
+    Global(CryptoHash),
+    /// A global contract referenced by deployer account - follows that account's latest
+    /// globally deployed code.
+    /// Corresponds to [`GlobalContractId::AccountId`]
+    GlobalByAccount(AccountId),
 }
 
 /// Identifies which [global contract] an account should run.
