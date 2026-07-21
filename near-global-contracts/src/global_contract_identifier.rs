@@ -15,7 +15,7 @@ pub enum AccountContract {
 ///
 /// Global contracts let contract code be deployed once and shared across the whole
 /// network, so many accounts can run the same code without each storing its own copy.
-/// A global contract is referenced in one of two ways, one per variant below.
+/// A global contract is referenced in one of two ways: by hash of its code or by `AccountId` that deployed it.
 ///
 /// [global contract]: https://github.com/near/NEPs/pull/591
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
