@@ -256,14 +256,10 @@ jobs:
           rustup toolchain install 1.93 --profile minimal
           rustup override set 1.93
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-provider: warpbuild
-          shared-key: "linux-audit"
-          cache-all-crates: true
-
       - name: Install Audit
-        run: cargo install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Run Audit
         run: cargo audit
