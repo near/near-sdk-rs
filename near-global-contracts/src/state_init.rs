@@ -4,15 +4,13 @@ use std::collections::BTreeMap;
 #[cfg(feature = "serde")]
 use serde_with::base64::Base64;
 
-/// Initial on-chain state used to derive a [deterministic account].
+/// Initial on-chain state used to derive a [deterministic account] ([NEP-616]).
 ///
-/// A deterministic account ([NEP-616]) lives at an address computed from its own initial
-/// state instead of one chosen up front, so anyone who knows the state can work out the
-/// address ahead of time. This type is that state; enable the `borsh` feature and call
-/// `StateInit::derive_account_id` to get the resulting [`AccountId`].
+/// A deterministic account lives at an address computed from its own initial state, so
+/// anyone who knows the state can work out the address ahead of time. Enable the `borsh`
+/// feature and call `StateInit::derive_account_id` to get the resulting [`AccountId`].
 ///
-/// It is versioned so the layout can change later without breaking existing data.
-/// [`V1`](StateInit::V1) is the only version today.
+/// Version so the layout can evolve; [`V1`](StateInit::V1) is the only version today.
 ///
 /// [deterministic account]: https://github.com/near/NEPs/pull/616
 /// [NEP-616]: https://github.com/near/NEPs/pull/616
