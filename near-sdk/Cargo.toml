@@ -162,10 +162,5 @@ __macro-docs = []
 min_protocol_version = 84
 
 [package.metadata.docs.rs]
-features = [
-    "unstable",
-    "legacy",
-    "unit-testing",
-    "__macro-docs",
-    "__abi-generate",
-]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
