@@ -2,13 +2,6 @@ use near_account_id::AccountId;
 
 use near_crypto_hash::CryptoHash;
 
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum AccountContract {
-    None,
-    Local(CryptoHash),
-    Global(CryptoHash),
-    GlobalByAccount(AccountId),
 /// What contract code an account currently runs.
 ///
 /// An account either has its own copy of the code (`Local`) or points to shared
