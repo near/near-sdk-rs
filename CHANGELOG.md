@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.29.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0...near-sdk-v5.29.1) - 2026-07-22
+
+### Fixed
+
+- confirm `p256_verify` on sdk to recommended in NEP-635 ([#1619](https://github.com/near/near-sdk-rs/pull/1619))
+
+### Other
+
+- enable all features on docs.rs for near-sdk and near-sys
+
 ## [5.29.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0-rc.1...near-sdk-v5.29.0) - 2026-07-13
 
 ### Added
