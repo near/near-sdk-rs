@@ -13,6 +13,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         return TokenStream2::new();
     }
 
+    let krate = &i.krate;
     let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
     let first_function_name = &i.methods[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
@@ -23,10 +24,10 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
             pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
                 use ::std::string::String;
 
-                let mut schema_generator = ::near_sdk::schemars::r#gen::SchemaGenerator::default();
+                let mut schema_generator = #krate::schemars::r#gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
                 let mut data = ::std::mem::ManuallyDrop::new(
-                    ::near_sdk::serde_json::to_vec(&::near_sdk::__private::ChunkedAbiEntry::new(
+                    #krate::serde_json::to_vec(&#krate::__private::ChunkedAbiEntry::new(
                         functions,
                         schema_generator.into_root_schema_for::<String>(),
                     ))
@@ -79,6 +80,7 @@ impl ImplItemMethodInfo {
     /// If args are serialized with Borsh it will not include `#[derive(::near_sdk::borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
         let attr_signature_info = &self.attr_signature_info;
+        let krate = &attr_signature_info.krate;
 
         let function_name_str = attr_signature_info.ident.to_string();
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
@@ -87,20 +89,20 @@ impl ImplItemMethodInfo {
         };
         let mut modifiers = vec![];
         let kind = match &attr_signature_info.method_kind {
-            MethodKind::View(_) => quote! { ::near_sdk::__private::AbiFunctionKind::View },
+            MethodKind::View(_) => quote! { #krate::__private::AbiFunctionKind::View },
             MethodKind::Call(_) => {
-                quote! { ::near_sdk::__private::AbiFunctionKind::Call }
+                quote! { #krate::__private::AbiFunctionKind::Call }
             }
             MethodKind::Init(_) => {
-                modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Init });
-                quote! { ::near_sdk::__private::AbiFunctionKind::Call }
+                modifiers.push(quote! { #krate::__private::AbiFunctionModifier::Init });
+                quote! { #krate::__private::AbiFunctionKind::Call }
             }
         };
         if attr_signature_info.is_payable() {
-            modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Payable });
+            modifiers.push(quote! { #krate::__private::AbiFunctionModifier::Payable });
         }
         if attr_signature_info.is_private() {
-            modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Private });
+            modifiers.push(quote! { #krate::__private::AbiFunctionModifier::Private });
         }
         let modifiers = quote! {
             ::std::vec![#(#modifiers),*]
@@ -114,16 +116,16 @@ impl ImplItemMethodInfo {
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
-                    let schema = generate_schema(typ, &arg.serializer_ty);
+                    let schema = generate_schema(typ, &arg.serializer_ty, krate);
                     match arg.serializer_ty {
                         SerializerType::JSON => params.push(quote! {
-                            ::near_sdk::__private::AbiJsonParameter {
+                            #krate::__private::AbiJsonParameter {
                                 name: ::std::string::String::from(#arg_name),
                                 type_schema: #schema,
                             }
                         }),
                         SerializerType::Borsh => params.push(quote! {
-                            ::near_sdk::__private::AbiBorshParameter {
+                            #krate::__private::AbiBorshParameter {
                                 name: ::std::string::String::from(#arg_name),
                                 type_schema: #schema,
                             }
@@ -131,7 +133,7 @@ impl ImplItemMethodInfo {
                     };
                 }
                 BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, .. } => {
-                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
+                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty, krate));
                 }
                 BindgenArgType::Callback { ty: CallbackBindgenArgType::ResultArg, .. } => {
                     let typ = if let Some(ok_type) = utils::extract_ok_type(typ) {
@@ -144,7 +146,7 @@ impl ImplItemMethodInfo {
                         )
                         .into_compile_error();
                     };
-                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
+                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty, krate));
                 }
                 BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, .. } => {
                     if callback_vec.is_none() {
@@ -171,12 +173,12 @@ impl ImplItemMethodInfo {
         }
         let params = match attr_signature_info.input_serializer {
             SerializerType::JSON => quote! {
-                ::near_sdk::__private::AbiParameters::Json {
+                #krate::__private::AbiParameters::Json {
                     args: ::std::vec![#(#params),*]
                 }
             },
             SerializerType::Borsh => quote! {
-                ::near_sdk::__private::AbiParameters::Borsh {
+                #krate::__private::AbiParameters::Borsh {
                     args: ::std::vec![#(#params),*]
                 }
             },
@@ -186,7 +188,7 @@ impl ImplItemMethodInfo {
         let result = self.abi_result_tokens();
 
         quote! {
-             ::near_sdk::__private::AbiFunction {
+             #krate::__private::AbiFunction {
                  name: ::std::string::String::from(#function_name_str),
                  doc: #function_doc,
                  kind: #kind,
@@ -202,12 +204,13 @@ impl ImplItemMethodInfo {
     fn abi_result_tokens(&self) -> TokenStream2 {
         use ReturnKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         match &self.attr_signature_info.returns.kind {
             Default => quote! { ::std::option::Option::None },
             General(ty) => self.abi_result_tokens_with_return_value(ty),
             HandlesResult(ty) => {
                 // extract the `Ok` type from the result
-                let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
+                let ty = parse_quote! { <#ty as #krate::__private::ResultTypeExt>::Okay };
                 self.abi_result_tokens_with_return_value(&ty)
             }
         }
@@ -216,8 +219,9 @@ impl ImplItemMethodInfo {
     fn abi_result_tokens_with_return_value(&self, return_value_type: &Type) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let some_abi_type = |result_serializer: &SerializerType| {
-            let abi_type = generate_abi_type(return_value_type, result_serializer);
+            let abi_type = generate_abi_type(return_value_type, result_serializer, krate);
             quote! { ::std::option::Option::Some(#abi_type) }
         };
 
@@ -230,8 +234,9 @@ impl ImplItemMethodInfo {
     }
 
     fn abi_callback_vec_tokens(&self, callback_vec_type: &Type) -> TokenStream2 {
+        let krate = &self.attr_signature_info.krate;
         let abi_type = |result_serializer: &SerializerType| {
-            let tokens = generate_abi_type(callback_vec_type, result_serializer);
+            let tokens = generate_abi_type(callback_vec_type, result_serializer, krate);
             quote! {
                 ::std::option::Option::Some(#tokens)
             }
@@ -245,27 +250,31 @@ impl ImplItemMethodInfo {
     }
 }
 
-fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+fn generate_schema(ty: &Type, serializer_type: &SerializerType, krate: &syn::Path) -> TokenStream2 {
     match serializer_type {
         SerializerType::JSON => quote! {
             schema_generator.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::schema_container_of::<#ty>()
+            #krate::borsh::schema_container_of::<#ty>()
         },
     }
 }
 
-fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
-    let schema = generate_schema(ty, serializer_type);
+fn generate_abi_type(
+    ty: &Type,
+    serializer_type: &SerializerType,
+    krate: &syn::Path,
+) -> TokenStream2 {
+    let schema = generate_schema(ty, serializer_type, krate);
     match serializer_type {
         SerializerType::JSON => quote! {
-            ::near_sdk::__private::AbiType::Json {
+            #krate::__private::AbiType::Json {
                 type_schema: #schema,
             }
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::__private::AbiType::Borsh {
+            #krate::__private::AbiType::Borsh {
                 type_schema: #schema,
             }
         },

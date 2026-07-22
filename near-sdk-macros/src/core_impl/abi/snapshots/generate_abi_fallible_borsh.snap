@@ -18,8 +18,7 @@ expression: pretty_print_fn_body_syn_str(actual)
         callbacks_vec: ::std::option::Option::None,
         result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Borsh {
             type_schema: ::near_sdk::borsh::schema_container_of::<
-                <Result<IsOk, Error> as near_sdk::__private::ResultTypeExt>::Okay,
+                <Result<IsOk, Error> as ::near_sdk::__private::ResultTypeExt>::Okay,
             >(),
         }),
     }
-
