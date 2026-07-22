@@ -719,7 +719,7 @@ pub fn ed25519_verify(
 /// responsible for applying the appropriate hash (for example SHA-256) before calling, per [NEP-635](https://github.com/near/NEPs/pull/635).
 ///
 /// - `signature` - 64 bytes, encoded as `r || s` (32 bytes each, big-endian).
-/// - `message` - a 32-byte prehashed digest to verify, typically a SHA-256 digest.
+/// - `prehash` - a 32-byte prehashed digest to verify, typically a SHA-256 digest.
 /// - `public_key` - a 33-byte compressed SEC1 encoding.
 ///
 /// Note that this function accepts both forms of a signature (`(r, s)` and `(r, n - s)`) matching
@@ -796,8 +796,8 @@ pub fn ed25519_verify(
 ///     p256_verify(signature, &sha256_array(&signed_payload), public_key)
 /// }
 /// ```
-pub fn p256_verify(signature: &[u8; 64], message: &[u8; 32], public_key: &[u8; 33]) -> bool {
-    let message = message.as_ref();
+pub fn p256_verify(signature: &[u8; 64], prehash: &[u8; 32], public_key: &[u8; 33]) -> bool {
+    let message = prehash.as_ref();
 
     #[cfg(any(
         target_arch = "wasm32",
@@ -3020,17 +3020,17 @@ mod tests {
         const INVALID_PUBLIC_KEY: [u8; 33] = [0; 33];
 
         // the host function does not hash the message; the caller applies SHA-256
-        let message = super::sha256_array(b"sample");
+        let prehashed_message = super::sha256_array(b"sample");
 
         // changed message
-        let changed_message = super::sha256_array(b"sampleE");
+        let changed_prehashed_message = super::sha256_array(b"sampleE");
 
-        assert!(super::p256_verify(&SIGNATURE, &message, &PUBLIC_KEY));
-        assert!(super::p256_verify(&LOW_S_SIGNATURE, &message, &PUBLIC_KEY));
-        assert!(!super::p256_verify(&SIGNATURE, &changed_message, &PUBLIC_KEY));
-        assert!(!super::p256_verify(&BAD_SIGNATURE, &message, &PUBLIC_KEY));
-        assert!(!super::p256_verify(&SIGNATURE, &message, &NEGATED_PUBLIC_KEY));
-        assert!(!super::p256_verify(&SIGNATURE, &message, &INVALID_PUBLIC_KEY));
+        assert!(super::p256_verify(&SIGNATURE, &prehashed_message, &PUBLIC_KEY));
+        assert!(super::p256_verify(&LOW_S_SIGNATURE, &prehashed_message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, &changed_prehashed_message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&BAD_SIGNATURE, &prehashed_message, &PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, &prehashed_message, &NEGATED_PUBLIC_KEY));
+        assert!(!super::p256_verify(&SIGNATURE, &prehashed_message, &INVALID_PUBLIC_KEY));
 
         assert!(!super::p256_signature_is_low_s(&SIGNATURE));
         assert!(super::p256_signature_is_low_s(&LOW_S_SIGNATURE));
