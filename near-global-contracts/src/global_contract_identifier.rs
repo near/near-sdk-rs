@@ -1,4 +1,6 @@
-use near_account_id::AccountId;
+use std::borrow::Cow;
+
+use near_account_id::{AccountId, AccountIdRef};
 
 use near_crypto_hash::CryptoHash;
 
@@ -40,6 +42,17 @@ pub enum GlobalContractId {
     AccountId(AccountId) = 1,
 }
 
+impl GlobalContractId {
+    /// Derive (immutable) global contract id as hash of given code
+    #[cfg(feature = "digest")]
+    #[inline]
+    pub fn hash_of(code: impl AsRef<[u8]>) -> Self {
+        use near_digest::{Digest, sha2::Sha256};
+
+        Self::CodeHash(Sha256::digest(code).into())
+    }
+}
+
 impl From<CryptoHash> for GlobalContractId {
     #[inline]
     fn from(hash: CryptoHash) -> Self {
@@ -47,10 +60,45 @@ impl From<CryptoHash> for GlobalContractId {
     }
 }
 
+impl From<&CryptoHash> for GlobalContractId {
+    #[inline]
+    fn from(hash: &CryptoHash) -> Self {
+        Self::CodeHash(*hash)
+    }
+}
+
 impl From<AccountId> for GlobalContractId {
     #[inline]
     fn from(account_id: AccountId) -> Self {
         Self::AccountId(account_id)
+    }
+}
+
+impl From<&AccountId> for GlobalContractId {
+    #[inline]
+    fn from(account_id: &AccountId) -> Self {
+        Self::AccountId(account_id.clone())
+    }
+}
+
+impl From<&AccountIdRef> for GlobalContractId {
+    #[inline]
+    fn from(account_id: &AccountIdRef) -> Self {
+        Self::AccountId(account_id.to_owned())
+    }
+}
+
+impl From<Cow<'_, AccountIdRef>> for GlobalContractId {
+    #[inline]
+    fn from(account_id: Cow<'_, AccountIdRef>) -> Self {
+        Self::AccountId(account_id.into_owned())
+    }
+}
+
+impl From<&GlobalContractId> for GlobalContractId {
+    #[inline]
+    fn from(value: &GlobalContractId) -> Self {
+        value.clone()
     }
 }
 
