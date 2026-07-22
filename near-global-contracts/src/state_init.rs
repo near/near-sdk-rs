@@ -4,6 +4,17 @@ use std::collections::BTreeMap;
 #[cfg(feature = "serde")]
 use serde_with::base64::Base64;
 
+/// Initial on-chain state used to derive a [deterministic account] ([NEP-616]).
+///
+/// A deterministic account lives at an address computed from its own initial state, so
+/// anyone who knows the state can work out the address ahead of time. Enable the `borsh`
+/// feature and call `StateInit::derive_account_id` to get the resulting [`AccountId`].
+///
+/// Version so the layout can evolve; [`V1`](StateInit::V1) is the only version today.
+///
+/// [deterministic account]: https://github.com/near/NEPs/pull/616
+/// [NEP-616]: https://github.com/near/NEPs/pull/616
+/// [`AccountId`]: near_account_id::AccountId
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -20,6 +31,7 @@ use serde_with::base64::Base64;
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
 pub enum StateInit {
+    /// Version 1: see [`StateInitV1`].
     V1(StateInitV1) = 0,
 }
 
@@ -28,16 +40,14 @@ impl StateInit {
     ///
     /// # Availability
     ///
-    /// This method is only compiled when:
-    /// - the `borsh` feature is enabled (needed to serialize the input for hashing), AND
-    /// - one of the following is true:
-    ///   - `--cfg near` is set (on-chain contract build; `cargo-near` sets this automatically) —
-    ///     routes through the `keccak256` host function via the `near-sdk-env` crate.
-    ///   - the `digest` feature is enabled (off-chain or non-NEAR wasm build) — uses pure-Rust
-    ///     `sha3::Keccak256`.
+    /// This method requires the `borsh` feature (needed to serialize the input for hashing).
+    /// If you see "no method named `derive_account_id`" on a `StateInit`, enable `borsh` on
+    /// your `near-global-contracts` dependency.
     ///
-    /// If you see "no method named `derive_account_id`" on a `StateInit`, add the `digest`
-    /// feature to your `near-global-contracts` dependency.
+    /// The keccak256 backend is selected automatically: on-chain contract builds (`--cfg near`,
+    /// set automatically by `cargo-near`) route through the `keccak256` host function via the
+    /// `near-sdk-env` crate, while all other builds use pure-Rust `sha3::Keccak256`. Both
+    /// produce identical output.
     #[inline]
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
@@ -74,6 +84,9 @@ impl StateInit {
     }
 }
 
+/// Version 1 of the [`StateInit`] payload.
+///
+/// Holds the global contract to run and the account's initial storage entries.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(
@@ -90,17 +103,24 @@ impl StateInit {
 )]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct StateInitV1 {
+    /// The global contract whose code the derived account will run.
     pub code: GlobalContractId,
+    /// Key/value entries written to the account's trie storage at creation.
     #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
 impl StateInitV1 {
+    /// Creates a payload that runs `code` with no initial storage.
+    ///
+    /// Chain [`with_data_entry`](Self::with_data_entry) to add storage entries.
     #[inline]
     pub fn code(code: impl Into<GlobalContractId>) -> Self {
         Self { code: code.into(), data: BTreeMap::new() }
     }
 
+    /// Adds one key/value entry to the initial storage, returning `self` so calls can be
+    /// chained.
     #[inline]
     pub fn with_data_entry(mut self, key: impl Into<Vec<u8>>, value: impl Into<Vec<u8>>) -> Self {
         self.data.insert(key.into(), value.into());
