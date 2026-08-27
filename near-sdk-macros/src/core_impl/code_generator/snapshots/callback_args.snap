@@ -10,6 +10,9 @@ pub extern "C" fn method() {
     {
         ::near_sdk::env::panic_str("Method method is private");
     }
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
+    }
     #[derive(::near_sdk::serde::Deserialize)]
     #[serde(crate = "::near_sdk::serde")]
     struct Input {
