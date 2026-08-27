@@ -34,15 +34,6 @@ impl ItemTraitInfo {
                         Ok(method_info) => methods.push(method_info),
                         Err(e) => errors.push(e),
                     };
-
-                    if method.default.is_some() {
-                        errors.push(Error::new(
-                            method.span(),
-                            "Traits that are used to describe external contract should not include
-                             default implementations because this is not a valid use case of traits
-                             to describe external contracts.",
-                        ));
-                    }
                 }
                 _ => {}
             }
