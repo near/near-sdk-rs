@@ -15,7 +15,7 @@
 //! ## Feature flags
 //!
 //! By default this crate exposes only the type definitions. To use
-//! [`StateInit::derive_account_id`] you must enable the `borsh` feature. The hashing
+//! `StateInit::derive_account_id` you must enable the `borsh` feature. The hashing
 //! backend is then selected automatically:
 //!
 //! - On-chain contract builds: set `--cfg near` (the `cargo-near` toolchain does this
