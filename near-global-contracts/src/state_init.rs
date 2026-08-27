@@ -49,26 +49,16 @@ impl StateInit {
     /// `near-sdk-env` crate, while all other builds use pure-Rust `sha3::Keccak256`. Both
     /// produce identical output.
     #[inline]
-    #[cfg(feature = "borsh")]
+    #[cfg(all(feature = "digest", feature = "borsh"))]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        let hash: [u8; 32];
+        use digest_io::IoWrapper;
+        use near_digest::{Digest, sha3::Keccak256};
 
-        #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-        {
-            let serialized = borsh::to_vec(self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes
-            hash = near_sdk_env::keccak256_array(&serialized);
-        }
-        #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-        {
-            use digest_io::IoWrapper;
-            use sha3::Digest;
-
-            let mut hasher = IoWrapper(sha3::Keccak256::new());
+        let hash = {
+            let mut hasher = IoWrapper(Keccak256::new());
             borsh::to_writer(&mut hasher, self).unwrap_or_else(|_| unreachable!());
-            // SAFETY: keccak256 hash will always generate 32 bytes
-            hash = hasher.0.finalize().into();
-        }
+            hasher.0.finalize()
+        };
 
         // SAFETY: 20 bytes-long hash will produce 40 hex chars.
         // "0s" + 40 hex chars = 42 chars, which is within `AccountId` length bounds (2-64).
