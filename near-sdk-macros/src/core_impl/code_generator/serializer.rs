@@ -6,6 +6,7 @@ pub fn generate_serializer(
     attr_sig_info: &AttrSigInfo,
     serializer: &SerializerType,
 ) -> TokenStream2 {
+    let krate = &attr_sig_info.krate;
     let has_input_args = attr_sig_info.input_args().next().is_some();
     if !has_input_args {
         return quote! { ::std::vec![] };
@@ -15,15 +16,15 @@ pub fn generate_serializer(
     let constructor = quote! { let __args = #constructor_call; };
     let value_ser = match serializer {
         SerializerType::JSON => quote! {
-            match near_sdk::serde_json::to_vec(&__args) {
+            match #krate::serde_json::to_vec(&__args) {
                 Ok(serialized) => serialized,
-                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using JSON."),
+                Err(_) => #krate::env::panic_str("Failed to serialize the cross contract args using JSON."),
             }
         },
         SerializerType::Borsh => quote! {
-            match near_sdk::borsh::to_vec(&__args) {
+            match #krate::borsh::to_vec(&__args) {
                 Ok(serialized) => serialized,
-                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using Borsh."),
+                Err(_) => #krate::env::panic_str("Failed to serialize the cross contract args using Borsh."),
             }
         },
     };
