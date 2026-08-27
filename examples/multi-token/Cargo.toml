@@ -1,0 +1,28 @@
+[package]
+name = "multi-token-wrapper"
+version = "0.0.1"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2021"
+repository = "https://github.com/near/near-sdk-rs"
+
+[dev-dependencies]
+anyhow = "1.0"
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-contract-standards = { path = "../../near-contract-standards" }
+tokio = { version = "1.14", features = ["full"] }
+near-workspaces = { version = "0.22", features = ["unstable"] }
+rstest = "0.23.0"
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+# remember to include a member for each contract
+members = ["mt", "test-token-receiver"]
+resolver = "3"

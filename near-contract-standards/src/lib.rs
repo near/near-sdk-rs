@@ -4,6 +4,9 @@
 
 pub mod fungible_token;
 
+/// Multi tokens as described in [NEP-245](https://github.com/near/NEPs/blob/master/neps/nep-0245.md).
+pub mod multi_token;
+
 /// Non-fungible tokens as described in [by the spec](https://nomicon.io/Standards/Tokens/NonFungibleToken).
 pub mod non_fungible_token;
 
