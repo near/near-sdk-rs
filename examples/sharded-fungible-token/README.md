@@ -1,0 +1,1 @@
+# Reference implementations for Sharded Fungible Token contracts
