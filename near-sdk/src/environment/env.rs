@@ -891,10 +891,7 @@ pub fn alt_bn128_g1_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute alt_bn128 g1 sum.
@@ -908,10 +905,7 @@ pub fn alt_bn128_g1_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 /// Compute pairing check
 ///
@@ -928,108 +922,163 @@ pub fn alt_bn128_pairing_check(value: impl AsRef<[u8]>) -> bool {
 // # BLS12-381 #
 // #############
 
-/// Compute BLS12-381 G1 sum.
+/// Reads the result of a BLS12-381 host function out of [`ATOMIC_OP_REGISTER`].
+///
+/// The host writes the register only when it returns `0`. Any other status means the input was
+/// rejected and the register still holds whatever the previous host call left in it, so it must
+/// not be read.
+#[inline]
+#[track_caller]
+fn bls12381_register_result(status: u64) -> Option<Vec<u8>> {
+    if status != 0 {
+        return None;
+    }
+    Some(expect_register(read_register(ATOMIC_OP_REGISTER)))
+}
+
+/// Computes the BLS12-381 G1 sum.
+///
+/// Returns the 96-byte encoded sum, or [`None`] if the host rejected the input because a point is
+/// not on the curve, or a point or sign byte is incorrectly encoded. An input length that is not a
+/// multiple of 97 aborts the contract execution.
+///
+/// Per [NEP-488], the sum is defined over the whole curve `E(Fp)`, so points outside the `G1`
+/// subgroup are accepted and do **not** yield [`None`]. Callers that require subgroup membership
+/// must check it themselves, for instance with [`bls12381_g1_multiexp`], which does reject points
+/// outside `G1`.
 ///
 /// See also: [IETF draft-irtf-cfrg-pairing-friendly-curves](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves)
-pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
+///
+/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
-    unsafe {
-        sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+    let status =
+        unsafe { sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
+    bls12381_register_result(status)
+}
+
+/// Computes the BLS12-381 G2 sum.
+///
+/// Returns the 192-byte encoded sum, or [`None`] if the host rejected the input because a point is
+/// not on the curve, or a point or sign byte is incorrectly encoded. An input length that is not a
+/// multiple of 193 aborts the contract execution.
+///
+/// Per [NEP-488], the sum is defined over the whole curve `E'(Fp2)`, so points outside the `G2`
+/// subgroup are accepted and do **not** yield [`None`]. Callers that require subgroup membership
+/// must check it themselves, for instance with [`bls12381_g2_multiexp`], which does reject points
+/// outside `G2`.
+///
+/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let value = value.as_ref();
+    let status =
+        unsafe { sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
+    bls12381_register_result(status)
+}
+
+/// Computes the BLS12-381 G1 multiexponentiation.
+///
+/// Returns the 96-byte encoded result, or [`None`] if the host rejected the input because a point
+/// is not on the curve, is not in the `G1` subgroup, or is incorrectly encoded. An input length
+/// that is not a multiple of 128 aborts the contract execution.
+pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let value = value.as_ref();
+    let status = unsafe {
+        sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    bls12381_register_result(status)
+}
+
+/// Computes the BLS12-381 G2 multiexponentiation.
+///
+/// Returns the 192-byte encoded result, or [`None`] if the host rejected the input because a point
+/// is not on the curve, is not in the `G2` subgroup, or is incorrectly encoded. An input length
+/// that is not a multiple of 224 aborts the contract execution.
+pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let value = value.as_ref();
+    let status = unsafe {
+        sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
+    };
+    bls12381_register_result(status)
+}
+
+/// Maps Fp elements to BLS12-381 G1 points.
+///
+/// Returns 96 bytes per input element, or [`None`] if the host rejected the input because an
+/// element is not a canonical Fp encoding. An input length that is not a multiple of 48 aborts the
+/// contract execution.
+pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let value = value.as_ref();
+    let status = unsafe {
+        sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
+    };
+    bls12381_register_result(status)
+}
+
+/// Maps Fp2 elements to BLS12-381 G2 points.
+///
+/// Returns 192 bytes per input element, or [`None`] if the host rejected the input because an
+/// element is not a canonical Fp2 encoding. An input length that is not a multiple of 96 aborts
+/// the contract execution.
+pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    let value = value.as_ref();
+    let status = unsafe {
+        sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
+    };
+    bls12381_register_result(status)
+}
+
+/// Performs a BLS12-381 pairing check.
+///
+/// Returns `Some(true)` if the pairing equals the identity, `Some(false)` if it does not, and
+/// [`None`] if the host rejected the input because a point is not on the curve, is not in the `G1`
+/// or `G2` subgroup, or is incorrectly encoded. An input length that is not a multiple of 288
+/// aborts the contract execution.
+pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> Option<bool> {
+    let value = value.as_ref();
+    match unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) } {
+        0 => Some(true),
+        2 => Some(false),
+        _ => None,
     }
 }
 
-/// Compute BLS12-381 G2 sum.
-pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
+/// Decompresses BLS12-381 G1 points.
+///
+/// Returns 96 bytes per input point, or [`None`] if the host rejected the input because a point is
+/// not on the curve or is incorrectly encoded. An input length that is not a multiple of 48 aborts
+/// the contract execution.
+///
+/// Per [NEP-488], decompression is defined over the whole curve `E(Fp)`, so points outside the
+/// `G1` subgroup are decompressed successfully and do **not** yield [`None`]. Callers that require
+/// subgroup membership must check it themselves.
+///
+/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
-    unsafe {
-        sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+    let status = unsafe {
+        sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    bls12381_register_result(status)
 }
 
-/// Compute BLS12-381 G1 multiexponentiation.
-pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
+/// Decompresses BLS12-381 G2 points.
+///
+/// Returns 192 bytes per input point, or [`None`] if the host rejected the input because a point
+/// is not on the curve or is incorrectly encoded. An input length that is not a multiple of 96
+/// aborts the contract execution.
+///
+/// Per [NEP-488], decompression is defined over the whole curve `E'(Fp2)`, so points outside the
+/// `G2` subgroup are decompressed successfully and do **not** yield [`None`]. Callers that require
+/// subgroup membership must check it themselves.
+///
+/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
-    unsafe {
-        sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+    let status = unsafe {
+        sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
-}
-
-/// Compute BLS12-381 G2 multiexponentiation.
-pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
-    let value = value.as_ref();
-    unsafe {
-        sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
-}
-
-/// Map an Fp element to a BLS12-381 G1 point.
-pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Vec<u8> {
-    let value = value.as_ref();
-    unsafe {
-        sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
-}
-
-/// Map an Fp2 element to a BLS12-381 G2 point.
-pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Vec<u8> {
-    let value = value.as_ref();
-    unsafe {
-        sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
-}
-
-/// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
-pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> bool {
-    let value = value.as_ref();
-    unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) == 0 }
-}
-
-/// Decompress a BLS12-381 G1 point.
-pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
-    let value = value.as_ref();
-    unsafe {
-        sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
-}
-
-/// Decompress a BLS12-381 G2 point.
-pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
-    let value = value.as_ref();
-    unsafe {
-        sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    bls12381_register_result(status)
 }
 
 // ################
@@ -3139,7 +3188,7 @@ mod tests {
     fn bls12381_p1_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
-            let result = super::bls12381_p1_sum(buffer);
+            let result = super::bls12381_p1_sum(buffer).expect("host should accept valid input");
             assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_sum");
         }
     }
@@ -3161,7 +3210,7 @@ mod tests {
         ]; 25];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
         for _ in 0..100 {
-            let result = super::bls12381_p1_sum(&flat);
+            let result = super::bls12381_p1_sum(&flat).expect("host should accept valid input");
             assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_sum");
         }
     }
@@ -3170,7 +3219,7 @@ mod tests {
     fn bls12381_p2_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
-            let result = super::bls12381_p2_sum(buffer);
+            let result = super::bls12381_p2_sum(buffer).expect("host should accept valid input");
             assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_sum");
         }
     }
@@ -3201,14 +3250,14 @@ mod tests {
             108, 78, 74,
         ]; 25];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_p2_sum(&flat);
+        let result = super::bls12381_p2_sum(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_sum");
     }
 
     #[test]
     fn bls12381_g1_multiexp_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_g1_multiexp(buffer);
+        let result = super::bls12381_g1_multiexp(buffer).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
     }
 
@@ -3225,14 +3274,14 @@ mod tests {
             255, 255,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_g1_multiexp(&flat);
+        let result = super::bls12381_g1_multiexp(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
     }
 
     #[test]
     fn bls12381_g2_multiexp_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_g2_multiexp(buffer);
+        let result = super::bls12381_g2_multiexp(buffer).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
     }
 
@@ -3253,14 +3302,14 @@ mod tests {
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_g2_multiexp(&flat);
+        let result = super::bls12381_g2_multiexp(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
     }
 
     #[test]
     fn bls12381_map_fp_to_g1_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_map_fp_to_g1(buffer);
+        let result = super::bls12381_map_fp_to_g1(buffer).expect("host should accept valid input");
         assert!(result.is_empty(), "Expected an empty result from bls12381_map_fp_to_g1");
     }
 
@@ -3272,14 +3321,14 @@ mod tests {
             8, 12, 26, 82, 220, 104, 184, 182, 147, 80,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_map_fp_to_g1(&flat);
+        let result = super::bls12381_map_fp_to_g1(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp_to_g1");
     }
 
     #[test]
     fn bls12381_map_fp2_to_g2_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_map_fp2_to_g2(buffer);
+        let result = super::bls12381_map_fp2_to_g2(buffer).expect("host should accept valid input");
         assert!(result.is_empty(), "Expected an empty result from bls12381_map_fp2_to_g2");
     }
 
@@ -3294,7 +3343,7 @@ mod tests {
             80,
         ]; 10];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_map_fp2_to_g2(&flat);
+        let result = super::bls12381_map_fp2_to_g2(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp2_to_g2");
     }
 
@@ -3302,7 +3351,7 @@ mod tests {
     fn bls12381_pairing_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_pairing_check(buffer);
-        assert!(result, "Expected result to be true");
+        assert_eq!(result, Some(true), "Expected the pairing to hold for empty input");
     }
 
     #[test]
@@ -3311,7 +3360,7 @@ mod tests {
         let valid_input = hex::decode("085fad8696122c8a421033164e6a71d9adb3882933beba2c14dcad9bfd4badb30b49306c59a7a7837b72e02993f5a4ad025871da31a9be44cd3a46365038ef6f3658fc65ff3064e348083b2de4d983c7436f486f6e9de272fa0db7dfa543656811f7dbc8c5b084e2daf685536a2d155d69c7683b811c840e4167a5c966bad4eebfdb757ef9caa63ffde16727fa5c15ac0b15a2802624e85d6987eb53a69714401adfd5ca5e6151a8e9c0790dfc4494ea77ad32b66e95da7f615ee2fe7b6594f00493deb2392b4159afc07b69000f9b097ecca94bf5a46cb13f95dabdd9a40a2e207c077059c821caa29a40930b4b757f11404dcfe5e92c69acdbf3667651d5adf6856956805693fb945d83c5cf158371536814442ff31d6ad1b834a4ab13ad9917f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca0f968bd243908ff3e5fa1ab3f31e078197e58ace562bbe8b5a271d5fba50237da0c8fe65e7b5771cc0a86fd57f32347e15a26d1f5d56c472d019eea2539e58db00c49aa5d0a9663838903fddbe436b5b157e83b35d1a4e5f89f78127f35dacf005a2854c7f36818c137070d1342bba362b5d0c7daed605fcc739df577c33bd6ab6e07ab4a97beee81aa57c8d41f447440eeaf1f595b7b57457d7792b4bc14be74d0038f7ac3767a9c61fecaa02c3d07982c02995f22f66c05b8eb3b9facd5571").unwrap();
 
         let result = super::bls12381_pairing_check(&valid_input);
-        assert!(result, "Expected valid pairing check to return true");
+        assert_eq!(result, Some(true), "Expected valid pairing check to hold");
     }
 
     #[test]
@@ -3336,13 +3385,13 @@ mod tests {
         ]; 5];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
         let result = super::bls12381_pairing_check(&flat);
-        assert!(!result, "Expected result to be false");
+        assert_eq!(result, Some(false), "Expected a valid input whose pairing does not hold");
     }
 
     #[test]
     fn bls12381_p1_decompress_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_p1_decompress(buffer);
+        let result = super::bls12381_p1_decompress(buffer).expect("host should accept valid input");
         assert!(result.is_empty(), "Expected an empty result from bls12381_p1_decompress");
     }
 
@@ -3354,14 +3403,14 @@ mod tests {
             195, 124, 70, 91, 53, 182, 222, 158, 19, 104, 106, 15,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_p1_decompress(&flat);
+        let result = super::bls12381_p1_decompress(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_decompress");
     }
 
     #[test]
     fn bls12381_p2_decompress_0_100() {
         let buffer: [u8; 0] = [];
-        let result = super::bls12381_p2_decompress(buffer);
+        let result = super::bls12381_p2_decompress(buffer).expect("host should accept valid input");
         assert!(result.is_empty(), "Expected an empty result from bls12381_p2_decompress");
     }
 
@@ -3376,8 +3425,84 @@ mod tests {
             172, 240,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        let result = super::bls12381_p2_decompress(&flat);
+        let result = super::bls12381_p2_decompress(&flat).expect("host should accept valid input");
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_decompress");
+    }
+
+    #[test]
+    fn bls12381_p1_sum_invalid_point() {
+        let mut buffer = [0u8; 97];
+        buffer[1] = 0x80;
+        assert_eq!(super::bls12381_p1_sum(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_p2_sum_invalid_point() {
+        let mut buffer = [0u8; 193];
+        buffer[1] = 0x80;
+        assert_eq!(super::bls12381_p2_sum(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_g1_multiexp_invalid_point() {
+        let mut buffer = [0u8; 128];
+        buffer[0] = 0x80;
+        assert_eq!(super::bls12381_g1_multiexp(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_g2_multiexp_invalid_point() {
+        let mut buffer = [0u8; 224];
+        buffer[0] = 0x80;
+        assert_eq!(super::bls12381_g2_multiexp(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_map_fp_to_g1_invalid_fp() {
+        let buffer = [0xFFu8; 48];
+        assert_eq!(super::bls12381_map_fp_to_g1(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_map_fp2_to_g2_invalid_fp2() {
+        let buffer = [0xFFu8; 96];
+        assert_eq!(super::bls12381_map_fp2_to_g2(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_p1_decompress_invalid_point() {
+        let buffer = [0u8; 48];
+        assert_eq!(super::bls12381_p1_decompress(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_p2_decompress_invalid_point() {
+        let buffer = [0u8; 96];
+        assert_eq!(super::bls12381_p2_decompress(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_pairing_check_invalid_point() {
+        let mut buffer = [0u8; 288];
+        buffer[0] = 0x80;
+        // `None`, not `Some(false)`: a rejected point is not a pairing that fails to hold.
+        assert_eq!(super::bls12381_pairing_check(buffer), None);
+    }
+
+    #[test]
+    fn bls12381_p1_decompress_does_not_return_stale_register() {
+        // Primes ATOMIC_OP_REGISTER. Before the status code was honored, the rejected
+        // decompression below returned this digest, reinterpreted as a curve point.
+        let digest = super::sha256(b"hackathon");
+
+        let mut candidate = [0u8; 48];
+        candidate[16..].copy_from_slice(&digest);
+
+        assert_eq!(
+            super::bls12381_p1_decompress(candidate),
+            None,
+            "a rejected point must not come back as the previous host call's output"
+        );
     }
 
     #[test]
