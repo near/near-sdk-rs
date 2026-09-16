@@ -298,6 +298,18 @@ mod mock_chain {
         with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn sha3_256(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.sha3_256(value_len, value_ptr, register_id))
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn sha3_384(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.sha3_384(value_len, value_ptr, register_id))
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn sha3_512(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.sha3_512(value_len, value_ptr, register_id))
+    }
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
     }
@@ -346,6 +358,26 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| {
             b.p256_verify(
+                signature_len,
+                signature_ptr,
+                message_len,
+                message_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn ml_dsa_verify(
+        signature_len: u64,
+        signature_ptr: u64,
+        message_len: u64,
+        message_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.ml_dsa_verify(
                 signature_len,
                 signature_ptr,
                 message_len,
@@ -509,6 +541,32 @@ mod mock_chain {
                 promise_index,
                 account_id_len,
                 account_id_ptr,
+            )
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn universal_state_init_to_account_id(
+        state_init_len: u64,
+        state_init_ptr: u64,
+        register_id: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.universal_state_init_to_account_id(state_init_len, state_init_ptr, register_id)
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn promise_batch_action_universal_state_init(
+        promise_index: u64,
+        state_init_len: u64,
+        state_init_ptr: u64,
+        amount_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_universal_state_init(
+                promise_index,
+                state_init_len,
+                state_init_ptr,
+                amount_ptr,
             )
         })
     }
