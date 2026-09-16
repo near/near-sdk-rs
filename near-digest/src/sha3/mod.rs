@@ -1,4 +1,4 @@
-//! SHA-3 hash family: Keccak and (unstable) SHA-3 variants
+//! SHA-3 hash family: Keccak and FIPS-202 SHA-3 variants
 
 use crate::digest_cfg;
 
@@ -29,7 +29,6 @@ digest_cfg! {
     }
 }
 
-#[cfg(feature = "unstable")]
 digest_cfg! {
     /// SHA3-256 (FIPS-202) hasher
     ///
@@ -42,7 +41,6 @@ digest_cfg! {
     }
 }
 
-#[cfg(feature = "unstable")]
 digest_cfg! {
     /// SHA3-384 (FIPS-202) hasher
     ///
@@ -55,7 +53,6 @@ digest_cfg! {
     }
 }
 
-#[cfg(feature = "unstable")]
 digest_cfg! {
     /// SHA3-512 (FIPS-202) hasher
     ///
@@ -111,7 +108,6 @@ mod test {
         crate::test_utils::assert_reset_roundtrip::<Keccak512>();
     }
 
-    #[cfg(feature = "unstable")]
     #[rstest]
     #[case(
         b"",
@@ -125,13 +121,11 @@ mod test {
         assert_eq!(Sha3_256::digest(data), output, "hash has changed")
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn sha3_256_resets_to_initial_state() {
         crate::test_utils::assert_reset_roundtrip::<Sha3_256>();
     }
 
-    #[cfg(feature = "unstable")]
     #[rstest]
     #[case(
         b"",
@@ -145,13 +139,11 @@ mod test {
         assert_eq!(Sha3_384::digest(data), output, "hash has changed")
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn sha3_384_resets_to_initial_state() {
         crate::test_utils::assert_reset_roundtrip::<Sha3_384>();
     }
 
-    #[cfg(feature = "unstable")]
     #[rstest]
     #[case(
         b"",
@@ -165,7 +157,6 @@ mod test {
         assert_eq!(Sha3_512::digest(data), output, "hash has changed")
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn sha3_512_resets_to_initial_state() {
         crate::test_utils::assert_reset_roundtrip::<Sha3_512>();
