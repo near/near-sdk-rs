@@ -284,12 +284,12 @@ mod mock_chain {
     extern "C-unwind" fn read_register(register_id: u64, ptr: u64) {
         host_call(|ctx, m| {
             // `read_register` carries no length, so the destination has to be sized first.
-            // `register_len` is the only public way to ask and it charges one `base`, which
-            // is the single place this mock burns gas the wasm path would not.
-            let len = host::register_len(ctx, m.bytes(), register_id)?;
-            // An unset register reports `u64::MAX`; let the real `read_register` below
-            // raise `InvalidRegisterId` rather than reserving that much scratch.
-            let len = if len == u64::MAX { 0 } else { len };
+            // `register_len_free` is that lookup without the `base` the `register_len` host
+            // function charges, so the mock burns exactly what the wasm path does.
+            //
+            // An unset register has no length; reserve nothing and let `read_register` below
+            // raise `InvalidRegisterId`, the same error the host would.
+            let len = ctx.register_len_free(register_id).unwrap_or(0);
             let out = m.reserve_out(len);
             host::read_register(ctx, m.bytes(), register_id, out)?;
             m.copy_out(out, len, ptr);
