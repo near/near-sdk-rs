@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- support the nearcore 2.14 / protocol 87 host functions: `env::ml_dsa_verify`, `env::sha3_256`/`sha3_384`/`sha3_512`, `env::universal_state_init_to_account_id`, `env::promise_batch_action_universal_state_init` (plus `*_raw` byte variants), the typed `universal_state_init::{UniversalStateInit, UniversalStateInitV1, PublicKeyHandle}` and `Promise::universal_state_init`; `near-digest`'s `Sha3_256`/`Sha3_384`/`Sha3_512` use the host functions on-chain ([#1624](https://github.com/near/near-sdk-rs/pull/1624))
+
+### Changed
+
+- **protocol floor is now 87**: the new host-function imports are unconditional, so contracts built with this release require nearcore 2.14+ (protocol 87), the same way 5.29 raised the floor to 85 with the gas-key imports. nearcore crates are pinned to `0.38.0-rc.1` and `near-account-id` moves to 3 ([#1624](https://github.com/near/near-sdk-rs/pull/1624))
+
 ## [5.29.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0-rc.1...near-sdk-v5.29.0) - 2026-07-13
 
 ### Added
