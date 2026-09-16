@@ -33,7 +33,7 @@ near-account-id = { version = "3" }
 near-gas = { version = "0.3" }
 near-token = { version = "0.3" }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.5", optional = true }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 # Pinned to the published nearcore 2.14 release candidate `0.38.0-rc.1`; see near-sdk/Cargo.toml
@@ -50,7 +50,7 @@ near-parameters = { version = "=0.38.0-rc.1", optional = true }
 near-crypto = { version = "=0.38.0-rc.1", default-features = false, optional = true }
 
 [target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.5" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
