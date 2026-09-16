@@ -68,16 +68,22 @@ p256 = { version = "0.13.2", default-features = false, features = [
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-# nearcore 2.14 (protocol 87) adds the ml_dsa_verify, sha3_* and universal-account host
-# functions. Pinned to the published 2.14 release candidate `0.38.0-rc.1`; all nearcore-versioned
-# crates across the workspace must use the same version so their types unify. Bump to `0.38.0`
-# (drop the `=`) once 2.14 ships stable.
-near-vm-runner = { version = "=0.38.0-rc.1", default-features = false, optional = true }
-near-primitives-core = { version = "=0.38.0-rc.1", optional = true }
-near-primitives = { version = "=0.38.0-rc.1", optional = true }
-near-crypto = { version = "=0.38.0-rc.1", default-features = false, optional = true }
+# VALIDATION PIN: nearcore PR #16428 (`near_vm_runner::logic::HostCtx` + the host functions as
+# runtime-agnostic free functions) is not in a published nearcore crate yet, so every nearcore crate
+# comes from one git rev. They must all share a rev or their types stop unifying.
+#
+# The rev is #16428 plus a revert of nearcore #16420 (`aws-lc-rs` `=1.16.2` -> `=1.18.1`). Both pins
+# are exact and semver-compatible, so cargo has to unify them, and the `near-workspaces 0.23`
+# dev-dependency still pulls `near-crypto 0.37`, which pins `=1.16.2`. That collision goes away once
+# near-workspaces moves to nearcore 0.38.
+#
+# Swap back to `version = "=0.38.x"` from crates.io once #16428 ships.
+near-vm-runner = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", default-features = false, optional = true }
+near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
+near-primitives = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
+near-crypto = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", default-features = false, optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "=0.38.0-rc.1", optional = true }
+near-parameters = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

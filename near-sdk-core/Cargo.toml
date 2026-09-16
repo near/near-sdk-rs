@@ -36,18 +36,17 @@ near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
-# Pinned to the published nearcore 2.14 release candidate `0.38.0-rc.1`; see near-sdk/Cargo.toml
-# for the rationale. Bump to `0.38.0` (drop the `=`) once 2.14 ships stable.
-near-primitives-core = { version = "=0.38.0-rc.1", optional = true }
+# VALIDATION PIN: one git rev for every nearcore crate; see near-sdk/Cargo.toml.
+near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "=0.38.0-rc.1", optional = true }
+near-parameters = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
 
 # near-crypto is only used by the `near-crypto-interop` conversions, which are host-only (gated
 # `cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))`). Keep it off wasm targets
 # so contracts that enable `unit-testing` still build for wasm — since nearcore 2.13, near-crypto
 # pulls a non-optional aws-lc-rs (C) dependency that cannot compile for wasm32. Mirrors near-sdk.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-crypto = { version = "=0.38.0-rc.1", default-features = false, optional = true }
+near-crypto = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", default-features = false, optional = true }
 
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
