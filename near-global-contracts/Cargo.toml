@@ -33,7 +33,7 @@ arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6", optional = true }
 # VALIDATION PIN: one git rev for every nearcore crate; see near-sdk/Cargo.toml.
-near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
+near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 

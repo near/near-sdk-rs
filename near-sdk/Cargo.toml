@@ -80,14 +80,14 @@ near-abi = { version = "0.4.0", features = [
 # Swap back to `version = "=0.38.x"` from crates.io once #16428 ships.
 # `test_features` exposes `host::burn_gas`, the host function behind
 # `MockedBlockchain::gas()`. It is the only thing the feature adds here.
-near-vm-runner = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", default-features = false, features = [
+near-vm-runner = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", default-features = false, features = [
     "test_features",
 ], optional = true }
-near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
-near-primitives = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
-near-crypto = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", default-features = false, optional = true }
+near-primitives-core = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", optional = true }
+near-primitives = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", optional = true }
+near-crypto = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", default-features = false, optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { git = "https://github.com/r-near/nearcore", rev = "58c7cc2cdc43dd04bc5ce9b85b096830d77ab705", optional = true }
+near-parameters = { git = "https://github.com/r-near/nearcore", rev = "0ade5f98928711ba31b86a92da626686f113ef5f", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
