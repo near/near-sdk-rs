@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- support the nearcore 2.14 / protocol 87 host functions: `env::ml_dsa_verify`, `env::sha3_256`/`sha3_384`/`sha3_512`, `env::universal_state_init_to_account_id`, `env::promise_batch_action_universal_state_init` (plus `*_raw` byte variants), the typed `universal_state_init::{UniversalStateInit, UniversalStateInitV1, PublicKeyHandle}` and `Promise::universal_state_init`; `near-digest`'s `Sha3_256`/`Sha3_384`/`Sha3_512` use the host functions on-chain ([#1624](https://github.com/near/near-sdk-rs/pull/1624))
+- support the nearcore 2.14 / protocol 87 host functions: `env::ml_dsa_verify`, `env::sha3_256`/`sha3_384`/`sha3_512`, `env::universal_state_init_to_account_id`, `env::promise_batch_action_universal_state_init` (plus `*_raw` byte variants), the typed `universal_state_init::{UniversalStateInit, UniversalStateInitV1, PublicKeyHandle}` and `Promise::universal_state_init`; `near-digest`'s `Sha3_256`/`Sha3_384`/`Sha3_512` use the host functions on-chain and are no longer behind `unstable`. New hash functions follow a new convention: the bare hash name returns the fixed-size array, and the legacy `Vec`/`_array` pair is not extended to new hashes ([#1624](https://github.com/near/near-sdk-rs/pull/1624))
 
 ### Changed
 
