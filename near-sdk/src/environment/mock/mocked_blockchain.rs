@@ -226,7 +226,11 @@ mod mock_chain {
         /// offset to pass in place of `ptr`.
         ///
         /// `len == u64::MAX` is the host's "read register `ptr` instead of memory" sentinel;
-        /// it is passed through untouched.
+        /// it is passed through untouched. The three string functions (`log_utf8`,
+        /// `log_utf16`, `panic_utf8`) read the same sentinel as "NUL-terminated string in
+        /// guest memory" instead, which this cannot serve because the length is only known
+        /// by scanning; `near_sdk::env` always passes a real length, so nothing in the SDK
+        /// reaches that path.
         fn copy_in(&mut self, len: u64, ptr: u64) -> u64 {
             if len == u64::MAX {
                 return ptr;
