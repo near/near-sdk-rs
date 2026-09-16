@@ -1,8 +1,6 @@
 use super::Receipt;
-use crate::mock::MockAction;
-// TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
 use crate::VMContext;
-use crate::mock::mocked_memory::MockedMemory;
+use crate::mock::MockAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
@@ -10,26 +8,36 @@ use near_primitives::gas::Gas;
 use near_primitives_core::version::PROTOCOL_VERSION;
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
-use near_vm_runner::logic::{ExecutionResultState, External, MemoryLike, VMLogic};
-use std::cell::RefCell;
+use near_vm_runner::logic::{ExecutionResultState, External, HostCtx, host};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
-/// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
-/// `VMLogic` to cause panic during the unit tests similarly to how errors of `VMLogic` would cause
-/// the termination of guest program execution. Unit tests can even assert the expected error
-/// message.
-pub struct MockedBlockchain<Memory = MockedMemory>
-where
-    Memory: MemoryLike + Default + 'static,
-{
-    logic: RefCell<VMLogic<'static>>,
-    // We keep ownership over logic fixture so that references in `VMLogic` are valid.
-    #[allow(dead_code)]
-    logic_fixture: LogicFixture,
-    _memory: PhantomData<Memory>,
+///
+/// Every host call lands in nearcore's own implementation of that host function
+/// ([`near_vm_runner::logic::host`]), run against a [`HostCtx`] this type owns. Host errors
+/// are unwrapped so they panic the unit test the way they would abort a contract on chain,
+/// and tests can assert on the message.
+pub struct MockedBlockchain {
+    /// Borrows `fixture`; see [`MockedBlockchain::new`]. Declared first so it is dropped
+    /// before what it borrows.
+    ctx: HostCtx<'static>,
+    fixture: HostFixture,
+}
+
+/// Placeholder for the `memory` parameter of [`MockedBlockchain::new`].
+///
+/// The host functions now take the guest memory as a plain `&mut [u8]`, so there is no
+/// `MemoryLike` left to swap out. The parameter is kept so that existing `testing_env!`
+/// and `MockedBlockchain::new(.., None)` call sites keep compiling.
+#[derive(Default)]
+pub struct MockedMemory;
+
+/// The state [`HostCtx`] borrows for its whole life. Both fields are boxed so that moving
+/// the [`MockedBlockchain`] around does not move what `ctx` points at.
+struct HostFixture {
+    ext: Box<MockedExternal>,
+    context: Box<near_vm_runner::logic::VMContext>,
 }
 
 pub fn test_vm_config() -> near_parameters::vm::Config {
@@ -41,10 +49,7 @@ pub fn test_vm_config() -> near_parameters::vm::Config {
     }
 }
 
-impl<T> Default for MockedBlockchain<T>
-where
-    T: MemoryLike + Default + 'static,
-{
+impl Default for MockedBlockchain {
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
@@ -58,17 +63,7 @@ where
     }
 }
 
-struct LogicFixture {
-    ext: Box<MockedExternal>,
-    fees_config: Arc<RuntimeFeesConfig>,
-    context: Box<near_vm_runner::logic::VMContext>,
-    memory: Box<dyn MemoryLike>,
-}
-
-impl<Memory> MockedBlockchain<Memory>
-where
-    Memory: MemoryLike + Default + 'static,
-{
+impl MockedBlockchain {
     pub fn new(
         context: VMContext,
         config: near_parameters::vm::Config,
@@ -76,8 +71,9 @@ where
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
         validators: HashMap<String, NearToken>,
-        memory: Option<Memory>,
+        memory: Option<MockedMemory>,
     ) -> Self {
+        let _ = memory;
         let mut ext = Box::new(MockedExternal::new());
         let promise_results: Arc<[VmPromiseResult]> =
             promise_results.into_iter().map(Into::into).collect::<Vec<_>>().into();
@@ -86,34 +82,34 @@ where
         ext.fake_trie = storage;
         ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let config = Arc::new(config);
-        let fees_config = Arc::new(fees_config);
         let result_state =
             ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
-        let memory = Box::new(memory.unwrap_or_default());
 
-        let mut logic_fixture = LogicFixture { ext, context, fees_config, memory };
+        let mut fixture = HostFixture { ext, context };
 
-        let logic = unsafe {
-            VMLogic::new(
-                &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
-                &*(logic_fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
-                logic_fixture.fees_config.clone(),
+        // SAFETY: `ctx` only ever borrows the two boxes in `fixture`, which live as long as
+        // this struct and are never reallocated. Field order drops `ctx` first, so the
+        // borrows cannot outlive their targets. This is the same lifetime extension the
+        // `VMLogic`-backed mock did.
+        let ctx = unsafe {
+            HostCtx::new(
+                &mut *(fixture.ext.as_mut() as *mut dyn External),
+                &*(fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
+                Arc::new(fees_config),
                 result_state,
-                &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
         };
 
-        let logic = RefCell::new(logic);
-        Self { logic, logic_fixture, _memory: PhantomData }
+        Self { ctx, fixture }
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
-        std::mem::take(&mut self.logic_fixture.ext.fake_trie)
+        std::mem::take(&mut self.fixture.ext.fake_trie)
     }
 
     /// Returns metadata about the receipts created
     pub fn created_receipts(&self) -> Vec<Receipt> {
-        let action_log = &self.logic_fixture.ext.action_log;
+        let action_log = &self.fixture.ext.action_log;
         let action_log: Vec<MockAction> =
             action_log.clone().into_iter().map(<MockAction as From<_>>::from).collect();
         let create_receipts: Vec<(usize, MockAction)> = action_log
@@ -148,12 +144,12 @@ where
     }
 
     pub fn gas(&mut self, gas_amount: u64) {
-        self.logic.borrow_mut().gas(Gas::from_gas(gas_amount)).unwrap()
+        host::burn_gas(&mut self.ctx, &mut [], gas_amount).unwrap()
     }
 
     /// Returns logs created so far by the runtime.
     pub fn logs(&self) -> Vec<String> {
-        self.logic.borrow().logs().to_vec()
+        self.ctx.result_state().logs().to_vec()
     }
 }
 
@@ -194,124 +190,281 @@ fn sdk_context_to_vm_context(
     }
 }
 
+/// The `near-sys` host-function ABI, implemented for native unit tests.
+///
+/// `near-sdk`, `near-sdk-env`, `near-sdk-core` and `near-global-contracts` all call the
+/// `extern "C"` symbols `near-sys` declares. On wasm those resolve to the runtime's imports;
+/// here each one is defined as a `#[no_mangle]` shim that forwards to the very same function
+/// the runtime uses, [`near_vm_runner::logic::host`].
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use near_vm_runner::logic::{VMLogic, errors::VMLogicError};
+    use near_vm_runner::logic::errors::VMLogicError;
+    use near_vm_runner::logic::{HostCtx, host};
 
-    fn with_mock_interface<F, R>(f: F) -> R
-    where
-        F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
-    {
-        crate::mock::with_mocked_blockchain(|b| f(&mut b.logic.borrow_mut()).unwrap())
+    /// A scratch "guest memory" for one host-function call.
+    ///
+    /// The host functions address a single contiguous guest memory (`&mut [u8]`) by offset,
+    /// while the shims below are handed raw pointers into this process. So each call gets a
+    /// fresh buffer: [`Mem::copy_in`] copies an argument into it and returns the offset to
+    /// pass in place of the pointer, and the handful of host functions that write to guest
+    /// memory get a region from [`Mem::reserve_out`] that [`Mem::copy_out`] hands back to
+    /// the caller's pointer afterwards.
+    ///
+    /// Dereferencing the raw pointers is sound for the same reason it was under the old
+    /// `MemoryLike` mock: the only callers are `near_sdk::env` and its sibling crates, which
+    /// always pass a pointer into a live Rust allocation together with its real length.
+    #[derive(Default)]
+    struct Mem(Vec<u8>);
+
+    impl Mem {
+        /// The buffer, in the shape the host functions take it.
+        fn bytes(&mut self) -> &mut [u8] {
+            &mut self.0
+        }
+
+        /// Copies the `len` bytes at native `ptr` into the buffer and returns the guest
+        /// offset to pass in place of `ptr`.
+        ///
+        /// `len == u64::MAX` is the host's "read register `ptr` instead of memory" sentinel;
+        /// it is passed through untouched.
+        fn copy_in(&mut self, len: u64, ptr: u64) -> u64 {
+            if len == u64::MAX {
+                return ptr;
+            }
+            let offset = self.0.len() as u64;
+            if len != 0 {
+                self.0.extend_from_slice(unsafe {
+                    std::slice::from_raw_parts(ptr as *const u8, len as usize)
+                });
+            }
+            offset
+        }
+
+        /// Reserves `len` zero bytes for a host function to write into and returns the
+        /// guest offset of the region.
+        fn reserve_out(&mut self, len: u64) -> u64 {
+            let offset = self.0.len() as u64;
+            self.0.resize(self.0.len() + len as usize, 0);
+            offset
+        }
+
+        /// Copies a region reserved by [`Self::reserve_out`] out to native `ptr`.
+        fn copy_out(&self, offset: u64, len: u64, ptr: u64) {
+            if len == 0 {
+                return;
+            }
+            let src = &self.0[offset as usize..(offset + len) as usize];
+            unsafe { std::ptr::copy_nonoverlapping(src.as_ptr(), ptr as *mut u8, len as usize) };
+        }
     }
+
+    /// Runs one host function against the mocked context and unwraps its error, so a host
+    /// error panics the unit test the way it would abort a contract on chain.
+    fn host_call<R>(
+        f: impl FnOnce(&mut HostCtx<'static>, &mut Mem) -> Result<R, VMLogicError>,
+    ) -> R {
+        crate::mock::with_mocked_blockchain(|b| {
+            let mut mem = Mem::default();
+            f(&mut b.ctx, &mut mem).unwrap()
+        })
+    }
+
+    /// A u128 argument (a balance) is read from guest memory as 16 little-endian bytes.
+    const U128: u64 = 16;
+
+    // ##############
+    // # Registers  #
+    // ##############
 
     #[unsafe(no_mangle)]
     extern "C-unwind" fn read_register(register_id: u64, ptr: u64) {
-        with_mock_interface(|b| b.read_register(register_id, ptr))
+        host_call(|ctx, m| {
+            // `read_register` carries no length, so the destination has to be sized first.
+            // `register_len` is the only public way to ask and it charges one `base`, which
+            // is the single place this mock burns gas the wasm path would not.
+            let len = host::register_len(ctx, m.bytes(), register_id)?;
+            // An unset register reports `u64::MAX`; let the real `read_register` below
+            // raise `InvalidRegisterId` rather than reserving that much scratch.
+            let len = if len == u64::MAX { 0 } else { len };
+            let out = m.reserve_out(len);
+            host::read_register(ctx, m.bytes(), register_id, out)?;
+            m.copy_out(out, len, ptr);
+            Ok(())
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn register_len(register_id: u64) -> u64 {
-        with_mock_interface(|b| b.register_len(register_id))
+        host_call(|ctx, m| host::register_len(ctx, m.bytes(), register_id))
     }
+
+    // ###############
+    // # Context API #
+    // ###############
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn current_account_id(register_id: u64) {
-        with_mock_interface(|b| b.current_account_id(register_id))
+        host_call(|ctx, m| host::current_account_id(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn current_contract_code(register_id: u64) -> u64 {
-        with_mock_interface(|b| b.current_contract_code(register_id))
+        host_call(|ctx, m| host::current_contract_code(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn refund_to_account_id(register_id: u64) {
-        with_mock_interface(|b| b.refund_to_account_id(register_id))
+        host_call(|ctx, m| host::refund_to_account_id(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn signer_account_id(register_id: u64) {
-        with_mock_interface(|b| b.signer_account_id(register_id))
+        host_call(|ctx, m| host::signer_account_id(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn signer_account_pk(register_id: u64) {
-        with_mock_interface(|b| b.signer_account_pk(register_id))
+        host_call(|ctx, m| host::signer_account_pk(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn predecessor_account_id(register_id: u64) {
-        with_mock_interface(|b| b.predecessor_account_id(register_id))
+        host_call(|ctx, m| host::predecessor_account_id(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn input(register_id: u64) {
-        with_mock_interface(|b| b.input(register_id))
+        host_call(|ctx, m| host::input(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn chain_id(register_id: u64) {
-        with_mock_interface(|b| b.chain_id(register_id))
+        host_call(|ctx, m| host::chain_id(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn block_index() -> u64 {
-        with_mock_interface(|b| b.block_index())
+        host_call(|ctx, m| host::block_index(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn block_timestamp() -> u64 {
-        with_mock_interface(|b| b.block_timestamp())
+        host_call(|ctx, m| host::block_timestamp(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn epoch_height() -> u64 {
-        with_mock_interface(|b| b.epoch_height())
+        host_call(|ctx, m| host::epoch_height(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_usage() -> u64 {
-        with_mock_interface(|b| b.storage_usage())
+        host_call(|ctx, m| host::storage_usage(ctx, m.bytes()))
     }
+
+    // #################
+    // # Economics API #
+    // #################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn account_balance(balance_ptr: u64) {
-        with_mock_interface(|b| b.account_balance(balance_ptr))
+        host_call(|ctx, m| {
+            let out = m.reserve_out(U128);
+            host::account_balance(ctx, m.bytes(), out)?;
+            m.copy_out(out, U128, balance_ptr);
+            Ok(())
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn account_locked_balance(balance_ptr: u64) {
-        with_mock_interface(|b| b.account_locked_balance(balance_ptr))
+        host_call(|ctx, m| {
+            let out = m.reserve_out(U128);
+            host::account_locked_balance(ctx, m.bytes(), out)?;
+            m.copy_out(out, U128, balance_ptr);
+            Ok(())
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn attached_deposit(balance_ptr: u64) {
-        with_mock_interface(|b| b.attached_deposit(balance_ptr))
+        host_call(|ctx, m| {
+            let out = m.reserve_out(U128);
+            host::attached_deposit(ctx, m.bytes(), out)?;
+            m.copy_out(out, U128, balance_ptr);
+            Ok(())
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn prepaid_gas() -> u64 {
-        with_mock_interface(|b| b.prepaid_gas())
+        host_call(|ctx, m| host::prepaid_gas(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn used_gas() -> u64 {
-        with_mock_interface(|b| b.used_gas())
+        host_call(|ctx, m| host::used_gas(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
+    extern "C-unwind" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            let out = m.reserve_out(U128);
+            host::validator_stake(ctx, m.bytes(), account_id_len, account_id, out)?;
+            m.copy_out(out, U128, stake_ptr);
+            Ok(())
+        })
+    }
+    #[unsafe(no_mangle)]
+    extern "C-unwind" fn validator_total_stake(stake_ptr: u64) {
+        host_call(|ctx, m| {
+            let out = m.reserve_out(U128);
+            host::validator_total_stake(ctx, m.bytes(), out)?;
+            m.copy_out(out, U128, stake_ptr);
+            Ok(())
+        })
+    }
+
+    // ############
+    // # Math API #
+    // ############
+
+    #[unsafe(no_mangle)]
     extern "C-unwind" fn random_seed(register_id: u64) {
-        with_mock_interface(|b| b.random_seed(register_id))
+        host_call(|ctx, m| host::random_seed(ctx, m.bytes(), register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn sha256(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.sha256(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::sha256(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn keccak256(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.keccak256(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::keccak256(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn keccak512(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::keccak512(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn sha3_256(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.sha3_256(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::sha3_256(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn sha3_384(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.sha3_384(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::sha3_384(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn sha3_512(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.sha3_512(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::sha3_512(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::ripemd160(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn ecrecover(
@@ -323,8 +476,19 @@ mod mock_chain {
         malleability_flag: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.ecrecover(hash_len, hash_ptr, sig_len, sig_ptr, v, malleability_flag, register_id)
+        host_call(|ctx, m| {
+            let (hash, sig) = (m.copy_in(hash_len, hash_ptr), m.copy_in(sig_len, sig_ptr));
+            host::ecrecover(
+                ctx,
+                m.bytes(),
+                hash_len,
+                hash,
+                sig_len,
+                sig,
+                v,
+                malleability_flag,
+                register_id,
+            )
         })
     }
     #[unsafe(no_mangle)]
@@ -336,14 +500,19 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.ed25519_verify(
+        host_call(|ctx, m| {
+            let signature = m.copy_in(signature_len, signature_ptr);
+            let message = m.copy_in(message_len, message_ptr);
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::ed25519_verify(
+                ctx,
+                m.bytes(),
                 signature_len,
-                signature_ptr,
+                signature,
                 message_len,
-                message_ptr,
+                message,
                 public_key_len,
-                public_key_ptr,
+                public_key,
             )
         })
     }
@@ -356,14 +525,19 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.p256_verify(
+        host_call(|ctx, m| {
+            let signature = m.copy_in(signature_len, signature_ptr);
+            let message = m.copy_in(message_len, message_ptr);
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::p256_verify(
+                ctx,
+                m.bytes(),
                 signature_len,
-                signature_ptr,
+                signature,
                 message_len,
-                message_ptr,
+                message,
                 public_key_len,
-                public_key_ptr,
+                public_key,
             )
         })
     }
@@ -376,39 +550,66 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.ml_dsa_verify(
+        host_call(|ctx, m| {
+            let signature = m.copy_in(signature_len, signature_ptr);
+            let message = m.copy_in(message_len, message_ptr);
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::ml_dsa_verify(
+                ctx,
+                m.bytes(),
                 signature_len,
-                signature_ptr,
+                signature,
                 message_len,
-                message_ptr,
+                message,
                 public_key_len,
-                public_key_ptr,
+                public_key,
             )
         })
     }
+
+    // ##################
+    // # Miscellaneous  #
+    // ##################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn value_return(value_len: u64, value_ptr: u64) {
-        with_mock_interface(|b| b.value_return(value_len, value_ptr))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::value_return(ctx, m.bytes(), value_len, value)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn panic() -> ! {
-        with_mock_interface(|b| b.panic());
+        host_call(|ctx, m| host::panic(ctx, m.bytes()));
         unreachable!()
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn panic_utf8(len: u64, ptr: u64) -> ! {
-        with_mock_interface(|b| b.panic_utf8(len, ptr));
+        host_call(|ctx, m| {
+            let msg = m.copy_in(len, ptr);
+            host::panic_utf8(ctx, m.bytes(), len, msg)
+        });
         unreachable!()
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf8(len: u64, ptr: u64) {
-        with_mock_interface(|b| b.log_utf8(len, ptr))
+        host_call(|ctx, m| {
+            let msg = m.copy_in(len, ptr);
+            host::log_utf8(ctx, m.bytes(), len, msg)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf16(len: u64, ptr: u64) {
-        with_mock_interface(|b| b.log_utf16(len, ptr))
+        host_call(|ctx, m| {
+            let msg = m.copy_in(len, ptr);
+            host::log_utf16(ctx, m.bytes(), len, msg)
+        })
     }
+
+    // ################
+    // # Promises API #
+    // ################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_create(
         account_id_len: u64,
@@ -420,15 +621,21 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_create(
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_create(
+                ctx,
+                m.bytes(),
                 account_id_len,
-                account_id_ptr,
+                account_id,
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
-                amount_ptr,
+                arguments,
+                amount,
                 gas,
             )
         })
@@ -445,27 +652,42 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_then(
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_then(
+                ctx,
+                m.bytes(),
                 promise_index,
                 account_id_len,
-                account_id_ptr,
+                account_id,
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
-                amount_ptr,
+                arguments,
+                amount,
                 gas,
             )
         })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
-        with_mock_interface(|b| b.promise_and(promise_idx_ptr, promise_idx_count))
+        host_call(|ctx, m| {
+            // The host reads the indices as `promise_idx_count` little-endian `u64`s. On
+            // overflow it raises `IntegerOverflow` before touching memory, so copy nothing.
+            let len = promise_idx_count.checked_mul(size_of::<u64>() as u64).unwrap_or(0);
+            let promise_idx = m.copy_in(len, promise_idx_ptr);
+            host::promise_and(ctx, m.bytes(), promise_idx, promise_idx_count)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64 {
-        with_mock_interface(|b| b.promise_batch_create(account_id_len, account_id_ptr))
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            host::promise_batch_create(ctx, m.bytes(), account_id_len, account_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_then(
@@ -473,11 +695,19 @@ mod mock_chain {
         account_id_len: u64,
         account_id_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.promise_batch_then(promise_index, account_id_len, account_id_ptr))
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            host::promise_batch_then(ctx, m.bytes(), promise_index, account_id_len, account_id)
+        })
     }
+
+    // #######################
+    // # Promise API actions #
+    // #######################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_create_account(promise_index: u64) {
-        with_mock_interface(|b| b.promise_batch_action_create_account(promise_index))
+        host_call(|ctx, m| host::promise_batch_action_create_account(ctx, m.bytes(), promise_index))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_contract(
@@ -485,73 +715,110 @@ mod mock_chain {
         code_len: u64,
         code_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
+        host_call(|ctx, m| {
+            let code = m.copy_in(code_len, code_ptr);
+            host::promise_batch_action_deploy_contract(
+                ctx,
+                m.bytes(),
+                promise_index,
+                code_len,
+                code,
+            )
         })
     }
 
     // #########################
     // # Global Contract API   #
     // #########################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_global_contract(
         promise_index: u64,
         code_len: u64,
         code_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_deploy_global_contract(promise_index, code_len, code_ptr)
+        host_call(|ctx, m| {
+            let code = m.copy_in(code_len, code_ptr);
+            host::promise_batch_action_deploy_global_contract(
+                ctx,
+                m.bytes(),
+                promise_index,
+                code_len,
+                code,
+            )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_deploy_global_contract_by_account_id(
         promise_index: u64,
         code_len: u64,
         code_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_deploy_global_contract_by_account_id(
+        host_call(|ctx, m| {
+            let code = m.copy_in(code_len, code_ptr);
+            host::promise_batch_action_deploy_global_contract_by_account_id(
+                ctx,
+                m.bytes(),
                 promise_index,
                 code_len,
-                code_ptr,
+                code,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract(
         promise_index: u64,
         code_hash_len: u64,
         code_hash_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_use_global_contract(promise_index, code_hash_len, code_hash_ptr)
+        host_call(|ctx, m| {
+            let code_hash = m.copy_in(code_hash_len, code_hash_ptr);
+            host::promise_batch_action_use_global_contract(
+                ctx,
+                m.bytes(),
+                promise_index,
+                code_hash_len,
+                code_hash,
+            )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_use_global_contract_by_account_id(
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_use_global_contract_by_account_id(
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            host::promise_batch_action_use_global_contract_by_account_id(
+                ctx,
+                m.bytes(),
                 promise_index,
                 account_id_len,
-                account_id_ptr,
+                account_id,
             )
         })
     }
+
+    // ###########################
+    // # Universal state init API #
+    // ###########################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn universal_state_init_to_account_id(
         state_init_len: u64,
         state_init_ptr: u64,
         register_id: u64,
     ) {
-        with_mock_interface(|b| {
-            b.universal_state_init_to_account_id(state_init_len, state_init_ptr, register_id)
+        host_call(|ctx, m| {
+            let state_init = m.copy_in(state_init_len, state_init_ptr);
+            host::universal_state_init_to_account_id(
+                ctx,
+                m.bytes(),
+                state_init_len,
+                state_init,
+                register_id,
+            )
         })
     }
     #[unsafe(no_mangle)]
@@ -561,27 +828,30 @@ mod mock_chain {
         state_init_ptr: u64,
         amount_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_universal_state_init(
+        host_call(|ctx, m| {
+            let state_init = m.copy_in(state_init_len, state_init_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_universal_state_init(
+                ctx,
+                m.bytes(),
                 promise_index,
                 state_init_len,
-                state_init_ptr,
-                amount_ptr,
+                state_init,
+                amount,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_set_refund_to(
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_set_refund_to(promise_index, account_id_len, account_id_ptr)
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            host::promise_set_refund_to(ctx, m.bytes(), promise_index, account_id_len, account_id)
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_state_init(
         promise_index: u64,
@@ -589,11 +859,19 @@ mod mock_chain {
         code_ptr: u64,
         amount_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_batch_action_state_init(promise_index, code_len, code_ptr, amount_ptr)
+        host_call(|ctx, m| {
+            let code = m.copy_in(code_len, code_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_state_init(
+                ctx,
+                m.bytes(),
+                promise_index,
+                code_len,
+                code,
+                amount,
+            )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_state_init_by_account_id(
         promise_index: u64,
@@ -601,16 +879,19 @@ mod mock_chain {
         account_id_ptr: u64,
         amount_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_batch_action_state_init_by_account_id(
+        host_call(|ctx, m| {
+            let account_id = m.copy_in(account_id_len, account_id_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_state_init_by_account_id(
+                ctx,
+                m.bytes(),
                 promise_index,
                 account_id_len,
-                account_id_ptr,
-                amount_ptr,
+                account_id,
+                amount,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn set_state_init_data_entry(
         promise_index: u64,
@@ -620,18 +901,20 @@ mod mock_chain {
         value_len: u64,
         value_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.set_state_init_data_entry(
+        host_call(|ctx, m| {
+            let (key, value) = (m.copy_in(key_len, key_ptr), m.copy_in(value_len, value_ptr));
+            host::set_state_init_data_entry(
+                ctx,
+                m.bytes(),
                 promise_index,
                 action_index,
                 key_len,
-                key_ptr,
+                key,
                 value_len,
-                value_ptr,
+                value,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_function_call(
         promise_index: u64,
@@ -642,19 +925,23 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_function_call(
+        host_call(|ctx, m| {
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_function_call(
+                ctx,
+                m.bytes(),
                 promise_index,
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
-                amount_ptr,
+                arguments,
+                amount,
                 gas,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_function_call_weight(
         promise_index: u64,
@@ -666,23 +953,30 @@ mod mock_chain {
         gas: u64,
         weight: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_function_call_weight(
+        host_call(|ctx, m| {
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_function_call_weight(
+                ctx,
+                m.bytes(),
                 promise_index,
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
-                amount_ptr,
+                arguments,
+                amount,
                 gas,
                 weight,
             )
         })
     }
-
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
-        with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))
+        host_call(|ctx, m| {
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_transfer(ctx, m.bytes(), promise_index, amount)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_batch_action_stake(
@@ -691,8 +985,17 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr)
+        host_call(|ctx, m| {
+            let amount = m.copy_in(U128, amount_ptr);
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::promise_batch_action_stake(
+                ctx,
+                m.bytes(),
+                promise_index,
+                amount,
+                public_key_len,
+                public_key,
+            )
         })
     }
     #[unsafe(no_mangle)]
@@ -702,11 +1005,14 @@ mod mock_chain {
         public_key_ptr: u64,
         nonce: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_add_key_with_full_access(
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::promise_batch_action_add_key_with_full_access(
+                ctx,
+                m.bytes(),
                 promise_index,
                 public_key_len,
-                public_key_ptr,
+                public_key,
                 nonce,
             )
         })
@@ -723,17 +1029,23 @@ mod mock_chain {
         function_names_len: u64,
         function_names_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_add_key_with_function_call(
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            let allowance = m.copy_in(U128, allowance_ptr);
+            let receiver_id = m.copy_in(receiver_id_len, receiver_id_ptr);
+            let function_names = m.copy_in(function_names_len, function_names_ptr);
+            host::promise_batch_action_add_key_with_function_call(
+                ctx,
+                m.bytes(),
                 promise_index,
                 public_key_len,
-                public_key_ptr,
+                public_key,
                 nonce,
-                allowance_ptr,
+                allowance,
                 receiver_id_len,
-                receiver_id_ptr,
+                receiver_id,
                 function_names_len,
-                function_names_ptr,
+                function_names,
             )
         })
     }
@@ -744,12 +1056,16 @@ mod mock_chain {
         public_key_ptr: u64,
         amount_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_transfer_to_gas_key(
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            host::promise_batch_action_transfer_to_gas_key(
+                ctx,
+                m.bytes(),
                 promise_index,
                 public_key_len,
-                public_key_ptr,
-                amount_ptr,
+                public_key,
+                amount,
             )
         })
     }
@@ -760,11 +1076,14 @@ mod mock_chain {
         public_key_ptr: u64,
         num_nonces: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_add_gas_key_with_full_access(
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::promise_batch_action_add_gas_key_with_full_access(
+                ctx,
+                m.bytes(),
                 promise_index,
                 public_key_len,
-                public_key_ptr,
+                public_key,
                 num_nonces,
             )
         })
@@ -781,17 +1100,23 @@ mod mock_chain {
         method_names_len: u64,
         method_names_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_add_gas_key_with_function_call(
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            let allowance = m.copy_in(U128, allowance_ptr);
+            let receiver_id = m.copy_in(receiver_id_len, receiver_id_ptr);
+            let method_names = m.copy_in(method_names_len, method_names_ptr);
+            host::promise_batch_action_add_gas_key_with_function_call(
+                ctx,
+                m.bytes(),
                 promise_index,
                 public_key_len,
-                public_key_ptr,
+                public_key,
                 num_nonces,
-                allowance_ptr,
+                allowance,
                 receiver_id_len,
-                receiver_id_ptr,
+                receiver_id,
                 method_names_len,
-                method_names_ptr,
+                method_names,
             )
         })
     }
@@ -801,8 +1126,15 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
+        host_call(|ctx, m| {
+            let public_key = m.copy_in(public_key_len, public_key_ptr);
+            host::promise_batch_action_delete_key(
+                ctx,
+                m.bytes(),
+                promise_index,
+                public_key_len,
+                public_key,
+            )
         })
     }
     #[unsafe(no_mangle)]
@@ -811,14 +1143,22 @@ mod mock_chain {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     ) {
-        with_mock_interface(|b| {
-            b.promise_batch_action_delete_account(
+        host_call(|ctx, m| {
+            let beneficiary_id = m.copy_in(beneficiary_id_len, beneficiary_id_ptr);
+            host::promise_batch_action_delete_account(
+                ctx,
+                m.bytes(),
                 promise_index,
                 beneficiary_id_len,
-                beneficiary_id_ptr,
+                beneficiary_id,
             )
         })
     }
+
+    // ######################
+    // # Promise yield API  #
+    // ######################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_yield_create(
         function_name_len: u64,
@@ -829,12 +1169,16 @@ mod mock_chain {
         gas_weight: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_yield_create(
+        host_call(|ctx, m| {
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            host::promise_yield_create(
+                ctx,
+                m.bytes(),
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
+                arguments,
                 gas,
                 gas_weight,
                 register_id,
@@ -848,8 +1192,10 @@ mod mock_chain {
         payload_len: u64,
         payload_ptr: u64,
     ) -> u32 {
-        with_mock_interface(|b| {
-            b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
+        host_call(|ctx, m| {
+            let data_id = m.copy_in(data_id_len, data_id_ptr);
+            let payload = m.copy_in(payload_len, payload_ptr);
+            host::promise_yield_resume(ctx, m.bytes(), data_id_len, data_id, payload_len, payload)
         })
     }
     #[unsafe(no_mangle)]
@@ -864,17 +1210,23 @@ mod mock_chain {
         yield_id_len: u64,
         yield_id_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.promise_yield_create_with_id(
+        host_call(|ctx, m| {
+            let function_name = m.copy_in(function_name_len, function_name_ptr);
+            let arguments = m.copy_in(arguments_len, arguments_ptr);
+            let amount = m.copy_in(U128, amount_ptr);
+            let yield_id = m.copy_in(yield_id_len, yield_id_ptr);
+            host::promise_yield_create_with_id(
+                ctx,
+                m.bytes(),
                 function_name_len,
-                function_name_ptr,
+                function_name,
                 arguments_len,
-                arguments_ptr,
-                amount_ptr,
+                arguments,
+                amount,
                 gas,
                 gas_weight,
                 yield_id_len,
-                yield_id_ptr,
+                yield_id,
             )
         })
     }
@@ -885,27 +1237,41 @@ mod mock_chain {
         payload_len: u64,
         payload_ptr: u64,
     ) -> u32 {
-        with_mock_interface(|b| {
-            b.promise_yield_resume_with_yield_id(
+        host_call(|ctx, m| {
+            let yield_id = m.copy_in(yield_id_len, yield_id_ptr);
+            let payload = m.copy_in(payload_len, payload_ptr);
+            host::promise_yield_resume_with_yield_id(
+                ctx,
+                m.bytes(),
                 yield_id_len,
-                yield_id_ptr,
+                yield_id,
                 payload_len,
-                payload_ptr,
+                payload,
             )
         })
     }
+
+    // #######################
+    // # Promise API results #
+    // #######################
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_results_count() -> u64 {
-        with_mock_interface(|b| b.promise_results_count())
+        host_call(|ctx, m| host::promise_results_count(ctx, m.bytes()))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_result(result_idx: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| b.promise_result(result_idx, register_id))
+        host_call(|ctx, m| host::promise_result(ctx, m.bytes(), result_idx, register_id))
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn promise_return(promise_id: u64) {
-        with_mock_interface(|b| b.promise_return(promise_id))
+        host_call(|ctx, m| host::promise_return(ctx, m.bytes(), promise_id))
     }
+
+    // ###############
+    // # Storage API #
+    // ###############
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_write(
         key_len: u64,
@@ -914,53 +1280,76 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| {
-            b.storage_write(key_len, key_ptr, value_len, value_ptr, register_id)
+        host_call(|ctx, m| {
+            let (key, value) = (m.copy_in(key_len, key_ptr), m.copy_in(value_len, value_ptr));
+            host::storage_write(ctx, m.bytes(), key_len, key, value_len, value, register_id)
         })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| b.storage_read(key_len, key_ptr, register_id))
+        host_call(|ctx, m| {
+            let key = m.copy_in(key_len, key_ptr);
+            host::storage_read(ctx, m.bytes(), key_len, key, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| b.storage_remove(key_len, key_ptr, register_id))
+        host_call(|ctx, m| {
+            let key = m.copy_in(key_len, key_ptr);
+            host::storage_remove(ctx, m.bytes(), key_len, key, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn storage_has_key(key_len: u64, key_ptr: u64) -> u64 {
-        with_mock_interface(|b| b.storage_has_key(key_len, key_ptr))
+        host_call(|ctx, m| {
+            let key = m.copy_in(key_len, key_ptr);
+            host::storage_has_key(ctx, m.bytes(), key_len, key)
+        })
     }
-    #[unsafe(no_mangle)]
-    extern "C-unwind" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
-        with_mock_interface(|b| b.validator_stake(account_id_len, account_id_ptr, stake_ptr))
-    }
-    #[unsafe(no_mangle)]
-    extern "C-unwind" fn validator_total_stake(stake_ptr: u64) {
-        with_mock_interface(|b| b.validator_total_stake(stake_ptr))
-    }
+
+    // #############
+    // # alt_bn128 #
+    // #############
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.alt_bn128_g1_multiexp(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::alt_bn128_g1_multiexp(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| b.alt_bn128_g1_sum(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::alt_bn128_g1_sum(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
-        with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::alt_bn128_pairing_check(ctx, m.bytes(), value_len, value)
+        })
     }
 
     // ###########
     // BLS12-381 #
     // ###########
+
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p1_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| b.bls12381_p1_sum(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_p1_sum(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p2_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| b.bls12381_p2_sum(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_p2_sum(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_g1_multiexp(
@@ -968,7 +1357,10 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_g1_multiexp(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_g1_multiexp(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_g2_multiexp(
@@ -976,7 +1368,10 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_g2_multiexp(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_g2_multiexp(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_map_fp_to_g1(
@@ -984,7 +1379,10 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_map_fp_to_g1(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_map_fp_to_g1(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_map_fp2_to_g2(
@@ -992,11 +1390,17 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_map_fp2_to_g2(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_map_fp2_to_g2(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
-        with_mock_interface(|b| b.bls12381_pairing_check(value_len, value_ptr))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_pairing_check(ctx, m.bytes(), value_len, value)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p1_decompress(
@@ -1004,7 +1408,10 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_p1_decompress(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_p1_decompress(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn bls12381_p2_decompress(
@@ -1012,7 +1419,10 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| b.bls12381_p2_decompress(value_len, value_ptr, register_id))
+        host_call(|ctx, m| {
+            let value = m.copy_in(value_len, value_ptr);
+            host::bls12381_p2_decompress(ctx, m.bytes(), value_len, value, register_id)
+        })
     }
 }
 
