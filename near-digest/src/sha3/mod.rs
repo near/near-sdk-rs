@@ -31,27 +31,40 @@ digest_cfg! {
 
 #[cfg(feature = "unstable")]
 digest_cfg! {
-    /// Sha3-256 hasher
+    /// SHA3-256 (FIPS-202) hasher
     ///
-    /// There is currently no NEAR host function for SHA3, so this is computed in pure Rust on all
-    /// targets, including on-chain. A host-function backend may be added in the future - hence the
-    /// `unstable` feature gate.
+    /// Backed by the `sha3_256` host function when compiled as a NEAR contract (`cfg(near)`;
+    /// requires nearcore protocol version 87+, shipped in nearcore 2.14), and by the pure-Rust
+    /// implementation from the [`sha3`](https://docs.rs/sha3) crate otherwise.
     pub struct Sha3_256 {
-        // TODO: Add `cfg(near)` path
-        _ => ::sha3::Sha3_256
+        near => self::near::Sha3_256,
+        _ => ::sha3::Sha3_256,
     }
 }
 
 #[cfg(feature = "unstable")]
 digest_cfg! {
-    /// Sha3-512 hasher
+    /// SHA3-384 (FIPS-202) hasher
     ///
-    /// There is currently no NEAR host function for SHA3, so this is computed in pure Rust on all
-    /// targets, including on-chain. A host-function backend may be added in the future - hence the
-    /// `unstable` feature gate.
+    /// Backed by the `sha3_384` host function when compiled as a NEAR contract (`cfg(near)`;
+    /// requires nearcore protocol version 87+, shipped in nearcore 2.14), and by the pure-Rust
+    /// implementation from the [`sha3`](https://docs.rs/sha3) crate otherwise.
+    pub struct Sha3_384 {
+        near => self::near::Sha3_384,
+        _ => ::sha3::Sha3_384,
+    }
+}
+
+#[cfg(feature = "unstable")]
+digest_cfg! {
+    /// SHA3-512 (FIPS-202) hasher
+    ///
+    /// Backed by the `sha3_512` host function when compiled as a NEAR contract (`cfg(near)`;
+    /// requires nearcore protocol version 87+, shipped in nearcore 2.14), and by the pure-Rust
+    /// implementation from the [`sha3`](https://docs.rs/sha3) crate otherwise.
     pub struct Sha3_512 {
-        // TODO: Add `cfg(near)` path
-        _ => ::sha3::Sha3_512
+        near => self::near::Sha3_512,
+        _ => ::sha3::Sha3_512,
     }
 }
 
@@ -116,6 +129,26 @@ mod test {
     #[test]
     fn sha3_256_resets_to_initial_state() {
         crate::test_utils::assert_reset_roundtrip::<Sha3_256>();
+    }
+
+    #[cfg(feature = "unstable")]
+    #[rstest]
+    #[case(
+        b"",
+        hex!("0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004"),
+    )]
+    #[case(
+        b"near is cool!",
+        hex!("e91fdc9ff5474db06e69c346a27c35e169c1c4459f9790a7035a92e08ce05816d98a51d4677f51b91a4c7cd6e00ea198"),
+    )]
+    fn sha3_384_has_not_changed(#[case] data: &[u8], #[case] output: [u8; 48]) {
+        assert_eq!(Sha3_384::digest(data), output, "hash has changed")
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn sha3_384_resets_to_initial_state() {
+        crate::test_utils::assert_reset_roundtrip::<Sha3_384>();
     }
 
     #[cfg(feature = "unstable")]

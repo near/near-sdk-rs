@@ -22,10 +22,8 @@ sha2 = { version = "0.11.0", optional = true }
 sha3 = { version = "0.11.0", optional = true }
 
 [target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.5" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
 impl-tools = "0.12.0"
-# for `unstable` Sha3-256/512
-sha3 = { version = "0.11.0", optional = true }
 
 [features]
 ripemd = ["dep:ripemd"]

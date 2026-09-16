@@ -46,8 +46,9 @@
 //! | `sha2::Sha256` | `sha2` | `sha256_array` |
 //! | `sha3::Keccak256` | `sha3` | `keccak256_array` |
 //! | `sha3::Keccak512` | `sha3` | `keccak512_array` |
-//! | `sha3::Sha3_256` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
-//! | `sha3::Sha3_512` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
+//! | `sha3::Sha3_256` | `sha3` + `unstable` | `sha3_256` (nearcore 2.14+) |
+//! | `sha3::Sha3_384` | `sha3` + `unstable` | `sha3_384` (nearcore 2.14+) |
+//! | `sha3::Sha3_512` | `sha3` + `unstable` | `sha3_512` (nearcore 2.14+) |
 //! | `ripemd::Ripemd160` | `ripemd` | `ripemd160_array` |
 //!
 //! Additional features:
@@ -55,7 +56,9 @@
 //! * `zeroize` — implements `zeroize::ZeroizeOnDrop` for all hash types, clearing
 //!   buffered input from memory when a hasher is dropped.
 //! * `unstable` — enables items whose API or backend may change in a breaking way
-//!   between minor releases.
+//!   between minor releases. The SHA-3 hashers stay behind it for now: their on-chain
+//!   backend calls host functions that only exist from nearcore protocol version 87
+//!   (nearcore 2.14) onwards.
 //!
 //! # On-chain buffering
 //!
