@@ -1058,7 +1058,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// More info about promises in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract#promises)
 ///
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
+/// More low-level info here: the `promise_create` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 ///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L28> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L23>
 ///
@@ -1115,7 +1115,7 @@ pub fn promise_create(
 ///     Gas::from_tgas(30)
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
+/// More low-level info here: the `promise_then` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 ///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L49> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L30>
 pub fn promise_then(
@@ -1174,7 +1174,7 @@ pub fn promise_then(
 ///
 /// let chained_promise = promise_and(&[promise1, promise2]);
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
+/// More low-level info here: the `promise_and` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
@@ -1218,7 +1218,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// All actions in a batch are executed in the order they were added.
 /// Batched actions act as a unit: they execute in the same receipt, and if any fails, then they all get reverted.
 /// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/actions)
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
+/// More low-level info here: the `promise_batch_create` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
@@ -1252,7 +1252,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_then`]
+/// More low-level info here: the `promise_batch_then` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -1416,7 +1416,7 @@ pub fn set_state_init_data_entry(
 /// promise_batch_action_create_account(promise);
 /// ```
 ///
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
+/// More low-level info here: the `promise_batch_action_create_account` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe { sys::promise_batch_action_create_account(promise_index.0) }
@@ -1438,7 +1438,7 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
 /// let code = [0; 1487];
 /// promise_batch_action_deploy_contract(promise, &code);
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_deploy_contract`]
+/// More low-level info here: the `promise_batch_action_deploy_contract` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
@@ -1472,7 +1472,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 ///     Gas::from_tgas(30)
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call`]
+/// More low-level info here: the `promise_batch_action_function_call` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -1516,7 +1516,7 @@ pub fn promise_batch_action_function_call(
 ///     GasWeight(1)
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call_weight`]
+/// More low-level info here: the `promise_batch_action_function_call_weight` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -1557,7 +1557,7 @@ pub fn promise_batch_action_function_call_weight(
 ///     NearToken::from_near(1),
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer`]
+/// More low-level info here: the `promise_batch_action_transfer` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
     unsafe {
@@ -1588,7 +1588,7 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
 ///     &pk
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_stake`]
+/// More low-level info here: the `promise_batch_action_stake` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: NearToken,
@@ -1625,7 +1625,7 @@ pub fn promise_batch_action_stake(
 ///     nonce
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_key_with_full_access`]
+/// More low-level info here: the `promise_batch_action_add_key_with_full_access` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
@@ -1789,7 +1789,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 ///     NearToken::from_near(1)
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer_to_gas_key`]
+/// More low-level info here: the `promise_batch_action_transfer_to_gas_key` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_transfer_to_gas_key(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -1830,7 +1830,7 @@ pub fn promise_batch_action_transfer_to_gas_key(
 ///     num_nonces
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_full_access`]
+/// More low-level info here: the `promise_batch_action_add_gas_key_with_full_access` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_add_gas_key_with_full_access(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -1875,7 +1875,7 @@ pub fn promise_batch_action_add_gas_key_with_full_access(
 ///     "increase,decrease"
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_gas_key_with_function_call`]
+/// More low-level info here: the `promise_batch_action_add_gas_key_with_function_call` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_add_gas_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -1923,7 +1923,7 @@ pub fn promise_batch_action_add_gas_key_with_function_call(
 ///     &pk
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_key`]
+/// More low-level info here: the `promise_batch_action_delete_key` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
@@ -1952,7 +1952,7 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 ///     &AccountId::from_str("beneficiary.near").unwrap()
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_account`]
+/// More low-level info here: the `promise_batch_action_delete_account` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
     beneficiary_id: &AccountId,
@@ -2086,7 +2086,7 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
 ///
 /// assert_eq!(promise_results_count(), 0);
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_results_count`]
+/// More low-level info here: the `promise_results_count` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 ///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
@@ -2118,7 +2118,7 @@ pub fn promise_results_count() -> u64 {
 /// };
 /// ```
 ///
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_result`]
+/// More low-level info here: the `promise_result` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 ///
 /// Example usages:
 /// - [near-contract-standards/src/fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178)
@@ -2196,7 +2196,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 ///
 /// promise_return(promise);
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
+/// More low-level info here: the `promise_return` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 ///
 /// Example usages: [one](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L38), [two](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L57)
 pub fn promise_return(promise_idx: PromiseIndex) {
@@ -2249,7 +2249,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
+/// More low-level info here: the `promise_yield_create` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
     function_name: &str,
@@ -2333,7 +2333,7 @@ pub fn promise_yield_create_id(
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
+/// More low-level info here: the `promise_yield_resume` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L84)
 pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> bool {
     let data = data.as_ref();
@@ -2362,7 +2362,7 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
 /// shipped in nearcore 2.13). `yield_id` must be exactly 32 bytes or the host aborts execution
 /// with `YieldIdMalformed`.
 ///
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create_with_id`]
+/// More low-level info here: the `promise_yield_create_with_id` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_yield_create_with_id(
     function_name: &str,
     arguments: impl AsRef<[u8]>,
@@ -2401,7 +2401,7 @@ pub fn promise_yield_create_with_id(
 /// Requires the host to support the yield-with-id functions (nearcore protocol version 85+,
 /// shipped in nearcore 2.13).
 ///
-/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume_with_yield_id`]
+/// More low-level info here: the `promise_yield_resume_with_yield_id` host function in nearcore's `near-vm-runner` (`src/wasmtime_runner/logic.rs`)
 pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]>) -> bool {
     let data = data.as_ref();
     unsafe {
