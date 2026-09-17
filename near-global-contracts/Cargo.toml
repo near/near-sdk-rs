@@ -21,6 +21,9 @@ features = ["serde", "borsh", "abi", "near-primitives-interop"]
 [dependencies]
 near-account-id = { version = "3", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+# `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
+# which lives next to `PublicKey` in near-sdk-core.
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.3" }
 
 hex = { version = "0.4", optional = true }
 
@@ -61,18 +64,21 @@ serde = [
     "dep:serde",
     "dep:serde_with",
     "near-account-id/serde",
+    "near-sdk-core/serde",
 ]
 
 borsh = [
     "dep:borsh",
     "dep:hex",
     "near-account-id/borsh",
+    "near-sdk-core/borsh",
 ]
 
 schemars-v0_8 = [
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "serde_with/schemars_0_8",
+    "near-sdk-core/schemars-v0_8",
 ]
 
 abi = [
@@ -80,6 +86,7 @@ abi = [
     "borsh",
     "borsh/unstable__schema",
     "near-account-id/abi",
+    "near-sdk-core/abi",
 ]
 
 arbitrary = [
@@ -96,4 +103,5 @@ __near-sdk-unit-testing = [
     "borsh",
     "near-primitives-interop",
     "near-sdk-env/__near-sdk-unit-testing",
+    "near-sdk-core/__near-sdk-unit-testing",
 ]
