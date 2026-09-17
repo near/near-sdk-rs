@@ -92,6 +92,33 @@ pub(crate) fn extract_ref_mut(ty: &Type) -> syn::Result<(Option<And>, Option<Mut
     }
 }
 
+/// Converts unsized types to their owned equivalents for use in generated structs.
+///
+/// When users write `&[T]` or `&str` as method arguments, the macro strips the `&` and needs
+/// a sized, deserializable type for the generated `Input` struct. This function handles:
+/// - `[T]` → `Vec<T>` (slice to vec)
+/// - `str` → `String` (str to String)
+///
+/// Other types are returned unchanged.
+pub(crate) fn unsized_to_owned(ty: &Type) -> Type {
+    match ty {
+        Type::Slice(slice) => {
+            let inner = &slice.elem;
+            syn::parse_quote!(Vec<#inner>)
+        }
+        Type::Path(type_path)
+            if type_path.qself.is_none()
+                && type_path.path.leading_colon.is_none()
+                && type_path.path.segments.len() == 1
+                && type_path.path.segments[0].ident == "str"
+                && type_path.path.segments[0].arguments.is_empty() =>
+        {
+            syn::parse_quote!(String)
+        }
+        other => other.clone(),
+    }
+}
+
 /// Checks that the method signature is supported in the NEAR Contract API.
 pub(crate) fn sig_is_supported(sig: &Signature) -> syn::Result<()> {
     if sig.asyncness.is_some() {
