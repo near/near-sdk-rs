@@ -313,6 +313,182 @@ impl From<B58Error> for ParsePublicKeyError {
 
 impl std::error::Error for ParsePublicKeyError {}
 
+/// Domain-separation tag nearcore prepends to a full ML-DSA-65 public key before hashing it
+/// into its on-trie handle.
+const ML_DSA_65_PUBKEY_HASH_DOMAIN: &[u8] = b"near:ml-dsa-65-pubkey-hash:v1";
+
+/// Length of a full ML-DSA-65 public key.
+const ML_DSA_65_PUBLIC_KEY_LENGTH: usize = 1952;
+
+const ML_DSA_65_HASH_PREFIX: &str = "ml-dsa-65-hash:";
+
+/// SHA3-256, through the host function on-chain and pure Rust everywhere else.
+fn sha3_256(input: &[u8]) -> [u8; 32] {
+    #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
+    {
+        near_sdk_env::sha3_256(input)
+    }
+    #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
+    {
+        use sha3::Digest;
+        sha3::Sha3_256::digest(input).into()
+    }
+}
+
+/// Compact on-trie form of an access key.
+///
+/// This mirrors nearcore's `PublicKeyHandle`: the full key for `ed25519` and `secp256k1`, and the
+/// 32-byte SHA3-256 hash (with a domain-separation prefix) for ML-DSA-65, whose full 1952-byte key
+/// is never stored on-chain. Build one from a [`PublicKey`] with [`From`] / [`Into`]; the ML-DSA-65
+/// hashing is done for you.
+///
+/// The borsh encoding is a single tag byte (`0` ed25519, `1` secp256k1, `3` ML-DSA-65 hash) followed
+/// by the raw bytes, and the ordering is by tag, then by bytes, so a `BTreeSet<PublicKeyHandle>`
+/// serializes exactly like nearcore's.
+///
+/// # Example
+/// ```
+/// use near_sdk_core::types::{PublicKey, PublicKeyHandle};
+///
+/// let pk: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+/// let handle = PublicKeyHandle::from(&pk);
+/// assert_eq!(handle.to_string(), "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp");
+/// assert_eq!(handle.to_string().parse::<PublicKeyHandle>().unwrap(), handle);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde_with::SerializeDisplay, serde_with::DeserializeFromStr))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = true)
+)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
+#[repr(u8)]
+pub enum PublicKeyHandle {
+    /// Full ed25519 public key.
+    ED25519([u8; 32]) = 0,
+    /// Full secp256k1 public key (uncompressed, 64 bytes).
+    SECP256K1([u8; 64]) = 1,
+    /// SHA3-256 hash of an ML-DSA-65 public key. This is what the trie stores; the full key is
+    /// carried separately in transactions.
+    MLDSA65Hash([u8; 32]) = 3,
+}
+
+impl PublicKeyHandle {
+    /// Derives the on-trie handle of a raw 1952-byte ML-DSA-65 public key, exactly as nearcore
+    /// does: `SHA3-256("near:ml-dsa-65-pubkey-hash:v1" || key)`.
+    pub fn from_ml_dsa_65_public_key(public_key: &[u8; ML_DSA_65_PUBLIC_KEY_LENGTH]) -> Self {
+        let mut input = Vec::with_capacity(ML_DSA_65_PUBKEY_HASH_DOMAIN.len() + public_key.len());
+        input.extend_from_slice(ML_DSA_65_PUBKEY_HASH_DOMAIN);
+        input.extend_from_slice(public_key);
+        Self::MLDSA65Hash(sha3_256(&input))
+    }
+
+    /// The raw bytes of the handle, without the tag byte.
+    pub fn key_data(&self) -> &[u8] {
+        match self {
+            Self::ED25519(data) => data,
+            Self::SECP256K1(data) => data,
+            Self::MLDSA65Hash(data) => data,
+        }
+    }
+}
+
+impl From<&PublicKey> for PublicKeyHandle {
+    fn from(public_key: &PublicKey) -> Self {
+        let data = &public_key.as_bytes()[1..];
+        match public_key.curve_type() {
+            CurveType::ED25519 => Self::ED25519(data.try_into().unwrap_or_else(|_| abort!())),
+            CurveType::SECP256K1 => Self::SECP256K1(data.try_into().unwrap_or_else(|_| abort!())),
+            CurveType::MLDSA65 => {
+                Self::from_ml_dsa_65_public_key(data.try_into().unwrap_or_else(|_| abort!()))
+            }
+        }
+    }
+}
+
+impl From<PublicKey> for PublicKeyHandle {
+    fn from(public_key: PublicKey) -> Self {
+        Self::from(&public_key)
+    }
+}
+
+impl std::fmt::Display for PublicKeyHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prefix = match self {
+            Self::ED25519(_) => "ed25519:",
+            Self::SECP256K1(_) => "secp256k1:",
+            Self::MLDSA65Hash(_) => ML_DSA_65_HASH_PREFIX,
+        };
+        write!(f, "{prefix}{}", bs58::encode(self.key_data()).into_string())
+    }
+}
+
+/// Error returned when a string is not a valid [`PublicKeyHandle`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsePublicKeyHandleError {
+    message: &'static str,
+}
+
+impl std::fmt::Display for ParsePublicKeyHandleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message)
+    }
+}
+
+impl std::error::Error for ParsePublicKeyHandleError {}
+
+impl std::str::FromStr for PublicKeyHandle {
+    type Err = ParsePublicKeyHandleError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        fn decode<const N: usize>(data: &str) -> Result<[u8; N], ParsePublicKeyHandleError> {
+            let mut buf = [0u8; N];
+            match bs58::decode(data).onto(&mut buf) {
+                Ok(len) if len == N => Ok(buf),
+                _ => Err(ParsePublicKeyHandleError { message: "invalid public key handle data" }),
+            }
+        }
+
+        if let Some(data) = value.strip_prefix(ML_DSA_65_HASH_PREFIX) {
+            return decode(data).map(Self::MLDSA65Hash);
+        }
+        if value.starts_with("ml-dsa-65:") {
+            return Err(ParsePublicKeyHandleError {
+                message: "a full ml-dsa-65 public key is not a handle; convert it with \
+                          `PublicKeyHandle::from(PublicKey)` or use the `ml-dsa-65-hash:` form",
+            });
+        }
+        let (curve, data) = match value.split_once(':') {
+            Some((curve, data)) => (curve.parse::<CurveType>(), data),
+            // No prefix: default to ed25519, like `PublicKey`.
+            None => (Ok(CurveType::ED25519), value),
+        };
+        match curve {
+            Ok(CurveType::ED25519) => decode(data).map(Self::ED25519),
+            Ok(CurveType::SECP256K1) => decode(data).map(Self::SECP256K1),
+            _ => Err(ParsePublicKeyHandleError { message: "unknown public key handle curve" }),
+        }
+    }
+}
+
+#[cfg(feature = "schemars-v0_8")]
+impl schemars_v0_8::JsonSchema for PublicKeyHandle {
+    fn is_referenceable() -> bool {
+        false
+    }
+
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(
+        r#gen: &mut schemars_v0_8::r#gen::SchemaGenerator,
+    ) -> schemars_v0_8::schema::Schema {
+        String::json_schema(r#gen)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -513,5 +689,52 @@ mod tests {
         let back: PublicKey = near_pk.into();
         assert_eq!(back, sdk_pk);
         assert_eq!(back.curve_type(), CurveType::MLDSA65);
+    }
+
+    #[test]
+    #[cfg(all(feature = "borsh", feature = "serde"))]
+    fn public_key_handle_from_public_key() {
+        let ed: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+        let handle = PublicKeyHandle::from(&ed);
+        assert_eq!(handle.key_data(), &ed.as_bytes()[1..]);
+        assert_eq!(borsh::to_vec(&handle).unwrap(), ed.as_bytes());
+        assert_eq!(handle.to_string(), ed.to_string());
+
+        let secp: PublicKey = "secp256k1:5r22SrjrDvgY3wdQsnjgxkeAbU1VcM71FYvALEQWihjM3Xk4Be1CpETTqFccChQr4iJwDroSDVmgaWZv2AcXvYeL".parse().unwrap();
+        let handle = PublicKeyHandle::from(&secp);
+        assert_eq!(borsh::to_vec(&handle).unwrap(), secp.as_bytes());
+        assert_eq!(handle.to_string(), secp.to_string());
+
+        // ML-DSA-65: the handle is the domain-separated SHA3-256 of the raw key, tag 3.
+        let raw = [0x42u8; ML_DSA_65_PUBLIC_KEY_LENGTH];
+        let ml_dsa = PublicKey::from_parts(CurveType::MLDSA65, raw.to_vec()).unwrap();
+        let handle = PublicKeyHandle::from(&ml_dsa);
+        let expected = sha3_256(&[ML_DSA_65_PUBKEY_HASH_DOMAIN, &raw[..]].concat());
+        assert_eq!(handle, PublicKeyHandle::MLDSA65Hash(expected));
+        let encoded = borsh::to_vec(&handle).unwrap();
+        assert_eq!(encoded[0], 3);
+        assert_eq!(&encoded[1..], &expected);
+        assert_eq!(
+            handle.to_string(),
+            format!("ml-dsa-65-hash:{}", bs58::encode(expected).into_string())
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn public_key_handle_parse_roundtrip() {
+        for handle in [
+            PublicKeyHandle::ED25519([7; 32]),
+            PublicKeyHandle::SECP256K1([8; 64]),
+            PublicKeyHandle::MLDSA65Hash([9; 32]),
+        ] {
+            assert_eq!(handle.to_string().parse::<PublicKeyHandle>().unwrap(), handle);
+            let json = serde_json::to_string(&handle).unwrap();
+            assert_eq!(json, format!("\"{handle}\""));
+            assert_eq!(serde_json::from_str::<PublicKeyHandle>(&json).unwrap(), handle);
+        }
+        assert!("ml-dsa-65:abc".parse::<PublicKeyHandle>().is_err());
+        assert!("ml-dsa-65-hash:abc".parse::<PublicKeyHandle>().is_err());
+        assert!("rsa:abc".parse::<PublicKeyHandle>().is_err());
     }
 }
