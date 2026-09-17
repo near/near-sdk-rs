@@ -46,8 +46,9 @@
 //! | `sha2::Sha256` | `sha2` | `sha256_array` |
 //! | `sha3::Keccak256` | `sha3` | `keccak256_array` |
 //! | `sha3::Keccak512` | `sha3` | `keccak512_array` |
-//! | `sha3::Sha3_256` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
-//! | `sha3::Sha3_512` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
+//! | `sha3::Sha3_256` | `sha3` | `sha3_256` (nearcore 2.14+) |
+//! | `sha3::Sha3_384` | `sha3` | `sha3_384` (nearcore 2.14+) |
+//! | `sha3::Sha3_512` | `sha3` | `sha3_512` (nearcore 2.14+) |
 //! | `ripemd::Ripemd160` | `ripemd` | `ripemd160_array` |
 //!
 //! Additional features:
@@ -55,7 +56,9 @@
 //! * `zeroize` — implements `zeroize::ZeroizeOnDrop` for all hash types, clearing
 //!   buffered input from memory when a hasher is dropped.
 //! * `unstable` — enables items whose API or backend may change in a breaking way
-//!   between minor releases.
+//!   between minor releases. Currently gates nothing (the SHA-3 hashers graduated
+//!   with their host-function backend); kept so existing `features = ["unstable"]`
+//!   entries keep building.
 //!
 //! # On-chain buffering
 //!
