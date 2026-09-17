@@ -952,7 +952,7 @@ fn bls12381_register_result(status: u64) -> Option<Vec<u8>> {
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p1_sum`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::p1_sum`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -975,7 +975,7 @@ pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p2_sum`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::p2_sum`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -991,7 +991,7 @@ pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// that is not a multiple of 128 aborts the contract execution.
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::g1_multiexp`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::g1_multiexp`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1008,7 +1008,7 @@ pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// that is not a multiple of 224 aborts the contract execution.
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::g2_multiexp`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::g2_multiexp`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1025,7 +1025,7 @@ pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// contract execution.
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::map_fp_to_g1`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::map_fp_to_g1`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1042,7 +1042,7 @@ pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// the contract execution.
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::map_fp2_to_g2`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::map_fp2_to_g2`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1060,7 +1060,7 @@ pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// aborts the contract execution.
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::pairing_check`, which names the byte layout and returns `Result<bool, _>` so a malformed input is distinguishable from a failed check"
+    note = "use the typed `near_sdk::env::bls12381::pairing_check`, which takes typed `(G1, G2)` pairs instead of a hand-packed byte buffer"
 )]
 pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> Option<bool> {
     let value = value.as_ref();
@@ -1084,7 +1084,7 @@ pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> Option<bool> {
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p1_decompress`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::p1_decompress`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1107,7 +1107,7 @@ pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 #[deprecated(
     since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p2_decompress`, which names the byte layout and returns a `Result` instead of panicking on invalid input"
+    note = "use the typed `near_sdk::env::bls12381::p2_decompress`, which takes and returns typed values instead of hand-packed byte buffers"
 )]
 pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
@@ -1125,8 +1125,7 @@ pub mod bls12381 {
     //! * Inputs and outputs are named types ([`G1`], [`G2`], [`Fp`], [`Fp2`], [`Scalar`], …) whose
     //!   size and encoding are part of the type, instead of raw `&[u8]` / `Vec<u8>` where the
     //!   caller has to hand-pack a flat buffer at exact offsets.
-    //! * Every fallible operation returns a [`Result`] with an [`Error`] on malformed input,
-    //!   instead of panicking with an opaque "register expected" message.
+    //! * Every fallible operation returns a [`Result`] with an [`Error`] on malformed input.
     //! * [`pairing_check`] returns `Result<bool, Error>`, so a malformed input (`Err`) is
     //!   distinguishable from a pairing that simply does not hold (`Ok(false)`).
     //!
@@ -1173,7 +1172,7 @@ pub mod bls12381 {
     //!     hashed_message: G2,             // H(m), the message hashed to a G2 point
     //!     neg_g1_generator: G1,           // the negated G1 generator
     //! ) -> Result<bool, Error> {
-    //!     // Decompress the inputs; malformed points return `Err` instead of panicking.
+    //!     // Decompress the inputs; malformed points return `Err`.
     //!     let pubkey = G1Compressed(pubkey_compressed).decompress()?;
     //!     let signature = G2Compressed(signature_compressed).decompress()?;
     //!
@@ -4126,6 +4125,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_p1_sum_invalid_point() {
         let mut buffer = [0u8; 97];
         buffer[1] = 0x80;
@@ -4133,6 +4133,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_p2_sum_invalid_point() {
         let mut buffer = [0u8; 193];
         buffer[1] = 0x80;
@@ -4140,6 +4141,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_g1_multiexp_invalid_point() {
         let mut buffer = [0u8; 128];
         buffer[0] = 0x80;
@@ -4147,6 +4149,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_g2_multiexp_invalid_point() {
         let mut buffer = [0u8; 224];
         buffer[0] = 0x80;
@@ -4154,30 +4157,35 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_map_fp_to_g1_invalid_fp() {
         let buffer = [0xFFu8; 48];
         assert_eq!(super::bls12381_map_fp_to_g1(buffer), None);
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_map_fp2_to_g2_invalid_fp2() {
         let buffer = [0xFFu8; 96];
         assert_eq!(super::bls12381_map_fp2_to_g2(buffer), None);
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_p1_decompress_invalid_point() {
         let buffer = [0u8; 48];
         assert_eq!(super::bls12381_p1_decompress(buffer), None);
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_p2_decompress_invalid_point() {
         let buffer = [0u8; 96];
         assert_eq!(super::bls12381_p2_decompress(buffer), None);
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_pairing_check_invalid_point() {
         let mut buffer = [0u8; 288];
         buffer[0] = 0x80;
@@ -4186,6 +4194,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn bls12381_p1_decompress_does_not_return_stale_register() {
         // Primes ATOMIC_OP_REGISTER. Before the status code was honored, the rejected
         // decompression below returned this digest, reinterpreted as a curve point.
