@@ -315,6 +315,7 @@ impl UniversalStateInit {
     /// Computed in the contract from the `sha3_256` host function (or in pure Rust off-chain);
     /// the [`env::universal_state_init_to_account_id`]
     /// host function returns the same id.
+    // TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
     pub fn derive_account_id(&self) -> AccountId {
         derive_universal_account_id(&self.to_bytes())
     }
@@ -322,6 +323,7 @@ impl UniversalStateInit {
 
 /// Derives the `0u` account id from raw state-init bytes, like nearcore's
 /// `derive_universal_account_id`: SHA3-256 over exactly those bytes, Crockford-base32 encoded.
+// TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
 pub(crate) fn derive_universal_account_id(state_init: &[u8]) -> AccountId {
     encode_universal_account_id(&env::sha3_256(state_init))
 }
@@ -335,8 +337,8 @@ const CROCKFORD: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
 
 /// Encodes a 32-byte hash as a `0u` universal account id (`0u` + 52 Crockford-base32 symbols),
 /// exactly like nearcore's `encode_universal_account_id`.
-// TODO: replace with `near_account_id::UniversalAccountId::from_hash` once near-account-id 3.1
-// ships it.
+// TODO(near-account-id 3.1): replace with `near_account_id::UniversalAccountId::from_hash` and
+// return `UniversalAccountId`; decided 2026-09-16.
 pub(crate) fn encode_universal_account_id(hash: &CryptoHash) -> AccountId {
     let mut s = String::with_capacity(UAID_PREFIX.len() + UAID_DATA_SYMBOLS);
     s.push_str(UAID_PREFIX);

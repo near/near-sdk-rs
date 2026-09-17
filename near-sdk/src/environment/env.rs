@@ -2564,6 +2564,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// let account_id = env::universal_state_init_to_account_id(&state_init);
 /// assert_eq!(account_id, state_init.derive_account_id());
 /// ```
+// TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
 pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
     universal_state_init_to_account_id_raw(&state_init.to_bytes())
 }
@@ -2578,6 +2579,7 @@ pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> Ac
 ///
 /// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
 /// nearcore 2.14).
+// TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
 pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
     #[cfg(any(
         target_arch = "wasm32",
