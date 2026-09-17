@@ -23,6 +23,10 @@ pub struct MockedBlockchain {
     /// before what it borrows.
     ctx: HostCtx<'static>,
     fixture: HostFixture,
+    /// `limit_config.max_total_log_length` of the config `ctx` was built with. The shims for
+    /// the NUL-terminated string host calls need it to bound their scan, and `HostCtx` keeps
+    /// its config private.
+    max_total_log_length: u64,
 }
 
 /// Placeholder for the `memory` parameter of [`MockedBlockchain::new`].
@@ -81,6 +85,7 @@ impl MockedBlockchain {
             Box::new(sdk_context_to_vm_context(context, promise_results));
         ext.fake_trie = storage;
         ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
+        let max_total_log_length = config.limit_config.max_total_log_length;
         let config = Arc::new(config);
         let result_state =
             ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
@@ -100,7 +105,7 @@ impl MockedBlockchain {
             )
         };
 
-        Self { ctx, fixture }
+        Self { ctx, fixture, max_total_log_length }
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
@@ -213,13 +218,20 @@ mod mock_chain {
     /// Dereferencing the raw pointers is sound for the same reason it was under the old
     /// `MemoryLike` mock: the only callers are `near_sdk::env` and its sibling crates, which
     /// always pass a pointer into a live Rust allocation together with its real length.
-    #[derive(Default)]
-    struct Mem(Vec<u8>);
+    struct Mem {
+        buf: Vec<u8>,
+        /// Bound for [`Mem::copy_in_nul_terminated`]; see [`super::MockedBlockchain`].
+        max_total_log_length: u64,
+    }
 
     impl Mem {
+        fn new(max_total_log_length: u64) -> Self {
+            Self { buf: Vec::new(), max_total_log_length }
+        }
+
         /// The buffer, in the shape the host functions take it.
         fn bytes(&mut self) -> &mut [u8] {
-            &mut self.0
+            &mut self.buf
         }
 
         /// Copies the `len` bytes at native `ptr` into the buffer and returns the guest
@@ -228,18 +240,45 @@ mod mock_chain {
         /// `len == u64::MAX` is the host's "read register `ptr` instead of memory" sentinel;
         /// it is passed through untouched. The three string functions (`log_utf8`,
         /// `log_utf16`, `panic_utf8`) read the same sentinel as "NUL-terminated string in
-        /// guest memory" instead, which this cannot serve because the length is only known
-        /// by scanning; `near_sdk::env` always passes a real length, so nothing in the SDK
-        /// reaches that path.
+        /// guest memory" instead; they go through [`Self::copy_in_nul_terminated`].
         fn copy_in(&mut self, len: u64, ptr: u64) -> u64 {
             if len == u64::MAX {
                 return ptr;
             }
-            let offset = self.0.len() as u64;
+            let offset = self.buf.len() as u64;
             if len != 0 {
-                self.0.extend_from_slice(unsafe {
+                self.buf.extend_from_slice(unsafe {
                     std::slice::from_raw_parts(ptr as *const u8, len as usize)
                 });
+            }
+            offset
+        }
+
+        /// Copies a NUL-terminated string at native `ptr` into the buffer and returns the
+        /// guest offset to pass in place of `ptr`, for the `len == u64::MAX` form of
+        /// `log_utf8`, `log_utf16` and `panic_utf8`.
+        ///
+        /// `unit` is the terminator width: 1 byte for UTF-8, a zero `u16` for UTF-16. The
+        /// terminator is copied along with the string so the host's own scan finds it and
+        /// charges the same gas it would on chain.
+        ///
+        /// The scan is bounded by `max_total_log_length`, which is where the host stops
+        /// scanning too. Nothing is copied past that, so an unterminated string reaches the
+        /// host unterminated and the host returns `TotalLogLengthExceeded`, as it would for a
+        /// contract. This walks native memory a byte at a time exactly like the old
+        /// `MemoryLike` mock did.
+        fn copy_in_nul_terminated(&mut self, ptr: u64, unit: usize) -> u64 {
+            let offset = self.buf.len() as u64;
+            let bound = self.max_total_log_length.saturating_add(unit as u64);
+            let mut scanned = 0u64;
+            while scanned < bound {
+                let chunk =
+                    unsafe { std::slice::from_raw_parts((ptr + scanned) as *const u8, unit) };
+                self.buf.extend_from_slice(chunk);
+                scanned += unit as u64;
+                if chunk.iter().all(|b| *b == 0) {
+                    break;
+                }
             }
             offset
         }
@@ -247,8 +286,8 @@ mod mock_chain {
         /// Reserves `len` zero bytes for a host function to write into and returns the
         /// guest offset of the region.
         fn reserve_out(&mut self, len: u64) -> u64 {
-            let offset = self.0.len() as u64;
-            self.0.resize(self.0.len() + len as usize, 0);
+            let offset = self.buf.len() as u64;
+            self.buf.resize(self.buf.len() + len as usize, 0);
             offset
         }
 
@@ -257,7 +296,7 @@ mod mock_chain {
             if len == 0 {
                 return;
             }
-            let src = &self.0[offset as usize..(offset + len) as usize];
+            let src = &self.buf[offset as usize..(offset + len) as usize];
             unsafe { std::ptr::copy_nonoverlapping(src.as_ptr(), ptr as *mut u8, len as usize) };
         }
     }
@@ -268,7 +307,7 @@ mod mock_chain {
         f: impl FnOnce(&mut HostCtx<'static>, &mut Mem) -> Result<R, VMLogicError>,
     ) -> R {
         crate::mock::with_mocked_blockchain(|b| {
-            let mut mem = Mem::default();
+            let mut mem = Mem::new(b.max_total_log_length);
             f(&mut b.ctx, &mut mem).unwrap()
         })
     }
@@ -590,7 +629,11 @@ mod mock_chain {
     #[unsafe(no_mangle)]
     extern "C-unwind" fn panic_utf8(len: u64, ptr: u64) -> ! {
         host_call(|ctx, m| {
-            let msg = m.copy_in(len, ptr);
+            let msg = if len == u64::MAX {
+                m.copy_in_nul_terminated(ptr, 1)
+            } else {
+                m.copy_in(len, ptr)
+            };
             host::panic_utf8(ctx, m.bytes(), len, msg)
         });
         unreachable!()
@@ -598,14 +641,22 @@ mod mock_chain {
     #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf8(len: u64, ptr: u64) {
         host_call(|ctx, m| {
-            let msg = m.copy_in(len, ptr);
+            let msg = if len == u64::MAX {
+                m.copy_in_nul_terminated(ptr, 1)
+            } else {
+                m.copy_in(len, ptr)
+            };
             host::log_utf8(ctx, m.bytes(), len, msg)
         })
     }
     #[unsafe(no_mangle)]
     extern "C-unwind" fn log_utf16(len: u64, ptr: u64) {
         host_call(|ctx, m| {
-            let msg = m.copy_in(len, ptr);
+            let msg = if len == u64::MAX {
+                m.copy_in_nul_terminated(ptr, 2)
+            } else {
+                m.copy_in(len, ptr)
+            };
             host::log_utf16(ctx, m.bytes(), len, msg)
         })
     }
@@ -1444,6 +1495,30 @@ mod tests {
     };
 
     use super::*;
+
+    /// `len == u64::MAX` means "NUL-terminated string at `ptr`" for the three string host
+    /// functions, a form `near_sdk::env` never uses but the raw `near_sys` ABI supports.
+    #[test]
+    fn nul_terminated_string_host_calls() {
+        testing_env!(VMContextBuilder::new().build());
+
+        let utf8 = c"hello utf8";
+        unsafe { near_sys::log_utf8(u64::MAX, utf8.as_ptr() as u64) };
+
+        // UTF-16 is terminated by a zero `u16`, not a zero byte.
+        let utf16: Vec<u16> = "hello utf16".encode_utf16().chain(std::iter::once(0)).collect();
+        unsafe { near_sys::log_utf16(u64::MAX, utf16.as_ptr() as u64) };
+
+        assert_eq!(get_logs(), vec!["hello utf8".to_string(), "hello utf16".to_string()]);
+    }
+
+    #[test]
+    #[should_panic(expected = "hello panic")]
+    fn nul_terminated_panic_utf8() {
+        testing_env!(VMContextBuilder::new().build());
+        let msg = c"hello panic";
+        unsafe { near_sys::panic_utf8(u64::MAX, msg.as_ptr() as u64) };
+    }
 
     #[test]
     fn test_mocked_blockchain_api() {
