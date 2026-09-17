@@ -6,4 +6,5 @@ ignore = [
     "RUSTSEC-2021-0145", # this needs to be investigated, `atty` has not been updated for 4 years
     "RUSTSEC-2022-0054", # unmaintained, perhaps needs to be replaced
     "RUSTSEC-2026-0222", # wasmtime cna only be affected when the embedder mixes objects. Nearcore never mixes Engine-owned objects.
+    "RUSTSEC-2026-0285", # `rustls` < 0.23.45, dev-only via `near-workspaces`; the fix needs `aws-lc-rs` ^1.18 but `near-crypto` 0.37 pins `=1.16.2`
 ]
