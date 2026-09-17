@@ -32,6 +32,7 @@ jobs:
             factory-contract,
             factory-contract-global,
             mpc-contract,
+            multi-token,
           ]
     steps:
       - uses: actions/checkout@v4
