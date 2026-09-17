@@ -950,10 +950,6 @@ fn bls12381_register_result(status: u64) -> Option<Vec<u8>> {
 /// See also: [IETF draft-irtf-cfrg-pairing-friendly-curves](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves)
 ///
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p1_sum`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status =
@@ -973,10 +969,6 @@ pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// outside `G2`.
 ///
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p2_sum`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status =
@@ -989,10 +981,6 @@ pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// Returns the 96-byte encoded result, or [`None`] if the host rejected the input because a point
 /// is not on the curve, is not in the `G1` subgroup, or is incorrectly encoded. An input length
 /// that is not a multiple of 128 aborts the contract execution.
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::g1_multiexp`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1006,10 +994,6 @@ pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// Returns the 192-byte encoded result, or [`None`] if the host rejected the input because a point
 /// is not on the curve, is not in the `G2` subgroup, or is incorrectly encoded. An input length
 /// that is not a multiple of 224 aborts the contract execution.
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::g2_multiexp`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1023,10 +1007,6 @@ pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// Returns 96 bytes per input element, or [`None`] if the host rejected the input because an
 /// element is not a canonical Fp encoding. An input length that is not a multiple of 48 aborts the
 /// contract execution.
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::map_fp_to_g1`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1040,10 +1020,6 @@ pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// Returns 192 bytes per input element, or [`None`] if the host rejected the input because an
 /// element is not a canonical Fp2 encoding. An input length that is not a multiple of 96 aborts
 /// the contract execution.
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::map_fp2_to_g2`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1058,10 +1034,6 @@ pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// [`None`] if the host rejected the input because a point is not on the curve, is not in the `G1`
 /// or `G2` subgroup, or is incorrectly encoded. An input length that is not a multiple of 288
 /// aborts the contract execution.
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::pairing_check`, which takes typed `(G1, G2)` pairs instead of a hand-packed byte buffer"
-)]
 pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> Option<bool> {
     let value = value.as_ref();
     match unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) } {
@@ -1082,10 +1054,6 @@ pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> Option<bool> {
 /// subgroup membership must check it themselves.
 ///
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p1_decompress`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1105,10 +1073,6 @@ pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 /// subgroup membership must check it themselves.
 ///
 /// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
-#[deprecated(
-    since = "5.30.0",
-    note = "use the typed `near_sdk::env::bls12381::p2_decompress`, which takes and returns typed values instead of hand-packed byte buffers"
-)]
 pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
     let value = value.as_ref();
     let status = unsafe {
@@ -1120,7 +1084,8 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 pub mod bls12381 {
     //! Strongly-typed wrappers over the [BLS12-381] host functions.
     //!
-    //! These are ergonomic replacements for the byte-slice `env::bls12381_*` functions:
+    //! These are an ergonomic alternative to the byte-slice `env::bls12381_*` functions, which
+    //! remain available for callers that already work with packed buffers:
     //!
     //! * Inputs and outputs are named types ([`G1`], [`G2`], [`Fp`], [`Fp2`], [`Scalar`], …) whose
     //!   size and encoding are part of the type, instead of raw `&[u8]` / `Vec<u8>` where the
@@ -3668,7 +3633,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
@@ -3678,7 +3642,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_sum_50_100() {
         let buffer: [[u8; 2 * 97]; 25] = [[
             0, 18, 25, 108, 90, 67, 214, 146, 36, 216, 113, 51, 137, 40, 95, 38, 185, 143, 134,
@@ -3701,7 +3664,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
@@ -3711,7 +3673,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_sum_50_100() {
         let buffer: [[u8; 2 * 193]; 25] = [[
             0, 12, 199, 10, 88, 127, 70, 82, 3, 157, 129, 23, 182, 16, 56, 88, 173, 205, 151, 40,
@@ -3742,7 +3703,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g1_multiexp_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_g1_multiexp(buffer).expect("host should accept valid input");
@@ -3750,7 +3710,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g1_multiexp_50_100() {
         let buffer: [[u8; 96 + 32]; 50] = [[
             23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104,
@@ -3768,7 +3727,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g2_multiexp_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_g2_multiexp(buffer).expect("host should accept valid input");
@@ -3776,7 +3734,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g2_multiexp_50_100() {
         let buffer: [[u8; 192 + 32]; 50] = [[
             19, 224, 43, 96, 82, 113, 159, 96, 125, 172, 211, 160, 136, 39, 79, 101, 89, 107, 208,
@@ -3798,7 +3755,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp_to_g1_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_map_fp_to_g1(buffer).expect("host should accept valid input");
@@ -3806,7 +3762,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp_to_g1_50_100() {
         let buffer: [[u8; 48]; 50] = [[
             20, 64, 110, 91, 251, 146, 9, 37, 106, 56, 32, 135, 154, 41, 172, 47, 98, 214, 172,
@@ -3819,7 +3774,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp2_to_g2_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_map_fp2_to_g2(buffer).expect("host should accept valid input");
@@ -3827,7 +3781,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp2_to_g2_10_100() {
         let buffer: [[u8; 96]; 10] = [[
             14, 136, 91, 179, 57, 150, 225, 47, 7, 218, 105, 7, 62, 44, 12, 200, 128, 188, 142,
@@ -3843,7 +3796,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_pairing_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_pairing_check(buffer);
@@ -3851,7 +3803,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_pairing_valid_check() {
         // Valid test vector (should return true)
         let valid_input = hex::decode("085fad8696122c8a421033164e6a71d9adb3882933beba2c14dcad9bfd4badb30b49306c59a7a7837b72e02993f5a4ad025871da31a9be44cd3a46365038ef6f3658fc65ff3064e348083b2de4d983c7436f486f6e9de272fa0db7dfa543656811f7dbc8c5b084e2daf685536a2d155d69c7683b811c840e4167a5c966bad4eebfdb757ef9caa63ffde16727fa5c15ac0b15a2802624e85d6987eb53a69714401adfd5ca5e6151a8e9c0790dfc4494ea77ad32b66e95da7f615ee2fe7b6594f00493deb2392b4159afc07b69000f9b097ecca94bf5a46cb13f95dabdd9a40a2e207c077059c821caa29a40930b4b757f11404dcfe5e92c69acdbf3667651d5adf6856956805693fb945d83c5cf158371536814442ff31d6ad1b834a4ab13ad9917f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca0f968bd243908ff3e5fa1ab3f31e078197e58ace562bbe8b5a271d5fba50237da0c8fe65e7b5771cc0a86fd57f32347e15a26d1f5d56c472d019eea2539e58db00c49aa5d0a9663838903fddbe436b5b157e83b35d1a4e5f89f78127f35dacf005a2854c7f36818c137070d1342bba362b5d0c7daed605fcc739df577c33bd6ab6e07ab4a97beee81aa57c8d41f447440eeaf1f595b7b57457d7792b4bc14be74d0038f7ac3767a9c61fecaa02c3d07982c02995f22f66c05b8eb3b9facd5571").unwrap();
@@ -3861,7 +3812,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_pairing_5_100() {
         let buffer: [[u8; 288]; 5] = [[
             23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104,
@@ -3887,7 +3837,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_decompress_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_p1_decompress(buffer).expect("host should accept valid input");
@@ -3895,7 +3844,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_decompress_50_100() {
         let buffer: [[u8; 48]; 50] = [[
             185, 110, 35, 139, 110, 142, 126, 177, 120, 97, 234, 41, 91, 204, 20, 203, 207, 103,
@@ -3908,7 +3856,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_decompress_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_p2_decompress(buffer).expect("host should accept valid input");
@@ -3916,7 +3863,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_decompress_50_100() {
         let buffer: [[u8; 96]; 50] = [[
             143, 150, 139, 210, 67, 144, 143, 243, 229, 250, 26, 179, 243, 30, 7, 129, 151, 229,
@@ -4125,7 +4071,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_sum_invalid_point() {
         let mut buffer = [0u8; 97];
         buffer[1] = 0x80;
@@ -4133,7 +4078,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_sum_invalid_point() {
         let mut buffer = [0u8; 193];
         buffer[1] = 0x80;
@@ -4141,7 +4085,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g1_multiexp_invalid_point() {
         let mut buffer = [0u8; 128];
         buffer[0] = 0x80;
@@ -4149,7 +4092,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_g2_multiexp_invalid_point() {
         let mut buffer = [0u8; 224];
         buffer[0] = 0x80;
@@ -4157,35 +4099,30 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp_to_g1_invalid_fp() {
         let buffer = [0xFFu8; 48];
         assert_eq!(super::bls12381_map_fp_to_g1(buffer), None);
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_map_fp2_to_g2_invalid_fp2() {
         let buffer = [0xFFu8; 96];
         assert_eq!(super::bls12381_map_fp2_to_g2(buffer), None);
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_decompress_invalid_point() {
         let buffer = [0u8; 48];
         assert_eq!(super::bls12381_p1_decompress(buffer), None);
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p2_decompress_invalid_point() {
         let buffer = [0u8; 96];
         assert_eq!(super::bls12381_p2_decompress(buffer), None);
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_pairing_check_invalid_point() {
         let mut buffer = [0u8; 288];
         buffer[0] = 0x80;
@@ -4194,7 +4131,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn bls12381_p1_decompress_does_not_return_stale_register() {
         // Primes ATOMIC_OP_REGISTER. Before the status code was honored, the rejected
         // decompression below returned this digest, reinterpreted as a curve point.
