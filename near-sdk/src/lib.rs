@@ -1630,6 +1630,8 @@ pub mod state;
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
 
+pub mod universal_state_init;
+
 #[cfg(feature = "digest")]
 pub use near_digest as digest;
 
