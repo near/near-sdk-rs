@@ -2,27 +2,27 @@
 source: near-sdk-macros/src/core_impl/code_generator/ext.rs
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
-pub fn method(self, k: &String) -> ::near_sdk::Promise {
+pub fn method(self, k: &String) -> ::renamed_sdk::near_sdk::Promise {
     let __args = {
-        #[derive(::near_sdk::serde::Serialize)]
-        #[serde(crate = "::near_sdk::serde")]
+        #[derive(::renamed_sdk::near_sdk::serde::Serialize)]
+        #[serde(crate = "::renamed_sdk::near_sdk::serde")]
         struct Input<'nearinput> {
             k: &'nearinput String,
         }
         let __args = Input { k: &k };
-        match ::near_sdk::serde_json::to_vec(&__args) {
+        match ::renamed_sdk::near_sdk::serde_json::to_vec(&__args) {
             Ok(serialized) => serialized,
             Err(_) => {
-                ::near_sdk::env::panic_str(
+                ::renamed_sdk::near_sdk::env::panic_str(
                     "Failed to serialize the cross contract args using JSON.",
                 )
             }
         }
     };
     match self.promise_or_create_on {
-        ::near_sdk::PromiseOrValue::Promise(p) => p,
-        ::near_sdk::PromiseOrValue::Value(account_id) => {
-            ::near_sdk::Promise::new(account_id)
+        ::renamed_sdk::near_sdk::PromiseOrValue::Promise(p) => p,
+        ::renamed_sdk::near_sdk::PromiseOrValue::Value(account_id) => {
+            ::renamed_sdk::near_sdk::Promise::new(account_id)
         }
     }
         .function_call_weight(

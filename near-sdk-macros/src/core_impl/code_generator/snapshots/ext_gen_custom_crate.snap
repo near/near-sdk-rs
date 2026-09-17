@@ -1,0 +1,66 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[must_use]
+pub struct TestExt {
+    pub(crate) promise_or_create_on: ::renamed_sdk::near_sdk::PromiseOrValue<
+        ::renamed_sdk::near_sdk::AccountId,
+    >,
+    pub(crate) deposit: ::renamed_sdk::near_sdk::NearToken,
+    pub(crate) static_gas: ::renamed_sdk::near_sdk::Gas,
+    pub(crate) gas_weight: ::renamed_sdk::near_sdk::GasWeight,
+}
+impl TestExt {
+    pub fn with_attached_deposit(
+        mut self,
+        amount: ::renamed_sdk::near_sdk::NearToken,
+    ) -> Self {
+        self.deposit = amount;
+        self
+    }
+    pub fn with_static_gas(mut self, static_gas: ::renamed_sdk::near_sdk::Gas) -> Self {
+        self.static_gas = static_gas;
+        self
+    }
+    pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+        self.gas_weight = ::renamed_sdk::near_sdk::GasWeight(gas_weight);
+        self
+    }
+}
+impl Test {
+    /// API for calling this contract's functions in a subsequent execution.
+    pub fn ext(account_id: ::renamed_sdk::near_sdk::AccountId) -> TestExt {
+        TestExt {
+            promise_or_create_on: ::renamed_sdk::near_sdk::PromiseOrValue::Value(
+                account_id,
+            ),
+            deposit: ::renamed_sdk::near_sdk::NearToken::from_near(0),
+            static_gas: ::renamed_sdk::near_sdk::Gas::from_gas(0),
+            gas_weight: ::renamed_sdk::near_sdk::GasWeight::default(),
+        }
+    }
+    pub fn ext_on(promise: ::renamed_sdk::near_sdk::Promise) -> TestExt {
+        TestExt {
+            promise_or_create_on: ::renamed_sdk::near_sdk::PromiseOrValue::Promise(
+                promise,
+            ),
+            deposit: ::renamed_sdk::near_sdk::NearToken::from_near(0),
+            static_gas: ::renamed_sdk::near_sdk::Gas::from_gas(0),
+            gas_weight: ::renamed_sdk::near_sdk::GasWeight::default(),
+        }
+    }
+    /// Convenience method for creating a cross-contract call to the current contract.
+    ///
+    /// Equivalent to `Self::ext(env::current_account_id())`.
+    pub fn ext_self() -> TestExt {
+        TestExt {
+            promise_or_create_on: ::renamed_sdk::near_sdk::PromiseOrValue::Value(
+                ::renamed_sdk::near_sdk::env::current_account_id(),
+            ),
+            deposit: ::renamed_sdk::near_sdk::NearToken::from_near(0),
+            static_gas: ::renamed_sdk::near_sdk::Gas::from_gas(0),
+            gas_weight: ::renamed_sdk::near_sdk::GasWeight::default(),
+        }
+    }
+}

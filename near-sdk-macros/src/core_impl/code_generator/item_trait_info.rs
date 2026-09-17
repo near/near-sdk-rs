@@ -2,12 +2,17 @@ use crate::core_impl::ext::{generate_ext_function_wrappers, generate_ext_structs
 use crate::core_impl::info_extractor::ItemTraitInfo;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
+use syn::parse_quote;
 
 impl ItemTraitInfo {
     /// Generate code that wraps external calls.
+    ///
+    /// `ext_contract` doesn't support customizing the `near-sdk` crate path (out of scope for
+    /// now), so this always uses the default `::near_sdk`.
     pub fn wrap_trait_ext(&self) -> TokenStream2 {
         let mod_name = &self.mod_name;
-        let ext_structs = generate_ext_structs(&self.original.ident, None);
+        let ext_structs =
+            generate_ext_structs(&self.original.ident, None, &parse_quote!(::near_sdk));
 
         let ext_methods = generate_ext_function_wrappers(
             &self.original.ident,

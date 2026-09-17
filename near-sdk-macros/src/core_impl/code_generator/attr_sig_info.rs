@@ -53,14 +53,17 @@ impl AttrSigInfo {
             !args.is_empty(),
             "Can only generate input struct for when input args are specified"
         );
+        let krate = &self.krate;
+        let serde_crate = format!("{}::serde", utils::crate_path_string(krate));
+        let borsh_crate = format!("{}::borsh", utils::crate_path_string(krate));
         let attribute = match &self.input_serializer {
             SerializerType::JSON => quote! {
-                #[derive(::near_sdk::serde::Serialize)]
-                #[serde(crate = "::near_sdk::serde")]
+                #[derive(#krate::serde::Serialize)]
+                #[serde(crate = #serde_crate)]
             },
             SerializerType::Borsh => quote! {
-                #[derive(::near_sdk::borsh::BorshSerialize)]
-                #[borsh(crate = "::near_sdk::borsh")]
+                #[derive(#krate::borsh::BorshSerialize)]
+                #[borsh(crate = #borsh_crate)]
             },
         };
         let mut fields = TokenStream2::new();
@@ -100,6 +103,9 @@ impl AttrSigInfo {
             !args.is_empty(),
             "Can only generate input struct for when input args are specified"
         );
+        let krate = &self.krate;
+        let serde_crate = format!("{}::serde", utils::crate_path_string(krate));
+        let borsh_crate = format!("{}::borsh", utils::crate_path_string(krate));
         let attribute = match &self.input_serializer {
             SerializerType::JSON => {
                 let deny_fields_attr = if self.deny_unknown_arguments() {
@@ -108,13 +114,13 @@ impl AttrSigInfo {
                     quote! {}
                 };
                 quote! {
-                    #[derive(::near_sdk::serde::Deserialize)]
-                    #[serde(crate = "::near_sdk::serde", #deny_fields_attr)]
+                    #[derive(#krate::serde::Deserialize)]
+                    #[serde(crate = #serde_crate, #deny_fields_attr)]
                 }
             }
             SerializerType::Borsh => quote! {
-                #[derive(::near_sdk::borsh::BorshDeserialize)]
-                #[borsh(crate = "::near_sdk::borsh")]
+                #[derive(#krate::borsh::BorshDeserialize)]
+                #[borsh(crate = #borsh_crate)]
             },
         };
         let mut fields = TokenStream2::new();
@@ -227,6 +233,7 @@ impl AttrSigInfo {
 
     /// Create code that deserializes arguments that were decorated with `#[callback*]`
     pub fn callback_deserialization(&self) -> TokenStream2 {
+        let krate = &self.krate;
         self.args
             .iter()
             .filter(|arg| {
@@ -245,12 +252,12 @@ impl AttrSigInfo {
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
-                        let invocation = deserialize_data(serializer_ty);
+                        let invocation = deserialize_data(serializer_ty, krate);
                         quote! {
                             #acc
                             let #mutability #ident: #ty = {
-                                let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                    .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
+                                let data = #krate::env::promise_result_checked(#idx, #max_bytes)
+                                    .unwrap_or_else(|_| #krate::env::panic_str(#error_msg));
                                 #invocation
                             };
                         }
@@ -269,7 +276,7 @@ impl AttrSigInfo {
                             )
                             .into_compile_error();
                         };
-                        let deserialize = deserialize_data(serializer_ty);
+                        let deserialize = deserialize_data(serializer_ty, krate);
                         let deserialization_tweak = match ok_type {
                             // The unit type in this context is a bit special because functions
                             // without an explicit return type do not serialize their response.
@@ -291,7 +298,7 @@ impl AttrSigInfo {
                             _ => None,
                         };
                         let result = quote! {
-                            ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
+                            #krate::env::promise_result_checked(#idx, #max_bytes)
                                 .map(|data| {
                                     #deserialization_tweak
                                     #deserialize
@@ -309,6 +316,7 @@ impl AttrSigInfo {
 
     /// Create code that deserializes arguments that were decorated with `#[callback_vec]`.
     pub fn callback_vec_deserialization(&self) -> TokenStream2 {
+        let krate = &self.krate;
         self
             .args
             .iter()
@@ -320,14 +328,14 @@ impl AttrSigInfo {
             })
             .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
-                let invocation = deserialize_data(&arg.serializer_ty);
+                let invocation = deserialize_data(&arg.serializer_ty, krate);
                 quote! {
                     #acc
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
-                        0..::near_sdk::env::promise_results_count(),
+                        0..#krate::env::promise_results_count(),
                         |i| {
-                            let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
-                                .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
+                            let data = #krate::env::promise_result_checked(i, #max_bytes)
+                                .unwrap_or_else(|_| #krate::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
                             #invocation
                         }));
                 }
@@ -335,15 +343,15 @@ impl AttrSigInfo {
     }
 }
 
-fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
+fn deserialize_data(ty: &SerializerType, krate: &syn::Path) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
-            ::near_sdk::serde_json::from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`")))
+            #krate::serde_json::from_slice(&data)
+                .unwrap_or_else(|e| #krate::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`")))
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`")))
+            #krate::borsh::BorshDeserialize::try_from_slice(&data)
+                .unwrap_or_else(|e| #krate::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`")))
         },
     }
 }
