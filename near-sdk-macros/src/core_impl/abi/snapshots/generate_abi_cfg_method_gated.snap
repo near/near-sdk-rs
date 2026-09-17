@@ -1,0 +1,53 @@
+---
+source: near-sdk-macros/src/core_impl/abi/abi_generator.rs
+assertion_line: 452
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[cfg(not(target_arch = "wasm32"))]
+const _: () = {
+    #[unsafe(no_mangle)]
+    pub extern "C" fn __near_abi_always_present() -> (*const u8, usize) {
+        use ::std::string::String;
+        let mut schema_generator = ::near_sdk::schemars::r#gen::SchemaGenerator::default();
+        let mut functions = ::std::vec::Vec::new();
+        functions
+            .push(::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("always_present"),
+                doc: ::std::option::Option::None,
+                kind: ::near_sdk::__private::AbiFunctionKind::View,
+                modifiers: ::std::vec![],
+                params: ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![],
+                },
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::None,
+            });
+        #[cfg(feature = "some_feat")]
+        functions
+            .push(::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("feature_gated"),
+                doc: ::std::option::Option::None,
+                kind: ::near_sdk::__private::AbiFunctionKind::View,
+                modifiers: ::std::vec![],
+                params: ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![],
+                },
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::None,
+            });
+        let mut data = ::std::mem::ManuallyDrop::new(
+            ::near_sdk::serde_json::to_vec(
+                    &::near_sdk::__private::ChunkedAbiEntry::new(
+                        functions,
+                        schema_generator.into_root_schema_for::<String>(),
+                    ),
+                )
+                .unwrap(),
+        );
+        data.shrink_to_fit();
+        assert!(data.len() == data.capacity());
+        (data.as_ptr(), data.len())
+    }
+};
