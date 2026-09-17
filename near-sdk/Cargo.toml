@@ -23,14 +23,14 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.0" }
-near-sys = { path = "../near-sys", version = "0.2.13" }
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.5" }
-near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.2", features = [
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.29.1" }
+near-sys = { path = "../near-sys", version = "0.2.14" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.3", features = [
     "serde",
     "borsh",
 ] }
-near-global-contracts = { path = "../near-global-contracts/", version = "~0.2.5", features = [
+near-global-contracts = { path = "../near-global-contracts/", version = "~0.2.6", features = [
     "serde",
     "borsh",
 ] }
@@ -48,7 +48,7 @@ near-token = { version = "0.3", features = ["serde", "borsh"] }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
-near-digest = { path = "../near-digest/", version = "0.1.1", features = [
+near-digest = { path = "../near-digest/", version = "0.1.2", features = [
     "sha2",
     "sha3",
     "ripemd",
