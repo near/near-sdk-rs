@@ -2603,7 +2603,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        crate::universal_state_init::derive_universal_account_id(state_init)
+        near_global_contracts::universal_state_init::derive_universal_account_id(state_init)
     }
 }
 
