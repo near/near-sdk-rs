@@ -348,6 +348,7 @@ fn sha3_256(input: &[u8]) -> [u8; 32] {
 ///
 /// # Example
 /// ```
+/// # use near_sdk as _;
 /// use near_sdk_core::types::{PublicKey, PublicKeyHandle};
 ///
 /// let pk: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
