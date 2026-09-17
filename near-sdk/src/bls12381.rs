@@ -131,6 +131,7 @@ impl Sign {
 macro_rules! byte_newtype {
     ($(#[$meta:meta])* $name:ident, $len:expr) => {
         $(#[$meta])*
+        #[repr(transparent)]
         #[derive(Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name(pub [u8; $len]);
 
