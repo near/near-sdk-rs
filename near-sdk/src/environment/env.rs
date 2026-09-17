@@ -6,6 +6,14 @@
 //!
 //! In case of cross-contract calls prefer using higher-level API available
 //! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
+//!
+//! # Hash function naming
+//!
+//! The older hashes come in a `Vec<u8>` form and an `_array` form ([`sha256`] and
+//! [`sha256_array`]). Hashes added from nearcore 2.14 on follow a single convention instead: the
+//! bare name returns the fixed-size array, so [`sha3_256`] returns `[u8; 32]` and there is no
+//! `sha3_256_array`. The `Vec`/`_array` pair is kept for the functions that already had it and is
+//! not extended to new hashes.
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -938,6 +946,11 @@ pub fn ml_dsa_verify(
         any(not(feature = "unit-testing"), test),
     ))]
     {
+        // Kept here rather than in `near-sdk-env` (where the sha3 helpers live) because the
+        // off-chain verifier is `near-crypto`, which pulls a non-optional aws-lc-rs C build that
+        // cannot compile for wasm32. `near-sdk-env` has to build for wasm32 unconditionally and
+        // has no `non-contract-usage` split, so this stays next to `ed25519_verify` and
+        // `p256_verify`, which are gated the same way.
         use near_crypto::{MlDsa65PublicKey, MlDsa65Signature, PublicKey, Signature};
 
         let Ok(signature) = MlDsa65Signature::try_from(&signature[..]) else {
@@ -2564,7 +2577,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// let account_id = env::universal_state_init_to_account_id(&state_init);
 /// assert_eq!(account_id, state_init.derive_account_id());
 /// ```
-// TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
+// TODO(near-account-id 3.1): return `UniversalAccountId` (near/near-account-id-rs#63).
 pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
     universal_state_init_to_account_id_raw(&state_init.to_bytes())
 }
@@ -2579,7 +2592,7 @@ pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> Ac
 ///
 /// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
 /// nearcore 2.14).
-// TODO(near-account-id 3.1): return `UniversalAccountId`; decided 2026-09-16.
+// TODO(near-account-id 3.1): return `UniversalAccountId` (near/near-account-id-rs#63).
 pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
     #[cfg(any(
         target_arch = "wasm32",

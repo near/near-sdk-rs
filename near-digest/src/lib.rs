@@ -56,9 +56,7 @@
 //! * `zeroize` — implements `zeroize::ZeroizeOnDrop` for all hash types, clearing
 //!   buffered input from memory when a hasher is dropped.
 //! * `unstable` — enables items whose API or backend may change in a breaking way
-//!   between minor releases. Currently gates nothing (the SHA-3 hashers graduated
-//!   with their host-function backend); kept so existing `features = ["unstable"]`
-//!   entries keep building.
+//!   between minor releases.
 //!
 //! # On-chain buffering
 //!
