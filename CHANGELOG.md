@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0-rc.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v5.30.0-rc.1) - 2026-09-17
+
+### Fixed
+
+- *(env)* [**breaking**] bls host functions should return None on error ([#1623](https://github.com/near/near-sdk-rs/pull/1623))
+
 ## [5.29.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0...near-sdk-v5.29.1) - 2026-08-27
 
 ### Fixed
