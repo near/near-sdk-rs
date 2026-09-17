@@ -84,19 +84,9 @@ impl Visitor {
         }
     }
 
-    pub fn visit_payable_attr(&mut self, attr: &Attribute) -> syn::Result<()> {
-        use VisitorKind::*;
-
-        match self.kind {
-            Call | Init => {
-                self.parsed_data.is_payable = true;
-                Ok(())
-            }
-            View => {
-                let message = format!("{} function can't be payable.", self.kind);
-                Err(Error::new(attr.span(), message))
-            }
-        }
+    pub fn visit_payable_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.is_payable = true;
+        Ok(())
     }
 
     pub fn visit_private_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
@@ -204,6 +194,7 @@ impl Visitor {
                 ignores_state,
             }),
             View => MethodKind::View(ViewMethod {
+                is_payable,
                 is_private,
                 deny_unknown_arguments,
                 result_serializer,
