@@ -2575,7 +2575,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 ///     UniversalStateInitV1::default().with_access_key(env::signer_account_pk()),
 /// );
 /// let account_id = env::universal_state_init_to_account_id(&state_init);
-/// assert_eq!(account_id, state_init.derive_account_id());
+/// assert_eq!(account_id, state_init.derive_account_id().into_account_id());
 /// ```
 // TODO(near-account-id 3.1): return `UniversalAccountId` (near/near-account-id-rs#63).
 pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
@@ -2616,7 +2616,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_global_contracts::universal_state_init::derive_universal_account_id(state_init)
+        near_global_contracts::universal_state_init::derive_universal_account_id(state_init).into()
     }
 }
 
