@@ -119,9 +119,9 @@ pub enum MockAction {
         receiver_id: AccountId,
         method_names: Vec<Vec<u8>>,
     },
-    /// Creates a `0u` universal account. `state_init` is the borsh-serialized universal state
-    /// init, kept as the raw bytes the action carries (the account id commits to exactly those
-    /// bytes).
+    /// Creates a `0u` universal account. `state_init` is the borsh of a
+    /// [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit), kept as the raw
+    /// bytes the action carries (the account id commits to exactly those bytes).
     UniversalStateInit {
         receipt_index: ReceiptIndex,
         state_init: Vec<u8>,

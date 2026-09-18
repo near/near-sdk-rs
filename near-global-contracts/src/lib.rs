@@ -55,6 +55,8 @@ pub use global_contract_identifier::*;
 mod state_init;
 pub use state_init::*;
 
-// Re-export the underlying AccountId so consumers don't have to add `near-account-id` to their
-// Cargo.toml just to spell out the return type of `derive_account_id`.
-pub use near_account_id::AccountId;
+pub mod universal_state_init;
+
+// Re-export the underlying account id types so consumers don't have to add `near-account-id` to
+// their Cargo.toml just to spell out the return type of `derive_account_id`.
+pub use near_account_id::{AccountId, UniversalAccountId};
