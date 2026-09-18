@@ -322,6 +322,14 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
         .unwrap_or_else(|| abort())
 }
 
+/// Same, for the `0u` ids the universal-state-init host function returns. Only the host-backed
+/// branch of [`universal_state_init_to_account_id_raw`] parses a register, so this mirrors that
+/// call site's `cfg` to stay off non-contract builds.
+#[cfg(any(
+    target_arch = "wasm32",
+    not(feature = "non-contract-usage"),
+    all(feature = "unit-testing", not(test)),
+))]
 fn assert_valid_universal_account_id(bytes: Vec<u8>) -> UniversalAccountId {
     String::from_utf8(bytes)
         .ok()
