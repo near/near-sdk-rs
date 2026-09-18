@@ -623,7 +623,7 @@ impl Promise {
     ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
     ///         .with_access_key(env::signer_account_pk()),
     /// );
-    /// Promise::new(state_init.derive_account_id())
+    /// Promise::new(state_init.derive_account_id().into_account_id())
     ///     .universal_state_init(state_init, NearToken::from_millinear(10));
     /// ```
     pub fn universal_state_init(

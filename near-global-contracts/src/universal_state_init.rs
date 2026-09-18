@@ -18,6 +18,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use near_account_id::UniversalAccountId;
 use near_sdk_core::types::PublicKeyHandle;
 
 use crate::GlobalContractId;
@@ -168,9 +169,8 @@ impl UniversalStateInit {
     /// contract builds (`--cfg near`, set by `cargo-near`) route through the `sha3_256` host
     /// function via `near-sdk-env`, and all other builds use pure-Rust `sha3::Sha3_256`. Both
     /// produce identical output.
-    // TODO(near-account-id 3.1): return `UniversalAccountId` (near/near-account-id-rs#63).
     #[cfg(feature = "borsh")]
-    pub fn derive_account_id(&self) -> near_account_id::AccountId {
+    pub fn derive_account_id(&self) -> UniversalAccountId {
         derive_universal_account_id(&self.to_bytes())
     }
 }
@@ -180,9 +180,8 @@ impl UniversalStateInit {
 ///
 /// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
 /// this crate predates.
-// TODO(near-account-id 3.1): return `UniversalAccountId` (near/near-account-id-rs#63).
-pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::AccountId {
-    encode_universal_account_id(&sha3_256(state_init))
+pub fn derive_universal_account_id(state_init: &[u8]) -> UniversalAccountId {
+    UniversalAccountId::from_hash(sha3_256(state_init))
 }
 
 /// SHA3-256, through the host function on-chain and pure Rust everywhere else.
@@ -196,39 +195,6 @@ fn sha3_256(input: &[u8]) -> [u8; 32] {
         use sha3::Digest;
         sha3::Sha3_256::digest(input).into()
     }
-}
-
-/// Scheme + hash-function marker of a universal account id.
-const UAID_PREFIX: &str = "0u";
-/// Base32 symbols encoding the 256-bit hash (`ceil(256 / 5)`).
-const UAID_DATA_SYMBOLS: usize = 52;
-/// Crockford base32, lowercase, excluding `i l o u` to reduce transcription errors.
-const CROCKFORD: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
-
-/// Encodes a 32-byte hash as a `0u` universal account id (`0u` + 52 Crockford-base32 symbols),
-/// exactly like nearcore's `encode_universal_account_id`.
-// TODO(near-account-id 3.1): replace with `near_account_id::UniversalAccountId::from_hash` and
-// return `UniversalAccountId` (near/near-account-id-rs#63).
-pub(crate) fn encode_universal_account_id(hash: &[u8; 32]) -> near_account_id::AccountId {
-    let mut s = String::with_capacity(UAID_PREFIX.len() + UAID_DATA_SYMBOLS);
-    s.push_str(UAID_PREFIX);
-    // 32 bytes -> 52 five-bit symbols, MSB-first. The 256 bits leave 1 bit in the final symbol,
-    // padded on the right with 4 zero bits.
-    let mut acc: u32 = 0;
-    let mut nbits: u32 = 0;
-    for &byte in hash {
-        acc = (acc << 8) | byte as u32;
-        nbits += 8;
-        while nbits >= 5 {
-            nbits -= 5;
-            s.push(CROCKFORD[((acc >> nbits) & 0x1f) as usize] as char);
-        }
-        acc &= (1u32 << nbits) - 1;
-    }
-    s.push(CROCKFORD[((acc << (5 - nbits)) & 0x1f) as usize] as char);
-    // The emitted charset and length are always a valid account id.
-    #[allow(deprecated)]
-    near_account_id::AccountId::new_unvalidated(s)
 }
 
 #[cfg(test)]
@@ -257,10 +223,15 @@ mod tests {
         ),
     ];
 
+    /// The id is consensus-critical, so the vectors stay here even though `near-account-id`
+    /// owns the encoder: a change on either side has to show up in both places.
     #[test]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
-            assert_eq!(encode_universal_account_id(hash).as_str(), *expected);
+            let account_id = UniversalAccountId::from_hash(*hash);
+            assert_eq!(account_id.as_str(), *expected);
+            assert_eq!(account_id.to_string(), *expected);
+            assert_eq!(account_id.hash(), *hash);
         }
     }
 
