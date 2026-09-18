@@ -5,9 +5,11 @@
 //! borsh-serialized [`UniversalStateInit`] that creates it.
 //!
 //! The types live in the [`near_global_contracts`](https://docs.rs/near-global-contracts) crate
-//! ([`UniversalStateInit`], [`UniversalStateInitV1`]) and in
+//! ([`UniversalStateInit`], [`UniversalStateInitV1`]), in
 //! [`near_sdk_core`](https://docs.rs/near-sdk-core) ([`PublicKeyHandle`], next to
-//! [`PublicKey`](crate::PublicKey)); they are re-exported here for convenience.
+//! [`PublicKey`](crate::PublicKey)) and in
+//! [`near_account_id`](https://docs.rs/near-account-id) ([`UniversalAccountId`], the canonical
+//! `0u` id an account is addressed by); they are re-exported here for convenience.
 //!
 //! Universal accounts are created with [`Promise::universal_state_init`](crate::Promise::universal_state_init)
 //! (or the lower-level [`env::promise_batch_action_universal_state_init`](crate::env::promise_batch_action_universal_state_init)),
@@ -20,5 +22,6 @@
 //! Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
 //! nearcore 2.14).
 
+pub use near_account_id::{ParseUniversalAccountIdError, UniversalAccountId};
 pub use near_global_contracts::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
 pub use near_sdk_core::types::{ParsePublicKeyHandleError, PublicKeyHandle};
