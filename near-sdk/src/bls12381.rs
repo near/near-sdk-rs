@@ -45,10 +45,15 @@
 //! `G1`/`G2` subgroup, and only some functions check subgroup membership:
 //!
 //! * [`g1_multiexp`], [`g2_multiexp`] and [`pairing_check`] reject points outside the subgroup.
-//! * [`p1_sum`], [`p2_sum`], [`p1_decompress`] and [`p2_decompress`] accept them: per [NEP-488]
-//!   they are defined over the whole curve, so neither their inputs nor their outputs are
-//!   guaranteed to be in the subgroup.
+//! * [`p1_sum`], [`p2_sum`], [`p1_decompress`] and [`p2_decompress`] don't check it: per
+//!   [NEP-488] they are defined over the whole curve, so neither their inputs nor their outputs
+//!   are guaranteed to be in the subgroup.
 //! * [`map_fp_to_g1`] and [`map_fp2_to_g2`] always return points in the subgroup.
+//!
+//! One exception: on protocol versions without the NEP-488 fix (`bls12381_not_in_group_fix`),
+//! [`p1_sum`] and [`p1_decompress`] still reject the G1 points `(0, ±2)`, which are on the curve
+//! but outside `G1`. So don't rely on these functions to either accept or reject points outside
+//! the subgroup.
 //!
 //! This matters when you combine untrusted points before checking them. For example, if you
 //! aggregate public keys with [`p1_sum`] and then run [`pairing_check`] on the result, only the
@@ -107,7 +112,7 @@ const SCALAR_LEN: usize = 32;
 /// This corresponds to the host functions returning `1`: a point that is not on the curve, a
 /// field element that is `>=` the modulus, or an otherwise incorrectly encoded input.
 /// [`g1_multiexp`], [`g2_multiexp`] and [`pairing_check`] also return it for a point outside the
-/// `G1`/`G2` subgroup. The other functions accept such points (see
+/// `G1`/`G2` subgroup. The other functions don't check subgroup membership (see
 /// [subgroup checks](crate::bls12381#subgroup-checks)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
@@ -350,12 +355,9 @@ fn read_points<const N: usize, T: From<[u8; N]>>(count: usize) -> Vec<T> {
 ///
 /// Returns [`Error::InvalidInput`] if any point is not correctly encoded or not on the curve.
 ///
-/// This does **not** check that the points are in the `G1` subgroup. Per [NEP-488] the sum is
-/// defined over the whole curve `E(Fp)`, so points outside `G1` are accepted and the result may
-/// be outside `G1` too. Use [`g1_multiexp`] if you need the check; see
+/// This does **not** check that the points are in the `G1` subgroup, so the inputs and the result
+/// may lie outside it. Use [`g1_multiexp`] if you need that check; see
 /// [subgroup checks](crate::bls12381#subgroup-checks).
-///
-/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 pub fn p1_sum(summands: &[(Sign, G1)]) -> Result<G1, Error> {
     let mut buf = Vec::with_capacity(summands.len() * (1 + G1_LEN));
     for (sign, point) in summands {
@@ -374,12 +376,9 @@ pub fn p1_sum(summands: &[(Sign, G1)]) -> Result<G1, Error> {
 ///
 /// Returns [`Error::InvalidInput`] if any point is not correctly encoded or not on the curve.
 ///
-/// This does **not** check that the points are in the `G2` subgroup. Per [NEP-488] the sum is
-/// defined over the whole curve `E'(Fp2)`, so points outside `G2` are accepted and the result may
-/// be outside `G2` too. Use [`g2_multiexp`] if you need the check; see
+/// This does **not** check that the points are in the `G2` subgroup, so the inputs and the result
+/// may lie outside it. Use [`g2_multiexp`] if you need that check; see
 /// [subgroup checks](crate::bls12381#subgroup-checks).
-///
-/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 pub fn p2_sum(summands: &[(Sign, G2)]) -> Result<G2, Error> {
     let mut buf = Vec::with_capacity(summands.len() * (1 + G2_LEN));
     for (sign, point) in summands {
@@ -466,11 +465,8 @@ pub fn map_fp2_to_g2(elements: &[Fp2]) -> Result<Vec<G2>, Error> {
 ///
 /// Returns [`Error::InvalidInput`] if any point is off the curve or incorrectly encoded.
 ///
-/// This does **not** check that the points are in the `G1` subgroup. Per [NEP-488]
-/// decompression is defined over the whole curve `E(Fp)`, so points outside `G1` decompress
-/// successfully. See [subgroup checks](crate::bls12381#subgroup-checks).
-///
-/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+/// This does **not** check that the points are in the `G1` subgroup, so the outputs may lie
+/// outside it. See [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
     let mut buf = Vec::with_capacity(points.len() * G1_COMPRESSED_LEN);
     for point in points {
@@ -489,11 +485,8 @@ pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
 ///
 /// Returns [`Error::InvalidInput`] if any point is off the curve or incorrectly encoded.
 ///
-/// This does **not** check that the points are in the `G2` subgroup. Per [NEP-488]
-/// decompression is defined over the whole curve `E'(Fp2)`, so points outside `G2` decompress
-/// successfully. See [subgroup checks](crate::bls12381#subgroup-checks).
-///
-/// [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+/// This does **not** check that the points are in the `G2` subgroup, so the outputs may lie
+/// outside it. See [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p2_decompress(points: &[G2Compressed]) -> Result<Vec<G2>, Error> {
     let mut buf = Vec::with_capacity(points.len() * G2_COMPRESSED_LEN);
     for point in points {
@@ -687,7 +680,7 @@ mod tests {
     #[test]
     fn sum_and_decompress_accept_points_outside_subgroup() {
         // `(4, y)` is on the curve but not in `G1` (its order is not the subgroup order). This
-        // avoids `(0, ±2)`, which older protocol versions reject in sum and decompress.
+        // avoids `(0, ±2)`, which sum and decompress reject without the NEP-488 fix.
         let y = "0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c";
         let mut bytes = [0u8; 96];
         bytes[47] = 4;
