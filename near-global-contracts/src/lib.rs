@@ -25,6 +25,9 @@
 //!
 //! Both paths produce identical output, so you can verify on-chain derivations off-chain.
 //!
+//! [`UniversalStateInit`], the state init of a `0u` universal account, works the same way with
+//! SHA3-256 and the `sha3_256` host function.
+//!
 //! Other features:
 //! - `serde`, `borsh` — derive the matching (de)serialization traits.
 //! - `abi` — schema generation for ABI tooling.
@@ -55,7 +58,8 @@ pub use global_contract_identifier::*;
 mod state_init;
 pub use state_init::*;
 
-pub mod universal_state_init;
+mod universal_state_init;
+pub use universal_state_init::*;
 
 // Re-export the underlying AccountId so consumers don't have to add `near-account-id` to their
 // Cargo.toml just to spell out the return type of `derive_account_id`.

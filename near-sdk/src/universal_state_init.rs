@@ -20,5 +20,5 @@
 //! Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
 //! nearcore 2.14).
 
-pub use near_global_contracts::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+pub use near_global_contracts::{UniversalStateInit, UniversalStateInitV1};
 pub use near_sdk_core::types::{ParsePublicKeyError, PublicKeyHandle};

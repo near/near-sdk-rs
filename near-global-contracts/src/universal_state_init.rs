@@ -1,21 +1,3 @@
-//! Universal account (`0u`) state initialization types.
-//!
-//! A universal account is a post-quantum-safe successor to implicit and deterministic accounts:
-//! its address is `0u` followed by the Crockford base32 encoding of the SHA3-256 hash of the
-//! borsh-serialized [`UniversalStateInit`] that creates it. The id therefore commits to the
-//! *exact bytes* that are hashed, so the types here always emit the canonical encoding (sorted
-//! `BTree*` containers, one struct per version), which matches what nearcore emits for the same
-//! logical value.
-//!
-//! Contract authors reach these through `near-sdk`, which re-exports them under
-//! `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
-//! derive the same id here without the SDK.
-//!
-//! # Requirements
-//!
-//! On-chain use requires a host that supports universal accounts (nearcore protocol version 87+,
-//! shipped in nearcore 2.14).
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use near_account_id::UniversalAccountId;
@@ -28,8 +10,23 @@ use serde_with::base64::Base64;
 
 /// Versioned initial state of a `0u` universal account.
 ///
+/// A universal account is a post-quantum-safe successor to implicit and deterministic accounts:
+/// its address is `0u` followed by the Crockford base32 encoding of the SHA3-256 hash of the
+/// borsh-serialized `UniversalStateInit` that creates it. The id therefore commits to the
+/// *exact bytes* that are hashed, so the types here always emit the canonical encoding (sorted
+/// `BTree*` containers, one struct per version), which matches what nearcore emits for the same
+/// logical value.
+///
 /// The discriminant is the only version marker; new fields or semantics arrive as a new variant.
-/// See the [module docs](self) for how the account id is derived from it.
+///
+/// Contract authors reach this through `near-sdk`, which re-exports it under
+/// `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
+/// derive the same id here without the SDK.
+///
+/// # Requirements
+///
+/// On-chain use requires a host that supports universal accounts (nearcore protocol version 87+,
+/// shipped in nearcore 2.14).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "serde",
