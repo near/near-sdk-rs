@@ -2614,7 +2614,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_global_contracts::derive_universal_account_id(state_init)
+        near_account_id::UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
     }
 }
 
@@ -3018,6 +3018,22 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pinned to nearcore's `test_derive_universal_account_id` key-only vector, so this holds
+    /// whether the id comes from the mocked host function or the off-chain derivation.
+    #[test]
+    fn universal_state_init_to_account_id_matches_nearcore() {
+        use crate::universal_state_init::{PublicKeyHandle, UniversalStateInitV1};
+
+        let state_init = UniversalStateInit::from(
+            UniversalStateInitV1::default()
+                .with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
+        );
+        let account_id = universal_state_init_to_account_id(&state_init);
+        assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
+        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
+        assert_eq!(account_id, state_init.derive_account_id());
+    }
 
     #[test]
     fn test_is_valid_account_id_strings() {
