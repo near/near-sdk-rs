@@ -83,8 +83,8 @@
 //!
 //! [BLS12-381]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves
 //! [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
-use crate::env::read_register;
-use crate::environment::env::{ATOMIC_OP_REGISTER, read_register_fixed};
+use crate::env::{panic_str, read_register};
+use crate::environment::env::{ATOMIC_OP_REGISTER, expect_register, read_register_fixed};
 use near_sys as sys;
 
 /// Size in bytes of an uncompressed G1 point.
@@ -328,15 +328,16 @@ fn read_point<const N: usize>() -> [u8; N] {
     unsafe { read_register_fixed::<N>(ATOMIC_OP_REGISTER) }
 }
 
-/// Reads a batch of fixed-size points out of the atomic register after a successful host call.
+/// Reads `count` fixed-size points out of the atomic register after a successful host call.
 #[inline]
-fn read_points<const N: usize, T: From<[u8; N]>>() -> Vec<T> {
-    // The host wrote `k * N` bytes for `k` output points (possibly zero). `read_register`
-    // returns `Some` even for an empty register once it has been written to.
-    let raw = read_register(ATOMIC_OP_REGISTER).unwrap_or_default();
-    // The register length is always a whole number of points; guard the invariant so a
-    // future host change can't silently drop a trailing partial point via `chunks_exact`.
-    debug_assert_eq!(raw.len() % N, 0, "register length must be a multiple of the point size");
+fn read_points<const N: usize, T: From<[u8; N]>>(count: usize) -> Vec<T> {
+    // On success the host always writes the register (possibly empty) with exactly one `N`-byte
+    // point per input. Anything else means the host broke that contract, so abort instead of
+    // returning a truncated batch that callers would pair up with the wrong inputs.
+    let raw = expect_register(read_register(ATOMIC_OP_REGISTER));
+    if raw.len() != count * N {
+        panic_str("BLS12-381 host function returned an unexpected number of points");
+    }
     raw.chunks_exact(N)
         .map(|chunk| {
             let arr: [u8; N] = chunk.try_into().expect("chunks_exact yields N-byte chunks");
@@ -439,7 +440,7 @@ pub fn map_fp_to_g1(elements: &[Fp]) -> Result<Vec<G1>, Error> {
         sys::bls12381_map_fp_to_g1(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G1_LEN, G1>()),
+        0 => Ok(read_points::<G1_LEN, G1>(elements.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -456,7 +457,7 @@ pub fn map_fp2_to_g2(elements: &[Fp2]) -> Result<Vec<G2>, Error> {
         sys::bls12381_map_fp2_to_g2(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G2_LEN, G2>()),
+        0 => Ok(read_points::<G2_LEN, G2>(elements.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -479,7 +480,7 @@ pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
         sys::bls12381_p1_decompress(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G1_LEN, G1>()),
+        0 => Ok(read_points::<G1_LEN, G1>(points.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -502,7 +503,7 @@ pub fn p2_decompress(points: &[G2Compressed]) -> Result<Vec<G2>, Error> {
         sys::bls12381_p2_decompress(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G2_LEN, G2>()),
+        0 => Ok(read_points::<G2_LEN, G2>(points.len())),
         _ => Err(Error::InvalidInput),
     }
 }
