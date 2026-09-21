@@ -149,12 +149,31 @@ impl UniversalStateInit {
     /// Canonical borsh encoding of this state init: the bytes the account id commits to, and what
     /// the `promise_batch_action_universal_state_init` host function sends to the runtime.
     ///
+    /// This is nearcore's `UniversalStateInit::to_raw` without the `RawStateInit` newtype, which
+    /// carries no invariant of its own.
+    ///
     /// # Availability
     ///
     /// Requires the `borsh` feature.
     #[cfg(feature = "borsh")]
     pub fn to_bytes(&self) -> Vec<u8> {
         borsh::to_vec(self).unwrap_or_else(|_| unreachable!())
+    }
+
+    /// Decodes a borsh-encoded state init, the inverse of [`to_bytes`](Self::to_bytes) and
+    /// nearcore's `UniversalStateInit::from_raw`.
+    ///
+    /// Only trailing or malformed bytes are rejected. A non-canonical encoding of the same
+    /// logical value decodes fine, but the account id commits to the original bytes, so
+    /// re-encoding the result can give a different id. To get the id of bytes you were handed,
+    /// pass those bytes to [`derive_universal_account_id`] instead.
+    ///
+    /// # Availability
+    ///
+    /// Requires the `borsh` feature.
+    #[cfg(feature = "borsh")]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> {
+        borsh::from_slice(bytes)
     }
 
     /// The `0u` account id this state init creates: the SHA3-256 hash of [`to_bytes`](Self::to_bytes),
@@ -269,9 +288,21 @@ mod tests {
         assert_eq!(contract().to_bytes(), expected);
 
         for state_init in [key_only(), contract()] {
-            let decoded: UniversalStateInit = borsh::from_slice(&state_init.to_bytes()).unwrap();
+            let decoded = UniversalStateInit::from_bytes(&state_init.to_bytes()).unwrap();
             assert_eq!(decoded, state_init);
         }
+    }
+
+    #[test]
+    #[cfg(feature = "borsh")]
+    fn from_bytes_rejects_trailing_and_truncated_bytes() {
+        let bytes = key_only().to_bytes();
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(UniversalStateInit::from_bytes(&trailing).is_err());
+        assert!(UniversalStateInit::from_bytes(&bytes[..bytes.len() - 1]).is_err());
+        // An unknown version tag is not a state init this crate can type.
+        assert!(UniversalStateInit::from_bytes(&[1]).is_err());
     }
 
     /// Account ids pinned to nearcore's `test_derive_universal_account_id` vectors.
