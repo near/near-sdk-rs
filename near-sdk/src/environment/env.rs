@@ -58,7 +58,7 @@ const P256_HALF_ORDER: [u8; 32] = [
 
 #[inline]
 #[track_caller]
-fn expect_register<T>(option: Option<T>) -> T {
+pub(crate) fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
 }
 

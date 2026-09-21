@@ -39,10 +39,33 @@
 //! These functions are batch primitives — folding or mapping every element in a single host
 //! call. Prefer passing all your inputs to one call over calling them in a loop.
 //!
+//! # Subgroup checks
+//!
+//! A [`G1`] or [`G2`] value can hold any point on its curve, not only points in the prime-order
+//! `G1`/`G2` subgroup, and only some functions check subgroup membership:
+//!
+//! * [`g1_multiexp`], [`g2_multiexp`] and [`pairing_check`] reject points outside the subgroup.
+//! * [`p1_sum`], [`p2_sum`], [`p1_decompress`] and [`p2_decompress`] don't check it: per
+//!   [NEP-488] they are defined over the whole curve, so neither their inputs nor their outputs
+//!   are guaranteed to be in the subgroup.
+//! * [`map_fp_to_g1`] and [`map_fp2_to_g2`] always return points in the subgroup.
+//!
+//! One exception: on protocol versions without the NEP-488 fix (`bls12381_not_in_group_fix`),
+//! [`p1_sum`] and [`p1_decompress`] still reject the G1 points `(0, ±2)`, which are on the curve
+//! but outside `G1`. So don't rely on these functions to either accept or reject points outside
+//! the subgroup.
+//!
+//! This matters when you combine untrusted points before checking them. For example, if you
+//! aggregate public keys with [`p1_sum`] and then run [`pairing_check`] on the result, only the
+//! aggregate is checked, not each key. To check every key, aggregate with [`g1_multiexp`]
+//! instead, with each scalar set to one: it rejects any key outside `G1` and returns the same
+//! sum.
+//!
 //! # Example: verifying a BLS signature
 //!
-//! Verification reduces to `e(pubkey, H(m)) == e(g1_generator, signature)`, rewritten as a
-//! single pairing check `e(pubkey, H(m)) * e(-g1_generator, signature) == 1`:
+//! Verification reduces to `e(pubkey, H(m)) == e(g1, signature)`, where `g1` is
+//! [`G1::GENERATOR`]. It is rewritten as a single pairing check
+//! `e(pubkey, H(m)) * e(-g1, signature) == 1`, with `-g1` being [`G1::NEG_GENERATOR`]:
 //!
 //! ```no_run
 //! use near_sdk::bls12381::{self, Error, G1Compressed, G2Compressed, G1, G2};
@@ -51,21 +74,22 @@
 //!     pubkey_compressed: [u8; 48],    // public key, a compressed G1 point
 //!     signature_compressed: [u8; 96], // signature, a compressed G2 point
 //!     hashed_message: G2,             // H(m), the message hashed to a G2 point
-//!     neg_g1_generator: G1,           // the negated G1 generator
 //! ) -> Result<bool, Error> {
-//!     // Decompress the inputs; malformed points return `Err`.
+//!     // Decompress the inputs; malformed points return `Err`. Decompression does not check
+//!     // subgroup membership, but `pairing_check` below does.
 //!     let pubkey = G1Compressed(pubkey_compressed).decompress()?;
 //!     let signature = G2Compressed(signature_compressed).decompress()?;
 //!
 //!     // One batched pairing check over both pairs. `Ok(true)` means the signature is valid,
 //!     // `Ok(false)` means it is not, and `Err` means one of the points was malformed.
-//!     bls12381::pairing_check(&[(pubkey, hashed_message), (neg_g1_generator, signature)])
+//!     bls12381::pairing_check(&[(pubkey, hashed_message), (G1::NEG_GENERATOR, signature)])
 //! }
 //! ```
 //!
 //! [BLS12-381]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves
-use crate::env::read_register;
-use crate::environment::env::{ATOMIC_OP_REGISTER, read_register_fixed};
+//! [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
+use crate::env::{panic_str, read_register};
+use crate::environment::env::{ATOMIC_OP_REGISTER, expect_register, read_register_fixed};
 use near_sys as sys;
 
 /// Size in bytes of an uncompressed G1 point.
@@ -85,9 +109,11 @@ const SCALAR_LEN: usize = 32;
 
 /// Error returned when the host rejects an input as malformed.
 ///
-/// This corresponds to the host functions returning `1`: a point that is not on the curve,
-/// not in the expected subgroup (`G1`/`G2`), a field element that is `>=` the modulus, or an
-/// otherwise incorrectly encoded input.
+/// This corresponds to the host functions returning `1`: a point that is not on the curve, a
+/// field element that is `>=` the modulus, or an otherwise incorrectly encoded input.
+/// [`g1_multiexp`], [`g2_multiexp`] and [`pairing_check`] also return it for a point outside the
+/// `G1`/`G2` subgroup. The other functions don't check subgroup membership (see
+/// [subgroup checks](crate::bls12381#subgroup-checks)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Error {
@@ -192,12 +218,18 @@ macro_rules! byte_newtype {
 }
 
 byte_newtype!(
-    /// An uncompressed point on the BLS12-381 G1 curve group (96 bytes: big-endian `x` then `y`).
+    /// An uncompressed point on the BLS12-381 curve `E(Fp)` (96 bytes: big-endian `x` then `y`).
+    ///
+    /// A `G1` is not necessarily in the prime-order `G1` subgroup; see
+    /// [subgroup checks](crate::bls12381#subgroup-checks).
     G1,
     G1_LEN
 );
 byte_newtype!(
-    /// An uncompressed point on the BLS12-381 G2 curve group (192 bytes).
+    /// An uncompressed point on the twisted BLS12-381 curve `E'(Fp2)` (192 bytes).
+    ///
+    /// A `G2` is not necessarily in the prime-order `G2` subgroup; see
+    /// [subgroup checks](crate::bls12381#subgroup-checks).
     G2,
     G2_LEN
 );
@@ -227,6 +259,72 @@ byte_newtype!(
     SCALAR_LEN
 );
 
+/// Decodes a lowercase hex string into a byte array at compile time.
+const fn decode_hex<const N: usize>(hex: &str) -> [u8; N] {
+    const fn nibble(c: u8) -> u8 {
+        match c {
+            b'0'..=b'9' => c - b'0',
+            b'a'..=b'f' => c - b'a' + 10,
+            _ => panic!("invalid hex digit"),
+        }
+    }
+    let hex = hex.as_bytes();
+    assert!(hex.len() == 2 * N, "hex string has the wrong length");
+    let mut out = [0u8; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = (nibble(hex[2 * i]) << 4) | nibble(hex[2 * i + 1]);
+        i += 1;
+    }
+    out
+}
+
+impl G1 {
+    /// The standard generator of the `G1` subgroup.
+    pub const GENERATOR: Self = Self(decode_hex(concat!(
+        // x
+        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+        // y
+        "08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
+    )));
+
+    /// The negation of [`G1::GENERATOR`], as used in the `e(-g1, signature)` term when checking
+    /// a signature whose public key is in `G1`.
+    pub const NEG_GENERATOR: Self = Self(decode_hex(concat!(
+        // x
+        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+        // p - y
+        "114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca",
+    )));
+}
+
+impl G2 {
+    /// The standard generator of the `G2` subgroup.
+    pub const GENERATOR: Self = Self(decode_hex(concat!(
+        // x.c1
+        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
+        // x.c0
+        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
+        // y.c1
+        "0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be",
+        // y.c0
+        "0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801",
+    )));
+
+    /// The negation of [`G2::GENERATOR`], as used in the `e(signature, -g2)` term when checking
+    /// a signature whose public key is in `G2`.
+    pub const NEG_GENERATOR: Self = Self(decode_hex(concat!(
+        // x.c1
+        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
+        // x.c0
+        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
+        // p - y.c1
+        "13fa4d4a0ad8b1ce186ed5061789213d993923066dddaf1040bc3ff59f825c78df74f2d75467e25e0f55f8a00fa030ed",
+        // p - y.c0
+        "0d1b3cc2c7027888be51d9ef691d77bcb679afda66c73f17f9ee3837a55024f78c71363275a75d75d86bab79f74782aa",
+    )));
+}
+
 /// Reads a single fixed-size point out of the atomic register after a successful host call.
 #[inline]
 fn read_point<const N: usize>() -> [u8; N] {
@@ -235,15 +333,16 @@ fn read_point<const N: usize>() -> [u8; N] {
     unsafe { read_register_fixed::<N>(ATOMIC_OP_REGISTER) }
 }
 
-/// Reads a batch of fixed-size points out of the atomic register after a successful host call.
+/// Reads `count` fixed-size points out of the atomic register after a successful host call.
 #[inline]
-fn read_points<const N: usize, T: From<[u8; N]>>() -> Vec<T> {
-    // The host wrote `k * N` bytes for `k` output points (possibly zero). `read_register`
-    // returns `Some` even for an empty register once it has been written to.
-    let raw = read_register(ATOMIC_OP_REGISTER).unwrap_or_default();
-    // The register length is always a whole number of points; guard the invariant so a
-    // future host change can't silently drop a trailing partial point via `chunks_exact`.
-    debug_assert_eq!(raw.len() % N, 0, "register length must be a multiple of the point size");
+fn read_points<const N: usize, T: From<[u8; N]>>(count: usize) -> Vec<T> {
+    // On success the host always writes the register (possibly empty) with exactly one `N`-byte
+    // point per input. Anything else means the host broke that contract, so abort instead of
+    // returning a truncated batch that callers would pair up with the wrong inputs.
+    let raw = expect_register(read_register(ATOMIC_OP_REGISTER));
+    if raw.len() != count * N {
+        panic_str("BLS12-381 host function returned an unexpected number of points");
+    }
     raw.chunks_exact(N)
         .map(|chunk| {
             let arr: [u8; N] = chunk.try_into().expect("chunks_exact yields N-byte chunks");
@@ -255,6 +354,10 @@ fn read_points<const N: usize, T: From<[u8; N]>>() -> Vec<T> {
 /// Compute the BLS12-381 G1 sum over the given signed points.
 ///
 /// Returns [`Error::InvalidInput`] if any point is not correctly encoded or not on the curve.
+///
+/// This does **not** check that the points are in the `G1` subgroup, so the inputs and the result
+/// may lie outside it. Use [`g1_multiexp`] if you need that check; see
+/// [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p1_sum(summands: &[(Sign, G1)]) -> Result<G1, Error> {
     let mut buf = Vec::with_capacity(summands.len() * (1 + G1_LEN));
     for (sign, point) in summands {
@@ -272,6 +375,10 @@ pub fn p1_sum(summands: &[(Sign, G1)]) -> Result<G1, Error> {
 /// Compute the BLS12-381 G2 sum over the given signed points.
 ///
 /// Returns [`Error::InvalidInput`] if any point is not correctly encoded or not on the curve.
+///
+/// This does **not** check that the points are in the `G2` subgroup, so the inputs and the result
+/// may lie outside it. Use [`g2_multiexp`] if you need that check; see
+/// [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p2_sum(summands: &[(Sign, G2)]) -> Result<G2, Error> {
     let mut buf = Vec::with_capacity(summands.len() * (1 + G2_LEN));
     for (sign, point) in summands {
@@ -332,7 +439,7 @@ pub fn map_fp_to_g1(elements: &[Fp]) -> Result<Vec<G1>, Error> {
         sys::bls12381_map_fp_to_g1(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G1_LEN, G1>()),
+        0 => Ok(read_points::<G1_LEN, G1>(elements.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -349,7 +456,7 @@ pub fn map_fp2_to_g2(elements: &[Fp2]) -> Result<Vec<G2>, Error> {
         sys::bls12381_map_fp2_to_g2(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G2_LEN, G2>()),
+        0 => Ok(read_points::<G2_LEN, G2>(elements.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -357,6 +464,9 @@ pub fn map_fp2_to_g2(elements: &[Fp2]) -> Result<Vec<G2>, Error> {
 /// Decompress compressed G1 points into their uncompressed form (one output per input).
 ///
 /// Returns [`Error::InvalidInput`] if any point is off the curve or incorrectly encoded.
+///
+/// This does **not** check that the points are in the `G1` subgroup, so the outputs may lie
+/// outside it. See [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
     let mut buf = Vec::with_capacity(points.len() * G1_COMPRESSED_LEN);
     for point in points {
@@ -366,7 +476,7 @@ pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
         sys::bls12381_p1_decompress(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G1_LEN, G1>()),
+        0 => Ok(read_points::<G1_LEN, G1>(points.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -374,6 +484,9 @@ pub fn p1_decompress(points: &[G1Compressed]) -> Result<Vec<G1>, Error> {
 /// Decompress compressed G2 points into their uncompressed form (one output per input).
 ///
 /// Returns [`Error::InvalidInput`] if any point is off the curve or incorrectly encoded.
+///
+/// This does **not** check that the points are in the `G2` subgroup, so the outputs may lie
+/// outside it. See [subgroup checks](crate::bls12381#subgroup-checks).
 pub fn p2_decompress(points: &[G2Compressed]) -> Result<Vec<G2>, Error> {
     let mut buf = Vec::with_capacity(points.len() * G2_COMPRESSED_LEN);
     for point in points {
@@ -383,7 +496,7 @@ pub fn p2_decompress(points: &[G2Compressed]) -> Result<Vec<G2>, Error> {
         sys::bls12381_p2_decompress(buf.len() as _, buf.as_ptr() as _, ATOMIC_OP_REGISTER)
     };
     match code {
-        0 => Ok(read_points::<G2_LEN, G2>()),
+        0 => Ok(read_points::<G2_LEN, G2>(points.len())),
         _ => Err(Error::InvalidInput),
     }
 }
@@ -410,7 +523,8 @@ pub fn pairing_check(pairs: &[(G1, G2)]) -> Result<bool, Error> {
 }
 
 impl G1Compressed {
-    /// Decompress this single point. Convenience wrapper over [`p1_decompress`].
+    /// Decompress this single point. Convenience wrapper over [`p1_decompress`], so it does not
+    /// check `G1` subgroup membership either.
     #[inline]
     pub fn decompress(&self) -> Result<G1, Error> {
         p1_decompress(core::slice::from_ref(self))
@@ -419,7 +533,8 @@ impl G1Compressed {
 }
 
 impl G2Compressed {
-    /// Decompress this single point. Convenience wrapper over [`p2_decompress`].
+    /// Decompress this single point. Convenience wrapper over [`p2_decompress`], so it does not
+    /// check `G2` subgroup membership either.
     #[inline]
     pub fn decompress(&self) -> Result<G2, Error> {
         p2_decompress(core::slice::from_ref(self))
@@ -563,6 +678,39 @@ mod tests {
     }
 
     #[test]
+    fn sum_and_decompress_accept_points_outside_subgroup() {
+        // `(4, y)` is on the curve but not in `G1` (its order is not the subgroup order). This
+        // avoids `(0, ±2)`, which sum and decompress reject without the NEP-488 fix.
+        let y = "0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c";
+        let mut bytes = [0u8; 96];
+        bytes[47] = 4;
+        bytes[48..].copy_from_slice(&hex::decode(y).unwrap());
+        let outside = G1(bytes);
+        // Compressed form: `x` with the compression flag set; the sign flag is clear because `y`
+        // is the smaller of the two roots.
+        let mut compressed = [0u8; 48];
+        compressed[0] = 0x80;
+        compressed[47] = 4;
+
+        // Sum and decompress accept it...
+        assert!(bls12381::p1_sum(&[(Sign::Positive, outside)]).is_ok());
+        assert_eq!(G1Compressed(compressed).decompress(), Ok(outside));
+        // ...while multiexp and the pairing check reject it.
+        assert_eq!(bls12381::g1_multiexp(&[(outside, scalar_one())]), Err(Error::InvalidInput));
+        let g2 = fp2_one().map_to_g2().unwrap();
+        assert_eq!(bls12381::pairing_check(&[(outside, g2)]), Err(Error::InvalidInput));
+    }
+
+    #[test]
+    fn g1_multiexp_with_unit_scalars_is_the_sum() {
+        let points = bls12381::map_fp_to_g1(&[fp_one(), Fp([2; 48])]).unwrap();
+        let sum = bls12381::p1_sum(&[(Sign::Positive, points[0]), (Sign::Positive, points[1])]);
+        let multiexp =
+            bls12381::g1_multiexp(&[(points[0], scalar_one()), (points[1], scalar_one())]);
+        assert_eq!(multiexp, sum);
+    }
+
+    #[test]
     fn decompress_g1_batch_and_convenience() {
         let compressed = G1Compressed(VALID_G1_COMPRESSED);
         let batch = bls12381::p1_decompress(&[compressed]).unwrap();
@@ -619,6 +767,45 @@ mod tests {
             .collect();
         assert_eq!(pairs.len(), 2);
         assert_eq!(bls12381::pairing_check(&pairs), Ok(true));
+    }
+
+    #[test]
+    fn generators_match_the_standard_encoding() {
+        // The standard compressed generators, as serialized by e.g. zkcrypto `bls12_381`.
+        let g1 = "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb";
+        let g2 = "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8";
+        let g1 = G1Compressed::try_from(hex::decode(g1).unwrap().as_slice()).unwrap();
+        let g2 = G2Compressed::try_from(hex::decode(g2).unwrap().as_slice()).unwrap();
+        assert_eq!(g1.decompress(), Ok(G1::GENERATOR));
+        assert_eq!(g2.decompress(), Ok(G2::GENERATOR));
+
+        assert_eq!(bls12381::p1_sum(&[(Sign::Negative, G1::GENERATOR)]), Ok(G1::NEG_GENERATOR));
+        assert_eq!(bls12381::p2_sum(&[(Sign::Negative, G2::GENERATOR)]), Ok(G2::NEG_GENERATOR));
+
+        // Multiexp checks subgroup membership, so this also shows both are in the subgroup.
+        assert_eq!(bls12381::g1_multiexp(&[(G1::GENERATOR, scalar_one())]), Ok(G1::GENERATOR));
+        assert_eq!(bls12381::g2_multiexp(&[(G2::GENERATOR, scalar_one())]), Ok(G2::GENERATOR));
+    }
+
+    #[test]
+    fn signature_check_with_neg_generator() {
+        // The check from the module-level example, with a key pair made in the test: the public
+        // key is `sk * g1` and the signature is `sk * H(m)`.
+        let sk = Scalar([7; 32]);
+        let hashed_message = fp2_one().map_to_g2().unwrap();
+        let pubkey = bls12381::g1_multiexp(&[(G1::GENERATOR, sk)]).unwrap();
+        let signature = bls12381::g2_multiexp(&[(hashed_message, sk)]).unwrap();
+        assert_eq!(
+            bls12381::pairing_check(&[(pubkey, hashed_message), (G1::NEG_GENERATOR, signature)]),
+            Ok(true)
+        );
+
+        // A signature made with a different key fails the check.
+        let forged = bls12381::g2_multiexp(&[(hashed_message, scalar_one())]).unwrap();
+        assert_eq!(
+            bls12381::pairing_check(&[(pubkey, hashed_message), (G1::NEG_GENERATOR, forged)]),
+            Ok(false)
+        );
     }
 
     #[test]
