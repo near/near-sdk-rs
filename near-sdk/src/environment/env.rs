@@ -26,7 +26,6 @@ use crate::promise::Allowance;
 use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-    UniversalAccountId,
 };
 use crate::universal_state_init::UniversalStateInit;
 use crate::{CryptoHash, GasWeight, PromiseError};
@@ -319,21 +318,6 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
     String::from_utf8(bytes)
         .ok()
         .and_then(|s| AccountId::try_from(s).ok())
-        .unwrap_or_else(|| abort())
-}
-
-/// Same, for the `0u` ids the universal-state-init host function returns. Only the host-backed
-/// branch of [`universal_state_init_to_account_id_raw`] parses a register, so this mirrors that
-/// call site's `cfg` to stay off non-contract builds.
-#[cfg(any(
-    target_arch = "wasm32",
-    not(feature = "non-contract-usage"),
-    all(feature = "unit-testing", not(test)),
-))]
-fn assert_valid_universal_account_id(bytes: Vec<u8>) -> UniversalAccountId {
-    String::from_utf8(bytes)
-        .ok()
-        .and_then(|s| s.parse::<UniversalAccountId>().ok())
         .unwrap_or_else(|| abort())
 }
 
@@ -2574,11 +2558,6 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// state init. [`UniversalStateInit::derive_account_id`] computes the same id from the `sha3_256`
 /// host function instead of this one.
 ///
-/// The typed [`UniversalAccountId`] guarantees the canonical `0u` spelling; call
-/// [`into_account_id`](UniversalAccountId::into_account_id) for the plain [`AccountId`] that
-/// [`promise_batch_create`] and [`crate::Promise::new`] take, or
-/// [`hash`](UniversalAccountId::hash) for the 32 bytes it encodes.
-///
 /// Uses low-level [`crate::sys::universal_state_init_to_account_id`]; see
 /// [`universal_state_init_to_account_id_raw`] to pass the borsh bytes directly.
 ///
@@ -2598,7 +2577,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// let account_id = env::universal_state_init_to_account_id(&state_init);
 /// assert_eq!(account_id, state_init.derive_account_id());
 /// ```
-pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> UniversalAccountId {
+pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
     universal_state_init_to_account_id_raw(&state_init.to_bytes())
 }
 
@@ -2612,7 +2591,7 @@ pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> Un
 ///
 /// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
 /// nearcore 2.14).
-pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> UniversalAccountId {
+pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
     #[cfg(any(
         target_arch = "wasm32",
         not(feature = "non-contract-usage"),
@@ -2626,7 +2605,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> UniversalAcc
                 ATOMIC_OP_REGISTER,
             )
         };
-        assert_valid_universal_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))
+        assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))
     }
 
     #[cfg(all(
@@ -2669,8 +2648,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> UniversalAcc
 ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
 ///         .with_data_entry(b"owner", b"alice.near"),
 /// );
-/// let account_id = universal_state_init_to_account_id(&state_init).into_account_id();
-/// let promise = promise_batch_create(&account_id);
+/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init));
 /// promise_batch_action_universal_state_init(promise, &state_init, NearToken::from_millinear(10));
 /// ```
 pub fn promise_batch_action_universal_state_init(

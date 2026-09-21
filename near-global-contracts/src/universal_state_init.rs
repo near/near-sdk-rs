@@ -170,7 +170,7 @@ impl UniversalStateInit {
     /// function via `near-sdk-env`, and all other builds use pure-Rust `sha3::Sha3_256`. Both
     /// produce identical output.
     #[cfg(feature = "borsh")]
-    pub fn derive_account_id(&self) -> UniversalAccountId {
+    pub fn derive_account_id(&self) -> near_account_id::AccountId {
         derive_universal_account_id(&self.to_bytes())
     }
 }
@@ -180,8 +180,8 @@ impl UniversalStateInit {
 ///
 /// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
 /// this crate predates.
-pub fn derive_universal_account_id(state_init: &[u8]) -> UniversalAccountId {
-    UniversalAccountId::from_hash(sha3_256(state_init))
+pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::AccountId {
+    UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
 }
 
 /// SHA3-256, through the host function on-chain and pure Rust everywhere else.
