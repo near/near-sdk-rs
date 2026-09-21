@@ -424,6 +424,44 @@ impl From<PublicKey> for PublicKeyHandle {
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
+const _: () = {
+    impl From<near_crypto::PublicKeyHandle> for PublicKeyHandle {
+        fn from(handle: near_crypto::PublicKeyHandle) -> Self {
+            match handle {
+                near_crypto::PublicKeyHandle::ED25519(key) => Self::ED25519(key.0),
+                near_crypto::PublicKeyHandle::SECP256K1(key) => {
+                    // SAFETY: a secp256k1 public key is always 64 bytes
+                    Self::SECP256K1(key.as_ref().try_into().unwrap())
+                }
+                near_crypto::PublicKeyHandle::MlDsa65(hash) => Self::MLDSA65Hash(hash.0),
+            }
+        }
+    }
+
+    impl From<PublicKeyHandle> for near_crypto::PublicKeyHandle {
+        fn from(handle: PublicKeyHandle) -> Self {
+            match handle {
+                PublicKeyHandle::ED25519(data) => {
+                    Self::ED25519(near_crypto::ED25519PublicKey(data))
+                }
+                PublicKeyHandle::SECP256K1(data) => {
+                    Self::SECP256K1(near_crypto::Secp256K1PublicKey::from(data))
+                }
+                PublicKeyHandle::MLDSA65Hash(hash) => {
+                    Self::MlDsa65(near_crypto::MlDsa65PublicKeyHandle(hash))
+                }
+            }
+        }
+    }
+
+    impl From<near_crypto::PublicKey> for PublicKeyHandle {
+        fn from(public_key: near_crypto::PublicKey) -> Self {
+            near_crypto::PublicKeyHandle::from(public_key).into()
+        }
+    }
+};
+
 impl std::fmt::Display for PublicKeyHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let prefix = match self {
@@ -716,6 +754,28 @@ mod tests {
             let json = serde_json::to_string(&handle).unwrap();
             assert_eq!(json, format!("\"{handle}\""));
             assert_eq!(serde_json::from_str::<PublicKeyHandle>(&json).unwrap(), handle);
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))]
+    #[test]
+    fn public_key_handle_near_crypto_roundtrip() {
+        let ml_dsa = PublicKey::from_parts(CurveType::MLDSA65, vec![0x5A; 1952]).unwrap();
+        let keys: [PublicKey; 3] = [
+            "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap(),
+            "secp256k1:5r22SrjrDvgY3wdQsnjgxkeAbU1VcM71FYvALEQWihjM3Xk4Be1CpETTqFccChQr4iJwDroSDVmgaWZv2AcXvYeL".parse().unwrap(),
+            ml_dsa,
+        ];
+        for key in keys {
+            let handle = PublicKeyHandle::from(&key);
+            let near_key: near_crypto::PublicKey = key.try_into().unwrap();
+
+            // Our ML-DSA-65 hashing agrees with near-crypto's, and so does the string form.
+            assert_eq!(PublicKeyHandle::from(near_key.clone()), handle);
+            let near_handle = near_crypto::PublicKeyHandle::from(handle.clone());
+            assert_eq!(near_handle, near_crypto::PublicKeyHandle::from(near_key));
+            assert_eq!(near_handle.to_string(), handle.to_string());
+            assert_eq!(PublicKeyHandle::from(near_handle), handle);
         }
     }
 
