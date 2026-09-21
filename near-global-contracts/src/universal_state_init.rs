@@ -181,20 +181,19 @@ impl UniversalStateInit {
 /// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
 /// this crate predates.
 pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::AccountId {
-    UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
-}
+    let hash: [u8; 32];
 
-/// SHA3-256, through the host function on-chain and pure Rust everywhere else.
-fn sha3_256(input: &[u8]) -> [u8; 32] {
     #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
     {
-        near_sdk_env::sha3_256(input)
+        hash = near_sdk_env::sha3_256(state_init);
     }
     #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
     {
         use sha3::Digest;
-        sha3::Sha3_256::digest(input).into()
+        hash = sha3::Sha3_256::digest(state_init).into();
     }
+
+    UniversalAccountId::from_hash(hash).into_account_id()
 }
 
 #[cfg(test)]
