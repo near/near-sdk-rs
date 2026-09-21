@@ -17,8 +17,8 @@ pub enum CurveType {
     ///
     /// Added in nearcore 2.13 (protocol v85) as a third access-key/signature
     /// scheme alongside ed25519 and secp256k1. Only the full public-key form is
-    /// represented here (1952 raw bytes); the runtime-internal SHA3-384 trie hash
-    /// handle form (`ml-dsa-65-hash:`) is never exposed to contracts.
+    /// represented here (1952 raw bytes); the SHA3-256 hash the trie stores
+    /// (`ml-dsa-65-hash:`) is a [`PublicKeyHandle`].
     MLDSA65 = 2,
 }
 
