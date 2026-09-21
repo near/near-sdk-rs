@@ -455,9 +455,15 @@ const _: () = {
         }
     }
 
+    impl From<&near_crypto::PublicKey> for PublicKeyHandle {
+        fn from(public_key: &near_crypto::PublicKey) -> Self {
+            near_crypto::PublicKeyHandle::from(public_key).into()
+        }
+    }
+
     impl From<near_crypto::PublicKey> for PublicKeyHandle {
         fn from(public_key: near_crypto::PublicKey) -> Self {
-            near_crypto::PublicKeyHandle::from(public_key).into()
+            Self::from(&public_key)
         }
     }
 };
@@ -771,6 +777,7 @@ mod tests {
             let near_key: near_crypto::PublicKey = key.try_into().unwrap();
 
             // Our ML-DSA-65 hashing agrees with near-crypto's, and so does the string form.
+            assert_eq!(PublicKeyHandle::from(&near_key), handle);
             assert_eq!(PublicKeyHandle::from(near_key.clone()), handle);
             let near_handle = near_crypto::PublicKeyHandle::from(handle.clone());
             assert_eq!(near_handle, near_crypto::PublicKeyHandle::from(near_key));
