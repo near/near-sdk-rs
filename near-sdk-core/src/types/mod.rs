@@ -1,5 +1,5 @@
 mod public_key;
-pub use self::public_key::{CurveType, ParsePublicKeyHandleError, PublicKey, PublicKeyHandle};
+pub use self::public_key::{CurveType, ParsePublicKeyError, PublicKey, PublicKeyHandle};
 
 mod primitives;
 pub use self::primitives::*;

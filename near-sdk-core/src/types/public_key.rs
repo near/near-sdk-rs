@@ -287,6 +287,7 @@ enum ParsePublicKeyErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
     UnknownCurve,
+    InvalidData(&'static str),
 }
 
 impl std::fmt::Display for ParsePublicKeyError {
@@ -301,6 +302,7 @@ impl std::fmt::Display for ParsePublicKeyError {
             }
             ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {e}"),
             ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
+            ParsePublicKeyErrorKind::InvalidData(message) => f.write_str(message),
         }
     }
 }
@@ -312,6 +314,14 @@ impl From<B58Error> for ParsePublicKeyError {
 }
 
 impl std::error::Error for ParsePublicKeyError {}
+
+/// Decodes base58 `data` that must be exactly `N` bytes long.
+fn decode_base58<const N: usize>(data: &str) -> Result<[u8; N], ParsePublicKeyError> {
+    let data = bs58::decode(data).into_vec()?;
+    data.try_into().map_err(|data: Vec<u8>| ParsePublicKeyError {
+        kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
+    })
+}
 
 /// Domain-separation tag nearcore prepends to a full ML-DSA-65 public key before hashing it
 /// into its on-trie handle.
@@ -425,50 +435,23 @@ impl std::fmt::Display for PublicKeyHandle {
     }
 }
 
-/// Error returned when a string is not a valid [`PublicKeyHandle`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParsePublicKeyHandleError {
-    message: &'static str,
-}
-
-impl std::fmt::Display for ParsePublicKeyHandleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.message)
-    }
-}
-
-impl std::error::Error for ParsePublicKeyHandleError {}
-
 impl std::str::FromStr for PublicKeyHandle {
-    type Err = ParsePublicKeyHandleError;
+    type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        fn decode<const N: usize>(data: &str) -> Result<[u8; N], ParsePublicKeyHandleError> {
-            let mut buf = [0u8; N];
-            match bs58::decode(data).onto(&mut buf) {
-                Ok(len) if len == N => Ok(buf),
-                _ => Err(ParsePublicKeyHandleError { message: "invalid public key handle data" }),
-            }
-        }
-
         if let Some(data) = value.strip_prefix(ML_DSA_65_HASH_PREFIX) {
-            return decode(data).map(Self::MLDSA65Hash);
+            return decode_base58(data).map(Self::MLDSA65Hash);
         }
-        if value.starts_with("ml-dsa-65:") {
-            return Err(ParsePublicKeyHandleError {
-                message: "a full ml-dsa-65 public key is not a handle; convert it with \
-                          `PublicKeyHandle::from(PublicKey)` or use the `ml-dsa-65-hash:` form",
-            });
-        }
-        let (curve, data) = match value.split_once(':') {
-            Some((curve, data)) => (curve.parse::<CurveType>(), data),
-            // No prefix: default to ed25519, like `PublicKey`.
-            None => (Ok(CurveType::ED25519), value),
-        };
+        let (curve, data) = PublicKey::split_key_type_data(value)?;
         match curve {
-            Ok(CurveType::ED25519) => decode(data).map(Self::ED25519),
-            Ok(CurveType::SECP256K1) => decode(data).map(Self::SECP256K1),
-            _ => Err(ParsePublicKeyHandleError { message: "unknown public key handle curve" }),
+            CurveType::ED25519 => decode_base58(data).map(Self::ED25519),
+            CurveType::SECP256K1 => decode_base58(data).map(Self::SECP256K1),
+            CurveType::MLDSA65 => Err(ParsePublicKeyError {
+                kind: ParsePublicKeyErrorKind::InvalidData(
+                    "a full ml-dsa-65 public key is not a handle; convert it with \
+                     `PublicKeyHandle::from(PublicKey)` or use the `ml-dsa-65-hash:` form",
+                ),
+            }),
         }
     }
 }
@@ -734,8 +717,31 @@ mod tests {
             assert_eq!(json, format!("\"{handle}\""));
             assert_eq!(serde_json::from_str::<PublicKeyHandle>(&json).unwrap(), handle);
         }
-        assert!("ml-dsa-65:abc".parse::<PublicKeyHandle>().is_err());
-        assert!("ml-dsa-65-hash:abc".parse::<PublicKeyHandle>().is_err());
-        assert!("rsa:abc".parse::<PublicKeyHandle>().is_err());
+    }
+
+    #[test]
+    fn public_key_handle_parse_errors() {
+        let kind = |value: &str| value.parse::<PublicKeyHandle>().unwrap_err().kind;
+
+        // A full ML-DSA-65 key is a `PublicKey`, never a handle.
+        assert!(matches!(kind("ml-dsa-65:abc"), ParsePublicKeyErrorKind::InvalidData(_)));
+        assert!(matches!(kind("rsa:abc"), ParsePublicKeyErrorKind::UnknownCurve));
+        assert!(matches!(kind("ed25519:0OIl"), ParsePublicKeyErrorKind::Base58(_)));
+
+        let short = bs58::encode([9u8; 31]).into_string();
+        let long = bs58::encode([9u8; 33]).into_string();
+        assert!(matches!(
+            kind(&format!("ml-dsa-65-hash:{short}")),
+            ParsePublicKeyErrorKind::InvalidLength(31)
+        ));
+        assert!(matches!(
+            kind(&format!("ed25519:{long}")),
+            ParsePublicKeyErrorKind::InvalidLength(33)
+        ));
+        // No prefix defaults to ed25519, like `PublicKey`.
+        assert_eq!(
+            bs58::encode([7u8; 32]).into_string().parse::<PublicKeyHandle>().unwrap(),
+            PublicKeyHandle::ED25519([7; 32])
+        );
     }
 }

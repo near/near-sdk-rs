@@ -21,4 +21,4 @@
 //! nearcore 2.14).
 
 pub use near_global_contracts::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
-pub use near_sdk_core::types::{ParsePublicKeyHandleError, PublicKeyHandle};
+pub use near_sdk_core::types::{ParsePublicKeyError, PublicKeyHandle};
