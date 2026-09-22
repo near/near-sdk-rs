@@ -7,6 +7,17 @@ use syn::{GenericArgument, Path, PathArguments, Signature, Type};
 #[cfg(test)]
 pub mod test_helpers;
 
+/// Renders a crate path (e.g. the one passed to `#[near(crate = "...")]`) as a string suitable
+/// for embedding in a nested `crate = "..."` argument, such as `#[serde(crate = "...")]` or
+/// `#[borsh(crate = "...")]`.
+///
+/// `quote! { #path }.to_string()` inserts spaces between tokens (e.g. `:: near_sdk`), which is
+/// still valid when re-parsed as a path but is not byte-identical to a hand-written literal, so
+/// this strips those spaces out.
+pub(crate) fn crate_path_string(path: &Path) -> String {
+    quote! {#path}.to_string().replace(' ', "")
+}
+
 /// Checks whether the given path is literally "Result".
 /// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
 /// `type StringResult = Result<String, String>`.
