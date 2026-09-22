@@ -6,6 +6,14 @@
 //!
 //! In case of cross-contract calls prefer using higher-level API available
 //! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
+//!
+//! # Hash function naming
+//!
+//! The older hashes come in a `Vec<u8>` form and an `_array` form ([`sha256`] and
+//! [`sha256_array`]). Hashes added from nearcore 2.14 on follow a single convention instead: the
+//! bare name returns the fixed-size array, so [`sha3_256`] returns `[u8; 32]` and there is no
+//! `sha3_256_array`. The `Vec`/`_array` pair is kept for the functions that already had it and is
+//! not extended to new hashes.
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -19,6 +27,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use crate::universal_state_init::UniversalStateInit;
 use crate::{CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
@@ -28,7 +37,7 @@ use near_sys as sys;
 // Extracted types from `near-sdk-env`
 pub use near_sdk_env::{
     abort, keccak256, keccak256_array, keccak512, keccak512_array, panic_str, ripemd160_array,
-    sha256, sha256_array,
+    sha3_256, sha3_384, sha3_512, sha256, sha256_array,
 };
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -878,6 +887,80 @@ pub fn p256_verify(signature: &[u8; 64], prehash: &[u8; 32], public_key: &[u8; 3
 /// ```
 pub fn p256_signature_is_low_s(signature: &[u8; 64]) -> bool {
     signature[32..] <= P256_HALF_ORDER[..]
+}
+
+/// Verifies a FIPS 204 ML-DSA-65 (post-quantum) signature of a message using the provided
+/// public key.
+///
+/// - `signature` - 3309 bytes, the raw ML-DSA-65 signature.
+/// - `message` - the message that was signed, verified as-is with an empty context string. The
+///   host does **not** pre-hash it, and neither should the caller.
+/// - `public_key` - the raw 1952-byte ML-DSA-65 public key (the `ml-dsa-65:` key data, without
+///   the curve tag).
+///
+/// Returns `true` if the signature is valid, `false` otherwise. Unlike the sizes above, which the
+/// array types enforce at compile time, a malformed key or signature aborts the call on-chain with
+/// `MlDsaVerifyInvalidInput`.
+///
+/// # Requirements
+///
+/// Requires the host to support the `ml_dsa_verify` host function (nearcore protocol version 87+,
+/// shipped in nearcore 2.14). Costs 540 Ggas plus 11 Mgas per message byte.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::ml_dsa_verify;
+///
+/// let signature: [u8; 3309] = [0; 3309];
+/// let public_key: [u8; 1952] = [0; 1952];
+/// assert!(!ml_dsa_verify(&signature, b"message", &public_key));
+/// ```
+pub fn ml_dsa_verify(
+    signature: &[u8; 3309],
+    message: impl AsRef<[u8]>,
+    public_key: &[u8; 1952],
+) -> bool {
+    let message = message.as_ref();
+
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            sys::ml_dsa_verify(
+                signature.len() as _,
+                signature.as_ptr() as _,
+                message.len() as _,
+                message.as_ptr() as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            ) == 1
+        }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        // Kept here rather than in `near-sdk-env` (where the sha3 helpers live) because the
+        // off-chain verifier is `near-crypto`, which pulls a non-optional aws-lc-rs C build that
+        // cannot compile for wasm32. `near-sdk-env` has to build for wasm32 unconditionally and
+        // has no `non-contract-usage` split, so this stays next to `ed25519_verify` and
+        // `p256_verify`, which are gated the same way.
+        use near_crypto::{MlDsa65PublicKey, MlDsa65Signature, PublicKey, Signature};
+
+        let Ok(signature) = MlDsa65Signature::try_from(&signature[..]) else {
+            return false;
+        };
+        let Ok(public_key) = MlDsa65PublicKey::try_from(&public_key[..]) else {
+            return false;
+        };
+        Signature::MLDSA65(signature).verify(message, &PublicKey::MLDSA65(public_key))
+    }
 }
 
 /// Compute alt_bn128 g1 multiexp.
@@ -2463,6 +2546,142 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
     }
 }
 
+// ##########################
+// # Universal Accounts API #
+// ##########################
+
+/// Returns the `0u` universal account id that the given [`UniversalStateInit`] creates.
+///
+/// The id is the SHA3-256 hash of the canonical borsh encoding of `state_init`, Crockford-base32
+/// encoded. Use it to know the address of an account before creating it with
+/// [`promise_batch_action_universal_state_init`], or to check that a caller-supplied id matches a
+/// state init. [`UniversalStateInit::derive_account_id`] computes the same id from the `sha3_256`
+/// host function instead of this one.
+///
+/// Uses low-level [`crate::sys::universal_state_init_to_account_id`]; see
+/// [`universal_state_init_to_account_id_raw`] to pass the borsh bytes directly.
+///
+/// # Requirements
+///
+/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// nearcore 2.14).
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env;
+/// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+///
+/// let state_init = UniversalStateInit::from(
+///     UniversalStateInitV1::default().with_access_key(env::signer_account_pk()),
+/// );
+/// let account_id = env::universal_state_init_to_account_id(&state_init);
+/// assert_eq!(account_id, state_init.derive_account_id());
+/// ```
+pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
+    universal_state_init_to_account_id_raw(&state_init.to_bytes())
+}
+
+/// Like [`universal_state_init_to_account_id`], but takes the borsh-encoded state init bytes
+/// directly, so a contract can derive the id for a state-init version this SDK predates.
+///
+/// The account id commits to exactly these bytes: two encodings of the same logical state init
+/// are two different accounts.
+///
+/// # Requirements
+///
+/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// nearcore 2.14).
+pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "non-contract-usage"),
+        all(feature = "unit-testing", not(test)),
+    ))]
+    {
+        unsafe {
+            sys::universal_state_init_to_account_id(
+                state_init.len() as _,
+                state_init.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        };
+        assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "non-contract-usage",
+        any(not(feature = "unit-testing"), test),
+    ))]
+    {
+        near_account_id::UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
+    }
+}
+
+/// Appends a `UniversalStateInit` action to the batch of actions for the given promise pointed
+/// by `promise_index`, creating the `0u` universal account that `state_init` describes and
+/// funding it with `amount`.
+///
+/// The promise's receiver must be the account id `state_init` derives to (see
+/// [`universal_state_init_to_account_id`]); the runtime checks that when the receipt is
+/// validated, not here.
+///
+/// More info about batching [here](crate::env::promise_batch_create). Prefer
+/// [`crate::Promise::universal_state_init`] unless you need the low-level API.
+///
+/// Uses low-level [`crate::sys::promise_batch_action_universal_state_init`]; see
+/// [`promise_batch_action_universal_state_init_raw`] to pass the borsh bytes directly.
+///
+/// # Requirements
+///
+/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// nearcore 2.14).
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::env::{promise_batch_action_universal_state_init, promise_batch_create, universal_state_init_to_account_id};
+/// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+/// use near_sdk::{GlobalContractId, NearToken};
+///
+/// let state_init = UniversalStateInit::from(
+///     UniversalStateInitV1::default()
+///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
+///         .with_data_entry(b"owner", b"alice.near"),
+/// );
+/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init));
+/// promise_batch_action_universal_state_init(promise, &state_init, NearToken::from_millinear(10));
+/// ```
+pub fn promise_batch_action_universal_state_init(
+    promise_index: PromiseIndex,
+    state_init: &UniversalStateInit,
+    amount: NearToken,
+) {
+    promise_batch_action_universal_state_init_raw(promise_index, &state_init.to_bytes(), amount)
+}
+
+/// Like [`promise_batch_action_universal_state_init`], but takes the borsh-encoded state init
+/// bytes directly, so a contract can create an account from a state-init version this SDK
+/// predates. The bytes travel into the action verbatim.
+///
+/// # Requirements
+///
+/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// nearcore 2.14).
+pub fn promise_batch_action_universal_state_init_raw(
+    promise_index: PromiseIndex,
+    state_init: &[u8],
+    amount: NearToken,
+) {
+    unsafe {
+        sys::promise_batch_action_universal_state_init(
+            promise_index.0,
+            state_init.len() as _,
+            state_init.as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        )
+    }
+}
+
 // ###############
 // # Validator API #
 // ###############
@@ -2799,6 +3018,22 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pinned to nearcore's `test_derive_universal_account_id` key-only vector, so this holds
+    /// whether the id comes from the mocked host function or the off-chain derivation.
+    #[test]
+    fn universal_state_init_to_account_id_matches_nearcore() {
+        use crate::universal_state_init::{PublicKeyHandle, UniversalStateInitV1};
+
+        let state_init = UniversalStateInit::from(
+            UniversalStateInitV1::default()
+                .with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
+        );
+        let account_id = universal_state_init_to_account_id(&state_init);
+        assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
+        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
+        assert_eq!(account_id, state_init.derive_account_id());
+    }
 
     #[test]
     fn test_is_valid_account_id_strings() {

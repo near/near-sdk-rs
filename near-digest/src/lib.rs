@@ -46,8 +46,9 @@
 //! | `sha2::Sha256` | `sha2` | `sha256_array` |
 //! | `sha3::Keccak256` | `sha3` | `keccak256_array` |
 //! | `sha3::Keccak512` | `sha3` | `keccak512_array` |
-//! | `sha3::Sha3_256` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
-//! | `sha3::Sha3_512` | `sha3` + `unstable` | - (pure Rust on all targets for now) |
+//! | `sha3::Sha3_256` | `sha3` | `sha3_256` |
+//! | `sha3::Sha3_384` | `sha3` | `sha3_384` |
+//! | `sha3::Sha3_512` | `sha3` | `sha3_512` |
 //! | `ripemd::Ripemd160` | `ripemd` | `ripemd160_array` |
 //!
 //! Additional features:

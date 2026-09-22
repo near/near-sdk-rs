@@ -52,6 +52,12 @@ near-crypto = { version = "=0.38.0-rc.2", default-features = false, optional = t
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
 
+# `PublicKeyHandle` hashes ML-DSA-65 keys with SHA3-256. On-chain that is the `sha3_256` host
+# function via `near-sdk-env`; off-chain it is pure Rust, like `near-global-contracts` does for
+# its own derivation.
+[target.'cfg(not(near))'.dependencies]
+sha3 = { version = "0.11" }
+
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
 near-sdk = { path = "../near-sdk", features = ["unit-testing"] }

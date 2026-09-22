@@ -42,8 +42,9 @@ hex = { version = "0.4", optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-# nearcore 0.38 requires near-account-id 3 (adds `AccountType::UniversalAccount`).
-near-account-id = { version = "3", features = ["serde", "borsh"] }
+# nearcore 0.38 requires near-account-id 3 (adds `AccountType::UniversalAccount`); 3.1 adds
+# `UniversalAccountId::from_hash`, which the off-chain `universal_state_init_to_account_id` uses.
+near-account-id = { version = "3.1", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
@@ -163,8 +164,9 @@ __macro-docs = []
 # Minimum nearcore protocol version this release of near-sdk targets.
 # Read by cargo-near to determine the maximum rustc version allowed when
 # building contracts that depend on this near-sdk. PV 84 (nearcore 2.12)
-# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+.
-min_protocol_version = 84
+# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+; PV 87
+# (nearcore 2.14) is what the unconditional protocol 87 imports require.
+min_protocol_version = 87
 
 [package.metadata.docs.rs]
 all-features = true
