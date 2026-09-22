@@ -42,7 +42,8 @@ hex = { version = "0.4", optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-account-id = { version = "2.3.0", features = ["serde", "borsh"] }
+# nearcore 0.38 requires near-account-id 3 (adds `AccountType::UniversalAccount`).
+near-account-id = { version = "3", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
@@ -67,12 +68,16 @@ p256 = { version = "0.13.2", default-features = false, features = [
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.37.0", default-features = false, optional = true }
-near-primitives-core = { version = "0.37.0", optional = true }
-near-primitives = { version = "0.37.0", optional = true }
-near-crypto = { version = "0.37.0", default-features = false, optional = true }
+# nearcore 2.14 (protocol 87) adds the ml_dsa_verify, sha3_* and universal-account host
+# functions. Pinned to the published 2.14 release candidate `0.38.0-rc.2`; all nearcore-versioned
+# crates across the workspace must use the same version so their types unify. Bump to `0.38.0`
+# (drop the `=`) once 2.14 ships stable.
+near-vm-runner = { version = "=0.38.0-rc.2", default-features = false, optional = true }
+near-primitives-core = { version = "=0.38.0-rc.2", optional = true }
+near-primitives = { version = "=0.38.0-rc.2", optional = true }
+near-crypto = { version = "=0.38.0-rc.2", default-features = false, optional = true }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "0.37.0", optional = true }
+near-parameters = { version = "=0.38.0-rc.2", optional = true }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
