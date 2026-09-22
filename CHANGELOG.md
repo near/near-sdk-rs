@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v6.0.0) - 2026-09-22
+
+### Added
+
+- add ml_dsa_verify, sha3 hashes, and universal state init (nearcore 2.14) ([#1631](https://github.com/near/near-sdk-rs/pull/1631))
+- typed `env::bls12381` module ([#1613](https://github.com/near/near-sdk-rs/pull/1613))
+
+### Fixed
+
+- *(env)* [**breaking**] bls host functions should return None on error ([#1623](https://github.com/near/near-sdk-rs/pull/1623))
+
+### Other
+
+- *(examples)* pin sandbox to 2.14.0-rc.2 ([#1630](https://github.com/near/near-sdk-rs/pull/1630))
+- *(unit-testing)* [**breaking**] back the mock with nearcore's host functions ([#1629](https://github.com/near/near-sdk-rs/pull/1629))
+
 ## [5.29.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.0...near-sdk-v5.29.1) - 2026-08-27
 
 ### Fixed
