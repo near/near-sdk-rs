@@ -178,7 +178,13 @@ impl ImplItemMethodInfo {
                 }
             }
 
-            View(_) => quote! {},
+            View(view_method) => {
+                if !view_method.is_payable {
+                    reject_deposit_code()
+                } else {
+                    quote! {}
+                }
+            }
         }
     }
 
