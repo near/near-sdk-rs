@@ -124,6 +124,7 @@ where
     /// Writes any changes to the value to storage. This will automatically be done when the
     /// value is dropped through [`Drop`] so this should only be used when the changes need to be
     /// reflected in the underlying storage before then.
+    #[inline]
     pub fn flush(&mut self) {
         if let Some(v) = self.cache.get_mut()
             && v.is_modified()
