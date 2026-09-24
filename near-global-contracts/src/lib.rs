@@ -64,3 +64,7 @@ pub use universal_state_init::*;
 // Re-export the underlying AccountId so consumers don't have to add `near-account-id` to their
 // Cargo.toml just to spell out the return type of `derive_account_id`.
 pub use near_account_id::AccountId;
+
+// `UniversalStateInitV1::access_keys` holds these; re-exported so off-chain users can build a
+// state init without a direct `near-sdk-core` dependency.
+pub use near_sdk_core::types::PublicKeyHandle;
