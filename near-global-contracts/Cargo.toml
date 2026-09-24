@@ -79,7 +79,10 @@ borsh = [
     "near-sdk-core/borsh",
 ]
 
+# A JSON schema describes the serde form, and the base64 adapters (`serde_as`) that shape it only
+# exist with `serde`, so this (and `abi`) turns `serde` on.
 schemars-v0_8 = [
+    "serde",
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "serde_with/schemars_0_8",
