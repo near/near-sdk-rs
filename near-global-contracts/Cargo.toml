@@ -22,6 +22,8 @@ features = ["serde", "borsh", "abi", "near-primitives-interop"]
 # 3.1 adds `UniversalAccountId::from_hash`, the `0u` encoder `derive_universal_account_id` uses.
 near-account-id = { version = "3.1", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+# SHA3-256 for the `0u` id: the `sha3_256` host function on `cfg(near)`, pure Rust otherwise.
+near-digest = { path = "../near-digest/", version = "0.1.2", features = ["sha3"] }
 # `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
 # which lives next to `PublicKey` in near-sdk-core.
 near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.3" }

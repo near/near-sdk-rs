@@ -181,13 +181,11 @@ impl UniversalStateInit {
     ///
     /// # Availability
     ///
-    /// Requires the `borsh` feature. The SHA3-256 backend is selected automatically: on-chain
-    /// contract builds (`--cfg near`, set by `cargo-near`) route through the `sha3_256` host
-    /// function via `near-sdk-env`, and all other builds use pure-Rust `sha3::Sha3_256`. Both
-    /// produce identical output.
+    /// Requires the `borsh` feature. See [`derive_universal_account_id`] for the SHA3-256
+    /// backend.
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        derive_universal_account_id(&self.to_bytes())
+        derive_universal_account_id(self.to_bytes())
     }
 }
 
@@ -196,20 +194,18 @@ impl UniversalStateInit {
 ///
 /// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
 /// this crate predates.
-pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::AccountId {
-    let hash: [u8; 32];
+///
+/// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in contract
+/// builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical output.
+pub fn derive_universal_account_id(state_init: impl AsRef<[u8]>) -> near_account_id::AccountId {
+    // Non-generic body, so each caller's argument type does not get its own copy.
+    fn derive(state_init: &[u8]) -> near_account_id::AccountId {
+        use near_digest::Digest;
 
-    #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-    {
-        hash = near_sdk_env::sha3_256(state_init);
+        let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(state_init).into();
+        UniversalAccountId::from_hash(hash).into_account_id()
     }
-    #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-    {
-        use sha3::Digest;
-        hash = sha3::Sha3_256::digest(state_init).into();
-    }
-
-    UniversalAccountId::from_hash(hash).into_account_id()
+    derive(state_init.as_ref())
 }
 
 #[cfg(test)]
