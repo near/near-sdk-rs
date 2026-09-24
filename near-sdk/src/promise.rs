@@ -94,7 +94,7 @@ enum PromiseAction {
         deposit: NearToken,
     },
     UniversalStateInit {
-        state_init: crate::universal_state_init::UniversalStateInit,
+        state_init: crate::universal_state_init::RawStateInit,
         deposit: NearToken,
     },
 }
@@ -229,7 +229,7 @@ impl PromiseAction {
             UniversalStateInit { state_init, deposit } => {
                 crate::env::promise_batch_action_universal_state_init(
                     promise_index,
-                    state_init.to_raw(),
+                    &state_init,
                     deposit,
                 )
             }
@@ -599,14 +599,21 @@ impl Promise {
         self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
     }
 
-    /// Creates the `0u` universal account described by `state_init`, funding it with `deposit`.
+    /// Adds an action that creates the `0u` universal account for `state_init` and funds it with
+    /// `deposit` ([NEP-655]).
     ///
-    /// The promise must target the account id `state_init` derives to
-    /// ([`UniversalStateInit::derive_account_id`](crate::universal_state_init::UniversalStateInit::derive_account_id)
-    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id));
-    /// the runtime rejects the receipt otherwise.
+    /// The promise's receiver must be the account id these exact bytes derive to
+    /// ([`RawStateInit::derive_account_id`](crate::universal_state_init::RawStateInit::derive_account_id)
+    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)).
+    /// The runtime validates the new receipt when the calling function call finishes, and a
+    /// mismatch fails that call and rolls back its state changes.
     ///
-    /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`]
+    /// `state_init` converts into a
+    /// [`RawStateInit`](crate::universal_state_init::RawStateInit), whose bytes go into the action
+    /// verbatim; typed values are encoded once here. Forward bytes you were handed as they are:
+    /// decoding and re-encoding them can change the account they derive to.
+    ///
+    /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`].
     ///
     /// # Requirements
     ///
@@ -614,11 +621,35 @@ impl Promise {
     /// nearcore 2.14).
     ///
     /// # Examples
+    ///
+    /// A factory that creates accounts from state-init bytes its callers built, taking them as a
+    /// base64 JSON argument:
+    ///
     /// ```no_run
-    /// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+    /// use near_sdk::universal_state_init::RawStateInit;
+    /// use near_sdk::{env, near, Promise};
+    ///
+    /// #[near(contract_state)]
+    /// #[derive(Default)]
+    /// pub struct Factory;
+    ///
+    /// #[near]
+    /// impl Factory {
+    ///     #[payable]
+    ///     pub fn create(&mut self, state_init: RawStateInit) -> Promise {
+    ///         Promise::new(state_init.derive_account_id())
+    ///             .universal_state_init(state_init, env::attached_deposit())
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Building the state init in the contract:
+    ///
+    /// ```no_run
+    /// use near_sdk::universal_state_init::{RawStateInit, UniversalStateInitV1};
     /// use near_sdk::{env, GlobalContractId, NearToken, Promise};
     ///
-    /// let state_init = UniversalStateInit::from(
+    /// let state_init = RawStateInit::from(
     ///     UniversalStateInitV1::default()
     ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
     ///         .with_access_key(env::signer_account_pk()),
@@ -626,12 +657,17 @@ impl Promise {
     /// Promise::new(state_init.derive_account_id())
     ///     .universal_state_init(state_init, NearToken::from_millinear(10));
     /// ```
+    ///
+    /// [NEP-655]: https://github.com/near/NEPs/pull/655
     pub fn universal_state_init(
         self,
-        state_init: crate::universal_state_init::UniversalStateInit,
+        state_init: impl Into<crate::universal_state_init::RawStateInit>,
         deposit: NearToken,
     ) -> Self {
-        self.add_action(PromiseAction::UniversalStateInit { state_init, deposit })
+        self.add_action(PromiseAction::UniversalStateInit {
+            state_init: state_init.into(),
+            deposit,
+        })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
