@@ -23,8 +23,8 @@ use serde_with::base64::Base64;
 /// base64 string (how RPC shows it). Neither wrapper encoding is what the id hashes: that is
 /// `self.0` alone.
 ///
-/// Build one from a typed value with [`UniversalStateInit::to_raw`] (or `From`), or wrap bytes you
-/// were handed with `RawStateInit::from(bytes)`.
+/// Build one from a typed value with `UniversalStateInit::to_raw` or `From` (both need the `borsh`
+/// feature), or wrap bytes you were handed with `RawStateInit::from(bytes)`.
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -9,7 +9,7 @@ homepage.workspace = true
 rust-version = "1.88"
 readme = "./README.md"
 description = """
-Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
+Global contract identifiers and account derivation for deterministic (NEP-616, `0s`) and universal (NEP-655, `0u`) accounts for the NEAR SDK.
 """
 
 # Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
