@@ -42,8 +42,9 @@ hex = { version = "0.4", optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-# nearcore 0.38 requires near-account-id 3 (adds `AccountType::UniversalAccount`); 3.1 adds the
-# `0u` encoder that near-global-contracts' `derive_universal_account_id` uses.
+# nearcore 0.38 requires near-account-id 3 (adds `AccountType::UniversalAccount`). 3.2 adds the
+# `0u` encoder near-global-contracts uses (patched from git until published; the requirement
+# becomes "3.2" when the patch is dropped).
 near-account-id = { version = "3.1", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }

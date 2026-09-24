@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use near_account_id::UniversalAccountId;
 use near_sdk_core::types::PublicKeyHandle;
 
 use crate::GlobalContractId;
@@ -317,7 +316,7 @@ pub fn derive_universal_account_id(state_init: impl AsRef<[u8]>) -> near_account
         use near_digest::Digest;
 
         let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(state_init).into();
-        UniversalAccountId::from_hash(hash).into_account_id()
+        near_account_id::encode_universal_account_id(&hash)
     }
     derive(state_init.as_ref())
 }
@@ -354,10 +353,9 @@ mod tests {
     #[test]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
-            let account_id = UniversalAccountId::from_hash(*hash);
+            let account_id = near_account_id::encode_universal_account_id(hash);
             assert_eq!(account_id.as_str(), *expected);
-            assert_eq!(account_id.to_string(), *expected);
-            assert_eq!(account_id.into_account_id(), expected.parse::<AccountId>().unwrap());
+            assert_eq!(account_id, expected.parse::<AccountId>().unwrap());
         }
     }
 

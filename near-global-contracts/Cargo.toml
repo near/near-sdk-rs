@@ -19,7 +19,9 @@ Global contract identifiers and account derivation for deterministic (NEP-616, `
 features = ["serde", "borsh", "abi", "near-primitives-interop"]
 
 [dependencies]
-# 3.1 adds `UniversalAccountId::from_hash`, the `0u` encoder `derive_universal_account_id` uses.
+# `encode_universal_account_id`, the `0u` encoder `derive_universal_account_id` uses, is new in
+# 3.2 (patched from git until published; the requirement becomes "3.2" when the patch is dropped).
+# `internal_unstable` is for `AccountId::new_unvalidated` in the `0s` derivation.
 near-account-id = { version = "3.1", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
 # SHA3-256 for the `0u` id: the `sha3_256` host function on `cfg(near)`, pure Rust otherwise.
