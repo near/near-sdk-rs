@@ -325,6 +325,7 @@ pub fn derive_universal_account_id(state_init: impl AsRef<[u8]>) -> near_account
 #[cfg(test)]
 mod tests {
     use super::*;
+    use near_account_id::AccountId;
 
     /// Known-answer vectors from nearcore's `universal_account_id.rs`.
     const UAID_KATS: &[([u8; 32], &str)] = &[
@@ -356,7 +357,7 @@ mod tests {
             let account_id = UniversalAccountId::from_hash(*hash);
             assert_eq!(account_id.as_str(), *expected);
             assert_eq!(account_id.to_string(), *expected);
-            assert_eq!(account_id.hash(), *hash);
+            assert_eq!(account_id.into_account_id(), expected.parse::<AccountId>().unwrap());
         }
     }
 
@@ -366,41 +367,6 @@ mod tests {
             UniversalStateInitV1::default()
                 .with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
         )
-    }
-
-    #[cfg(feature = "borsh")]
-    fn contract() -> UniversalStateInit {
-        UniversalStateInit::V1(
-            UniversalStateInitV1::default()
-                .with_code(GlobalContractId::CodeHash([0x22; 32]))
-                .with_data_entry(b"key", b"value"),
-        )
-    }
-
-    /// Borsh bytes pinned to nearcore's `UniversalStateInit` encoding (`near-primitives`
-    /// `universal_state_init.rs`).
-    #[test]
-    #[cfg(feature = "borsh")]
-    fn borsh_encoding_matches_nearcore() {
-        // V1 | code: None | data: 0 entries | access_keys: 1 x (tag 3, 32 bytes)
-        let mut expected = vec![0u8, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3];
-        expected.extend_from_slice(&[0x11; 32]);
-        assert_eq!(key_only().to_raw().0, expected);
-
-        // V1 | code: Some(CodeHash) | data: 1 entry | access_keys: 0
-        let mut expected = vec![0u8, 1, 0];
-        expected.extend_from_slice(&[0x22; 32]);
-        expected.extend_from_slice(&[1, 0, 0, 0, 3, 0, 0, 0]);
-        expected.extend_from_slice(b"key");
-        expected.extend_from_slice(&[5, 0, 0, 0]);
-        expected.extend_from_slice(b"value");
-        expected.extend_from_slice(&[0, 0, 0, 0]);
-        assert_eq!(contract().to_raw().0, expected);
-
-        for state_init in [key_only(), contract()] {
-            let decoded = UniversalStateInit::from_raw(&state_init.to_raw()).unwrap();
-            assert_eq!(decoded, state_init);
-        }
     }
 
     #[test]
@@ -415,18 +381,171 @@ mod tests {
         assert!(UniversalStateInit::from_raw(&vec![1].into()).is_err());
     }
 
-    /// Account ids pinned to nearcore's `test_derive_universal_account_id` vectors.
+    /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against
+    /// `near-primitives =0.38.0-rc.2` (`UniversalStateInit::to_raw`, `derive_universal_account_id`)
+    /// before being pinned here. The last one is the NEP-655 Appendix A wallet vector.
+    #[cfg(feature = "borsh")]
+    fn known_answers() -> Vec<(&'static str, UniversalStateInitV1, &'static str, &'static str)> {
+        let v1 = UniversalStateInitV1::default;
+        let wallet_code = || {
+            GlobalContractId::AccountId(
+                "0sb0d7ef4f935c6ef78e08ad03569767aaec4223a3".parse().unwrap(),
+            )
+        };
+        vec![
+            (
+                "empty",
+                v1(),
+                "00000000000000000000",
+                "0u1kajgpx8a97y8ap8y03pvt8kbm2p2cn9k5h17bgw1wa21j88865g",
+            ),
+            (
+                "code by account id",
+                v1().with_code(GlobalContractId::AccountId("code.near".parse().unwrap())),
+                "00010109000000636f64652e6e6561720000000000000000",
+                "0uartat3agnh029e3nqsqzxtz5pd3130stv6a2eafszq4vgg56kaag",
+            ),
+            (
+                "code by hash",
+                v1().with_code(GlobalContractId::CodeHash([0x22; 32])),
+                "00010022222222222222222222222222222222222222222222222222222222222222220000000000000000",
+                "0uk6fe1b5tnfxn87yhtc36czcehzd4ngf25crhj17871kax56nhxx0",
+            ),
+            (
+                "data inserted out of order, empty key, prefix keys",
+                v1().with_data_entry(b"b", b"2")
+                    .with_data_entry(b"a", b"1")
+                    .with_data_entry(b"ab", b"")
+                    .with_data_entry(b"", b"empty-key")
+                    .with_data_entry([0xff, 0x00], [0x00; 3]),
+                "0000050000000000000009000000656d7074792d6b657901000000610100000031020000006162000000000100000062010000003202000000ff000300000000000000000000",
+                "0u88nzp537q37vgx90hrjbmqv7dhbc776w4ynj514djahna1cnce5g",
+            ),
+            (
+                "nearcore key-only",
+                v1().with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
+                "00000000000001000000031111111111111111111111111111111111111111111111111111111111111111",
+                "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g",
+            ),
+            (
+                "nearcore contract",
+                v1().with_code(GlobalContractId::CodeHash([0x22; 32])).with_data_entry(b"key", b"value"),
+                "000100222222222222222222222222222222222222222222222222222222222222222201000000030000006b65790500000076616c756500000000",
+                "0uzvdgbyea2rd8ywx0kw3cg4vc0ez1x5fc2gyks4fdz9ae0xxvzan0",
+            ),
+            (
+                "NEP-655 Appendix A wallet",
+                v1().with_code(wallet_code()).with_data_entry(
+                    b"",
+                    hex::decode("01000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02ae5c6466100e00000000000000000000000000000000000000000000").unwrap(),
+                ),
+                "0001012a00000030736230643765663466393335633665663738653038616430333536393736376161656334323233613301000000000000003d00000001000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02ae5c6466100e0000000000000000000000000000000000000000000000000000",
+                "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0",
+            ),
+        ]
+    }
+
     #[test]
     #[cfg(feature = "borsh")]
-    fn derive_account_id_matches_nearcore() {
+    fn matches_nearcore_and_nep655_known_answers() {
+        for (name, state_init, bytes, id) in known_answers() {
+            let state_init = UniversalStateInit::from(state_init);
+            let raw = RawStateInit(hex::decode(bytes).unwrap());
+            assert_eq!(state_init.to_raw(), raw, "{name}: bytes");
+            assert_eq!(UniversalStateInit::from_raw(&raw).unwrap(), state_init, "{name}: decode");
+            assert_eq!(raw.derive_account_id().as_str(), id, "{name}: id");
+            assert_eq!(state_init.derive_account_id().as_str(), id, "{name}: typed id");
+            assert_eq!(derive_universal_account_id(&raw.0).as_str(), id, "{name}: free fn id");
+        }
+    }
+
+    /// Ids of larger state inits (every key kind, everything together), from the same
+    /// differential run against nearcore; the id pins the bytes.
+    #[test]
+    #[cfg(feature = "borsh")]
+    fn matches_nearcore_known_answer_ids() {
+        let mut ed25519_high = [0; 32];
+        ed25519_high[0] = 0xff;
+        let keys = [
+            PublicKeyHandle::MLDSA65Hash([0x00; 32]),
+            PublicKeyHandle::SECP256K1([0x01; 64]),
+            PublicKeyHandle::ED25519(ed25519_high),
+            PublicKeyHandle::ED25519([0x00; 32]),
+            PublicKeyHandle::MLDSA65Hash([0xff; 32]),
+            PublicKeyHandle::SECP256K1([0x00; 64]),
+        ];
+        let keys_only = keys
+            .iter()
+            .cloned()
+            .fold(UniversalStateInitV1::default(), |v1, k| v1.with_access_key(k));
+        let everything = keys_only
+            .clone()
+            .with_code(GlobalContractId::AccountId(
+                "0sb0d7ef4f935c6ef78e08ad03569767aaec4223a3".parse().unwrap(),
+            ))
+            .with_data_entry(b"k", b"v");
+        for (state_init, len, id) in [
+            (keys_only, 272, "0upcrgsbq81vedn1tsvw10heb4rjzdjmasxc8wayh26jpj5nemrqsg"),
+            (everything, 329, "0utr5yk5pdhjg932r5px1mf7vd6evsh0x46fn6g3zscys5b2y6d480"),
+        ] {
+            let raw = RawStateInit::from(state_init);
+            assert_eq!(raw.0.len(), len);
+            assert_eq!(raw.derive_account_id().as_str(), id);
+        }
+    }
+
+    /// Non-canonical bytes are accepted and derive their own id, which re-encoding loses. Values
+    /// match nearcore's `derive_universal_account_id` and `UniversalStateInit::from_raw`.
+    #[test]
+    #[cfg(feature = "borsh")]
+    fn non_canonical_bytes_keep_their_own_id() {
+        fn entries(entries: &[(&[u8], &[u8])]) -> Vec<u8> {
+            let mut bytes = vec![0, 0];
+            bytes.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+            for (key, value) in entries {
+                bytes.extend_from_slice(&(key.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(key);
+                bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(value);
+            }
+            bytes.extend_from_slice(&0u32.to_le_bytes());
+            bytes
+        }
+
+        let unsorted = RawStateInit(entries(&[(b"b", b""), (b"a", b"")]));
+        let decoded = UniversalStateInit::from_raw(&unsorted).unwrap();
+        assert_ne!(decoded.to_raw(), unsorted);
         assert_eq!(
-            key_only().derive_account_id().as_str(),
-            "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g"
+            unsorted.derive_account_id().as_str(),
+            "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag"
         );
         assert_eq!(
-            contract().derive_account_id().as_str(),
-            "0uzvdgbyea2rd8ywx0kw3cg4vc0ez1x5fc2gyks4fdz9ae0xxvzan0"
+            decoded.derive_account_id().as_str(),
+            "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg"
         );
+
+        // Duplicate keys: last one wins on decode, like nearcore.
+        let duplicate = RawStateInit(entries(&[(b"a", b"1"), (b"a", b"2")]));
+        let decoded = UniversalStateInit::from_raw(&duplicate).unwrap();
+        assert_eq!(decoded.data().get(&b"a"[..]), Some(&b"2".to_vec()));
+        assert_ne!(decoded.to_raw(), duplicate);
+        assert_ne!(decoded.derive_account_id(), duplicate.derive_account_id());
+
+        // Tag 2 (a full ML-DSA-65 key) is not a valid handle.
+        let mut full_key = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2];
+        full_key.extend_from_slice(&[0; 32]);
+        assert!(UniversalStateInit::from_raw(&full_key.into()).is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "near-primitives-interop")]
+    fn raw_state_init_converts_to_and_from_nearcore() {
+        use near_primitives_core::universal_state_init::RawStateInit as NearcoreRawStateInit;
+
+        let raw = RawStateInit(vec![0, 1, 2]);
+        let nearcore = NearcoreRawStateInit::from(raw.clone());
+        assert_eq!(nearcore.0, raw.0);
+        assert_eq!(RawStateInit::from(nearcore), raw);
     }
 
     #[test]
