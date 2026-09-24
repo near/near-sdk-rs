@@ -129,6 +129,10 @@ const _: () = {
 ///
 /// The discriminant is the only version marker; new fields or semantics arrive as a new variant.
 ///
+/// JSON deserialized into this type re-encodes to the canonical bytes, but the id commits to the
+/// bytes, so anything forwarding a state init it did not build must carry the [`RawStateInit`],
+/// not the typed value.
+///
 /// Contract authors reach this through `near-sdk`, which re-exports it under
 /// `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
 /// derive the same id here without the SDK.
@@ -186,14 +190,10 @@ pub struct UniversalStateInitV1 {
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub code: Option<GlobalContractId>,
     /// Initial storage; empty unless seeded. Sorted keys give a canonical encoding.
-    #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
-    #[cfg_attr(
-        feature = "schemars-v0_8",
-        schemars(with = "::std::collections::BTreeMap<String, String>")
-    )]
     #[cfg_attr(
         feature = "serde",
-        serde(default, skip_serializing_if = "::std::collections::BTreeMap::is_empty")
+        serde(default, skip_serializing_if = "BTreeMap::is_empty"),
+        serde_as(as = "BTreeMap<Base64, Base64>")
     )]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
     /// Full-access keys as compact on-trie handles. Sorted for a canonical encoding.
@@ -466,6 +466,16 @@ mod tests {
         assert_eq!(raw.derive_account_id(), key_only().derive_account_id());
         assert_eq!(raw.derive_account_id(), derive_universal_account_id(&raw.0));
         assert_ne!(raw.derive_account_id(), derive_universal_account_id(expected));
+    }
+
+    #[test]
+    #[cfg(feature = "schemars-v0_8")]
+    fn typed_data_json_schema_is_base64() {
+        let schema = serde_json::to_value(schemars_v0_8::schema_for!(UniversalStateInit)).unwrap();
+        let data = &schema["definitions"]["UniversalStateInitV1"]["properties"]["data"];
+        assert_eq!(data["type"], "object");
+        assert_eq!(data["additionalProperties"]["type"], "string");
+        assert_eq!(data["additionalProperties"]["contentEncoding"], "base64");
     }
 
     #[test]
