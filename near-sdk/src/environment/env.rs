@@ -2578,7 +2578,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// assert_eq!(account_id, state_init.derive_account_id());
 /// ```
 pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
-    universal_state_init_to_account_id_raw(&state_init.to_bytes())
+    universal_state_init_to_account_id_raw(&state_init.to_raw().0)
 }
 
 /// Like [`universal_state_init_to_account_id`], but takes the borsh-encoded state init bytes
@@ -2656,7 +2656,7 @@ pub fn promise_batch_action_universal_state_init(
     state_init: &UniversalStateInit,
     amount: NearToken,
 ) {
-    promise_batch_action_universal_state_init_raw(promise_index, &state_init.to_bytes(), amount)
+    promise_batch_action_universal_state_init_raw(promise_index, &state_init.to_raw().0, amount)
 }
 
 /// Like [`promise_batch_action_universal_state_init`], but takes the borsh-encoded state init
@@ -3031,7 +3031,7 @@ mod tests {
         );
         let account_id = universal_state_init_to_account_id(&state_init);
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
-        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
+        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_raw().0));
         assert_eq!(account_id, state_init.derive_account_id());
     }
 
