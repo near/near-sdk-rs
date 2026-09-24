@@ -229,7 +229,7 @@ impl PromiseAction {
             UniversalStateInit { state_init, deposit } => {
                 crate::env::promise_batch_action_universal_state_init(
                     promise_index,
-                    &state_init,
+                    state_init.to_raw(),
                     deposit,
                 )
             }
