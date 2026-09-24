@@ -48,3 +48,8 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
+
+# Temporary: near-account-id 3.2 (`encode_universal_account_id`) is not on crates.io yet.
+# Drop this section once near-account-id 3.2.0 is published.
+[patch.crates-io]
+near-account-id = { git = "https://github.com/near/near-account-id-rs", rev = "3d662dd2c04916afb86bbb052ea76e34394717dc" }
