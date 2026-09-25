@@ -6,10 +6,10 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 readme = "./README.md"
 description = """
-Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
+Global contract identifiers and account derivation for deterministic (NEP-616, `0s`) and universal (NEP-655, `0u`) accounts for the NEAR SDK.
 """
 
 # Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
@@ -19,9 +19,13 @@ Global contract identifiers and deterministic account derivation (NEP-616) for t
 features = ["serde", "borsh", "abi", "near-primitives-interop"]
 
 [dependencies]
-# 3.1 adds `UniversalAccountId::from_hash`, the `0u` encoder `derive_universal_account_id` uses.
+# `encode_universal_account_id`, the `0u` encoder `derive_universal_account_id` uses, is new in
+# 3.2 (patched from git until published; the requirement becomes "3.2" when the patch is dropped).
+# `internal_unstable` is for `AccountId::new_unvalidated` in the `0s` derivation.
 near-account-id = { version = "3.1", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+# SHA3-256 for the `0u` id: the `sha3_256` host function on `cfg(near)`, pure Rust otherwise.
+near-digest = { path = "../near-digest/", version = "0.1.2", features = ["sha3"] }
 # `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
 # which lives next to `PublicKey` in near-sdk-core.
 near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.3" }
@@ -75,7 +79,10 @@ borsh = [
     "near-sdk-core/borsh",
 ]
 
+# A JSON schema describes the serde form, and the base64 adapters (`serde_as`) that shape it only
+# exist with `serde`, so this (and `abi`) turns `serde` on.
 schemars-v0_8 = [
+    "serde",
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "serde_with/schemars_0_8",

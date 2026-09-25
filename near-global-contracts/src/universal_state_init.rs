@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use near_account_id::UniversalAccountId;
 use near_sdk_core::types::PublicKeyHandle;
 
 use crate::GlobalContractId;
@@ -8,20 +7,136 @@ use crate::GlobalContractId;
 #[cfg(feature = "serde")]
 use serde_with::base64::Base64;
 
+/// Borsh bytes of a [`UniversalStateInit`]: the form a `0u` universal account is created from and
+/// the only input its account id is derived from ([NEP-655]).
+///
+/// The account id is SHA3-256 over exactly these bytes ([`derive_account_id`](Self::derive_account_id)).
+/// The chain accepts non-canonical encodings (unsorted or duplicate map keys, unsorted key sets) and
+/// derives a *different* account for them than for the canonical encoding of the same logical
+/// value. So code that forwards a state init it did not build itself (a factory, relayer or wallet
+/// contract taking user input) must pass these bytes through as they are, never decode and
+/// re-encode them. Passing bytes through also works for a state-init version this crate predates.
+///
+/// Mirrors nearcore's `near_primitives_core::universal_state_init::RawStateInit`: borsh writes a
+/// `u32` length prefix and the bytes (how the action carries it as a field), and JSON is a single
+/// base64 string (how RPC shows it). Neither wrapper encoding is what the id hashes: that is
+/// `self.0` alone.
+///
+/// Build one from a typed value with `UniversalStateInit::to_raw` or `From` (both need the `borsh`
+/// feature), or wrap bytes you were handed with `RawStateInit::from(bytes)`.
+///
+/// [NEP-655]: https://github.com/near/NEPs/pull/655
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "serde",
+    cfg_eval::cfg_eval,
+    serde_with::serde_as,
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
+)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct RawStateInit(#[cfg_attr(feature = "serde", serde_as(as = "Base64"))] pub Vec<u8>);
+
+impl RawStateInit {
+    /// The `0u` account id these bytes create: SHA3-256 of exactly `self.0`, Crockford-base32
+    /// encoded. Same as [`derive_universal_account_id`].
+    #[inline]
+    pub fn derive_account_id(&self) -> near_account_id::AccountId {
+        derive_universal_account_id(&self.0)
+    }
+}
+
+impl AsRef<[u8]> for RawStateInit {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<Vec<u8>> for RawStateInit {
+    #[inline]
+    fn from(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<RawStateInit> for Vec<u8> {
+    #[inline]
+    fn from(raw: RawStateInit) -> Self {
+        raw.0
+    }
+}
+
+#[cfg(feature = "borsh")]
+impl From<&UniversalStateInit> for RawStateInit {
+    #[inline]
+    fn from(state_init: &UniversalStateInit) -> Self {
+        state_init.to_raw()
+    }
+}
+
+#[cfg(feature = "borsh")]
+impl From<UniversalStateInit> for RawStateInit {
+    #[inline]
+    fn from(state_init: UniversalStateInit) -> Self {
+        state_init.to_raw()
+    }
+}
+
+#[cfg(feature = "borsh")]
+impl From<UniversalStateInitV1> for RawStateInit {
+    #[inline]
+    fn from(state_init: UniversalStateInitV1) -> Self {
+        UniversalStateInit::V1(state_init).to_raw()
+    }
+}
+
+#[cfg(feature = "near-primitives-interop")]
+const _: () = {
+    use near_primitives_core::universal_state_init::RawStateInit as NearcoreRawStateInit;
+
+    impl From<NearcoreRawStateInit> for RawStateInit {
+        #[inline]
+        fn from(NearcoreRawStateInit(bytes): NearcoreRawStateInit) -> Self {
+            Self(bytes)
+        }
+    }
+
+    impl From<RawStateInit> for NearcoreRawStateInit {
+        #[inline]
+        fn from(RawStateInit(bytes): RawStateInit) -> Self {
+            Self(bytes)
+        }
+    }
+};
+
 /// Versioned initial state of a `0u` universal account.
 ///
-/// A universal account is a post-quantum-safe successor to implicit and deterministic accounts:
-/// its address is `0u` followed by the Crockford base32 encoding of the SHA3-256 hash of the
-/// borsh-serialized `UniversalStateInit` that creates it. The id therefore commits to the
-/// *exact bytes* that are hashed, so the types here always emit the canonical encoding (sorted
-/// `BTree*` containers, one struct per version), which matches what nearcore emits for the same
-/// logical value.
+/// A universal account ([NEP-655]) is a post-quantum-safe successor to implicit and deterministic
+/// accounts: its address is `0u` followed by the Crockford base32 encoding of the SHA3-256 hash of
+/// the borsh-serialized `UniversalStateInit` that creates it.
+///
+/// This is a builder and a decoded view. What the chain carries, and what the id commits to, is
+/// the [`RawStateInit`] bytes. Encoding a typed value always gives the canonical bytes (sorted
+/// `BTree*` containers), which match what nearcore emits for the same logical value.
 ///
 /// The discriminant is the only version marker; new fields or semantics arrive as a new variant.
+///
+/// JSON deserialized into this type re-encodes to the canonical bytes, but the id commits to the
+/// bytes, so anything forwarding a state init it did not build must carry the [`RawStateInit`],
+/// not the typed value.
 ///
 /// Contract authors reach this through `near-sdk`, which re-exports it under
 /// `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
 /// derive the same id here without the SDK.
+///
+/// [NEP-655]: https://github.com/near/NEPs/pull/655
 ///
 /// # Requirements
 ///
@@ -74,14 +189,10 @@ pub struct UniversalStateInitV1 {
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub code: Option<GlobalContractId>,
     /// Initial storage; empty unless seeded. Sorted keys give a canonical encoding.
-    #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
-    #[cfg_attr(
-        feature = "schemars-v0_8",
-        schemars(with = "::std::collections::BTreeMap<String, String>")
-    )]
     #[cfg_attr(
         feature = "serde",
-        serde(default, skip_serializing_if = "::std::collections::BTreeMap::is_empty")
+        serde(default, skip_serializing_if = "BTreeMap::is_empty"),
+        serde_as(as = "BTreeMap<Base64, Base64>")
     )]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
     /// Full-access keys as compact on-trie handles. Sorted for a canonical encoding.
@@ -146,48 +257,48 @@ impl UniversalStateInit {
         }
     }
 
-    /// Canonical borsh encoding of this state init: the bytes the account id commits to, and what
-    /// the `promise_batch_action_universal_state_init` host function sends to the runtime.
-    ///
-    /// This is nearcore's `UniversalStateInit::to_raw` without the `RawStateInit` newtype, which
-    /// carries no invariant of its own.
+    /// Canonical borsh encoding of this state init, like nearcore's `UniversalStateInit::to_raw`.
     ///
     /// # Availability
     ///
     /// Requires the `borsh` feature.
     #[cfg(feature = "borsh")]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        borsh::to_vec(self).unwrap_or_else(|_| unreachable!())
+    pub fn to_raw(&self) -> RawStateInit {
+        RawStateInit(borsh::to_vec(self).unwrap_or_else(|_| unreachable!()))
     }
 
-    /// Decodes a borsh-encoded state init, the inverse of [`to_bytes`](Self::to_bytes) and
-    /// nearcore's `UniversalStateInit::from_raw`.
+    /// Decodes raw state-init bytes, like nearcore's `UniversalStateInit::from_raw`.
     ///
-    /// Only trailing or malformed bytes are rejected. A non-canonical encoding of the same
-    /// logical value decodes fine, but the account id commits to the original bytes, so
-    /// re-encoding the result can give a different id. To get the id of bytes you were handed,
-    /// pass those bytes to [`derive_universal_account_id`] instead.
+    /// Trailing bytes, malformed bytes and unknown versions are rejected. A non-canonical encoding
+    /// decodes fine, but the account id commits to the original bytes, so re-encoding the result
+    /// can give a different id. Keep the [`RawStateInit`] to forward it or to derive its id.
+    ///
+    /// Decoding can be stricter than the chain: borsh's `de_strict_order` cargo feature, if any
+    /// crate in the dependency graph enables it, makes this reject unsorted or duplicate keys that
+    /// nearcore accepts. Account ids are unaffected, since they never go through decoding.
     ///
     /// # Availability
     ///
     /// Requires the `borsh` feature.
     #[cfg(feature = "borsh")]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, std::io::Error> {
-        borsh::from_slice(bytes)
+    pub fn from_raw(raw: &RawStateInit) -> Result<Self, std::io::Error> {
+        borsh::from_slice(&raw.0)
     }
 
-    /// The `0u` account id this state init creates: the SHA3-256 hash of [`to_bytes`](Self::to_bytes),
-    /// Crockford-base32 encoded.
+    /// The `0u` account id of this state init's canonical encoding. Shorthand for
+    /// `self.to_raw().derive_account_id()`.
+    ///
+    /// The id commits to the bytes, not the logical value. A contract that forwards a state init
+    /// it was handed must derive the id from those bytes ([`RawStateInit::derive_account_id`]) and
+    /// forward them unchanged, never decode and re-encode.
     ///
     /// # Availability
     ///
-    /// Requires the `borsh` feature. The SHA3-256 backend is selected automatically: on-chain
-    /// contract builds (`--cfg near`, set by `cargo-near`) route through the `sha3_256` host
-    /// function via `near-sdk-env`, and all other builds use pure-Rust `sha3::Sha3_256`. Both
-    /// produce identical output.
+    /// Requires the `borsh` feature. See [`derive_universal_account_id`] for the SHA3-256
+    /// backend.
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        derive_universal_account_id(&self.to_bytes())
+        self.to_raw().derive_account_id()
     }
 }
 
@@ -196,25 +307,24 @@ impl UniversalStateInit {
 ///
 /// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
 /// this crate predates.
-pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::AccountId {
-    let hash: [u8; 32];
+///
+/// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in contract
+/// builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical output.
+pub fn derive_universal_account_id(state_init: impl AsRef<[u8]>) -> near_account_id::AccountId {
+    // Non-generic body, so each caller's argument type does not get its own copy.
+    fn derive(state_init: &[u8]) -> near_account_id::AccountId {
+        use near_digest::Digest;
 
-    #[cfg(any(near, feature = "__near-sdk-unit-testing"))]
-    {
-        hash = near_sdk_env::sha3_256(state_init);
+        let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(state_init).into();
+        near_account_id::encode_universal_account_id(&hash)
     }
-    #[cfg(not(any(near, feature = "__near-sdk-unit-testing")))]
-    {
-        use sha3::Digest;
-        hash = sha3::Sha3_256::digest(state_init).into();
-    }
-
-    UniversalAccountId::from_hash(hash).into_account_id()
+    derive(state_init.as_ref())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use near_account_id::AccountId;
 
     /// Known-answer vectors from nearcore's `universal_account_id.rs`.
     const UAID_KATS: &[([u8; 32], &str)] = &[
@@ -243,10 +353,9 @@ mod tests {
     #[test]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
-            let account_id = UniversalAccountId::from_hash(*hash);
+            let account_id = near_account_id::encode_universal_account_id(hash);
             assert_eq!(account_id.as_str(), *expected);
-            assert_eq!(account_id.to_string(), *expected);
-            assert_eq!(account_id.hash(), *hash);
+            assert_eq!(account_id, expected.parse::<AccountId>().unwrap());
         }
     }
 
@@ -258,65 +367,183 @@ mod tests {
         )
     }
 
-    #[cfg(feature = "borsh")]
-    fn contract() -> UniversalStateInit {
-        UniversalStateInit::V1(
-            UniversalStateInitV1::default()
-                .with_code(GlobalContractId::CodeHash([0x22; 32]))
-                .with_data_entry(b"key", b"value"),
-        )
-    }
-
-    /// Borsh bytes pinned to nearcore's `UniversalStateInit` encoding (`near-primitives`
-    /// `universal_state_init.rs`).
     #[test]
     #[cfg(feature = "borsh")]
-    fn borsh_encoding_matches_nearcore() {
-        // V1 | code: None | data: 0 entries | access_keys: 1 x (tag 3, 32 bytes)
-        let mut expected = vec![0u8, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3];
-        expected.extend_from_slice(&[0x11; 32]);
-        assert_eq!(key_only().to_bytes(), expected);
+    fn from_raw_rejects_trailing_and_truncated_bytes() {
+        let bytes = key_only().to_raw().0;
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(UniversalStateInit::from_raw(&trailing.into()).is_err());
+        assert!(UniversalStateInit::from_raw(&bytes[..bytes.len() - 1].to_vec().into()).is_err());
+        // An unknown version tag is not a state init this crate can type.
+        assert!(UniversalStateInit::from_raw(&vec![1].into()).is_err());
+    }
 
-        // V1 | code: Some(CodeHash) | data: 1 entry | access_keys: 0
-        let mut expected = vec![0u8, 1, 0];
-        expected.extend_from_slice(&[0x22; 32]);
-        expected.extend_from_slice(&[1, 0, 0, 0, 3, 0, 0, 0]);
-        expected.extend_from_slice(b"key");
-        expected.extend_from_slice(&[5, 0, 0, 0]);
-        expected.extend_from_slice(b"value");
-        expected.extend_from_slice(&[0, 0, 0, 0]);
-        assert_eq!(contract().to_bytes(), expected);
+    /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against
+    /// `near-primitives =0.38.0-rc.2` (`UniversalStateInit::to_raw`, `derive_universal_account_id`)
+    /// before being pinned here. The last one is the NEP-655 Appendix A wallet vector.
+    #[cfg(feature = "borsh")]
+    fn known_answers() -> Vec<(&'static str, UniversalStateInitV1, &'static str, &'static str)> {
+        let v1 = UniversalStateInitV1::default;
+        let wallet_code = || {
+            GlobalContractId::AccountId(
+                "0sb0d7ef4f935c6ef78e08ad03569767aaec4223a3".parse().unwrap(),
+            )
+        };
+        vec![
+            (
+                "empty",
+                v1(),
+                "00000000000000000000",
+                "0u1kajgpx8a97y8ap8y03pvt8kbm2p2cn9k5h17bgw1wa21j88865g",
+            ),
+            (
+                "code by account id",
+                v1().with_code(GlobalContractId::AccountId("code.near".parse().unwrap())),
+                "00010109000000636f64652e6e6561720000000000000000",
+                "0uartat3agnh029e3nqsqzxtz5pd3130stv6a2eafszq4vgg56kaag",
+            ),
+            (
+                "code by hash",
+                v1().with_code(GlobalContractId::CodeHash([0x22; 32])),
+                "00010022222222222222222222222222222222222222222222222222222222222222220000000000000000",
+                "0uk6fe1b5tnfxn87yhtc36czcehzd4ngf25crhj17871kax56nhxx0",
+            ),
+            (
+                "data inserted out of order, empty key, prefix keys",
+                v1().with_data_entry(b"b", b"2")
+                    .with_data_entry(b"a", b"1")
+                    .with_data_entry(b"ab", b"")
+                    .with_data_entry(b"", b"empty-key")
+                    .with_data_entry([0xff, 0x00], [0x00; 3]),
+                "0000050000000000000009000000656d7074792d6b657901000000610100000031020000006162000000000100000062010000003202000000ff000300000000000000000000",
+                "0u88nzp537q37vgx90hrjbmqv7dhbc776w4ynj514djahna1cnce5g",
+            ),
+            (
+                "nearcore key-only",
+                v1().with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
+                "00000000000001000000031111111111111111111111111111111111111111111111111111111111111111",
+                "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g",
+            ),
+            (
+                "nearcore contract",
+                v1().with_code(GlobalContractId::CodeHash([0x22; 32])).with_data_entry(b"key", b"value"),
+                "000100222222222222222222222222222222222222222222222222222222222222222201000000030000006b65790500000076616c756500000000",
+                "0uzvdgbyea2rd8ywx0kw3cg4vc0ez1x5fc2gyks4fdz9ae0xxvzan0",
+            ),
+            (
+                "NEP-655 Appendix A wallet",
+                v1().with_code(wallet_code()).with_data_entry(
+                    b"",
+                    hex::decode("01000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02ae5c6466100e00000000000000000000000000000000000000000000").unwrap(),
+                ),
+                "0001012a00000030736230643765663466393335633665663738653038616430333536393736376161656334323233613301000000000000003d00000001000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02ae5c6466100e0000000000000000000000000000000000000000000000000000",
+                "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0",
+            ),
+        ]
+    }
 
-        for state_init in [key_only(), contract()] {
-            let decoded = UniversalStateInit::from_bytes(&state_init.to_bytes()).unwrap();
-            assert_eq!(decoded, state_init);
+    #[test]
+    #[cfg(feature = "borsh")]
+    fn matches_nearcore_and_nep655_known_answers() {
+        for (name, state_init, bytes, id) in known_answers() {
+            let state_init = UniversalStateInit::from(state_init);
+            let raw = RawStateInit(hex::decode(bytes).unwrap());
+            assert_eq!(state_init.to_raw(), raw, "{name}: bytes");
+            assert_eq!(UniversalStateInit::from_raw(&raw).unwrap(), state_init, "{name}: decode");
+            assert_eq!(raw.derive_account_id().as_str(), id, "{name}: id");
+            assert_eq!(state_init.derive_account_id().as_str(), id, "{name}: typed id");
+            assert_eq!(derive_universal_account_id(&raw.0).as_str(), id, "{name}: free fn id");
         }
     }
 
+    /// Ids of larger state inits (every key kind, everything together), from the same
+    /// differential run against nearcore; the id pins the bytes.
     #[test]
     #[cfg(feature = "borsh")]
-    fn from_bytes_rejects_trailing_and_truncated_bytes() {
-        let bytes = key_only().to_bytes();
-        let mut trailing = bytes.clone();
-        trailing.push(0);
-        assert!(UniversalStateInit::from_bytes(&trailing).is_err());
-        assert!(UniversalStateInit::from_bytes(&bytes[..bytes.len() - 1]).is_err());
-        // An unknown version tag is not a state init this crate can type.
-        assert!(UniversalStateInit::from_bytes(&[1]).is_err());
+    fn matches_nearcore_known_answer_ids() {
+        let mut ed25519_high = [0; 32];
+        ed25519_high[0] = 0xff;
+        let keys = [
+            PublicKeyHandle::MLDSA65Hash([0x00; 32]),
+            PublicKeyHandle::SECP256K1([0x01; 64]),
+            PublicKeyHandle::ED25519(ed25519_high),
+            PublicKeyHandle::ED25519([0x00; 32]),
+            PublicKeyHandle::MLDSA65Hash([0xff; 32]),
+            PublicKeyHandle::SECP256K1([0x00; 64]),
+        ];
+        let keys_only = keys
+            .iter()
+            .cloned()
+            .fold(UniversalStateInitV1::default(), |v1, k| v1.with_access_key(k));
+        let everything = keys_only
+            .clone()
+            .with_code(GlobalContractId::AccountId(
+                "0sb0d7ef4f935c6ef78e08ad03569767aaec4223a3".parse().unwrap(),
+            ))
+            .with_data_entry(b"k", b"v");
+        for (state_init, len, id) in [
+            (keys_only, 272, "0upcrgsbq81vedn1tsvw10heb4rjzdjmasxc8wayh26jpj5nemrqsg"),
+            (everything, 329, "0utr5yk5pdhjg932r5px1mf7vd6evsh0x46fn6g3zscys5b2y6d480"),
+        ] {
+            let raw = RawStateInit::from(state_init);
+            assert_eq!(raw.0.len(), len);
+            assert_eq!(raw.derive_account_id().as_str(), id);
+        }
     }
 
-    /// Account ids pinned to nearcore's `test_derive_universal_account_id` vectors.
+    /// Non-canonical bytes are accepted and derive their own id, which re-encoding loses. Values
+    /// match nearcore's `derive_universal_account_id` and `UniversalStateInit::from_raw`.
     #[test]
     #[cfg(feature = "borsh")]
-    fn derive_account_id_matches_nearcore() {
+    fn non_canonical_bytes_keep_their_own_id() {
+        fn entries(entries: &[(&[u8], &[u8])]) -> Vec<u8> {
+            let mut bytes = vec![0, 0];
+            bytes.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+            for (key, value) in entries {
+                bytes.extend_from_slice(&(key.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(key);
+                bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(value);
+            }
+            bytes.extend_from_slice(&0u32.to_le_bytes());
+            bytes
+        }
+
+        let unsorted = RawStateInit(entries(&[(b"b", b""), (b"a", b"")]));
+        let decoded = UniversalStateInit::from_raw(&unsorted).unwrap();
+        assert_ne!(decoded.to_raw(), unsorted);
         assert_eq!(
-            key_only().derive_account_id().as_str(),
-            "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g"
+            unsorted.derive_account_id().as_str(),
+            "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag"
         );
         assert_eq!(
-            contract().derive_account_id().as_str(),
-            "0uzvdgbyea2rd8ywx0kw3cg4vc0ez1x5fc2gyks4fdz9ae0xxvzan0"
+            decoded.derive_account_id().as_str(),
+            "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg"
         );
+
+        // Duplicate keys: last one wins on decode, like nearcore.
+        let duplicate = RawStateInit(entries(&[(b"a", b"1"), (b"a", b"2")]));
+        let decoded = UniversalStateInit::from_raw(&duplicate).unwrap();
+        assert_eq!(decoded.data().get(&b"a"[..]), Some(&b"2".to_vec()));
+        assert_ne!(decoded.to_raw(), duplicate);
+        assert_ne!(decoded.derive_account_id(), duplicate.derive_account_id());
+
+        // Tag 2 (a full ML-DSA-65 key) is not a valid handle.
+        let mut full_key = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2];
+        full_key.extend_from_slice(&[0; 32]);
+        assert!(UniversalStateInit::from_raw(&full_key.into()).is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "near-primitives-interop")]
+    fn raw_state_init_converts_to_and_from_nearcore() {
+        use near_primitives_core::universal_state_init::RawStateInit as NearcoreRawStateInit;
+
+        let raw = RawStateInit(vec![0, 1, 2]);
+        let nearcore = NearcoreRawStateInit::from(raw.clone());
+        assert_eq!(nearcore.0, raw.0);
+        assert_eq!(RawStateInit::from(nearcore), raw);
     }
 
     #[test]
@@ -333,6 +560,47 @@ mod tests {
         let first_two: Vec<&[u8]> =
             state_init.access_keys.iter().take(2).map(|k| k.key_data()).collect();
         assert_eq!(first_two, [&[0x00; 32][..], &[0xff; 32][..]]);
+    }
+
+    /// Like nearcore's `RawStateInit`: a length-prefixed byte vector in borsh, a base64 string
+    /// in JSON, and the id hashes the bytes without either wrapper.
+    #[test]
+    #[cfg(all(feature = "serde", feature = "borsh"))]
+    fn raw_state_init_wire_forms() {
+        let raw = key_only().to_raw();
+        let mut expected = (raw.0.len() as u32).to_le_bytes().to_vec();
+        expected.extend_from_slice(&raw.0);
+        assert_eq!(borsh::to_vec(&raw).unwrap(), expected);
+        assert_eq!(borsh::from_slice::<RawStateInit>(&expected).unwrap(), raw);
+
+        let json = serde_json::to_value(RawStateInit(b"key".to_vec())).unwrap();
+        assert_eq!(json, serde_json::json!("a2V5"));
+        assert_eq!(
+            serde_json::from_value::<RawStateInit>(json).unwrap(),
+            RawStateInit(b"key".to_vec())
+        );
+
+        assert_eq!(raw.derive_account_id(), key_only().derive_account_id());
+        assert_eq!(raw.derive_account_id(), derive_universal_account_id(&raw.0));
+        assert_ne!(raw.derive_account_id(), derive_universal_account_id(expected));
+    }
+
+    #[test]
+    #[cfg(feature = "schemars-v0_8")]
+    fn typed_data_json_schema_is_base64() {
+        let schema = serde_json::to_value(schemars_v0_8::schema_for!(UniversalStateInit)).unwrap();
+        let data = &schema["definitions"]["UniversalStateInitV1"]["properties"]["data"];
+        assert_eq!(data["type"], "object");
+        assert_eq!(data["additionalProperties"]["type"], "string");
+        assert_eq!(data["additionalProperties"]["contentEncoding"], "base64");
+    }
+
+    #[test]
+    #[cfg(feature = "schemars-v0_8")]
+    fn raw_state_init_json_schema_is_base64_string() {
+        let schema = serde_json::to_value(schemars_v0_8::schema_for!(RawStateInit)).unwrap();
+        assert_eq!(schema["type"], "string");
+        assert_eq!(schema["contentEncoding"], "base64");
     }
 
     #[test]
