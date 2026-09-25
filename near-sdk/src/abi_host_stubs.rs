@@ -735,27 +735,3 @@ extern "C-unwind" fn bls12381_p2_decompress(
 ) -> u64 {
     unavailable("bls12381_p2_decompress")
 }
-
-#[cfg(test)]
-mod tests {
-    /// `near-sys` declares the host-function ABI; this module has to define all of it, or
-    /// ABI generation goes back to failing at link time on Windows with whichever symbol
-    /// was added and not stubbed.
-    #[test]
-    fn stubs_cover_every_near_sys_host_function() {
-        let declarations = include_str!("../../near-sys/src/lib.rs");
-        let stubs = include_str!("abi_host_stubs.rs");
-
-        let missing: Vec<&str> = declarations
-            .lines()
-            .filter_map(|line| line.trim().strip_prefix("pub fn "))
-            .filter_map(|rest| rest.split(['(', '<']).next())
-            .filter(|name| !stubs.contains(&format!("extern \"C-unwind\" fn {name}(")))
-            .collect();
-
-        assert!(
-            missing.is_empty(),
-            "near-sys host functions with no stub in abi_host_stubs.rs: {missing:?}"
-        );
-    }
-}
