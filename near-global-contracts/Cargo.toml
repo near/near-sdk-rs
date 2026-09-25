@@ -6,7 +6,7 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 readme = "./README.md"
 description = """
 Global contract identifiers and account derivation for deterministic (NEP-616, `0s`) and universal (NEP-655, `0u`) accounts for the NEAR SDK.
