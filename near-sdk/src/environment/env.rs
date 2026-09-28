@@ -2583,12 +2583,8 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
 pub fn universal_state_init_to_account_id(state_init: impl AsRef<[u8]>) -> AccountId {
-    universal_state_init_to_account_id_bytes(state_init.as_ref())
-}
+    let state_init = state_init.as_ref();
 
-// Non-generic body of `universal_state_init_to_account_id`, so each argument type does not get
-// its own copy in the contract.
-fn universal_state_init_to_account_id_bytes(state_init: &[u8]) -> AccountId {
     #[cfg(any(
         target_arch = "wasm32",
         not(feature = "non-contract-usage"),
@@ -2659,15 +2655,7 @@ pub fn promise_batch_action_universal_state_init(
     state_init: impl AsRef<[u8]>,
     amount: NearToken,
 ) {
-    promise_batch_action_universal_state_init_bytes(promise_index, state_init.as_ref(), amount)
-}
-
-// Non-generic body of `promise_batch_action_universal_state_init`.
-fn promise_batch_action_universal_state_init_bytes(
-    promise_index: PromiseIndex,
-    state_init: &[u8],
-    amount: NearToken,
-) {
+    let state_init = state_init.as_ref();
     unsafe {
         sys::promise_batch_action_universal_state_init(
             promise_index.0,
