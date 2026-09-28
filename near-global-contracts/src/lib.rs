@@ -32,8 +32,8 @@
 //!
 //! Both paths produce identical output, so you can verify on-chain derivations off-chain.
 //!
-//! The `0u` derivation ([`RawStateInit::derive_account_id`], [`derive_universal_account_id`])
-//! needs no feature and works the same way with SHA3-256 and the `sha3_256` host function.
+//! The `0u` derivation ([`RawStateInit::derive_account_id`]) needs no feature and works the same
+//! way with SHA3-256 and the `sha3_256` host function.
 //! Encoding or decoding a [`UniversalStateInit`] needs `borsh`.
 //!
 //! Other features:

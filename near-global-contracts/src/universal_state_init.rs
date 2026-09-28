@@ -45,10 +45,16 @@ pub struct RawStateInit(#[cfg_attr(feature = "serde", serde_as(as = "Base64"))] 
 
 impl RawStateInit {
     /// The `0u` account id these bytes create: SHA3-256 of exactly `self.0`, Crockford-base32
-    /// encoded. Same as [`derive_universal_account_id`].
-    #[inline]
+    /// encoded, the same derivation nearcore applies to a `UniversalStateInit` action.
+    ///
+    /// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in
+    /// contract builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical
+    /// output.
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        derive_universal_account_id(&self.0)
+        use near_digest::Digest;
+
+        let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(&self.0).into();
+        encode_universal_account_id(&hash)
     }
 }
 
@@ -294,31 +300,12 @@ impl UniversalStateInit {
     ///
     /// # Availability
     ///
-    /// Requires the `borsh` feature. See [`derive_universal_account_id`] for the SHA3-256
+    /// Requires the `borsh` feature. See [`RawStateInit::derive_account_id`] for the SHA3-256
     /// backend.
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
         self.to_raw().derive_account_id()
     }
-}
-
-/// Derives the `0u` account id from raw state-init bytes, like nearcore's
-/// `derive_universal_account_id`: SHA3-256 over exactly those bytes, Crockford-base32 encoded.
-///
-/// Takes the bytes rather than a typed value, so a caller can pass through a state-init version
-/// this crate predates.
-///
-/// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in contract
-/// builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical output.
-pub fn derive_universal_account_id(state_init: impl AsRef<[u8]>) -> near_account_id::AccountId {
-    // Non-generic body, so each caller's argument type does not get its own copy.
-    fn derive(state_init: &[u8]) -> near_account_id::AccountId {
-        use near_digest::Digest;
-
-        let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(state_init).into();
-        encode_universal_account_id(&hash)
-    }
-    derive(state_init.as_ref())
 }
 
 /// `0u` followed by the 32-byte hash in lowercase Crockford base32: 52 symbols, most significant
@@ -420,7 +407,7 @@ mod tests {
     }
 
     /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against
-    /// `near-primitives =0.38.0-rc.2` (`UniversalStateInit::to_raw`, `derive_universal_account_id`)
+    /// `near-primitives =0.38.0-rc.2` (its `UniversalStateInit::to_raw` and 0u derivation)
     /// before being pinned here. The last one is the NEP-655 Appendix A wallet vector.
     #[cfg(feature = "borsh")]
     fn known_answers() -> Vec<(&'static str, UniversalStateInitV1, &'static str, &'static str)> {
@@ -493,7 +480,6 @@ mod tests {
             assert_eq!(UniversalStateInit::from_raw(&raw).unwrap(), state_init, "{name}: decode");
             assert_eq!(raw.derive_account_id().as_str(), id, "{name}: id");
             assert_eq!(state_init.derive_account_id().as_str(), id, "{name}: typed id");
-            assert_eq!(derive_universal_account_id(&raw.0).as_str(), id, "{name}: free fn id");
         }
     }
 
@@ -533,7 +519,7 @@ mod tests {
     }
 
     /// Non-canonical bytes are accepted and derive their own id, which re-encoding loses. Values
-    /// match nearcore's `derive_universal_account_id` and `UniversalStateInit::from_raw`.
+    /// match nearcore's 0u derivation and its `UniversalStateInit::from_raw`.
     #[test]
     #[cfg(feature = "borsh")]
     fn non_canonical_bytes_keep_their_own_id() {
@@ -621,8 +607,7 @@ mod tests {
         );
 
         assert_eq!(raw.derive_account_id(), key_only().derive_account_id());
-        assert_eq!(raw.derive_account_id(), derive_universal_account_id(&raw.0));
-        assert_ne!(raw.derive_account_id(), derive_universal_account_id(expected));
+        assert_ne!(raw.derive_account_id(), RawStateInit(expected).derive_account_id());
     }
 
     #[test]

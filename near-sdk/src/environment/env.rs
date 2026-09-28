@@ -2611,7 +2611,7 @@ fn universal_state_init_to_account_id_bytes(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_global_contracts::derive_universal_account_id(state_init)
+        crate::universal_state_init::RawStateInit(state_init.to_vec()).derive_account_id()
     }
 }
 
@@ -3015,7 +3015,7 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 mod tests {
     use super::*;
 
-    /// Pinned to nearcore's `test_derive_universal_account_id` key-only vector. Which branch runs
+    /// Pinned to nearcore's key-only universal account id vector. Which branch runs
     /// depends on the features: the mocked host function by default, the off-chain derivation
     /// with `non-contract-usage`. `tests/universal_state_init.rs` always hits the mock.
     #[test]

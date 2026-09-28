@@ -11,7 +11,7 @@ use near_sdk::universal_state_init::{
 };
 use near_sdk::{GlobalContractId, NearToken, Promise, env, testing_env};
 
-/// nearcore's `test_derive_universal_account_id` key-only vector.
+/// nearcore's key-only universal account id vector.
 fn key_only() -> RawStateInit {
     UniversalStateInitV1::default().with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])).into()
 }
