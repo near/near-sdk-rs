@@ -55,7 +55,7 @@ impl RawStateInit {
         use near_digest::Digest;
 
         let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(&self.0).into();
-        encode_universal_account_id(&hash)
+        universal_account_id_from_hash(&hash)
     }
 }
 
@@ -295,8 +295,8 @@ impl UniversalStateInit {
 
 /// `0u` followed by the 32-byte hash in lowercase Crockford base32: 52 symbols, most significant
 /// bit first, 5 bits per symbol, the last symbol carrying one data bit and four zero bits. Same as
-/// nearcore's `encode_universal_account_id`.
-fn encode_universal_account_id(hash: &[u8; 32]) -> near_account_id::AccountId {
+/// nearcore's 0u encoder.
+fn universal_account_id_from_hash(hash: &[u8; 32]) -> near_account_id::AccountId {
     const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
 
     let mut id = String::with_capacity(54);
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
-            let account_id = encode_universal_account_id(hash);
+            let account_id = universal_account_id_from_hash(hash);
             assert_eq!(account_id.as_str(), *expected);
             assert_eq!(account_id.len(), 54);
             assert_eq!(account_id, expected.parse::<AccountId>().unwrap());
@@ -364,7 +364,7 @@ mod tests {
         for i in 0u32..2048 {
             let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(i.to_le_bytes()).into();
             assert_eq!(
-                encode_universal_account_id(&hash).as_str(),
+                universal_account_id_from_hash(&hash).as_str(),
                 near_primitives_core::universal_account_id::encode_universal_account_id(&hash)
                     .as_str()
             );
