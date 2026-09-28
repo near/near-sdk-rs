@@ -22,8 +22,9 @@ use serde_with::base64::Base64;
 /// base64 string (how RPC shows it). Neither wrapper encoding is what the id hashes: that is
 /// `self.0` alone.
 ///
-/// Build one from a typed value with `UniversalStateInit::to_raw` or `From` (both need the `borsh`
-/// feature), or wrap bytes you were handed with `RawStateInit::from(bytes)`.
+/// Build one from a typed value with `UniversalStateInit::to_raw` or `From`, or wrap bytes you were
+/// handed with `RawStateInit::from(bytes)`. Decode one with `UniversalStateInit::try_from` (the
+/// typed conversions need the `borsh` feature).
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -100,6 +101,39 @@ impl From<UniversalStateInitV1> for RawStateInit {
     #[inline]
     fn from(state_init: UniversalStateInitV1) -> Self {
         UniversalStateInit::V1(state_init).to_raw()
+    }
+}
+
+/// Decodes raw state-init bytes, like nearcore's `UniversalStateInit::from_raw`.
+///
+/// Trailing bytes, malformed bytes and unknown versions are rejected. A non-canonical encoding
+/// decodes fine, but the account id commits to the original bytes, so re-encoding the result can
+/// give a different id. Keep the [`RawStateInit`] to forward it or to derive its id.
+///
+/// Decoding can be stricter than the chain: borsh's `de_strict_order` cargo feature, if any crate
+/// in the dependency graph enables it, makes this reject unsorted or duplicate keys that nearcore
+/// accepts. Account ids are unaffected, since they never go through decoding.
+///
+/// Requires the `borsh` feature.
+#[cfg(feature = "borsh")]
+impl TryFrom<&RawStateInit> for UniversalStateInit {
+    type Error = std::io::Error;
+
+    fn try_from(raw: &RawStateInit) -> Result<Self, Self::Error> {
+        borsh::from_slice(&raw.0)
+    }
+}
+
+/// Decodes raw state-init bytes; see the `TryFrom<&RawStateInit>` impl.
+///
+/// Requires the `borsh` feature.
+#[cfg(feature = "borsh")]
+impl TryFrom<RawStateInit> for UniversalStateInit {
+    type Error = std::io::Error;
+
+    #[inline]
+    fn try_from(raw: RawStateInit) -> Result<Self, Self::Error> {
+        Self::try_from(&raw)
     }
 }
 
@@ -242,24 +276,6 @@ impl UniversalStateInit {
         RawStateInit(borsh::to_vec(self).unwrap_or_else(|_| unreachable!()))
     }
 
-    /// Decodes raw state-init bytes, like nearcore's `UniversalStateInit::from_raw`.
-    ///
-    /// Trailing bytes, malformed bytes and unknown versions are rejected. A non-canonical encoding
-    /// decodes fine, but the account id commits to the original bytes, so re-encoding the result
-    /// can give a different id. Keep the [`RawStateInit`] to forward it or to derive its id.
-    ///
-    /// Decoding can be stricter than the chain: borsh's `de_strict_order` cargo feature, if any
-    /// crate in the dependency graph enables it, makes this reject unsorted or duplicate keys that
-    /// nearcore accepts. Account ids are unaffected, since they never go through decoding.
-    ///
-    /// # Availability
-    ///
-    /// Requires the `borsh` feature.
-    #[cfg(feature = "borsh")]
-    pub fn from_raw(raw: &RawStateInit) -> Result<Self, std::io::Error> {
-        borsh::from_slice(&raw.0)
-    }
-
     /// The `0u` account id of this state init's canonical encoding. Shorthand for
     /// `self.to_raw().derive_account_id()`.
     ///
@@ -365,14 +381,16 @@ mod tests {
 
     #[test]
     #[cfg(feature = "borsh")]
-    fn from_raw_rejects_trailing_and_truncated_bytes() {
+    fn try_from_raw_rejects_trailing_and_truncated_bytes() {
         let bytes = key_only().to_raw().0;
         let mut trailing = bytes.clone();
         trailing.push(0);
-        assert!(UniversalStateInit::from_raw(&trailing.into()).is_err());
-        assert!(UniversalStateInit::from_raw(&bytes[..bytes.len() - 1].to_vec().into()).is_err());
+        assert!(UniversalStateInit::try_from(RawStateInit(trailing)).is_err());
+        assert!(
+            UniversalStateInit::try_from(RawStateInit(bytes[..bytes.len() - 1].to_vec())).is_err()
+        );
         // An unknown version tag is not a state init this crate can type.
-        assert!(UniversalStateInit::from_raw(&vec![1].into()).is_err());
+        assert!(UniversalStateInit::try_from(RawStateInit(vec![1])).is_err());
     }
 
     /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against
@@ -446,7 +464,7 @@ mod tests {
             let state_init = UniversalStateInit::from(state_init);
             let raw = RawStateInit(hex::decode(bytes).unwrap());
             assert_eq!(state_init.to_raw(), raw, "{name}: bytes");
-            assert_eq!(UniversalStateInit::from_raw(&raw).unwrap(), state_init, "{name}: decode");
+            assert_eq!(UniversalStateInit::try_from(&raw).unwrap(), state_init, "{name}: decode");
             assert_eq!(raw.derive_account_id().as_str(), id, "{name}: id");
             assert_eq!(state_init.derive_account_id().as_str(), id, "{name}: typed id");
         }
@@ -506,7 +524,7 @@ mod tests {
         }
 
         let unsorted = RawStateInit(entries(&[(b"b", b""), (b"a", b"")]));
-        let decoded = UniversalStateInit::from_raw(&unsorted).unwrap();
+        let decoded = UniversalStateInit::try_from(&unsorted).unwrap();
         assert_ne!(decoded.to_raw(), unsorted);
         assert_eq!(
             unsorted.derive_account_id().as_str(),
@@ -519,7 +537,7 @@ mod tests {
 
         // Duplicate keys: last one wins on decode, like nearcore.
         let duplicate = RawStateInit(entries(&[(b"a", b"1"), (b"a", b"2")]));
-        let decoded = UniversalStateInit::from_raw(&duplicate).unwrap();
+        let decoded = UniversalStateInit::try_from(&duplicate).unwrap();
         assert_eq!(decoded.data().get(&b"a"[..]), Some(&b"2".to_vec()));
         assert_ne!(decoded.to_raw(), duplicate);
         assert_ne!(decoded.derive_account_id(), duplicate.derive_account_id());
@@ -527,7 +545,7 @@ mod tests {
         // Tag 2 (a full ML-DSA-65 key) is not a valid handle.
         let mut full_key = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2];
         full_key.extend_from_slice(&[0; 32]);
-        assert!(UniversalStateInit::from_raw(&full_key.into()).is_err());
+        assert!(UniversalStateInit::try_from(RawStateInit(full_key)).is_err());
     }
 
     #[test]

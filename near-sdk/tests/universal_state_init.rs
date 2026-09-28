@@ -45,7 +45,7 @@ fn host_function_derives_the_id_of_the_exact_bytes() {
     let raw = unsorted_data_keys();
     assert_eq!(env::universal_state_init_to_account_id(&raw).as_str(), UNSORTED_ID);
     assert_eq!(raw.derive_account_id().as_str(), UNSORTED_ID);
-    let reencoded = UniversalStateInit::from_raw(&raw).unwrap().to_raw();
+    let reencoded = UniversalStateInit::try_from(&raw).unwrap().to_raw();
     assert_ne!(reencoded, raw);
     assert_eq!(env::universal_state_init_to_account_id(reencoded).as_str(), UNSORTED_REENCODED_ID);
 }
