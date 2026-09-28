@@ -7,9 +7,8 @@
 //! [`RawStateInit`] holds those bytes. It is what the action carries, what the host functions
 //! take and what the id commits to, so it is also the type to accept in contract arguments (JSON
 //! as base64) and to forward unchanged. [`UniversalStateInit`] and [`UniversalStateInitV1`] build
-//! and decode it. Their own JSON form re-encodes to the canonical bytes, and a non-canonical
-//! encoding of the same logical state init is a different account, so never decode and re-encode
-//! bytes you were handed.
+//! and decode it, and have no JSON form. A non-canonical encoding of the same logical state init is
+//! a different account, so never decode and re-encode bytes you were handed.
 //!
 //! The types live in the [`near_global_contracts`](https://docs.rs/near-global-contracts) crate
 //! ([`RawStateInit`], [`UniversalStateInit`], [`UniversalStateInitV1`]) and in

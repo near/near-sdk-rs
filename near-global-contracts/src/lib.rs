@@ -38,8 +38,7 @@
 //!
 //! Other features:
 //! - `serde`, `borsh` — derive the matching (de)serialization traits. [`RawStateInit`] is a base64
-//!   string in JSON, like nearcore's. The typed [`UniversalStateInit`] has a JSON form too, but it
-//!   re-encodes to the canonical bytes, so forward a [`RawStateInit`] instead.
+//!   string in JSON, like nearcore's; the typed [`UniversalStateInit`] has no serde form.
 //! - `abi` — schema generation for ABI tooling. Like `schemars-v0_8`, it enables `serde`, since
 //!   the schema describes the JSON form.
 //! - `arbitrary` — `arbitrary::Arbitrary` impls for fuzzing.

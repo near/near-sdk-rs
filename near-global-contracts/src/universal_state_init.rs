@@ -134,9 +134,9 @@ const _: () = {
 ///
 /// The discriminant is the only version marker; new fields or semantics arrive as a new variant.
 ///
-/// JSON deserialized into this type re-encodes to the canonical bytes, but the id commits to the
-/// bytes, so anything forwarding a state init it did not build must carry the [`RawStateInit`],
-/// not the typed value.
+/// There is deliberately no serde/JSON form: JSON callers (contract arguments, RPC) carry the
+/// [`RawStateInit`] as base64, like nearcore's `ActionView`. The id commits to the bytes, so
+/// anything forwarding a state init it did not build must carry the bytes, not a typed value.
 ///
 /// Contract authors reach this through `near-sdk`, which re-exports it under
 /// `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
@@ -150,19 +150,9 @@ const _: () = {
 /// shipped in nearcore 2.14).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "snake_case")
-)]
-#[cfg_attr(
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
-)]
-#[cfg_attr(
-    feature = "schemars-v0_8",
-    derive(::schemars_v0_8::JsonSchema),
-    schemars(crate = "::schemars_v0_8")
 )]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
@@ -177,35 +167,14 @@ pub enum UniversalStateInit {
 /// contract account has one. A payload with neither code nor keys is valid too, but the resulting
 /// account can never be controlled.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    cfg_eval::cfg_eval,
-    serde_with::serde_as,
-    derive(serde::Serialize, serde::Deserialize)
-)]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(
-    feature = "schemars-v0_8",
-    derive(::schemars_v0_8::JsonSchema),
-    schemars(crate = "::schemars_v0_8")
-)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct UniversalStateInitV1 {
     /// Contract code, or `None` for a key-only account.
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub code: Option<GlobalContractId>,
     /// Initial storage; empty unless seeded. Sorted keys give a canonical encoding.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "BTreeMap::is_empty"),
-        serde_as(as = "BTreeMap<Base64, Base64>")
-    )]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
     /// Full-access keys as compact on-trie handles. Sorted for a canonical encoding.
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "::std::collections::BTreeSet::is_empty")
-    )]
     pub access_keys: BTreeSet<PublicKeyHandle>,
 }
 
@@ -612,46 +581,9 @@ mod tests {
 
     #[test]
     #[cfg(feature = "schemars-v0_8")]
-    fn typed_data_json_schema_is_base64() {
-        let schema = serde_json::to_value(schemars_v0_8::schema_for!(UniversalStateInit)).unwrap();
-        let data = &schema["definitions"]["UniversalStateInitV1"]["properties"]["data"];
-        assert_eq!(data["type"], "object");
-        assert_eq!(data["additionalProperties"]["type"], "string");
-        assert_eq!(data["additionalProperties"]["contentEncoding"], "base64");
-    }
-
-    #[test]
-    #[cfg(feature = "schemars-v0_8")]
     fn raw_state_init_json_schema_is_base64_string() {
         let schema = serde_json::to_value(schemars_v0_8::schema_for!(RawStateInit)).unwrap();
         assert_eq!(schema["type"], "string");
         assert_eq!(schema["contentEncoding"], "base64");
-    }
-
-    #[test]
-    #[cfg(feature = "serde")]
-    fn json_shape() {
-        let state_init = UniversalStateInit::V1(
-            UniversalStateInitV1::default()
-                .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
-                .with_data_entry(b"key", b"value")
-                .with_access_key(PublicKeyHandle::ED25519([0; 32])),
-        );
-        let json = serde_json::to_value(&state_init).unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({
-                "v1": {
-                    "code": { "account_id": "code.near" },
-                    "data": { "a2V5": "dmFsdWU=" },
-                    "access_keys": ["ed25519:11111111111111111111111111111111"],
-                }
-            })
-        );
-        assert_eq!(serde_json::from_value::<UniversalStateInit>(json).unwrap(), state_init);
-        assert_eq!(
-            serde_json::from_value::<UniversalStateInit>(serde_json::json!({ "v1": {} })).unwrap(),
-            UniversalStateInit::V1(UniversalStateInitV1::default())
-        );
     }
 }

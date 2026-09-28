@@ -57,7 +57,7 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 
 | Feature                    | Effect                                                                  |
 | -------------------------- | ----------------------------------------------------------------------- |
-| `serde`                    | `Serialize`/`Deserialize` impls (`RawStateInit` as base64) |
+| `serde`                    | `Serialize`/`Deserialize` impls (`RawStateInit` as base64; the typed `UniversalStateInit` has none) |
 | `borsh`                    | `BorshSerialize`/`BorshDeserialize` impls (also enables the typed `derive_account_id`s) |
 | `abi`                      | `schemars::JsonSchema` and `borsh::BorshSchema` for ABI tooling         |
 | `arbitrary`                | `arbitrary::Arbitrary` impls for fuzzing                                |
