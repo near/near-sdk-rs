@@ -27,6 +27,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use crate::universal_state_init::RawStateInit;
 use crate::{CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
@@ -2552,8 +2553,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// Returns the `0u` universal account id that the given state-init bytes create: SHA3-256 of
 /// exactly those bytes, Crockford-base32 encoded ([NEP-655]).
 ///
-/// `state_init` is the borsh of a [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit),
-/// usually a [`RawStateInit`](crate::universal_state_init::RawStateInit). The id commits to the
+/// `state_init` holds the borsh bytes of a versioned state init. The id commits to the
 /// bytes, not the logical value: a non-canonical encoding of the same state init is a different
 /// account. Pass the bytes you will send, unchanged, including bytes of a state-init version this
 /// SDK predates.
@@ -2582,15 +2582,14 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// ```
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
-pub fn universal_state_init_to_account_id(state_init: impl AsRef<[u8]>) -> AccountId {
-    let state_init = state_init.as_ref();
-
+pub fn universal_state_init_to_account_id(state_init: &RawStateInit) -> AccountId {
     #[cfg(any(
         target_arch = "wasm32",
         not(feature = "non-contract-usage"),
         all(feature = "unit-testing", not(test)),
     ))]
     {
+        let state_init = state_init.as_ref();
         unsafe {
             sys::universal_state_init_to_account_id(
                 state_init.len() as _,
@@ -2607,7 +2606,7 @@ pub fn universal_state_init_to_account_id(state_init: impl AsRef<[u8]>) -> Accou
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        crate::universal_state_init::RawStateInit(state_init.to_vec()).derive_account_id()
+        state_init.derive_account_id()
     }
 }
 
@@ -2615,8 +2614,7 @@ pub fn universal_state_init_to_account_id(state_init: impl AsRef<[u8]>) -> Accou
 /// by `promise_index`, creating the `0u` universal account that the state-init bytes describe and
 /// funding it with `amount`.
 ///
-/// `state_init` is the borsh of a [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit),
-/// usually a [`RawStateInit`](crate::universal_state_init::RawStateInit). The bytes go into the
+/// `state_init` holds the borsh bytes of a versioned state init. The bytes go into the
 /// action verbatim, so a contract can forward bytes it was handed, including a state-init version
 /// this SDK predates, without changing the account they derive to.
 ///
@@ -2652,7 +2650,7 @@ pub fn universal_state_init_to_account_id(state_init: impl AsRef<[u8]>) -> Accou
 /// ```
 pub fn promise_batch_action_universal_state_init(
     promise_index: PromiseIndex,
-    state_init: impl AsRef<[u8]>,
+    state_init: &RawStateInit,
     amount: NearToken,
 ) {
     let state_init = state_init.as_ref();
@@ -3019,7 +3017,6 @@ mod tests {
         .to_raw();
         let account_id = universal_state_init_to_account_id(&state_init);
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
-        assert_eq!(account_id, universal_state_init_to_account_id(state_init.0.as_slice()));
         assert_eq!(account_id, state_init.derive_account_id());
     }
 

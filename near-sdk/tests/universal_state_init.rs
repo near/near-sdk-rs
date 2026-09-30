@@ -38,7 +38,7 @@ fn host_function_derives_the_id_of_the_exact_bytes() {
     testing_env!(VMContextBuilder::new().build());
 
     let gas_before = env::used_gas();
-    assert_eq!(env::universal_state_init_to_account_id(key_only()).as_str(), KEY_ONLY_ID);
+    assert_eq!(env::universal_state_init_to_account_id(&key_only()).as_str(), KEY_ONLY_ID);
     // Charged gas shows the call went through the mocked host function.
     assert!(env::used_gas() > gas_before);
 
@@ -47,7 +47,7 @@ fn host_function_derives_the_id_of_the_exact_bytes() {
     assert_eq!(raw.derive_account_id().as_str(), UNSORTED_ID);
     let reencoded = UniversalStateInit::try_from(&raw).unwrap().to_raw();
     assert_ne!(reencoded, raw);
-    assert_eq!(env::universal_state_init_to_account_id(reencoded).as_str(), UNSORTED_REENCODED_ID);
+    assert_eq!(env::universal_state_init_to_account_id(&reencoded).as_str(), UNSORTED_REENCODED_ID);
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn promise_batch_action_carries_the_bytes_verbatim() {
     let raw = unsorted_data_keys();
     let deposit = NearToken::from_millinear(10);
     let promise = env::promise_batch_create(&env::universal_state_init_to_account_id(&raw));
-    env::promise_batch_action_universal_state_init(promise, raw.0.as_slice(), deposit);
+    env::promise_batch_action_universal_state_init(promise, &raw, deposit);
 
     let receipts = get_created_receipts();
     assert_eq!(receipts.len(), 1);
