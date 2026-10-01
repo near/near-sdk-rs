@@ -15,8 +15,8 @@ use near_sdk::ext_contract;
 
 /// Used for all non-fungible tokens. The specification for the
 /// [core non-fungible token standard] lays out the reasoning for each method.
-/// It's important to check out [NonFungibleTokenReceiver]
-/// and [NonFungibleTokenResolver] to
+/// It's important to check out [NonFungibleTokenReceiver](crate::non_fungible_token::core::NonFungibleTokenReceiver)
+/// and [NonFungibleTokenResolver](crate::non_fungible_token::core::NonFungibleTokenResolver) to
 /// understand how the cross-contract call work.
 ///
 /// [core non-fungible token standard]: <https://nomicon.io/Standards/NonFungibleToken/Core.html>
