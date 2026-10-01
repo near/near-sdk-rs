@@ -202,3 +202,129 @@ pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
         }
     }
 }
+
+/// Hashes the bytes using the SHA3-256 (FIPS-202) hash function. This returns a 32 byte hash.
+///
+/// Not to be confused with [`keccak256_array`]: Keccak-256 and SHA3-256 differ in padding and
+/// produce different digests for the same input.
+///
+/// # Requirements
+///
+/// Requires the host to support the `sha3_256` host function (nearcore protocol version 87+,
+/// shipped in nearcore 2.14).
+///
+/// # Examples
+/// ```
+/// # use near_sdk as _;
+/// use near_sdk_env::sha3_256;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha3_256(b"The phrase that will be hashed"),
+///     hex::decode("8a2b832b9675ee3067527e4fd0ddae2eaf0177eb1c052173ddb6a5daedc1c32e")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
+pub fn sha3_256(value: impl AsRef<[u8]>) -> CryptoHash {
+    execute_target_specific! {
+        host: {
+            let value = value.as_ref();
+            //* SAFETY: sha3_256 syscall will always generate 32 bytes inside of the atomic op register
+            //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+            //*         because all bytes are filled. This assumes a valid sha3_256 implementation.
+            unsafe {
+                sys::sha3_256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+                read_register_fixed(ATOMIC_OP_REGISTER)
+            }
+        },
+        local: {
+            use sha3::Digest;
+
+            sha3::Sha3_256::digest(value).into()
+        }
+    }
+}
+
+/// Hashes the bytes using the SHA3-384 (FIPS-202) hash function. This returns a 48 byte hash.
+///
+/// # Requirements
+///
+/// Requires the host to support the `sha3_384` host function (nearcore protocol version 87+,
+/// shipped in nearcore 2.14).
+///
+/// # Examples
+/// ```
+/// # use near_sdk as _;
+/// use near_sdk_env::sha3_384;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha3_384(b"The phrase that will be hashed"),
+///     hex::decode("c501e35ee91258d6c23330ab7b475ccc793c0fe305df3c9ed4bcf7a44f19f32dde6db423c02e8ffcaaa0e880b6a90ef5")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
+pub fn sha3_384(value: impl AsRef<[u8]>) -> [u8; 48] {
+    execute_target_specific! {
+        host: {
+            let value = value.as_ref();
+            //* SAFETY: sha3_384 syscall will always generate 48 bytes inside of the atomic op register
+            //*         so the read will have a sufficient buffer of 48, and can transmute from uninit
+            //*         because all bytes are filled. This assumes a valid sha3_384 implementation.
+            unsafe {
+                sys::sha3_384(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+                read_register_fixed(ATOMIC_OP_REGISTER)
+            }
+        },
+        local: {
+            use sha3::Digest;
+
+            sha3::Sha3_384::digest(value).into()
+        }
+    }
+}
+
+/// Hashes the bytes using the SHA3-512 (FIPS-202) hash function. This returns a 64 byte hash.
+///
+/// Not to be confused with [`keccak512_array`]: Keccak-512 and SHA3-512 differ in padding and
+/// produce different digests for the same input.
+///
+/// # Requirements
+///
+/// Requires the host to support the `sha3_512` host function (nearcore protocol version 87+,
+/// shipped in nearcore 2.14).
+///
+/// # Examples
+/// ```
+/// # use near_sdk as _;
+/// use near_sdk_env::sha3_512;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha3_512(b"The phrase that will be hashed"),
+///     hex::decode("bd52ab46f19b9807ef465338d101d5523303db98324f92cea7b087c81edc00c57b5541ce7432f05d77e5648a36475b69669972f52c3ad98e0f692b3a3202a001")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
+pub fn sha3_512(value: impl AsRef<[u8]>) -> [u8; 64] {
+    execute_target_specific! {
+        host: {
+            let value = value.as_ref();
+            //* SAFETY: sha3_512 syscall will always generate 64 bytes inside of the atomic op register
+            //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
+            //*         because all bytes are filled. This assumes a valid sha3_512 implementation.
+            unsafe {
+                sys::sha3_512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+                read_register_fixed(ATOMIC_OP_REGISTER)
+            }
+        },
+        local: {
+            use sha3::Digest;
+
+            sha3::Sha3_512::digest(value).into()
+        }
+    }
+}

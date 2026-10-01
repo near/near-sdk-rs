@@ -69,7 +69,7 @@ async fn setup_worker(
         Contract::StoreContract => "store",
         Contract::LazyContract => "lazy",
     };
-    let worker = Arc::new(near_workspaces::sandbox().await?);
+    let worker = Arc::new(near_workspaces::sandbox_with_version("2.14.0-rc.2").await?);
     let wasm = common::build_test_contract(contract_name).await?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
@@ -477,7 +477,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     // Override min gas to avoid constant tuning, it's pretty clear this is performant. Somehow
     // this is pretty flaky.
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush", Some(40));
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush", Some(30));
 
     let res = account
         .call(&contract_id, "get")

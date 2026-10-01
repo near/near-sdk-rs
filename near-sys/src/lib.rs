@@ -40,6 +40,9 @@ unsafe extern "C" {
     pub fn sha256(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn keccak256(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn keccak512(value_len: u64, value_ptr: u64, register_id: u64);
+    pub fn sha3_256(value_len: u64, value_ptr: u64, register_id: u64);
+    pub fn sha3_384(value_len: u64, value_ptr: u64, register_id: u64);
+    pub fn sha3_512(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn ecrecover(
         hash_len: u64,
@@ -59,6 +62,14 @@ unsafe extern "C" {
         pub_key_ptr: u64,
     ) -> u64;
     pub fn p256_verify(
+        sig_len: u64,
+        sig_ptr: u64,
+        msg_len: u64,
+        msg_ptr: u64,
+        pub_key_len: u64,
+        pub_key_ptr: u64,
+    ) -> u64;
+    pub fn ml_dsa_verify(
         sig_len: u64,
         sig_ptr: u64,
         msg_len: u64,
@@ -230,6 +241,20 @@ unsafe extern "C" {
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
+    );
+    // ##########################
+    // # Universal Accounts API #
+    // ##########################
+    pub fn universal_state_init_to_account_id(
+        state_init_len: u64,
+        state_init_ptr: u64,
+        register_id: u64,
+    );
+    pub fn promise_batch_action_universal_state_init(
+        promise_index: u64,
+        state_init_len: u64,
+        state_init_ptr: u64,
+        amount_ptr: u64,
     );
     pub fn promise_yield_create(
         function_name_len: u64,

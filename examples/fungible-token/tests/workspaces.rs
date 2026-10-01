@@ -60,7 +60,7 @@ async fn initialized_contracts(
     fungible_contract_wasm: &Vec<u8>,
     defi_contract_wasm: &Vec<u8>,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
-    let worker = near_workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox_with_version("2.14.0-rc.2").await?;
 
     let ft_contract = worker.dev_deploy(fungible_contract_wasm).await?;
 

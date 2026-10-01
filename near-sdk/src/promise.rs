@@ -93,6 +93,10 @@ enum PromiseAction {
         state_init: crate::state_init::StateInit,
         deposit: NearToken,
     },
+    UniversalStateInit {
+        state_init: crate::universal_state_init::UniversalStateInit,
+        deposit: NearToken,
+    },
 }
 
 impl PromiseAction {
@@ -221,6 +225,13 @@ impl PromiseAction {
                 for (key, value) in &state_init.data {
                     crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
                 }
+            }
+            UniversalStateInit { state_init, deposit } => {
+                crate::env::promise_batch_action_universal_state_init(
+                    promise_index,
+                    &state_init,
+                    deposit,
+                )
             }
         }
     }
@@ -586,6 +597,41 @@ impl Promise {
     #[cfg(feature = "deterministic-account-ids")]
     pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
         self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
+    }
+
+    /// Creates the `0u` universal account described by `state_init`, funding it with `deposit`.
+    ///
+    /// The promise must target the account id `state_init` derives to
+    /// ([`UniversalStateInit::derive_account_id`](crate::universal_state_init::UniversalStateInit::derive_account_id)
+    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id));
+    /// the runtime rejects the receipt otherwise.
+    ///
+    /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`]
+    ///
+    /// # Requirements
+    ///
+    /// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+    /// nearcore 2.14).
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+    /// use near_sdk::{env, GlobalContractId, NearToken, Promise};
+    ///
+    /// let state_init = UniversalStateInit::from(
+    ///     UniversalStateInitV1::default()
+    ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
+    ///         .with_access_key(env::signer_account_pk()),
+    /// );
+    /// Promise::new(state_init.derive_account_id())
+    ///     .universal_state_init(state_init, NearToken::from_millinear(10));
+    /// ```
+    pub fn universal_state_init(
+        self,
+        state_init: crate::universal_state_init::UniversalStateInit,
+        deposit: NearToken,
+    ) -> Self {
+        self.add_action(PromiseAction::UniversalStateInit { state_init, deposit })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.

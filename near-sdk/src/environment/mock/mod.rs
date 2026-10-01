@@ -1,5 +1,4 @@
 mod mocked_blockchain;
-mod mocked_memory;
 mod receipt;
 
 pub use mocked_blockchain::test_vm_config;

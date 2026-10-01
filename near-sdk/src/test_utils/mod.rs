@@ -88,7 +88,7 @@ macro_rules! testing_env {
     };
 }
 
-/// Returns a copy of logs from VMLogic. Only available in unit tests.
+/// Returns a copy of the logs written so far. Only available in unit tests.
 pub fn get_logs() -> Vec<String> {
     crate::mock::with_mocked_blockchain(|b| b.logs())
 }

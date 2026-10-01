@@ -23,10 +23,10 @@ jobs:
           - "near-digest"
         platform:
           - os: warp-ubuntu-latest-x64-4x
-            rs: "1.93.0"
+            rs: "1.95.0"
             name: linux
           - os: warp-macos-latest-arm64-6x
-            rs: "1.93.0"
+            rs: "1.95.0"
             name: macos
           # Floating `stable` (linux): blocking coverage against current Rust. See the `test` job note.
           - os: warp-ubuntu-latest-x64-4x
@@ -83,10 +83,10 @@ jobs:
       matrix:
         platform:
           - os: warp-ubuntu-latest-x64-4x
-            rs: "1.93.0"
+            rs: "1.95.0"
             name: linux
           - os: warp-macos-latest-arm64-6x
-            rs: "1.93.0"
+            rs: "1.95.0"
             name: macos
           # Floating `stable` (linux): a blocking gate, so a new Rust release can turn CI
           # red on an unrelated PR. Deliberate — guarantees near-sdk builds on whatever
@@ -129,7 +129,7 @@ jobs:
       - name: Print rustc && rustdoc version
         run: rustc --version && rustdoc --version
 
-      # `store_performance_tests` asserts gas budgets tied to the pinned 1.93 toolchain;
+      # `store_performance_tests` asserts gas budgets tied to the pinned 1.95 toolchain;
       # the numbers drift with rustc codegen, so skip it on stable rather than loosen
       # the shared threshold. Stable still checks the suite compiles, links, and passes.
       - name: Run tests with nextest
@@ -183,15 +183,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust 1.93 with components
+      - name: Install Rust 1.95 with components
         run: |
-          rustup toolchain install 1.93 --profile minimal --component rustfmt,clippy
-          rustup override set 1.93
+          rustup toolchain install 1.95 --profile minimal --component rustfmt,clippy
+          rustup override set 1.95
 
       - uses: Swatinem/rust-cache@v2
         with:
           cache-provider: warpbuild
-          shared-key: "linux-1.93-lint"
+          shared-key: "linux-1.95-lint"
           cache-all-crates: true
 
       - name: Test Format
@@ -206,15 +206,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust 1.93
+      - name: Install Rust 1.95
         run: |
-          rustup toolchain install 1.93 --profile minimal
-          rustup override set 1.93
+          rustup toolchain install 1.95 --profile minimal
+          rustup override set 1.95
 
       - uses: Swatinem/rust-cache@v2
         with:
           cache-provider: warpbuild
-          shared-key: "linux-1.93-compilation"
+          shared-key: "linux-1.95-compilation"
           cache-all-crates: true
 
       - name: Compilation tests
@@ -228,14 +228,14 @@ jobs:
 
       - name: Setup Windows toolchain
         run: |
-          rustup toolchain install 1.93 --profile minimal --target wasm32-unknown-unknown
-          rustup override set 1.93
+          rustup toolchain install 1.95 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.95
 
       # Note: Windows runs on GitHub-hosted runners, not WarpBuild, so we don't use
       # cache-provider: warpbuild here. WarpBuild cache is only for WarpBuild runners.
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "windows-1.93"
+          shared-key: "windows-1.95"
           cache-all-crates: true
 
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --features unstable,legacy
@@ -251,10 +251,10 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
 
-      - name: Install Rust 1.93
+      - name: Install Rust 1.95
         run: |
-          rustup toolchain install 1.93 --profile minimal
-          rustup override set 1.93
+          rustup toolchain install 1.95 --profile minimal
+          rustup override set 1.95
 
       - name: Install Audit
         uses: taiki-e/install-action@v2
