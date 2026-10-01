@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use near_account_id::UniversalAccountId;
 use near_sdk_core::types::PublicKeyHandle;
 
 use crate::GlobalContractId;
@@ -209,7 +208,31 @@ pub fn derive_universal_account_id(state_init: &[u8]) -> near_account_id::Accoun
         hash = sha3::Sha3_256::digest(state_init).into();
     }
 
-    UniversalAccountId::from_hash(hash).into_account_id()
+    universal_account_id_from_hash(&hash)
+}
+
+/// `0u` followed by the 32-byte hash in lowercase Crockford base32: 52 symbols, most significant
+/// bit first, 5 bits per symbol, the last symbol carrying one data bit and four zero bits. Same as
+/// nearcore's 0u encoder.
+fn universal_account_id_from_hash(hash: &[u8; 32]) -> near_account_id::AccountId {
+    const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
+
+    let mut id = String::with_capacity(54);
+    id.push_str("0u");
+    let (mut buffer, mut bits) = (0u32, 0u32);
+    for &byte in hash {
+        buffer = (buffer << 8) | u32::from(byte);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            id.push(char::from(ALPHABET[((buffer >> bits) & 0x1f) as usize]));
+        }
+        buffer &= (1 << bits) - 1;
+    }
+    // 256 bits leave 1 over: pad it with 4 zero bits into a final symbol.
+    id.push(char::from(ALPHABET[((buffer << (5 - bits)) & 0x1f) as usize]));
+
+    id.parse().expect("`0u` + 52 lowercase base32 symbols is a valid account id")
 }
 
 #[cfg(test)]
@@ -238,15 +261,33 @@ mod tests {
         ),
     ];
 
-    /// The id is consensus-critical, so the vectors stay here even though `near-account-id`
-    /// owns the encoder: a change on either side has to show up in both places.
+    /// The id is consensus-critical, so the encoder is pinned to nearcore's own vectors.
     #[test]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
-            let account_id = UniversalAccountId::from_hash(*hash);
+            let account_id = universal_account_id_from_hash(hash);
             assert_eq!(account_id.as_str(), *expected);
             assert_eq!(account_id.to_string(), *expected);
-            assert_eq!(account_id.hash(), *hash);
+            assert_eq!(account_id.len(), 54);
+            assert_eq!(
+                account_id.get_account_type(),
+                near_account_id::AccountType::UniversalAccount
+            );
+        }
+    }
+
+    /// Differential check against nearcore's encoder over 2048 deterministic hashes.
+    #[test]
+    #[cfg(feature = "near-primitives-interop")]
+    fn encoder_matches_nearcore_encoder() {
+        use sha3::Digest;
+
+        for seed in 0u32..2048 {
+            let hash: [u8; 32] = sha3::Sha3_256::digest(seed.to_le_bytes()).into();
+            assert_eq!(
+                universal_account_id_from_hash(&hash),
+                near_primitives_core::universal_account_id::encode_universal_account_id(&hash),
+            );
         }
     }
 

@@ -19,8 +19,8 @@ Global contract identifiers and deterministic account derivation (NEP-616) for t
 features = ["serde", "borsh", "abi", "near-primitives-interop"]
 
 [dependencies]
-# 3.1 adds `UniversalAccountId::from_hash`, the `0u` encoder `derive_universal_account_id` uses.
-near-account-id = { version = "3.1", features = ["internal_unstable"] }
+# `internal_unstable` is for `AccountId::new_unvalidated` in the `0s` derivation.
+near-account-id = { version = "3", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
 # `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
 # which lives next to `PublicKey` in near-sdk-core.
