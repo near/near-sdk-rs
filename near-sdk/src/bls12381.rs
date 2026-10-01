@@ -71,14 +71,14 @@
 //! use near_sdk::bls12381::{self, Error, G1Compressed, G2Compressed, G1, G2};
 //!
 //! fn verify_signature(
-//!     pubkey_compressed: [u8; 48],    // public key, a compressed G1 point
-//!     signature_compressed: [u8; 96], // signature, a compressed G2 point
-//!     hashed_message: G2,             // H(m), the message hashed to a G2 point
+//!     pubkey_compressed: G1Compressed,    // public key, a compressed G1 point
+//!     signature_compressed: G2Compressed, // signature, a compressed G2 point
+//!     hashed_message: G2,                // H(m), the message hashed to a G2 point
 //! ) -> Result<bool, Error> {
 //!     // Decompress the inputs; malformed points return `Err`. Decompression does not check
 //!     // subgroup membership, but `pairing_check` below does.
-//!     let pubkey = G1Compressed(pubkey_compressed).decompress()?;
-//!     let signature = G2Compressed(signature_compressed).decompress()?;
+//!     let pubkey = pubkey_compressed.decompress()?;
+//!     let signature = signature_compressed.decompress()?;
 //!
 //!     // One batched pairing check over both pairs. `Ok(true)` means the signature is valid,
 //!     // `Ok(false)` means it is not, and `Err` means one of the points was malformed.
@@ -90,6 +90,7 @@
 //! [NEP-488]: https://github.com/near/NEPs/blob/master/neps/nep-0488.md
 use crate::env::{panic_str, read_register};
 use crate::environment::env::{ATOMIC_OP_REGISTER, expect_register, read_register_fixed};
+use hex_literal::hex;
 use near_sys as sys;
 
 /// Size in bytes of an uncompressed G1 point.
@@ -259,70 +260,50 @@ byte_newtype!(
     SCALAR_LEN
 );
 
-/// Decodes a lowercase hex string into a byte array at compile time.
-const fn decode_hex<const N: usize>(hex: &str) -> [u8; N] {
-    const fn nibble(c: u8) -> u8 {
-        match c {
-            b'0'..=b'9' => c - b'0',
-            b'a'..=b'f' => c - b'a' + 10,
-            _ => panic!("invalid hex digit"),
-        }
-    }
-    let hex = hex.as_bytes();
-    assert!(hex.len() == 2 * N, "hex string has the wrong length");
-    let mut out = [0u8; N];
-    let mut i = 0;
-    while i < N {
-        out[i] = (nibble(hex[2 * i]) << 4) | nibble(hex[2 * i + 1]);
-        i += 1;
-    }
-    out
-}
-
 impl G1 {
     /// The standard generator of the `G1` subgroup.
-    pub const GENERATOR: Self = Self(decode_hex(concat!(
+    pub const GENERATOR: Self = Self(hex!(
         // x
-        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"
         // y
-        "08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1",
-    )));
+        "08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1"
+    ));
 
     /// The negation of [`G1::GENERATOR`], as used in the `e(-g1, signature)` term when checking
     /// a signature whose public key is in `G1`.
-    pub const NEG_GENERATOR: Self = Self(decode_hex(concat!(
+    pub const NEG_GENERATOR: Self = Self(hex!(
         // x
-        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb",
+        "17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"
         // p - y
-        "114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca",
-    )));
+        "114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca"
+    ));
 }
 
 impl G2 {
     /// The standard generator of the `G2` subgroup.
-    pub const GENERATOR: Self = Self(decode_hex(concat!(
+    pub const GENERATOR: Self = Self(hex!(
         // x.c1
-        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
+        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e"
         // x.c0
-        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
+        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
         // y.c1
-        "0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be",
+        "0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be"
         // y.c0
-        "0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801",
-    )));
+        "0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801"
+    ));
 
     /// The negation of [`G2::GENERATOR`], as used in the `e(signature, -g2)` term when checking
     /// a signature whose public key is in `G2`.
-    pub const NEG_GENERATOR: Self = Self(decode_hex(concat!(
+    pub const NEG_GENERATOR: Self = Self(hex!(
         // x.c1
-        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
+        "13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e"
         // x.c0
-        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8",
+        "024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
         // p - y.c1
-        "13fa4d4a0ad8b1ce186ed5061789213d993923066dddaf1040bc3ff59f825c78df74f2d75467e25e0f55f8a00fa030ed",
+        "13fa4d4a0ad8b1ce186ed5061789213d993923066dddaf1040bc3ff59f825c78df74f2d75467e25e0f55f8a00fa030ed"
         // p - y.c0
-        "0d1b3cc2c7027888be51d9ef691d77bcb679afda66c73f17f9ee3837a55024f78c71363275a75d75d86bab79f74782aa",
-    )));
+        "0d1b3cc2c7027888be51d9ef691d77bcb679afda66c73f17f9ee3837a55024f78c71363275a75d75d86bab79f74782aa"
+    ));
 }
 
 /// Reads a single fixed-size point out of the atomic register after a successful host call.
@@ -345,7 +326,8 @@ fn read_points<const N: usize, T: From<[u8; N]>>(count: usize) -> Vec<T> {
     }
     raw.chunks_exact(N)
         .map(|chunk| {
-            let arr: [u8; N] = chunk.try_into().expect("chunks_exact yields N-byte chunks");
+            // `chunks_exact` gives us exactly N-byte chunks.
+            let arr: [u8; N] = chunk.try_into().unwrap_or_else(|_| unreachable!());
             T::from(arr)
         })
         .collect()
