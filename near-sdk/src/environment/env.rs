@@ -2614,7 +2614,7 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_account_id::UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
+        near_global_contracts::derive_universal_account_id(state_init)
     }
 }
 
@@ -3033,6 +3033,39 @@ mod tests {
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
         assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
         assert_eq!(account_id, state_init.derive_account_id());
+    }
+
+    #[test]
+    fn universal_state_init_raw_derivation_preserves_bytes() {
+        // NEP-655 Appendix A / nearcore's universal_state_init_vectors.rs wallet vector.
+        let wallet = hex::decode(concat!(
+            "0001012a000000",
+            "307362306437656634663933356336656637386530386164303335363937363761616563343232336133",
+            "01000000000000003d000000",
+            "01000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02",
+            "ae5c6466100e00000000000000000000000000000000000000000000",
+            "00000000",
+        ))
+        .unwrap();
+
+        // Valid V1 bytes with data keys b, a. Decoding and re-encoding sorts them and
+        // changes the id; the raw entry point must hash the original bytes instead.
+        let unsorted =
+            hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap();
+        let sorted = UniversalStateInit::from_bytes(&unsorted).unwrap().to_bytes();
+        assert_ne!(unsorted, sorted);
+
+        for (bytes, expected) in [
+            (wallet, "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0"),
+            (unsorted, "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag"),
+            (sorted, "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg"),
+        ] {
+            assert_eq!(universal_state_init_to_account_id_raw(&bytes).as_str(), expected);
+            assert_eq!(
+                near_global_contracts::derive_universal_account_id(&bytes).as_str(),
+                expected
+            );
+        }
     }
 
     #[test]
