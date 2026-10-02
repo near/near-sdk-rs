@@ -168,9 +168,11 @@ const _: () = {
 ///
 /// The discriminant is the only version marker; new fields or semantics arrive as a new variant.
 ///
-/// There is deliberately no serde/JSON form: JSON callers (contract arguments, RPC) carry the
-/// [`RawStateInit`] as base64, like nearcore's `ActionView`. The id commits to the bytes, so
-/// anything forwarding a state init it did not build must carry the bytes, not a typed value.
+/// With `serde`, the typed JSON form supports builders and inspection: snake_case variant tags,
+/// base64 storage keys and values, and string access-key handles. This does not establish that
+/// incoming raw bytes were canonical. Decoding and re-encoding can change their account id.
+/// Contracts forwarding state init should accept [`RawStateInit`] (base64 in JSON) and preserve
+/// its bytes, including versions this crate cannot decode.
 ///
 /// Contract authors reach this through `near-sdk`, which re-exports it under
 /// `near_sdk::universal_state_init` and adds `Promise::universal_state_init`. Off-chain code can
@@ -184,9 +186,19 @@ const _: () = {
 /// shipped in nearcore 2.14).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
+)]
+#[cfg_attr(
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize),
     borsh(use_discriminant = true)
+)]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
 )]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[repr(u8)]
@@ -201,14 +213,35 @@ pub enum UniversalStateInit {
 /// contract account has one. A payload with neither code nor keys is valid too, but the resulting
 /// account can never be controlled.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "serde",
+    cfg_eval::cfg_eval,
+    serde_with::serde_as,
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(
+    feature = "schemars-v0_8",
+    derive(::schemars_v0_8::JsonSchema),
+    schemars(crate = "::schemars_v0_8")
+)]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct UniversalStateInitV1 {
     /// Contract code, or `None` for a key-only account.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub code: Option<GlobalContractId>,
     /// Initial storage; empty unless seeded. Sorted keys give a canonical encoding.
+    #[cfg_attr(feature = "serde", serde_as(as = "BTreeMap<Base64, Base64>"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "::std::collections::BTreeMap::is_empty")
+    )]
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
     /// Full-access keys as compact on-trie handles. Sorted for a canonical encoding.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "::std::collections::BTreeSet::is_empty")
+    )]
     pub access_keys: BTreeSet<PublicKeyHandle>,
 }
 
@@ -352,6 +385,10 @@ mod tests {
             assert_eq!(account_id.as_str(), *expected);
             assert_eq!(account_id.len(), 54);
             assert_eq!(account_id, expected.parse::<AccountId>().unwrap());
+            assert_eq!(
+                account_id.get_account_type(),
+                near_account_id::AccountType::UniversalAccount
+            );
         }
     }
 

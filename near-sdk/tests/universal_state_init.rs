@@ -95,3 +95,29 @@ fn promise_targets_the_id_of_the_bytes_it_sends() {
     }
     assert_eq!(receipts[0].receiver_id.as_str(), UNSORTED_ID);
 }
+
+#[test]
+fn unknown_version_derives_and_forwards_without_typed_decoding() {
+    testing_env!(VMContextBuilder::new().build());
+
+    let raw = RawStateInit(vec![0xff, 0x00, 0x80, 0x01]);
+    assert!(UniversalStateInit::try_from(&raw).is_err());
+    let account_id = env::universal_state_init_to_account_id(&raw);
+    assert_eq!(account_id, raw.derive_account_id());
+    let deposit = NearToken::from_millinear(10);
+
+    let promise = env::promise_batch_create(&account_id);
+    env::promise_batch_action_universal_state_init(promise, &raw, deposit);
+    Promise::new(account_id.clone()).universal_state_init(raw.clone(), deposit).detach();
+
+    let receipts = get_created_receipts();
+    assert_eq!(receipts.len(), 2);
+    for receipt in receipts {
+        assert_eq!(receipt.receiver_id, account_id);
+        assert!(matches!(
+            receipt.actions.as_slice(),
+            [MockAction::UniversalStateInit { state_init, amount, .. }]
+                if *state_init == raw.0 && *amount == deposit
+        ));
+    }
+}

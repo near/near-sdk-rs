@@ -34,11 +34,12 @@
 //!
 //! The `0u` derivation ([`RawStateInit::derive_account_id`]) needs no feature and works the same
 //! way with SHA3-256 and the `sha3_256` host function.
-//! Encoding or decoding a [`UniversalStateInit`] needs `borsh`.
+//! Converting between [`UniversalStateInit`] and raw bytes needs `borsh`.
 //!
 //! Other features:
 //! - `serde`, `borsh` — derive the matching (de)serialization traits. [`RawStateInit`] is a base64
-//!   string in JSON, like nearcore's; the typed [`UniversalStateInit`] has no serde form.
+//!   string in JSON, like nearcore's; typed JSON supports builders and inspection. Typed serde
+//!   does not establish incoming raw canonicity: forward raw bytes and derive their id unchanged.
 //! - `abi` — schema generation for ABI tooling. Like `schemars-v0_8`, it enables `serde`, since
 //!   the schema describes the JSON form.
 //! - `arbitrary` — `arbitrary::Arbitrary` impls for fuzzing.

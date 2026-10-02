@@ -6,7 +6,7 @@ use near_sdk as _;
 
 #[cfg(any(feature = "borsh", feature = "near-primitives-interop", feature = "schemars-v0_8"))]
 use near_global_contracts::RawStateInit;
-#[cfg(feature = "borsh")]
+#[cfg(any(feature = "borsh", feature = "serde"))]
 use near_global_contracts::{
     GlobalContractId, PublicKeyHandle, UniversalStateInit, UniversalStateInitV1,
 };
@@ -244,4 +244,106 @@ fn raw_state_init_json_schema_is_base64_string() {
     let schema = serde_json::to_value(schemars_v0_8::schema_for!(RawStateInit)).unwrap();
     assert_eq!(schema["type"], "string");
     assert_eq!(schema["contentEncoding"], "base64");
+}
+
+#[cfg(feature = "serde")]
+fn json_fixture() -> UniversalStateInitV1 {
+    UniversalStateInitV1::default()
+        .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
+        .with_data_entry([0xff, 0x00, 0x80], [0x00, 0xfe, 0x81])
+        .with_data_entry(b"", b"\0")
+        .with_access_key(PublicKeyHandle::ED25519([0x11; 32]))
+        .with_access_key(PublicKeyHandle::SECP256K1([0x22; 64]))
+        .with_access_key(PublicKeyHandle::MLDSA65Hash([0x33; 32]))
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn typed_json_round_trip_preserves_binary_data_and_access_keys() {
+    let v1 = json_fixture();
+    let json = serde_json::to_value(&v1).unwrap();
+    assert_eq!(json["code"], serde_json::json!({"account_id": "code.near"}));
+    assert_eq!(json["data"], serde_json::json!({"/wCA": "AP6B", "": "AA=="}));
+    let keys = json["access_keys"].as_array().unwrap();
+    assert_eq!(keys.len(), 3);
+    for (key, prefix) in keys.iter().zip(["ed25519:", "secp256k1:", "ml-dsa-65-hash:"]) {
+        assert!(key.as_str().unwrap().starts_with(prefix));
+    }
+    assert_eq!(serde_json::from_value::<UniversalStateInitV1>(json.clone()).unwrap(), v1);
+
+    let typed = UniversalStateInit::from(v1);
+    let tagged = serde_json::json!({"v1": json});
+    assert_eq!(serde_json::to_value(&typed).unwrap(), tagged);
+    assert_eq!(serde_json::from_value::<UniversalStateInit>(tagged).unwrap(), typed);
+
+    let by_hash =
+        UniversalStateInit::from(json_fixture().with_code(GlobalContractId::CodeHash([0x44; 32])));
+    let json = serde_json::to_value(&by_hash).unwrap();
+    assert!(json["v1"]["code"]["hash"].is_string());
+    assert_eq!(serde_json::from_value::<UniversalStateInit>(json).unwrap(), by_hash);
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn typed_json_defaults_and_omits_empty_fields() {
+    let empty = UniversalStateInitV1::default();
+    assert_eq!(serde_json::to_value(&empty).unwrap(), serde_json::json!({}));
+    for json in
+        [serde_json::json!({}), serde_json::json!({"code": null, "data": {}, "access_keys": []})]
+    {
+        assert_eq!(serde_json::from_value::<UniversalStateInitV1>(json.clone()).unwrap(), empty);
+        let tagged = serde_json::json!({"v1": json});
+        assert_eq!(
+            serde_json::from_value::<UniversalStateInit>(tagged).unwrap(),
+            UniversalStateInit::from(empty.clone())
+        );
+    }
+    assert_eq!(
+        serde_json::to_value(UniversalStateInit::from(empty)).unwrap(),
+        serde_json::json!({"v1": {}})
+    );
+}
+
+#[test]
+#[cfg(feature = "schemars-v0_8")]
+fn typed_json_schemas_describe_tagged_binary_data_and_access_keys() {
+    let v1_schema = serde_json::to_value(schemars_v0_8::schema_for!(UniversalStateInitV1)).unwrap();
+    assert_eq!(v1_schema["type"], "object");
+    assert!(v1_schema.get("required").is_none());
+    let properties = &v1_schema["properties"];
+    assert_eq!(properties["data"]["type"], "object");
+    assert_eq!(properties["data"]["additionalProperties"]["type"], "string");
+    assert_eq!(properties["data"]["additionalProperties"]["contentEncoding"], "base64");
+    assert_eq!(properties["access_keys"]["type"], "array");
+    assert_eq!(properties["access_keys"]["items"]["type"], "string");
+    assert_eq!(properties["access_keys"]["uniqueItems"], true);
+    assert!(properties.get("code").is_some());
+
+    let schema = serde_json::to_value(schemars_v0_8::schema_for!(UniversalStateInit)).unwrap();
+    let variant = &schema["oneOf"][0];
+    assert_eq!(variant["required"], serde_json::json!(["v1"]));
+    assert_eq!(variant["properties"]["v1"]["$ref"], "#/definitions/UniversalStateInitV1");
+    assert_eq!(schema["definitions"]["UniversalStateInitV1"]["properties"], *properties);
+
+    // Check the nonempty JSON shape as well: empty fixtures would hide a byte-array schema.
+    let json = serde_json::to_value(UniversalStateInit::from(json_fixture())).unwrap();
+    let payload = &json["v1"];
+    assert!(payload["data"].as_object().unwrap().values().all(serde_json::Value::is_string));
+    assert!(payload["access_keys"].as_array().unwrap().iter().all(serde_json::Value::is_string));
+}
+
+#[test]
+#[cfg(all(feature = "serde", feature = "borsh"))]
+fn typed_json_inspection_does_not_establish_raw_canonicity() {
+    let raw = RawStateInit(
+        hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap(),
+    );
+    let typed = UniversalStateInit::try_from(&raw).unwrap();
+    let json = serde_json::to_value(&typed).unwrap();
+    let inspected: UniversalStateInit = serde_json::from_value(json).unwrap();
+    assert_eq!(inspected, typed);
+    assert_ne!(inspected.to_raw(), raw);
+    assert_ne!(inspected.derive_account_id(), raw.derive_account_id());
+    let wire = serde_json::to_value(&raw).unwrap();
+    assert_eq!(serde_json::from_value::<RawStateInit>(wire).unwrap(), raw);
 }

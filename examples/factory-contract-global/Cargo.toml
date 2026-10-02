@@ -2,7 +2,7 @@
 name = "factory-contract-global"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.93"
+rust-version = "1.95"
 repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
@@ -27,9 +27,9 @@ overflow-checks = true
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
-image = "sourcescan/cargo-near:0.20.3-rust-1.93.0"
+image = "sourcescan/cargo-near:0.21.1-rust-1.96.1"
 # tag after colon above serves only descriptive purpose; image is identified by digest
-image_digest = "sha256:8e61653261766ff251a6c6c2004f2745446fc1ba74d807b3daf6e2cc5cf99ea9"
+image_digest = "sha256:86bd27dd489aeb2f5004a7507d3699c045ce2f59f5287e201002966040da4a7d"
 # passed_env: list of environment variable names whose values will be passed to the build
 passed_env = []
 # build command inside of docker container

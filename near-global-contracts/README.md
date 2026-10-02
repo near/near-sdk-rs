@@ -13,7 +13,10 @@ this crate directly.
 A `0u` id is SHA3-256 of the exact state-init bytes, and the chain accepts non-canonical
 encodings, which derive a different account. `RawStateInit` holds those bytes and is what
 to store, send and forward; `UniversalStateInit` builds and decodes them. Never decode and
-re-encode bytes you were handed.
+re-encode bytes you were handed to forward them or derive their account ID. The typed
+serde form is for builders and inspection; it does not prove incoming raw bytes were
+canonical. It uses snake_case variant tags, base64 storage keys/values, and string
+access-key handles, omitting absent code and empty collections.
 
 ## Quick start
 
@@ -57,7 +60,7 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 
 | Feature                    | Effect                                                                  |
 | -------------------------- | ----------------------------------------------------------------------- |
-| `serde`                    | `Serialize`/`Deserialize` impls (`RawStateInit` as base64; the typed `UniversalStateInit` has none) |
+| `serde`                    | `Serialize`/`Deserialize` impls (`RawStateInit` as base64; typed state init for builders and inspection) |
 | `borsh`                    | `BorshSerialize`/`BorshDeserialize` impls (also enables the typed `derive_account_id`s) |
 | `abi`                      | `schemars::JsonSchema` and `borsh::BorshSchema` for ABI tooling         |
 | `arbitrary`                | `arbitrary::Arbitrary` impls for fuzzing                                |
