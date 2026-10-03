@@ -1,0 +1,17 @@
+[package]
+name = "near-sdk-crate-rename-test"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Renamed so that this crate never depends on a crate literally named `near_sdk` -- exercises
+# `#[near(crate = "...")]` (near/near-sdk-rs#1059) under the exact conditions that break today:
+# a re-exported, renamed `near-sdk` dependency.
+renamed_near_sdk = { package = "near-sdk", path = "../near-sdk" }
+
+[dev-dependencies]
+renamed_near_sdk = { package = "near-sdk", path = "../near-sdk", features = ["unit-testing"] }

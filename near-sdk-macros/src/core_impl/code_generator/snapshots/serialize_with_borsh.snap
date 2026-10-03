@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_trait_info.rs
-assertion_line: 72
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub mod test {
@@ -54,7 +53,7 @@ pub mod test {
                     v: &'nearinput Vec<String>,
                 }
                 let __args = Input { v: &v };
-                match near_sdk::borsh::to_vec(&__args) {
+                match ::near_sdk::borsh::to_vec(&__args) {
                     Ok(serialized) => serialized,
                     Err(_) => {
                         ::near_sdk::env::panic_str(
