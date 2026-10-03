@@ -1,13 +1,24 @@
 use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
-use near_sdk::{AccountId, CryptoHash, Promise, PromiseError, env, ext_contract, near};
+use near_sdk::store::IterableMap;
+use near_sdk::{AccountId, CryptoHash, Promise, PromiseError, env, ext_contract, near, require};
 
-#[derive(Default)]
 #[near(contract_state)]
 pub struct GlobalFactoryContract {
     /// Store the hash of deployed global contracts for reference
-    pub global_contracts_registered_by_code_hash: std::collections::HashMap<String, CryptoHash>,
+    pub global_contracts_registered_by_code_hash: IterableMap<String, CryptoHash>,
     /// Store account IDs that have deployed global contracts
-    pub global_contracts_registered_by_account_id: std::collections::HashMap<String, AccountId>,
+    pub global_contracts_registered_by_account_id: IterableMap<String, AccountId>,
+}
+
+impl Default for GlobalFactoryContract {
+    fn default() -> Self {
+        // Persistent SDK collections keep gas costs constant as the registry grows,
+        // unlike a `std::collections::HashMap` which is (de)serialized in full on every call.
+        Self {
+            global_contracts_registered_by_code_hash: IterableMap::new(b"h"),
+            global_contracts_registered_by_account_id: IterableMap::new(b"a"),
+        }
+    }
 }
 
 // Example contract interface that we'll deploy as a global contract
@@ -22,6 +33,12 @@ impl GlobalFactoryContract {
     /// Deploy a global contract with the given bytecode, identifiable by its code hash
     #[payable]
     pub fn deploy_global_contract(&mut self, name: String, code: Base64VecU8) -> Promise {
+        // Reject duplicate names so a registered entry can't be silently overwritten.
+        require!(
+            !self.global_contracts_registered_by_code_hash.contains_key(&name),
+            "Name is already registered"
+        );
+
         let code_hash = env::sha256_array(&code);
         self.global_contracts_registered_by_code_hash.insert(name.clone(), code_hash);
 
@@ -36,6 +53,12 @@ impl GlobalFactoryContract {
         code: Base64VecU8,
         account_id: AccountId,
     ) -> Promise {
+        // Reject duplicate names so a registered entry can't be silently overwritten.
+        require!(
+            !self.global_contracts_registered_by_account_id.contains_key(&name),
+            "Name is already registered"
+        );
+
         self.global_contracts_registered_by_account_id.insert(name, account_id.clone());
 
         Promise::new(account_id)
