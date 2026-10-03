@@ -29,7 +29,6 @@ pub struct ArgInfo {
     #[allow(unused)]
     pub pat_reference: Option<Token![ref]>,
     /// Whether pattern has a preceded `mut`.
-    #[allow(unused)]
     pub pat_mutability: Option<Token![mut]>,
     /// Whether the `TYPE` starts with `&`.
     pub reference: Option<Token![&]>,

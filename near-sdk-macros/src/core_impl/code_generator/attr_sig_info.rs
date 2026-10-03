@@ -149,9 +149,10 @@ impl AttrSigInfo {
         );
         let mut fields = TokenStream2::new();
         for arg in args {
-            let ArgInfo { mutability, ident, .. } = &arg;
+            let ArgInfo { mutability, pat_mutability, ident, .. } = &arg;
+            let needs_mut = mutability.or(*pat_mutability);
             fields.extend(quote! {
-            #mutability #ident,
+            #needs_mut #ident,
             });
         }
         quote! {
@@ -241,14 +242,23 @@ impl AttrSigInfo {
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
-                let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
+                let ArgInfo {
+                    mutability,
+                    pat_mutability,
+                    ident,
+                    ty,
+                    bindgen_ty,
+                    serializer_ty,
+                    ..
+                } = arg;
                 match &bindgen_ty {
                     BindgenArgType::Callback { ty: CallbackBindgenArgType::Arg, max_bytes } => {
                         let error_msg = format!("Callback computation {idx} was not successful");
                         let invocation = deserialize_data(serializer_ty);
+                        let needs_mut = mutability.or(*pat_mutability);
                         quote! {
                             #acc
-                            let #mutability #ident: #ty = {
+                            let #needs_mut #ident: #ty = {
                                 let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
                                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
                                 #invocation
@@ -297,9 +307,10 @@ impl AttrSigInfo {
                                     #deserialize
                                 })
                         };
+                        let needs_mut = mutability.or(*pat_mutability);
                         quote! {
                             #acc
-                            let #mutability #ident: #ty = #result;
+                            let #needs_mut #ident: #ty = #result;
                         }
                     }
                     _ => unreachable!(),
@@ -319,11 +330,12 @@ impl AttrSigInfo {
                 Some((arg, max_bytes))
             })
             .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
-                let ArgInfo { mutability, ident, ty, .. } = arg;
+                let ArgInfo { mutability, pat_mutability, ident, ty, .. } = arg;
+                let needs_mut = mutability.or(*pat_mutability);
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
                     #acc
-                    let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
+                    let #needs_mut #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
                         |i| {
                             let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
