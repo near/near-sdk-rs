@@ -54,8 +54,8 @@ where
     T: BorshSerialize + BorshDeserialize + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Bucket")
-            .field("next_vacant", &self.first_free)
+        f.debug_struct("FreeList")
+            .field("first_free", &self.first_free)
             .field("occupied_count", &self.occupied_count)
             .field("elements", &self.elements)
             .finish()
