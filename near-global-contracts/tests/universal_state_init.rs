@@ -108,7 +108,7 @@ fn matches_nearcore_and_nep655_known_answers() {
         let raw = RawStateInit(hex::decode(bytes).unwrap());
         assert_eq!(state_init.to_raw(), raw, "{name}: bytes");
         assert_eq!(UniversalStateInit::try_from(&raw).unwrap(), state_init, "{name}: decode");
-        assert_eq!(raw.derive_account_id().as_str(), id, "{name}: id");
+        assert_eq!(raw.try_derive_account_id().unwrap().as_str(), id, "{name}: id");
         assert_eq!(state_init.derive_account_id().as_str(), id, "{name}: typed id");
     }
 }
@@ -142,51 +142,37 @@ fn matches_nearcore_known_answer_ids() {
     ] {
         let raw = RawStateInit::from(state_init);
         assert_eq!(raw.0.len(), len);
-        assert_eq!(raw.derive_account_id().as_str(), id);
+        assert_eq!(raw.try_derive_account_id().unwrap().as_str(), id);
     }
 }
 
-/// Non-canonical bytes are accepted and derive their own id, which re-encoding loses. Values
-/// match nearcore's 0u derivation and its `UniversalStateInit::from_raw`.
+/// Portable fixtures are shared with other UAID implementations. Invalid cases must not
+/// produce an address, regardless of whether Borsh's de_strict_order feature is unified in.
 #[test]
 #[cfg(feature = "borsh")]
-fn non_canonical_bytes_keep_their_own_id() {
-    fn entries(entries: &[(&[u8], &[u8])]) -> Vec<u8> {
-        let mut bytes = vec![0, 0];
-        bytes.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-        for (key, value) in entries {
-            bytes.extend_from_slice(&(key.len() as u32).to_le_bytes());
-            bytes.extend_from_slice(key);
-            bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
-            bytes.extend_from_slice(value);
-        }
-        bytes.extend_from_slice(&0u32.to_le_bytes());
-        bytes
+fn canonicality_vectors() {
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("data/universal_state_init.json")).unwrap();
+    for vector in vectors["valid"].as_array().unwrap() {
+        let name = vector["name"].as_str().unwrap();
+        let raw = RawStateInit(hex::decode(vector["hex"].as_str().unwrap()).unwrap());
+        let original = raw.clone();
+        raw.validate_canonical().unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert_eq!(
+            raw.try_derive_account_id().unwrap().as_str(),
+            vector["account_id"].as_str().unwrap(),
+            "{name}",
+        );
+        assert_eq!(raw, original, "{name}: validation must preserve the input");
     }
-
-    let unsorted = RawStateInit(entries(&[(b"b", b""), (b"a", b"")]));
-    let decoded = UniversalStateInit::try_from(&unsorted).unwrap();
-    assert_ne!(decoded.to_raw(), unsorted);
-    assert_eq!(
-        unsorted.derive_account_id().as_str(),
-        "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag"
-    );
-    assert_eq!(
-        decoded.derive_account_id().as_str(),
-        "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg"
-    );
-
-    // Duplicate keys: last one wins on decode, like nearcore.
-    let duplicate = RawStateInit(entries(&[(b"a", b"1"), (b"a", b"2")]));
-    let decoded = UniversalStateInit::try_from(&duplicate).unwrap();
-    assert_eq!(decoded.data().get(&b"a"[..]), Some(&b"2".to_vec()));
-    assert_ne!(decoded.to_raw(), duplicate);
-    assert_ne!(decoded.derive_account_id(), duplicate.derive_account_id());
-
-    // Tag 2 (a full ML-DSA-65 key) is not a valid handle.
-    let mut full_key = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2];
-    full_key.extend_from_slice(&[0; 32]);
-    assert!(UniversalStateInit::try_from(RawStateInit(full_key)).is_err());
+    for vector in vectors["invalid"].as_array().unwrap() {
+        let name = vector["name"].as_str().unwrap();
+        let raw = RawStateInit(hex::decode(vector["hex"].as_str().unwrap()).unwrap());
+        let original = raw.clone();
+        assert!(raw.validate_canonical().is_err(), "{name}: validation");
+        assert!(raw.try_derive_account_id().is_err(), "{name}: derivation");
+        assert_eq!(raw, original, "{name}: rejection must preserve the input");
+    }
 }
 
 #[test]
@@ -234,8 +220,8 @@ fn raw_state_init_wire_forms() {
         RawStateInit(b"key".to_vec())
     );
 
-    assert_eq!(raw.derive_account_id(), key_only().derive_account_id());
-    assert_ne!(raw.derive_account_id(), RawStateInit(expected).derive_account_id());
+    assert_eq!(raw.try_derive_account_id().unwrap(), key_only().derive_account_id());
+    assert!(RawStateInit(expected).try_derive_account_id().is_err());
 }
 
 #[test]
@@ -343,7 +329,8 @@ fn typed_json_inspection_does_not_establish_raw_canonicity() {
     let inspected: UniversalStateInit = serde_json::from_value(json).unwrap();
     assert_eq!(inspected, typed);
     assert_ne!(inspected.to_raw(), raw);
-    assert_ne!(inspected.derive_account_id(), raw.derive_account_id());
+    assert!(raw.try_derive_account_id().is_err());
+    assert_eq!(inspected.derive_account_id(), typed.derive_account_id());
     let wire = serde_json::to_value(&raw).unwrap();
     assert_eq!(serde_json::from_value::<RawStateInit>(wire).unwrap(), raw);
 }

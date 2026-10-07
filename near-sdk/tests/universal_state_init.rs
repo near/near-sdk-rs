@@ -3,6 +3,9 @@
 //! An integration test links near-sdk without `cfg(test)`, so with `unit-testing` every `env` call
 //! here goes through nearcore's host function implementations rather than the off-chain fallback
 //! that near-sdk's own unit tests can select.
+//!
+//! These characterize the pinned 0.38.0-rc.2 host. Its noncanonical/unknown-version
+//! hashes and recorded mock actions do not establish validity under the agreed UA semantics.
 
 use near_sdk::mock::MockAction;
 use near_sdk::test_utils::{VMContextBuilder, get_created_receipts};
@@ -17,8 +20,7 @@ fn key_only() -> RawStateInit {
 }
 const KEY_ONLY_ID: &str = "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g";
 
-/// V1 with data keys `b`, `a` in that order: accepted on chain, but not what encoding the decoded
-/// value gives back.
+/// Noncanonical V1 bytes with data keys `b`, `a`, used to characterize the legacy host.
 fn unsorted_data_keys() -> RawStateInit {
     let mut bytes = vec![0, 0];
     bytes.extend_from_slice(&2u32.to_le_bytes());
@@ -34,7 +36,7 @@ const UNSORTED_ID: &str = "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34a
 const UNSORTED_REENCODED_ID: &str = "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg";
 
 #[test]
-fn host_function_derives_the_id_of_the_exact_bytes() {
+fn legacy_host_hashes_bytes_without_canonicality_validation() {
     testing_env!(VMContextBuilder::new().build());
 
     let gas_before = env::used_gas();
@@ -44,7 +46,7 @@ fn host_function_derives_the_id_of_the_exact_bytes() {
 
     let raw = unsorted_data_keys();
     assert_eq!(env::universal_state_init_to_account_id(&raw).as_str(), UNSORTED_ID);
-    assert_eq!(raw.derive_account_id().as_str(), UNSORTED_ID);
+    assert!(raw.try_derive_account_id().is_err());
     let reencoded = UniversalStateInit::try_from(&raw).unwrap().to_raw();
     assert_ne!(reencoded, raw);
     assert_eq!(env::universal_state_init_to_account_id(&reencoded).as_str(), UNSORTED_REENCODED_ID);
@@ -70,6 +72,7 @@ fn promise_batch_action_carries_the_bytes_verbatim() {
 }
 
 #[test]
+#[allow(deprecated)] // Compare with the pinned legacy hash without implying validity.
 fn promise_targets_the_id_of_the_bytes_it_sends() {
     testing_env!(VMContextBuilder::new().build());
 
@@ -97,13 +100,13 @@ fn promise_targets_the_id_of_the_bytes_it_sends() {
 }
 
 #[test]
-fn unknown_version_derives_and_forwards_without_typed_decoding() {
+fn legacy_mock_records_unknown_version_bytes_without_typed_decoding() {
     testing_env!(VMContextBuilder::new().build());
 
     let raw = RawStateInit(vec![0xff, 0x00, 0x80, 0x01]);
     assert!(UniversalStateInit::try_from(&raw).is_err());
     let account_id = env::universal_state_init_to_account_id(&raw);
-    assert_eq!(account_id, raw.derive_account_id());
+    assert!(raw.try_derive_account_id().is_err());
     let deposit = NearToken::from_millinear(10);
 
     let promise = env::promise_batch_create(&account_id);

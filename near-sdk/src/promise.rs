@@ -603,7 +603,7 @@ impl Promise {
     /// `deposit` ([NEP-655]).
     ///
     /// The promise's receiver must be the account id these exact bytes derive to
-    /// ([`RawStateInit::derive_account_id`](crate::universal_state_init::RawStateInit::derive_account_id)
+    /// ([`RawStateInit::try_derive_account_id`](crate::universal_state_init::RawStateInit::try_derive_account_id)
     /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)).
     /// The runtime validates the new receipt when the calling function call finishes, and a
     /// mismatch fails that call and rolls back its state changes.
@@ -622,8 +622,10 @@ impl Promise {
     ///
     /// # Examples
     ///
-    /// A factory that creates accounts from state-init bytes its callers built, taking them as a
-    /// base64 JSON argument:
+    /// A factory that validates locally supported state-init versions before scheduling an
+    /// action, taking the original bytes as a base64 JSON argument. Invalid input is rejected
+    /// before constructing a promise. Forwarding future versions requires a validating host
+    /// with the fallible ABI; see [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id).
     ///
     /// ```no_run
     /// use near_sdk::universal_state_init::RawStateInit;
@@ -637,7 +639,9 @@ impl Promise {
     /// impl Factory {
     ///     #[payable]
     ///     pub fn create(&mut self, state_init: RawStateInit) -> Promise {
-    ///         Promise::new(state_init.derive_account_id())
+    ///         let account_id = state_init.try_derive_account_id()
+    ///             .unwrap_or_else(|_| env::panic_str("Invalid or non-canonical state init"));
+    ///         Promise::new(account_id)
     ///             .universal_state_init(state_init, env::attached_deposit())
     ///     }
     /// }
@@ -654,7 +658,7 @@ impl Promise {
     ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
     ///         .with_access_key(env::signer_account_pk()),
     /// );
-    /// Promise::new(state_init.derive_account_id())
+    /// Promise::new(state_init.try_derive_account_id().unwrap())
     ///     .universal_state_init(state_init, NearToken::from_millinear(10));
     /// ```
     ///

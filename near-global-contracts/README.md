@@ -10,10 +10,11 @@ Contract authors using `near-sdk` get these types re-exported under
 `near_sdk::state_init` and `near_sdk::universal_state_init` and do not need to depend on
 this crate directly.
 
-A `0u` id is SHA3-256 of the exact state-init bytes, and the chain accepts non-canonical
-encodings, which derive a different account. `RawStateInit` holds those bytes and is what
-to store, send and forward; `UniversalStateInit` builds and decodes them. Never decode and
-re-encode bytes you were handed to forward them or derive their account ID. The typed
+A `0u` id is SHA3-256 of the exact canonical state-init bytes. `RawStateInit` holds bytes
+without validating them; use `try_derive_account_id()` before presenting a funding address.
+It rejects malformed, noncanonical and unsupported-version inputs rather than normalizing
+them into another account. `UniversalStateInit` builds and decodes the bytes. Preserve the
+original bytes when forwarding them. The typed
 serde form is for builders and inspection; it does not prove incoming raw bytes were
 canonical. It uses snake_case variant tags, base64 storage keys/values, and string
 access-key handles, omitting absent code and empty collections.
@@ -41,7 +42,9 @@ use near_global_contracts::{RawStateInit, UniversalStateInitV1};
 let raw = RawStateInit::from(UniversalStateInitV1::default().with_code(
     GlobalContractId::AccountId("code.near".parse().unwrap()),
 ));
-println!("{}", raw.derive_account_id()); // 0u<52 base32 chars>
+// Handle invalid input before displaying an address or asking the user to fund it.
+let account_id = raw.try_derive_account_id()?;
+println!("{account_id}"); // 0u<52 base32 chars>
 ```
 
 ### Inside an on-chain contract (via `cargo-near`)
@@ -67,10 +70,20 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 | `near-primitives-interop`  | `From`/`Into` between these types and the `near-primitives-core` ones   |
 
 `StateInit::derive_account_id` and `UniversalStateInit::derive_account_id` require the
-`borsh` feature; `RawStateInit::derive_account_id` needs none. Hashing backend is selected
+`borsh` feature, as do `RawStateInit::validate_canonical` and `try_derive_account_id`.
+The deprecated `RawStateInit::derive_account_id` remains an unchecked hash for compatibility;
+it must not be used to validate funding addresses. Hashing backend is selected
 automatically: on `--cfg near` (set by `cargo-near`) it routes through NEAR host functions
 (`keccak256`, `sha3_256`); otherwise it uses pure-Rust `sha3`, which is pulled in
 unconditionally on the `cfg(not(near))` path.
+
+Local validation knows only this crate's state-init versions. It checks the outer encoding,
+not opaque storage values or network-specific initialization requirements. Raw forwarding
+remains version-agnostic; a supporting host must validate future versions.
+
+The SDK's host wrapper and mock are still pinned to the legacy `0.38.0-rc.2` void ABI.
+The agreed fallible host ABI, validation, gas costs and matching dependencies must be integrated
+before UA release. Local validation does not substitute for that protocol work.
 
 ## License
 

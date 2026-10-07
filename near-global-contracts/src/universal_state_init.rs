@@ -10,12 +10,12 @@ use serde_with::base64::Base64;
 /// Borsh bytes of a [`UniversalStateInit`]: the form a `0u` universal account is created from and
 /// the only input its account id is derived from ([NEP-655]).
 ///
-/// The account id is SHA3-256 over exactly these bytes ([`derive_account_id`](Self::derive_account_id)).
-/// The chain accepts non-canonical encodings (unsorted or duplicate map keys, unsorted key sets) and
-/// derives a *different* account for them than for the canonical encoding of the same logical
-/// value. So code that forwards a state init it did not build itself (a factory, relayer or wallet
-/// contract taking user input) must pass these bytes through as they are, never decode and
-/// re-encode them. Passing bytes through also works for a state-init version this crate predates.
+/// The account id is SHA3-256 over exactly these bytes. Use
+/// `try_derive_account_id` (requires `borsh`) to check deserialization and canonical
+/// encoding before presenting an address for funding. Wrapping bytes in this type does not
+/// validate them. Non-canonical bytes must be rejected, not silently normalized to another id.
+/// Code forwarding a state init (a factory, relayer or wallet contract) must preserve the bytes.
+/// Opaque forwarding also works for versions this crate predates; local validation does not.
 ///
 /// Mirrors nearcore's `near_primitives_core::universal_state_init::RawStateInit`: borsh writes a
 /// `u32` length prefix and the bytes (how the action carries it as a field), and JSON is a single
@@ -45,13 +45,59 @@ use serde_with::base64::Base64;
 pub struct RawStateInit(#[cfg_attr(feature = "serde", serde_as(as = "Base64"))] pub Vec<u8>);
 
 impl RawStateInit {
-    /// The `0u` account id these bytes create: SHA3-256 of exactly `self.0`, Crockford-base32
-    /// encoded, the same derivation nearcore applies to a `UniversalStateInit` action.
+    /// Checks that these bytes decode to a supported state init and are its canonical encoding.
+    ///
+    /// Storage keys must be strictly increasing in lexicographic byte order. Access-key handles
+    /// must be strictly increasing by tag, then handle bytes. Duplicates, trailing bytes,
+    /// malformed encodings and versions unknown to this crate are rejected. Storage values are
+    /// opaque bytes; their contents are not normalized or validated.
+    ///
+    /// This is a local format check, not a guarantee that initialization will succeed on a
+    /// particular network (protocol activation, limits, code availability and funding still
+    /// apply). Contracts forwarding future versions need validation by a supporting host.
+    ///
+    /// Requires the `borsh` feature.
+    #[cfg(feature = "borsh")]
+    pub fn validate_canonical(&self) -> std::io::Result<()> {
+        let decoded = UniversalStateInit::try_from(self)?;
+        if borsh::to_vec(&decoded)? != self.0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "non-canonical universal state init",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validates deserialization and canonicity, then derives the `0u` account id from the
+    /// original bytes using SHA3-256 and Crockford base32.
+    ///
+    /// Use this before displaying an address for funding. Errors leave the original bytes
+    /// unchanged; they are never normalized into a different account. See
+    /// [`validate_canonical`](Self::validate_canonical) for the scope of validation.
+    ///
+    /// Requires the `borsh` feature.
+    #[cfg(feature = "borsh")]
+    pub fn try_derive_account_id(&self) -> std::io::Result<near_account_id::AccountId> {
+        self.validate_canonical()?;
+        Ok(self.hash_account_id())
+    }
+
+    /// Hashes these bytes without checking that they describe a canonical state init.
+    ///
+    /// Retained for compatibility with the previous raw API. Malformed, non-canonical and
+    /// unknown-version bytes also produce an address, which may never be initializable.
+    /// Use `try_derive_account_id` (requires `borsh`) before funding an address.
     ///
     /// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in
     /// contract builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical
     /// output.
+    #[deprecated(note = "use try_derive_account_id (requires borsh) to validate before funding")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
+        self.hash_account_id()
+    }
+
+    fn hash_account_id(&self) -> near_account_id::AccountId {
         use near_digest::Digest;
 
         let hash: [u8; 32] = near_digest::sha3::Sha3_256::digest(&self.0).into();
@@ -106,13 +152,14 @@ impl From<UniversalStateInitV1> for RawStateInit {
 
 /// Decodes raw state-init bytes, like nearcore's `UniversalStateInit::from_raw`.
 ///
-/// Trailing bytes, malformed bytes and unknown versions are rejected. A non-canonical encoding
-/// decodes fine, but the account id commits to the original bytes, so re-encoding the result can
-/// give a different id. Keep the [`RawStateInit`] to forward it or to derive its id.
+/// Trailing bytes, malformed bytes and unknown versions are rejected. This is an inspection
+/// conversion, not a canonicality check: decoding can normalize non-canonical collections.
+/// Use [`RawStateInit::validate_canonical`] or [`RawStateInit::try_derive_account_id`] to reject
+/// such input, and keep the original [`RawStateInit`] for forwarding.
 ///
-/// Decoding can be stricter than the chain: borsh's `de_strict_order` cargo feature, if any crate
-/// in the dependency graph enables it, makes this reject unsorted or duplicate keys that nearcore
-/// accepts. Account ids are unaffected, since they never go through decoding.
+/// Borsh's `de_strict_order` cargo feature, if any crate in the dependency graph enables it,
+/// makes decoding reject unsorted or duplicate keys.
+/// Canonicality validation rejects them regardless of that feature.
 ///
 /// Requires the `borsh` feature.
 #[cfg(feature = "borsh")]
@@ -309,20 +356,20 @@ impl UniversalStateInit {
         RawStateInit(borsh::to_vec(self).unwrap_or_else(|_| unreachable!()))
     }
 
-    /// The `0u` account id of this state init's canonical encoding. Shorthand for
-    /// `self.to_raw().derive_account_id()`.
+    /// The `0u` account id of this state init's canonical encoding.
     ///
     /// The id commits to the bytes, not the logical value. A contract that forwards a state init
-    /// it was handed must derive the id from those bytes ([`RawStateInit::derive_account_id`]) and
-    /// forward them unchanged, never decode and re-encode.
+    /// it was handed must validate and derive from those bytes
+    /// ([`RawStateInit::try_derive_account_id`]) and forward them unchanged, never decode and
+    /// re-encode.
     ///
     /// # Availability
     ///
-    /// Requires the `borsh` feature. See [`RawStateInit::derive_account_id`] for the SHA3-256
-    /// backend.
+    /// Requires the `borsh` feature. Uses the SHA3-256 host function with `--cfg near`, pure
+    /// Rust hashing otherwise. No decoding is needed because typed encoding is canonical.
     #[cfg(feature = "borsh")]
     pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        self.to_raw().derive_account_id()
+        self.to_raw().hash_account_id()
     }
 }
 

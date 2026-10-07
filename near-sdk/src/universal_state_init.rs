@@ -8,8 +8,9 @@
 //! take and what the id commits to, so it is also the type to accept in contract arguments (JSON
 //! as base64) and to forward unchanged. [`UniversalStateInit`] and [`UniversalStateInitV1`] build
 //! and decode it, with typed JSON for builders and inspection. Typed serde does not prove that
-//! incoming raw bytes were canonical. A non-canonical encoding of the same logical state init is
-//! a different account, so preserve the original bytes when forwarding or deriving its id.
+//! incoming raw bytes were canonical. Use [`RawStateInit::try_derive_account_id`] to reject
+//! malformed or noncanonical input before presenting an address for funding. Preserve the
+//! original bytes when forwarding; local validation rejects versions this SDK cannot decode.
 //!
 //! The types live in the [`near_global_contracts`](https://docs.rs/near-global-contracts) crate
 //! ([`RawStateInit`], [`UniversalStateInit`], [`UniversalStateInitV1`]) and in
@@ -20,9 +21,11 @@
 //! [`Promise::universal_state_init`](crate::Promise::universal_state_init) (or the lower-level
 //! [`env::promise_batch_action_universal_state_init`](crate::env::promise_batch_action_universal_state_init))
 //! on a promise whose receiver is the id of the same bytes, computed with
-//! [`RawStateInit::derive_account_id`] or the
+//! [`RawStateInit::try_derive_account_id`] or the
 //! [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)
-//! host function.
+//! host function. The latter still targets the legacy unvalidated host ABI; see its validation
+//! section for the pending protocol integration. Neither mock action recording nor an unchecked
+//! hash establishes that initialization will succeed.
 //!
 //! # Requirements
 //!

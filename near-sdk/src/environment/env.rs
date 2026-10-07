@@ -2550,18 +2550,27 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 // # Universal Accounts API #
 // ##########################
 
-/// Returns the `0u` universal account id that the given state-init bytes create: SHA3-256 of
-/// exactly those bytes, Crockford-base32 encoded ([NEP-655]).
+/// Returns the legacy `0u` hash of the given state-init bytes: SHA3-256 of exactly those bytes,
+/// Crockford-base32 encoded ([NEP-655]). See the validation limitation below.
 ///
 /// `state_init` holds the borsh bytes of a versioned state init. The id commits to the
-/// bytes, not the logical value: a non-canonical encoding of the same state init is a different
-/// account. Pass the bytes you will send, unchanged, including bytes of a state-init version this
+/// bytes, not the logical value: a non-canonical encoding produces a different hash, without
+/// establishing a valid account. Pass the bytes unchanged, including a state-init version this
 /// SDK predates.
 ///
 /// Use it to pick the receiver for [`promise_batch_action_universal_state_init`], or to check that
 /// a caller-supplied id matches the bytes.
 ///
 /// Uses low-level [`crate::sys::universal_state_init_to_account_id`].
+///
+/// # Validation
+///
+/// This wrapper still targets the legacy void host ABI in nearcore `0.38.0-rc.2`, which hashes
+/// without validation. NEP-655's agreed canonicality validation and fallible host result require
+/// an updated ABI and matching mock dependency before release. Do not treat this function's
+/// output as proof that an address can be initialized. For locally supported versions, use
+/// [`RawStateInit::try_derive_account_id`] before presenting an address for funding. A future
+/// host-backed replacement must validate using the host's supported versions, not an SDK decoder.
 ///
 /// # Requirements
 ///
@@ -2578,7 +2587,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// )
 /// .to_raw();
 /// let account_id = env::universal_state_init_to_account_id(&state_init);
-/// assert_eq!(account_id, state_init.derive_account_id());
+/// assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
 /// ```
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
@@ -2606,6 +2615,8 @@ pub fn universal_state_init_to_account_id(state_init: &RawStateInit) -> AccountI
         any(not(feature = "unit-testing"), test),
     ))]
     {
+        // Preserve the pinned legacy host's behavior until its fallible ABI is available.
+        #[allow(deprecated)]
         state_init.derive_account_id()
     }
 }
@@ -3017,11 +3028,12 @@ mod tests {
         .to_raw();
         let account_id = universal_state_init_to_account_id(&state_init);
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
-        assert_eq!(account_id, state_init.derive_account_id());
+        assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
     }
 
     #[test]
-    fn universal_state_init_raw_derivation_preserves_bytes() {
+    #[allow(deprecated)] // Characterizes the pinned legacy host and fallback.
+    fn universal_state_init_legacy_raw_derivation_preserves_bytes() {
         use crate::universal_state_init::UniversalStateInit;
 
         // NEP-655 Appendix A / nearcore's universal_state_init_vectors.rs wallet vector.
@@ -3035,8 +3047,8 @@ mod tests {
         ))
         .unwrap();
 
-        // Valid V1 bytes with data keys b, a. Decoding and re-encoding sorts them and
-        // changes the id; the raw entry point must hash the original bytes instead.
+        // The pinned legacy host hashes noncanonical V1 bytes with keys b, a.
+        // The fallible host integration must replace this characterization test.
         let unsorted =
             hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap();
         let unsorted = RawStateInit(unsorted);

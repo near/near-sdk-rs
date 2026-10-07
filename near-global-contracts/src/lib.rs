@@ -32,14 +32,15 @@
 //!
 //! Both paths produce identical output, so you can verify on-chain derivations off-chain.
 //!
-//! The `0u` derivation ([`RawStateInit::derive_account_id`]) needs no feature and works the same
-//! way with SHA3-256 and the `sha3_256` host function.
+//! Validated `0u` derivation (`RawStateInit::try_derive_account_id`) requires `borsh` and works
+//! the same way with SHA3-256 and the `sha3_256` host function.
 //! Converting between [`UniversalStateInit`] and raw bytes needs `borsh`.
 //!
 //! Other features:
 //! - `serde`, `borsh` — derive the matching (de)serialization traits. [`RawStateInit`] is a base64
 //!   string in JSON, like nearcore's; typed JSON supports builders and inspection. Typed serde
-//!   does not establish incoming raw canonicity: forward raw bytes and derive their id unchanged.
+//!   does not establish incoming raw canonicity: validate before deriving a funding address and
+//!   preserve the raw bytes when forwarding.
 //! - `abi` — schema generation for ABI tooling. Like `schemars-v0_8`, it enables `serde`, since
 //!   the schema describes the JSON form.
 //! - `arbitrary` — `arbitrary::Arbitrary` impls for fuzzing.
@@ -69,7 +70,7 @@
 //!     UniversalStateInitV1::default()
 //!         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap())),
 //! );
-//! println!("{}", raw.derive_account_id()); // 0u<52 base32 chars>
+//! println!("{}", raw.try_derive_account_id()?); // 0u<52 base32 chars>
 //! ```
 //!
 //! [NEP-616]: https://github.com/near/NEPs/pull/616
