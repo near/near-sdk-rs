@@ -67,7 +67,7 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 | `borsh`                    | `BorshSerialize`/`BorshDeserialize` impls (also enables the typed `derive_account_id`s) |
 | `abi`                      | `schemars::JsonSchema` and `borsh::BorshSchema` for ABI tooling         |
 | `arbitrary`                | `arbitrary::Arbitrary` impls for fuzzing                                |
-| `near-primitives-interop`  | `From`/`Into` between these types and the `near-primitives-core` ones   |
+| `near-primitives-interop`  | `From`/`Into` between these types (and `StateInitError`) and the `near-primitives-core` ones |
 
 `StateInit::derive_account_id` and `UniversalStateInit::derive_account_id` require the
 `borsh` feature, as do `RawStateInit::validate_canonical` and `try_derive_account_id`.
@@ -81,9 +81,9 @@ Local validation knows only this crate's state-init versions. It checks the oute
 not opaque storage values or network-specific initialization requirements. Raw forwarding
 remains version-agnostic; a supporting host must validate future versions.
 
-The SDK's host wrapper and mock are still pinned to the legacy `0.38.0-rc.2` void ABI.
-The agreed fallible host ABI, validation, gas costs and matching dependencies must be integrated
-before UA release. Local validation does not substitute for that protocol work.
+From protocol version 88, nearcore applies the same canonicality check, and near-sdk's
+`env::universal_state_init_to_account_id` returns its result as a `StateInitError`. Use the host
+function in contracts that forward state-init versions this crate predates.
 
 ## License
 

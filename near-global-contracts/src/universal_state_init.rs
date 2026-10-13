@@ -52,19 +52,18 @@ impl RawStateInit {
     /// malformed encodings and versions unknown to this crate are rejected. Storage values are
     /// opaque bytes; their contents are not normalized or validated.
     ///
-    /// This is a local format check, not a guarantee that initialization will succeed on a
-    /// particular network (protocol activation, limits, code availability and funding still
-    /// apply). Contracts forwarding future versions need validation by a supporting host.
+    /// This is the check nearcore applies from protocol version 88 on (`from_raw_strict`), and
+    /// the errors match the statuses `universal_state_init_to_account_id` reports. It is local,
+    /// though: it knows only this crate's state-init versions, and it does not establish that
+    /// initialization will succeed on a particular network (limits, code availability and
+    /// funding still apply). Contracts forwarding future versions should ask the host.
     ///
     /// Requires the `borsh` feature.
     #[cfg(feature = "borsh")]
-    pub fn validate_canonical(&self) -> std::io::Result<()> {
-        let decoded = UniversalStateInit::try_from(self)?;
-        if borsh::to_vec(&decoded)? != self.0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "non-canonical universal state init",
-            ));
+    pub fn validate_canonical(&self) -> Result<(), StateInitError> {
+        let decoded = UniversalStateInit::try_from(self).map_err(|_| StateInitError::Malformed)?;
+        if decoded.to_raw() != *self {
+            return Err(StateInitError::NonCanonical);
         }
         Ok(())
     }
@@ -78,7 +77,7 @@ impl RawStateInit {
     ///
     /// Requires the `borsh` feature.
     #[cfg(feature = "borsh")]
-    pub fn try_derive_account_id(&self) -> std::io::Result<near_account_id::AccountId> {
+    pub fn try_derive_account_id(&self) -> Result<near_account_id::AccountId, StateInitError> {
         self.validate_canonical()?;
         Ok(self.hash_account_id())
     }
@@ -150,12 +149,39 @@ impl From<UniversalStateInitV1> for RawStateInit {
     }
 }
 
-/// Decodes raw state-init bytes, like nearcore's `UniversalStateInit::from_raw`.
+/// Why bytes are not a valid [`RawStateInit`] payload.
+///
+/// Mirrors nearcore's `near_primitives_core::universal_state_init::StateInitError`. The host
+/// function `universal_state_init_to_account_id` reports these as exit statuses `1` and `2`, and
+/// [`RawStateInit::validate_canonical`] returns them for the versions this crate knows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StateInitError {
+    /// The bytes do not decode into a `UniversalStateInit`: malformed, truncated, trailing
+    /// bytes, or a version the decoder does not know.
+    Malformed,
+    /// The bytes decode, but are not the canonical borsh encoding of the result (unsorted or
+    /// duplicate storage keys or access-key handles).
+    NonCanonical,
+}
+
+impl core::fmt::Display for StateInitError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Malformed => "bytes do not decode into a universal state init",
+            Self::NonCanonical => "state init is not in canonical borsh form",
+        })
+    }
+}
+
+impl std::error::Error for StateInitError {}
+
+/// Decodes raw state-init bytes, accepting any well-formed encoding.
 ///
 /// Trailing bytes, malformed bytes and unknown versions are rejected. This is an inspection
 /// conversion, not a canonicality check: decoding can normalize non-canonical collections.
 /// Use [`RawStateInit::validate_canonical`] or [`RawStateInit::try_derive_account_id`] to reject
-/// such input, and keep the original [`RawStateInit`] for forwarding.
+/// such input, and keep the original [`RawStateInit`] for forwarding. nearcore's lenient
+/// counterpart is `UniversalStateInit::from_raw_lenient`.
 ///
 /// Borsh's `de_strict_order` cargo feature, if any crate in the dependency graph enables it,
 /// makes decoding reject unsorted or duplicate keys.
@@ -199,6 +225,28 @@ const _: () = {
         #[inline]
         fn from(RawStateInit(bytes): RawStateInit) -> Self {
             Self(bytes)
+        }
+    }
+
+    use near_primitives_core::universal_state_init::StateInitError as NearcoreStateInitError;
+
+    impl From<NearcoreStateInitError> for StateInitError {
+        #[inline]
+        fn from(error: NearcoreStateInitError) -> Self {
+            match error {
+                NearcoreStateInitError::Malformed => Self::Malformed,
+                NearcoreStateInitError::NonCanonical => Self::NonCanonical,
+            }
+        }
+    }
+
+    impl From<StateInitError> for NearcoreStateInitError {
+        #[inline]
+        fn from(error: StateInitError) -> Self {
+            match error {
+                StateInitError::Malformed => Self::Malformed,
+                StateInitError::NonCanonical => Self::NonCanonical,
+            }
         }
     }
 };
