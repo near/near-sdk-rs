@@ -22,7 +22,7 @@ const KEY_ONLY_ID: &str = "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1
 fn unsorted_data_keys() -> RawStateInit {
     let mut bytes = vec![0, 0];
     bytes.extend_from_slice(&2u32.to_le_bytes());
-    for &key in b"ba" {
+    for key in [b'b', b'a'] {
         bytes.extend_from_slice(&1u32.to_le_bytes());
         bytes.push(key);
         bytes.extend_from_slice(&0u32.to_le_bytes());
