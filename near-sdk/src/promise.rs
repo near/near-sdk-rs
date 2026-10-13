@@ -604,7 +604,8 @@ impl Promise {
     ///
     /// The promise's receiver must be the account id these exact bytes derive to
     /// ([`RawStateInit::try_derive_account_id`](crate::universal_state_init::RawStateInit::try_derive_account_id)
-    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)).
+    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id),
+    /// both of which reject non-canonical bytes).
     /// The runtime validates the new receipt when the calling function call finishes, and a
     /// mismatch fails that call and rolls back its state changes.
     ///
@@ -624,8 +625,9 @@ impl Promise {
     ///
     /// A factory that validates locally supported state-init versions before scheduling an
     /// action, taking the original bytes as a base64 JSON argument. Invalid input is rejected
-    /// before constructing a promise. Forwarding future versions requires a validating host
-    /// with the fallible ABI; see [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id).
+    /// before constructing a promise. To also accept versions this SDK predates, validate with
+    /// [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)
+    /// instead, which asks the host.
     ///
     /// ```no_run
     /// use near_sdk::universal_state_init::RawStateInit;

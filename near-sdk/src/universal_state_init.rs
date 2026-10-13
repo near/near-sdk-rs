@@ -23,16 +23,19 @@
 //! on a promise whose receiver is the id of the same bytes, computed with
 //! [`RawStateInit::try_derive_account_id`] or the
 //! [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)
-//! host function. The latter still targets the legacy unvalidated host ABI; see its validation
-//! section for the pending protocol integration. Neither mock action recording nor an unchecked
-//! hash establishes that initialization will succeed.
+//! host function. Both reject malformed and non-canonical bytes with a [`StateInitError`]; the
+//! host function also knows state-init versions this SDK predates. Neither establishes that
+//! initialization will succeed: limits, code availability and funding are checked when the action
+//! runs.
 //!
 //! # Requirements
 //!
 //! Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-//! nearcore 2.14).
+//! nearcore 2.14). The host checks canonicality from protocol version 88.
 //!
 //! [NEP-655]: https://github.com/near/NEPs/pull/655
 
-pub use near_global_contracts::{RawStateInit, UniversalStateInit, UniversalStateInitV1};
+pub use near_global_contracts::{
+    RawStateInit, StateInitError, UniversalStateInit, UniversalStateInitV1,
+};
 pub use near_sdk_core::types::{ParsePublicKeyError, PublicKeyHandle};
