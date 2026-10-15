@@ -618,7 +618,7 @@ impl Promise {
     ///
     /// # Requirements
     ///
-    /// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+    /// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
     /// nearcore 2.14).
     ///
     /// # Examples

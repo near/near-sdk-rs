@@ -71,8 +71,8 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 
 `StateInit::derive_account_id` and `UniversalStateInit::derive_account_id` require the
 `borsh` feature, as do `RawStateInit::validate_canonical` and `try_derive_account_id`.
-The deprecated `RawStateInit::derive_account_id` remains an unchecked hash for compatibility;
-it must not be used to validate funding addresses. Hashing backend is selected
+There is deliberately no unchecked raw derivation: an address derived from malformed or
+non-canonical bytes can never be initialized. Hashing backend is selected
 automatically: on `--cfg near` (set by `cargo-near`) it routes through NEAR host functions
 (`keccak256`, `sha3_256`); otherwise it uses pure-Rust `sha3`, which is pulled in
 unconditionally on the `cfg(not(near))` path.

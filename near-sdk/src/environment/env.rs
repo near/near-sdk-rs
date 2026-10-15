@@ -2579,8 +2579,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 ///
 /// # Requirements
 ///
-/// Requires nearcore protocol version 88+ (nearcore 2.14). Under protocol version 87 the host does
-/// not check the bytes and always reports success.
+/// Requires nearcore protocol version 88+ (nearcore 2.14).
 ///
 /// # Examples
 /// ```no_run
@@ -2652,7 +2651,7 @@ pub fn universal_state_init_to_account_id(
 ///
 /// # Requirements
 ///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
 /// nearcore 2.14).
 ///
 /// # Examples

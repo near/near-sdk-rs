@@ -30,7 +30,7 @@
 //!
 //! # Requirements
 //!
-//! Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+//! Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
 //! nearcore 2.14). The host checks canonicality from protocol version 88.
 //!
 //! [NEP-655]: https://github.com/near/NEPs/pull/655

@@ -30,8 +30,8 @@ fn unsorted_data_keys() -> RawStateInit {
     bytes.extend_from_slice(&0u32.to_le_bytes());
     RawStateInit(bytes)
 }
-/// The id the legacy host (protocol version 87) hashed `unsorted_data_keys` to.
-const UNSORTED_LEGACY_ID: &str = "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag";
+/// SHA3-256 of the exact `unsorted_data_keys` bytes, which no canonical state init derives to.
+const UNSORTED_RAW_HASH_ID: &str = "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag";
 const UNSORTED_REENCODED_ID: &str = "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg";
 
 #[test]
@@ -101,12 +101,12 @@ fn promise_batch_action_carries_the_bytes_verbatim() {
 
     let raw = unsorted_data_keys();
     let deposit = NearToken::from_millinear(10);
-    let promise = env::promise_batch_create(&UNSORTED_LEGACY_ID.parse().unwrap());
+    let promise = env::promise_batch_create(&UNSORTED_RAW_HASH_ID.parse().unwrap());
     env::promise_batch_action_universal_state_init(promise, &raw, deposit);
 
     let receipts = get_created_receipts();
     assert_eq!(receipts.len(), 1);
-    assert_eq!(receipts[0].receiver_id.as_str(), UNSORTED_LEGACY_ID);
+    assert_eq!(receipts[0].receiver_id.as_str(), UNSORTED_RAW_HASH_ID);
     assert!(matches!(
         receipts[0].actions.as_slice(),
         [MockAction::UniversalStateInit { state_init, amount, .. }]

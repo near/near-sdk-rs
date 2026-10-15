@@ -82,20 +82,11 @@ impl RawStateInit {
         Ok(self.hash_account_id())
     }
 
-    /// Hashes these bytes without checking that they describe a canonical state init.
+    /// SHA3-256 over exactly these bytes, encoded as a `0u` id. Callers validate first.
     ///
-    /// Retained for compatibility with the previous raw API. Malformed, non-canonical and
-    /// unknown-version bytes also produce an address, which may never be initializable.
-    /// Use `try_derive_account_id` (requires `borsh`) before funding an address.
-    ///
-    /// SHA3-256 comes from [`near_digest::sha3::Sha3_256`]: the `sha3_256` host function in
-    /// contract builds (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical
-    /// output.
-    #[deprecated(note = "use try_derive_account_id (requires borsh) to validate before funding")]
-    pub fn derive_account_id(&self) -> near_account_id::AccountId {
-        self.hash_account_id()
-    }
-
+    /// [`near_digest::sha3::Sha3_256`] is the `sha3_256` host function in contract builds
+    /// (`--cfg near`, set by `cargo-near`) and pure Rust elsewhere, with identical output.
+    #[cfg(feature = "borsh")]
     fn hash_account_id(&self) -> near_account_id::AccountId {
         use near_digest::Digest;
 
@@ -277,7 +268,7 @@ const _: () = {
 ///
 /// # Requirements
 ///
-/// On-chain use requires a host that supports universal accounts (nearcore protocol version 87+,
+/// On-chain use requires a host that supports universal accounts (nearcore protocol version 88+,
 /// shipped in nearcore 2.14).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
@@ -424,6 +415,7 @@ impl UniversalStateInit {
 /// `0u` followed by the 32-byte hash in lowercase Crockford base32: 52 symbols, most significant
 /// bit first, 5 bits per symbol, the last symbol carrying one data bit and four zero bits. Same as
 /// nearcore's 0u encoder.
+#[cfg(feature = "borsh")]
 fn universal_account_id_from_hash(hash: &[u8; 32]) -> near_account_id::AccountId {
     const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
 
@@ -451,6 +443,7 @@ mod tests {
     use near_account_id::AccountId;
 
     /// Known-answer vectors from nearcore's `universal_account_id.rs`.
+    #[cfg(feature = "borsh")]
     const UAID_KATS: &[([u8; 32], &str)] = &[
         ([0x00; 32], "0u0000000000000000000000000000000000000000000000000000"),
         ([0xff; 32], "0uzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzg"),
@@ -474,6 +467,7 @@ mod tests {
 
     /// The id is consensus-critical, so the encoder is pinned to nearcore's own vectors.
     #[test]
+    #[cfg(feature = "borsh")]
     fn encoder_matches_nearcore_known_answers() {
         for (hash, expected) in UAID_KATS {
             let account_id = universal_account_id_from_hash(hash);
@@ -489,7 +483,7 @@ mod tests {
 
     /// Differential check against nearcore's encoder over 2048 pseudo-random hashes.
     #[test]
-    #[cfg(feature = "near-primitives-interop")]
+    #[cfg(all(feature = "borsh", feature = "near-primitives-interop"))]
     fn encoder_matches_nearcore_encoder() {
         use near_digest::Digest;
 
