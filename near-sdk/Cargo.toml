@@ -38,6 +38,7 @@ base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
 hex = { version = "0.4", optional = true }
+hex-literal = "1.1.0"
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
