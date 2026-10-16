@@ -249,7 +249,7 @@ unsafe extern "C" {
         state_init_len: u64,
         state_init_ptr: u64,
         register_id: u64,
-    );
+    ) -> u64;
     pub fn promise_batch_action_universal_state_init(
         promise_index: u64,
         state_init_len: u64,
