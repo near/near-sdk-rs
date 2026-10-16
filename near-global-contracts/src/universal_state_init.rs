@@ -174,9 +174,8 @@ impl std::error::Error for StateInitError {}
 /// such input, and keep the original [`RawStateInit`] for forwarding. nearcore's lenient
 /// counterpart is `UniversalStateInit::from_raw_lenient`.
 ///
-/// Borsh's `de_strict_order` cargo feature, if any crate in the dependency graph enables it,
-/// makes decoding reject unsorted or duplicate keys.
-/// Canonicality validation rejects them regardless of that feature.
+/// Collections are decoded leniently even if a crate in the dependency graph enables Borsh's
+/// `de_strict_order` feature, so the result does not depend on feature unification.
 ///
 /// Requires the `borsh` feature.
 #[cfg(feature = "borsh")]
@@ -305,7 +304,7 @@ pub enum UniversalStateInit {
     serde_with::serde_as,
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
 #[cfg_attr(
     feature = "schemars-v0_8",
     derive(::schemars_v0_8::JsonSchema),
@@ -329,6 +328,27 @@ pub struct UniversalStateInitV1 {
         serde(default, skip_serializing_if = "::std::collections::BTreeSet::is_empty")
     )]
     pub access_keys: BTreeSet<PublicKeyHandle>,
+}
+
+/// Decoded by hand so the result does not depend on whether Borsh's `de_strict_order` feature is
+/// enabled anywhere in the dependency graph: unsorted or duplicate entries always decode, and
+/// [`RawStateInit::validate_canonical`] reports them as [`StateInitError::NonCanonical`], as the
+/// host does. A later duplicate replaces the earlier entry.
+#[cfg(feature = "borsh")]
+impl borsh::BorshDeserialize for UniversalStateInitV1 {
+    fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {
+        let code = Option::<GlobalContractId>::deserialize_reader(reader)?;
+        let mut data = BTreeMap::new();
+        for _ in 0..u32::deserialize_reader(reader)? {
+            let key = Vec::<u8>::deserialize_reader(reader)?;
+            data.insert(key, Vec::<u8>::deserialize_reader(reader)?);
+        }
+        let mut access_keys = BTreeSet::new();
+        for _ in 0..u32::deserialize_reader(reader)? {
+            access_keys.insert(PublicKeyHandle::deserialize_reader(reader)?);
+        }
+        Ok(Self { code, data, access_keys })
+    }
 }
 
 impl UniversalStateInitV1 {

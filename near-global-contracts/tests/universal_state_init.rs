@@ -6,6 +6,8 @@ use near_sdk as _;
 
 #[cfg(any(feature = "borsh", feature = "near-primitives-interop", feature = "schemars-v0_8"))]
 use near_global_contracts::RawStateInit;
+#[cfg(feature = "borsh")]
+use near_global_contracts::StateInitError;
 #[cfg(any(feature = "borsh", feature = "serde"))]
 use near_global_contracts::{
     GlobalContractId, PublicKeyHandle, UniversalStateInit, UniversalStateInitV1,
@@ -169,8 +171,13 @@ fn canonicality_vectors() {
         let name = vector["name"].as_str().unwrap();
         let raw = RawStateInit(hex::decode(vector["hex"].as_str().unwrap()).unwrap());
         let original = raw.clone();
-        assert!(raw.validate_canonical().is_err(), "{name}: validation");
-        assert!(raw.try_derive_account_id().is_err(), "{name}: derivation");
+        let expected = if name.starts_with("unsorted") || name.starts_with("duplicate") {
+            StateInitError::NonCanonical
+        } else {
+            StateInitError::Malformed
+        };
+        assert_eq!(raw.validate_canonical(), Err(expected), "{name}: validation");
+        assert_eq!(raw.try_derive_account_id(), Err(expected), "{name}: derivation");
         assert_eq!(raw, original, "{name}: rejection must preserve the input");
     }
 }
