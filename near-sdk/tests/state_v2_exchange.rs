@@ -265,6 +265,90 @@ fn state_exists_bypasses_the_host() {
     assert!(!Exchange::state_exists());
 }
 
+// ---------------------------------------------------------------------------------------
+// v1 collections as leaf fields ("keeps v1's write-on-drop")
+// ---------------------------------------------------------------------------------------
+
+mod legacy {
+use super::*;
+
+#[near(contract_state(layout = v2, root = 0xF1))]
+#[derive(PanicOnDefault)]
+pub struct Legacy {
+    #[key(1, required)]
+    old: near_sdk::store::LookupMap<u32, u32>,
+    #[key(2)]
+    users: Map<u32, User>,
+}
+
+#[near(storage)]
+pub struct User {
+    // LookupMap has no Default, so the field must be `required`.
+    #[key(1, required)]
+    notes: near_sdk::store::LookupMap<u32, u32>,
+}
+
+fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
+    let mut key = prefix.to_vec();
+    key.extend_from_slice(&k.to_le_bytes());
+    key
+}
+
+/// At the root, a v1 field is dropped with the root after `state_write`, so its writes land
+/// after the v2 flush (not "root last"), but they do land.
+#[test]
+fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
+    as_caller("alice.near");
+    testing::use_env_host();
+    let c = Legacy {
+        old: near_sdk::store::LookupMap::new(b"o".to_vec()),
+        users: Default::default(),
+    };
+    c.state_write();
+    drop(c);
+
+    testing::begin_call();
+    let mut c = Legacy::state_read().unwrap();
+    c.old.insert(1, 11);
+    c.state_write();
+    let k = v1_key(b"o", 1);
+    assert!(!env::storage_has_key(&k), "nothing written by the v2 flush");
+    drop(c);
+    assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
+}
+
+/// Nested in a record that lives in the v2 cache, a v1 field is never dropped (cache values
+/// are leaked per call), so its write-on-drop never happens: the write is lost silently.
+#[test]
+fn v1_leaf_nested_in_a_cached_record_never_flushes() {
+    as_caller("alice.near");
+    testing::use_env_host();
+    let c = Legacy {
+        old: near_sdk::store::LookupMap::new(b"o".to_vec()),
+        users: Default::default(),
+    };
+    c.state_write();
+    drop(c);
+
+    testing::begin_call();
+    let mut c = Legacy::state_read().unwrap();
+    c.users.insert(1, User { notes: near_sdk::store::LookupMap::new(b"n1".to_vec()) });
+    c.state_write();
+    drop(c);
+
+    testing::begin_call();
+    let mut c = Legacy::state_read().unwrap();
+    c.users.get_mut(&1).unwrap().notes.insert(5, 55);
+    c.state_write();
+    drop(c);
+    testing::begin_call();
+
+    let k = v1_key(b"n1", 5);
+    assert!(!env::storage_has_key(&k), "the v1 write was lost");
+}
+
+} // mod legacy
+
 /// The same flow through the real mocked blockchain (`env::storage_*`), no counting mock.
 #[test]
 fn works_against_the_mocked_blockchain() {
