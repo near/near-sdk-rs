@@ -38,3 +38,37 @@ pub trait ContractState {
         )
     }
 }
+
+// ---- storage v2 prototype (see PROTOTYPE_NOTES.md) ----
+
+#[cfg(feature = "unstable")]
+mod cache;
+#[cfg(feature = "unstable")]
+mod collections;
+#[cfg(feature = "unstable")]
+pub mod key;
+#[cfg(feature = "unstable")]
+pub mod record;
+#[cfg(feature = "unstable")]
+#[doc(hidden)]
+pub mod testing;
+#[cfg(feature = "unstable")]
+mod value;
+#[cfg(feature = "unstable")]
+mod root;
+#[cfg(feature = "unstable")]
+#[cfg(test)]
+mod tests;
+
+#[cfg(feature = "unstable")]
+pub use collections::{
+    Group, GroupMut, GroupedMap, IterEntry, IterMap, IterSet, Lazy, Map, MapEntry, Page, Set, Vec,
+};
+#[cfg(feature = "unstable")]
+pub use key::{Path, StorageKey};
+#[cfg(feature = "unstable")]
+pub use record::RecordError;
+#[cfg(feature = "unstable")]
+pub use root::{Root, __private, flush_root, load_root, raw_root};
+#[cfg(feature = "unstable")]
+pub use value::{Record, Removable, Value, removable_leaf};
