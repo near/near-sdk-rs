@@ -112,6 +112,12 @@ impl MockedBlockchain {
         std::mem::take(&mut self.fixture.ext.fake_trie)
     }
 
+    /// A copy of the storage, leaving it in place (storage v2 prototype test support).
+    #[cfg(feature = "unstable")]
+    pub(crate) fn storage_snapshot(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.fixture.ext.fake_trie.clone()
+    }
+
     /// Returns metadata about the receipts created
     pub fn created_receipts(&self) -> Vec<Receipt> {
         let action_log = &self.fixture.ext.action_log;

@@ -143,6 +143,8 @@ mod value;
 #[cfg(feature = "unstable")]
 mod root;
 #[cfg(feature = "unstable")]
+mod migrating;
+#[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests;
 
@@ -153,6 +155,8 @@ pub use collections::{
 };
 #[cfg(feature = "unstable")]
 pub use key::{Path, StorageKey};
+#[cfg(feature = "unstable")]
+pub use migrating::{LegacyIterable, LegacyMap, MigrationTarget, Migrating};
 #[cfg(feature = "unstable")]
 pub use record::RecordError;
 #[cfg(feature = "unstable")]

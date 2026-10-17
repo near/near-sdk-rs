@@ -224,6 +224,53 @@ pub fn cache_slots() -> usize {
     cache::slot_count()
 }
 
+// ---- one ordered log of every `env::storage_*` call (migration tests) ----
+//
+// The counting mock above only sees the v2 cache. v1 collections (`store`, `collections`) call
+// `env::storage_*` directly, so a test that runs v1 and v2 code over the same storage uses
+// `use_env_host()` (the mocked blockchain) and this log, which `env.rs` feeds from all four
+// storage host functions. Off by default.
+
+std::thread_local! {
+    static ENV_LOG: RefCell<Option<Vec<Op>>> = const { RefCell::new(None) };
+}
+
+#[doc(hidden)]
+pub fn __env_log_on() -> bool {
+    ENV_LOG.with(|l| l.borrow().is_some())
+}
+
+#[doc(hidden)]
+pub fn __env_log(kind: OpKind, key: &[u8], value_len: usize, replaced_len: Option<usize>) {
+    ENV_LOG.with(|l| {
+        if let Some(log) = l.borrow_mut().as_mut() {
+            log.push(Op { kind, key: key.to_vec(), value_len, replaced_len });
+        }
+    })
+}
+
+/// Starts (or restarts) recording every `env::storage_*` call, v1 and v2 alike, in order.
+pub fn env_log_start() {
+    ENV_LOG.with(|l| *l.borrow_mut() = Some(Vec::new()));
+}
+
+/// The calls recorded since `env_log_start` (or the last take), as a [`Receipt`]; keeps
+/// recording. `sha256` is not counted here.
+pub fn env_log_take() -> Receipt {
+    ENV_LOG.with(|l| Receipt { ops: l.borrow_mut().as_mut().map(core::mem::take).unwrap_or_default(), sha256: 0 })
+}
+
+/// Stops recording.
+pub fn env_log_stop() {
+    ENV_LOG.with(|l| *l.borrow_mut() = None);
+}
+
+/// Snapshot of the mocked blockchain's storage (what `env::storage_*` sees), sorted by key.
+#[cfg(feature = "unit-testing")]
+pub fn env_store() -> BTreeMap<Vec<u8>, Vec<u8>> {
+    crate::mock::with_mocked_blockchain(|b| b.storage_snapshot()).into_iter().collect()
+}
+
 /// Sets the mocked blockchain context: predecessor (and signer) `who`, attached `deposit`.
 #[cfg(feature = "unit-testing")]
 pub fn set_context(who: &str, deposit: crate::NearToken) {

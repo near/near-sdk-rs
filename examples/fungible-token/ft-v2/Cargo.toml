@@ -1,0 +1,23 @@
+# Storage v2 migration round (PROTOTYPE_NOTES.md, "Migration round"): `examples/fungible-token`
+# upgraded in place. `v2` moves the root (v1 `FungibleToken` kept as a root field, one new v2
+# field); `v3` rekeys the accounts map with `Migrating`. Native builds compile both; a wasm
+# build compiles `v2` unless `--features v3`.
+[package]
+name = "fungible-token-v2"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+v3 = []
+
+[dependencies]
+near-sdk = { path = "../../../near-sdk", features = ["unstable", "legacy"] }
+near-contract-standards = { path = "../../../near-contract-standards" }
+
+[dev-dependencies]
+near-sdk = { path = "../../../near-sdk", features = ["unstable", "legacy", "unit-testing"] }
