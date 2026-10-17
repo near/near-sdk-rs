@@ -315,3 +315,75 @@ The last rule is not type-enforced. Ways to break it:
 - **Group iteration in `GroupedMap`, and `OrderedMap`.**
 - **The real runtime.** Gas figures are counts from the mock, not near-contract-sim Tgas. Zero-length values (`Set`) and the trie-node term are untested on the runtime.
 - **The debug `Drop` assertion on the root, and generic records in the derive.**
+
+## Revision 1 results
+
+Applied `/tmp/storage-v2-proto/revision-1.md` on `proto/storage-v2` (commits `3ff04047`, `037d8100`, `3bd455e3`, plus this notes commit).
+
+### Success check
+
+**Passes.** `proto-wasm-check/src/lib.rs` holds the spec's `Exchange` and `Account` verbatim. The only edit is `#[key(1, required)]` on `owner`. There are no derives on either struct, no `PanicOnDefault`, no `removable_leaf!`, and no imports beyond the spec's own. The types the spec leaves undefined (`TokenId`, `MarketId`, `OrderId`, `Order`, `Metadata`) are declared above it as plain Borsh/JSON types.
+
+- `cargo check --target wasm32-unknown-unknown`: ok.
+- `cargo check --features near-sdk/unit-testing` (native): ok. Plain native `cargo check` hits near-sdk's existing non-wasm `compile_error!`, which is not new.
+- `cargo build --release --target wasm32-unknown-unknown`: ok, 270,502 bytes.
+
+**Correction to round 1.** §2 said the example "holds with 3 edits". It was 4. I silently added `#[derive(Default)]` to `Account` in round 1, and the spec's `Account` has no derives. Revision 1 removes the need for it, because the derive now emits `Default` for any record without a `required` field.
+
+### Per item
+
+| # | Status | Reason |
+|---|---|---|
+| 1 | **changed** | The derive can't tell a scalar field from a collection without type information, so the view can't *omit* scalars. Every field exists in the view, typed through `ViewField::Out`. Records give a nested view, collections give `At<'a, C>`, and every leaf gives `ScalarNotInView`, a ZST with no methods. `at(&id).nonce.get()` fails with "no method named `get` found for struct `ScalarNotInView`". The user-visible rule ("at walks, get reads") holds. The field is still there in autocomplete. |
+| 2 | applied | No `ViewMut`. `entry().or_default()` and `get_mut` return `&mut V` with bound handles. |
+| 3 | applied | `At<'a, C>` read methods return `&'a V`. `let bal = self.accounts.at(&id).balances.get(&t);` compiles (unit test). Does not extend to `group_mut(&m).get_mut(&k)`, see friction. |
+| 4 | confirmed | The sequential two-`entry` transfer compiles. It costs (5 reads, 2 writes, 0 deletes): root, two records, two balances read; two balance writes. The records are not rewritten. Test `sequential_transfer_pattern`. |
+| 5 | applied | `FieldDefault` with `#[diagnostic::on_unimplemented]`. The error reads "storage field of type `AccountId` has no `Default`, so an old record without this tag could not be decoded", with the label "write `#[key(n, required)]` on this field, or make it `Option<AccountId>`" and a note on the evolution rule. It is emitted **twice** per field (once from the decode path, once from the generated `Default`). Test `required_field_added_later_fails_old_records` shows a v1 record failing with `Missing { tag: 2 }`. |
+| 6 | applied, **premise wrong** | `removable_leaf!` is gone, Borsh leaves get a blanket `Removable`, and records get the derived HRTB-conditional impl. The "no leaf can orphan anything" justification does not hold; see below. |
+| 7 | already done | Strictly ascending tags were enforced in round 1. |
+| 8 | applied | Blind `insert` replaces the record whole and drops unknown tags, even if the record was read earlier in the call. `get_mut` and `entry` keep them. Test `blind_insert_drops_unknown_tags_get_mut_keeps_them`. |
+| 9 | applied | The cache frees every slot after the flush, outside the `RefCell` borrow. A nested v1 field's write-on-drop now lands, after the root (test `v1_leaf_nested_in_a_cached_record_writes_late_not_lost`; round 1 lost it). The derive rejects `LookupMap`/`UnorderedMap`/`IterableMap`/`Vector`/`LookupSet`/... by last path segment in non-root records. A type alias evades it; the test suite uses one on purpose. `store::Lazy` vs `state::Lazy` can't be told apart by name, so `Lazy` is not in the list. |
+| 10 | **changed** | Done trait-side, not wrapper-side. `#[near]` on an impl block can't see whether `Self` is a v2 root, so routing v2 through different wrapper tokens would change v1 output too. Instead, `ContractState::state_read`/`state_write` now bound on new `StateRead`/`StateWrite` traits. Their Borsh blankets reproduce the old bodies; the v2 derive implements them with `load_root`/`flush_root`. The wrapper and all macro snapshots are byte-identical to master (`git diff master` on the snapshot dir and wrapper codegen is empty; 49 macro tests pass). "Update macro snapshots" in the revision conflicts with the round-2 brief; I followed the brief. |
+| 11 | doc | Unchanged. The eager root read is still every method's first read. |
+| 12 | applied | `Root::bind(self) -> Self`, provided method, idempotent. It needs `use near_sdk::state::Root` in scope, so the doc's one line is really two. I didn't find a call-free way: a struct literal runs no code, and an unbound handle doesn't know its own tag. Without `bind`, touching a collection in `#[init]` panics with a hint to call it. |
+| 13 | partial | `state_exists` goes through the host (`root_exists`, 1 `has_key` in the counting mock). `state_read` can't be hidden: it is a provided method of a public trait, and the wrapper calls it from the user's crate. |
+| 14 | holds | Already the prototype's behaviour. Covered by the cost tests. |
+| 15 | applied, extended | `insert` of a record with `MAX_SUBPATH > 0` costs 1 `has_key` (or a cache hit) + 1 write, and panics "state: record exists; use get_mut, or remove it first". It compiles for every `V`. Leaves stay a blind 1-write. I applied the same rule to `Lazy::set`. `Map::replace` now requires `V: Removable` and clears the old children. The revision doesn't mention `replace`, and its returned record otherwise has the same resurrection hazard. |
+| 16 | applied | `remove` clears children and returns a detached record. Its handles panic "collection detached by remove; read it before removing". Re-inserting a detached record panics ("build a new record instead"). Inserting a record still bound at another key panics with a `mem::take`/`mem::replace` message; detection costs one enum check. |
+| 17 | applied | `contains_key` uses `storage_has_key` when the key is uncached: 1 host call, 0 bytes. New `Orig::PresentUnread` cache state, so a later `get` still reads. Test `contains_key_uses_has_key`. |
+| 18 | added `keys_page` | `keys(after, n)` + `get` works but makes the client compute the next cursor. I added `keys_page(after, limit) -> KeyPage { keys, next }`. Building a JSON response from `&V` records is still hand-written per contract. Awkward, not blocking. |
+| 19 | applied | The removed-cursor panic reads "page cursor key no longer exists (removed since the last page); restart from a known key". |
+| 20, 21 | doc | The `contains_key` row is measured (item 17). The other rows were measured in round 1. |
+| 22 | **not implemented** | No runtime key-length check in `entry()`, and the `StorageKey` derive was not changed. |
+| 23, 24 | doc | No code. |
+
+### Where I think the revision is wrong
+
+- **Item 6's premise.** "The only Borsh types that own storage are v1 collections, and they are root-only (item 9), so no leaf can orphan anything." Root-only is a doc rule plus a best-effort name check, not a type-level fact.
+  - A type alias, or any user Borsh struct that *wraps* a v1 collection, passes the check, gets the blanket `Removable`, and makes the enclosing record `Removable`.
+  - Test `legacy::removing_a_record_with_a_nested_v1_field_orphans_its_entries` shows `users.remove(&2)` compiling and leaving the v1 entry `n2‖7` in storage with nothing pointing at it.
+  - Round 1's opt-in had the opposite failure mode: a missing impl was a compile error, not an orphan.
+  - If the blanket stays, item 9's rejection is the only guard, and the doc should say so rather than "no leaf can orphan anything".
+- **Item 10's "no `Default` bound".** The wrapper is unchanged (the snapshot constraint requires it), and non-init methods still call `state_read().unwrap_or_default()`. The v2 root therefore still needs `Default`. The derive emits one (an empty-record decode, so `required` fields panic) unless the user already derives `Default`, `PanicOnDefault` or `SmartDefault`. The bound is hidden, not removed. Removing it for real means a v2-specific wrapper path, and that needs either a marker the impl-block macro can see or changed v1 snapshots.
+- **Item 10 edits a public v1 trait.** `ContractState` exists on master. Adding `where Self: StateRead` to its provided methods breaks any downstream override written as `fn state_read() -> Option<Self> where Self: BorshDeserialize`, which becomes E0276 ("stricter requirements"). I know of none in practice, but it is a semver-visible change.
+- **Item 15's "for leaf values nothing changes"** is right, but the dividing line is `MAX_SUBPATH > 0`, not "owns collections" as a user reads it. A record with only scalars is a leaf under this rule and keeps blind-overwrite semantics, including dropping unknown tags (item 8). That is consistent, but the doc should state the rule by what the type contains, not by "record vs leaf".
+
+### New friction and edge cases from this revision
+
+- **`ScalarNotInView` fields** appear in autocomplete and only fail at the method call.
+- **`group_mut(&m).get_mut(&k)` bound to a `let` is still E0716.** Item 3's lifetime fix covers `At` reads, not the `GroupMut` temporary. The one-statement form `group_mut(&m).remove(&k)` is fine.
+- **Duplicate item-5 diagnostics.** The same message is emitted twice per offending field.
+- **Drop-after-flush soundness caveat.** Freeing slots at the flush invalidates any `&V` obtained before a *manual* `state_write()` in the same call. The wrapper never does this. Hand-written code that calls `state_write()` mid-method and then keeps using an old reference is UB in the prototype. A debug-mode generation counter would catch it; not done.
+- **Borsh-deriving a v2 root** now fails with E0119 "conflicting implementations of `StateRead`" (plus the Borsh errors on the collections). Correct, but the message names an internal trait.
+- **`required` on a collection field** is rejected at decode time (`RecordError::Leaf`), not at compile time.
+- **Insert-new adds a read to the init path.** Seeding a new record in `#[init]` via `insert` costs a `has_key`; via `entry().or_default()`, a read. Neither existed in round 1's blind insert.
+- **The `bind` import.** `Exchange { .. }.bind()` without `use near_sdk::state::Root` gives "no method named `bind`" with a trait-import hint. Fine, but it is the second line item 12 promised would be one.
+
+### Test counts
+
+- `near-sdk` lib `state::` unit tests: **56 passed**.
+- `near-sdk/tests/state_v2_exchange.rs`: **17 passed**, including 3 `should_panic`.
+- `near-sdk` full lib (`unstable,abi,unit-testing`): **565 passed**, 1 ignored.
+- `near-sdk` doc tests: **343 passed**, 6 ignored.
+- `near-sdk-macros`: **49 + 1 passed** (2 + 2 ignored). Snapshots unchanged against master.
+- `proto-wasm-check`: wasm32 check, native check and wasm32 release build all ok.
