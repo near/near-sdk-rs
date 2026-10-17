@@ -6,6 +6,20 @@ so these are the gas a node charges, to the unit. The simulator is deterministic
 gives identical numbers. The only spread is between *different keys* (trie placement). Each
 insert/update/remove row covers 7 distinct keys, given as median (min-max).
 
+## Verdicts
+
+- **Entry hash width, 16 vs 8 bytes: doesn't matter at the Tgas level; keep 16.** The difference
+  is 0.5-2 Ggas per operation, 0.05-0.1% of the receipt, which is less than the 5-9 Ggas spread
+  between keys. Trie placement is identical at both widths. `accounts[alice].balances[usdt]` is
+  59 bytes at h16 and 43 at h8.
+- **Four-write `Map` insert.** Over `LookupMap`: +0.48 Tgas at 1k keys, +0.49 at 100k, +0.53 at
+  100k keys with 100k other accounts. That is 2.9x the operation's own cost (0.25 vs 0.74 Tgas).
+  Over v1 `IterableMap`: +0.28 / +0.29 / +0.30 Tgas. The doc's "index and header writes ≈ 0.2 Tgas"
+  is true of those two writes alone, but the row should quote the full premium: ~0.5 Tgas over
+  `LookupMap`, ~0.3 over v1. Removal: v2 `Map` costs ~0.2 Tgas *more* than v1 when the neighbor is
+  small. What v2 buys is the bound (2.12 Tgas whatever the neighbor, against v1's 10.75 beside
+  100 KiB), not a cheaper median.
+
 ## What was measured and how
 
 - **Contract** `proto-gas/contract`: one source with the same methods over three builds:
@@ -98,9 +112,12 @@ Two-key map. Remove the first key (16-byte value); the last key, which moves int
 | v2 `Map` (h16) | 2.116 | 2.116 | 0.774 / 0.774 | 1.055 / 1.055 |
 | v2 `Map` (h8) | 2.114 | 2.114 | 0.772 / 0.772 | 1.053 / 1.053 |
 
-v2 is neighbor-independent to the unit: the receipts are identical. v1's 100 KiB case pays 7.05
-Tgas in per-byte storage (reading the neighbor's value and rewriting it) plus 1.46 Tgas of
-register and memory cost and 0.34 Tgas of wasm. With a small neighbor v2 removal costs about
+v2 is neighbor-independent to the unit: the receipts are identical. v1's 100 KiB case adds,
+term by term over the 1 B case: per-byte storage 7.04 Tgas, which is 102,400 B × (5.6 Mgas read +
+31.0 write + 32.1 evicted), i.e. about 0.57 read + 3.17 write + 3.28 evicted bytes; then 1.46 Tgas of
+register and memory cost (copying the value in and out of wasm) and 0.34 Tgas of wasm
+(decode/encode). A rough estimate that counts only read and write bytes and leaves out the
+evicted-byte charge and the register cost comes out near half of the measured figure. With a small neighbor v2 removal costs about
 0.2 Tgas more than v1 (one more remove, more trie nodes, decode). With 100k other accounts: v1
 10.813, v2 2.198.
 
@@ -130,6 +147,8 @@ of the receipt, smaller than the spread between keys. Key length for
 | `balance_of` (`accounts.at(id).balances.get(token)`) | 1.288 | 112.7 | 2.1 | 9.6 | 44.5 | 946.4 | 2/0/0/0 |
 | v1 `noop_view` / `noop_mut` | 1.120 / 1.212 | 56.4 / 120.6 | | | | | 1/0 , 1/1 |
 
+- `noop_mut` vs `noop_view`: v2 spends ~23 Ggas of wasm encoding the root to compare at flush, even
+  when nothing changed.
 - Root read per call: **89 Ggas** (56.4 read, 20 wasm decode, 12 other). An unchanged `&mut self`
   call in v2 writes nothing; in v1 it rewrites `STATE` (+92 Ggas, +105 with 100k accounts).
 - Nested read below the root: **138 Ggas** (one 56.4 read, 2.1 bytes, 9.6 sha256, 24 wasm, 46 other,
@@ -143,10 +162,10 @@ of the receipt, smaller than the spread between keys. Key length for
 |---|---|---|
 | read ≈ 56, write ≈ 64, remove ≈ 53 Ggas base | 56.4 / 64.2 / 53.5 | holds |
 | sha256 per hop ≈ 4.5 Ggas | 4.54 base, 4.8 with bytes | holds |
-| one write touches 9 nodes empty / 19 at 100k, 20-43 Ggas | 8-10 per write alone in the contract, ~16 with 100k accounts | holds |
+| one write touches 9 nodes empty / 19 at 100k, 20-43 Ggas | 8-10 per write alone in the contract, ~16 with 100k keys + 100k data accounts | consistent. The worlds differ: here every extra account holds data (gas.md: every tenth), and keys are hashed v2 placements rather than raw token-map keys under mainnet-like ids |
 | 8 extra hash bytes "under 0.6 Ggas per write" | 0.56 per written key; a `Map` insert carries it on 4 keys + 1 read ≈ 1.6 Ggas per op | holds per write; per op ~1.5-2 Ggas, still negligible |
 | `Map` insert: "index and header writes together cost about 0.2 Tgas, trie nodes included" | those two writes ≈ 0.17-0.2 Tgas, but the whole premium over `LookupMap` (slot write, two reads, extra sha256 and decode) is **0.48-0.53 Tgas**; over v1 `IterableMap` **0.28-0.30 Tgas** | literally right, but understates what the table row implies. State the full premium |
-| v1 `IterableMap` removal beside small vs 100 KiB neighbor: 0.58 vs 5.78 Tgas (as quoted in the brief) | 1.91 vs 10.75 whole receipt; 0.87 vs 9.71 op-only; 0.68 vs 7.72 storage-only | **contradicted** under every framing; the ratio is 5.6x (receipt) to 11x (storage) |
+| v1 `IterableMap` removal beside small vs 100 KiB neighbor: 0.58 vs 5.78 Tgas (figures from the measurement brief; not in `docs/storage-v2-spec.md`, presumably in the live doc's appendix C, which this session could not read) | 1.91 vs 10.75 whole receipt; 0.87 vs 9.71 op-only; 0.68 vs 7.72 storage-only | **contradicted** under every framing; the ratio is 5.6x (receipt) to 11x (storage) |
 | v2 removal independent of neighbor | identical receipts, 2.116 Tgas either way | holds |
 | `balance_of` "one read below the root" | 2 reads per call (root + entry); root costs 89 Ggas | holds as worded (below the root) |
 
