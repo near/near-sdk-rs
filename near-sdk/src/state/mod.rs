@@ -71,4 +71,4 @@ pub use record::RecordError;
 #[cfg(feature = "unstable")]
 pub use root::{Root, __private, flush_root, load_root, raw_root};
 #[cfg(feature = "unstable")]
-pub use value::{Record, Removable, Value, removable_leaf};
+pub use value::{Record, Removable, Scalar, Value, ViewField, removable_leaf};

@@ -90,3 +90,35 @@ impl<A: Removable + BorshSerialize + BorshDeserialize, B: Removable + BorshSeria
 {
 }
 impl<const N: usize> Removable for [u8; N] {}
+
+/// How a field of a record appears in that record's `View`.
+///
+/// Collections appear as handles bound to the nested path (no read). Scalars appear as a
+/// [`Scalar`] that reads the parent record once when asked.
+pub trait ViewField<'a, R: Value>: Value {
+    type Out;
+    #[doc(hidden)]
+    fn __view_field(record_path: &Path, field_path: Path, project: fn(&R) -> &Self) -> Self::Out;
+}
+
+impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewField<'a, R> for T {
+    type Out = Scalar<'a, R, T>;
+    fn __view_field(record_path: &Path, _field_path: Path, project: fn(&R) -> &T) -> Scalar<'a, R, T> {
+        Scalar { record_path: record_path.clone(), project, _m: core::marker::PhantomData }
+    }
+}
+
+/// A scalar field reached through a `View`: reading it reads (and caches) the whole record.
+pub struct Scalar<'a, R, T> {
+    record_path: Path,
+    project: fn(&R) -> &T,
+    _m: core::marker::PhantomData<&'a R>,
+}
+
+impl<'a, R: Value, T> Scalar<'a, R, T> {
+    /// 1 read of the parent record (cached). `None` if the record is absent.
+    pub fn get(&self) -> Option<&'a T> {
+        // SAFETY: 'a is the borrow of the collection the view came from.
+        unsafe { super::root::__private::get_record::<R>(&self.record_path) }.map(self.project)
+    }
+}

@@ -1,1 +1,895 @@
 //! Unit tests for the v2 prototype against the counting mock host.
+//!
+//! `Account` and `Ex` below are HAND-EXPANDED: they are exactly what `#[near(storage)]` and
+//! `contract_state(layout = v2)` emit (see near-sdk-macros/src/core_impl/code_generator/storage_v2.rs),
+//! written out because `::near_sdk` paths do not resolve inside the crate itself.
+
+use super::key::{DEFAULT_ROOT, Path, kind};
+use super::root::__private as p;
+use super::testing::{self, end_call, receipt, seed, store};
+use super::*;
+use crate::AccountId;
+use core::marker::PhantomData;
+use std::vec::Vec as StdVec;
+
+// ---------------------------------------------------------------------------------------
+// Hand-expanded #[near(storage)] struct Account { #[key(1)] nonce: u64,
+//                                                #[key(2)] balances: IterMap<String, u128> }
+// ---------------------------------------------------------------------------------------
+
+#[derive(Default, Debug)]
+pub struct Account {
+    pub nonce: u64,
+    pub balances: IterMap<String, u128>,
+}
+
+impl Value for Account {
+    const MAX_SUBPATH: usize = p::max(
+        p::field_subpath::<u64>(1),
+        p::field_subpath::<IterMap<String, u128>>(2),
+    );
+    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+        let of = p::parse_orig(orig);
+        let mut w = p::RecordWriter::new();
+        p::encode_field(&mut w, of.as_ref(), 1, &self.nonce);
+        p::encode_field(&mut w, of.as_ref(), 2, &self.balances);
+        w.finish(orig, |t| match t {
+            1 => !<u64 as Value>::INLINE,
+            2 => !<IterMap<String, u128> as Value>::INLINE,
+            _ => true,
+        })
+    }
+    fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
+        let f = p::parse(bytes)?;
+        Ok(Self { nonce: p::field(&f, 1, path)?, balances: p::field(&f, 2, path)? })
+    }
+    fn bind(&mut self, path: &Path) {
+        Value::bind(&mut self.nonce, &path.field(1));
+        Value::bind(&mut self.balances, &path.field(2));
+    }
+    fn unbind(&mut self) {
+        Value::unbind(&mut self.nonce);
+        Value::unbind(&mut self.balances);
+    }
+}
+
+pub struct AccountView<'a> {
+    pub nonce: <u64 as ViewField<'a, Account>>::Out,
+    pub balances: <IterMap<String, u128> as ViewField<'a, Account>>::Out,
+    _m: PhantomData<&'a ()>,
+}
+
+impl Record for Account {
+    type View<'a> = AccountView<'a>;
+    fn __view<'a>(path: Path) -> AccountView<'a> {
+        AccountView {
+            nonce: <u64 as ViewField<'a, Account>>::__view_field(&path, path.field(1), |r| &r.nonce),
+            balances: <IterMap<String, u128> as ViewField<'a, Account>>::__view_field(
+                &path,
+                path.field(2),
+                |r| &r.balances,
+            ),
+            _m: PhantomData,
+        }
+    }
+}
+
+impl Removable for Account
+where
+    for<'x> u64: Removable,
+    for<'x> IterMap<String, u128>: Removable,
+{
+    fn clear_children(path: &Path) {
+        <u64 as Removable>::clear_children(&path.field(1));
+        <IterMap<String, u128> as Removable>::clear_children(&path.field(2));
+    }
+}
+
+/// A record holding a `Map`, so it is NOT `Removable` (the HRTB bound is false).
+#[derive(Default)]
+pub struct Holder {
+    pub inner: Map<u32, u32>,
+}
+impl Value for Holder {
+    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+        p::RecordWriter::new().finish(orig, |_| true)
+    }
+    fn decode_value(_: &[u8], path: &Path) -> Result<Self, RecordError> {
+        let f = p::Fields::new();
+        Ok(Self { inner: p::field(&f, 1, path)? })
+    }
+    fn bind(&mut self, path: &Path) {
+        Value::bind(&mut self.inner, &path.field(1));
+    }
+}
+impl Removable for Holder
+where
+    for<'x> Map<u32, u32>: Removable,
+{
+}
+
+// ---------------------------------------------------------------------------------------
+// Hand-expanded #[near(contract_state(layout = v2))] struct Ex { #[key(2)] fee_bps: u16,
+//                          #[key(3)] accounts: Map<AccountId, Account> }
+// ---------------------------------------------------------------------------------------
+
+pub struct Ex {
+    pub fee_bps: u16,
+    pub accounts: Map<AccountId, Account>,
+}
+impl Value for Ex {
+    const MAX_SUBPATH: usize = p::max(
+        p::field_subpath::<u16>(2),
+        p::field_subpath::<Map<AccountId, Account>>(3),
+    );
+    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+        let of = p::parse_orig(orig);
+        let mut w = p::RecordWriter::new();
+        p::encode_field(&mut w, of.as_ref(), 2, &self.fee_bps);
+        p::encode_field(&mut w, of.as_ref(), 3, &self.accounts);
+        w.finish(orig, |t| match t {
+            2 => !<u16 as Value>::INLINE,
+            3 => !<Map<AccountId, Account> as Value>::INLINE,
+            _ => true,
+        })
+    }
+    fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
+        let f = p::parse(bytes)?;
+        Ok(Self { fee_bps: p::field(&f, 2, path)?, accounts: p::field(&f, 3, path)? })
+    }
+    fn bind(&mut self, path: &Path) {
+        Value::bind(&mut self.fee_bps, &path.field(2));
+        Value::bind(&mut self.accounts, &path.field(3));
+    }
+}
+impl Record for Ex {
+    type View<'a> = ();
+    fn __view<'a>(_: Path) -> Self::View<'a> {}
+}
+impl Root for Ex {}
+
+// ---------------------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------------------
+
+fn alice() -> AccountId {
+    "alice.near".parse().unwrap()
+}
+fn bob() -> AccountId {
+    "bob.near".parse().unwrap()
+}
+fn big() -> StdVec<u8> {
+    vec![7u8; 100 * 1024]
+}
+fn at<C: Default + Value>(tag: u32) -> C {
+    C::missing_at(&Path::root(DEFAULT_ROOT).field(tag))
+}
+const KIB100: usize = 100 * 1024;
+
+// ---------------------------------------------------------------------------------------
+// Map: cost table rows
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn map_costs_match_table_beside_100kib_neighbor() {
+    testing::use_mock();
+    let mut m: Map<u32, StdVec<u8>> = at(1);
+    m.insert(1, big());
+    m.insert(2, vec![1]);
+    end_call();
+
+    assert_eq!(m.get(&2).unwrap().len(), 1);
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 0, 0), "get: 1 read");
+    assert_eq!(r.max_value_bytes(), 5, "borsh vec of 1 byte");
+
+    m.insert(3, vec![1]);
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 1, 0), "insert new: 1 write, no existence read");
+
+    m.insert(3, vec![2, 2]);
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 1, 0), "update existing via insert: 1 write");
+    assert_eq!(r.ops[0].replaced_len, Some(5), "plus the old value's bytes (borsh vec of 1)");
+
+    assert_eq!(m.replace(3, vec![3]), Some(vec![2, 2]));
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 1, 0), "replace: 1 read, 1 write");
+
+    assert_eq!(m.remove(&3), Some(vec![3]));
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 0, 1), "remove: 1 read, 1 remove");
+    assert!(r.max_value_bytes() < 16, "never touches the 100 KiB neighbor");
+
+    m.discard(&2);
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 0, 1), "discard: 1 remove, no read");
+    assert!(store().values().any(|v| v.len() == KIB100 + 4));
+}
+
+// ---------------------------------------------------------------------------------------
+// IterMap: cost table rows, and removal locality
+// ---------------------------------------------------------------------------------------
+
+fn iter_fixture(neighbor: StdVec<u8>) -> IterMap<u32, StdVec<u8>> {
+    testing::use_mock();
+    let mut m: IterMap<u32, StdVec<u8>> = at(1);
+    m.insert(1, vec![1]); // the entry under test, slot 0
+    m.insert(2, neighbor); // the neighbor, last slot: it is the key that moves on removal
+    end_call();
+    m
+}
+
+#[test]
+fn itermap_insert_and_update_costs() {
+    let mut m = iter_fixture(big());
+    m.insert(3, vec![3]);
+    let r = end_call();
+    assert_eq!(r.rwd(), (2, 4, 0), "insert new: index read, header read, 4 writes");
+
+    m.insert(3, vec![4]);
+    let r = end_call();
+    assert_eq!(
+        r.rwd(),
+        (1, 1, 0),
+        "update existing via insert: the table says 1 write, but insert cannot know the key \
+         exists without the index read"
+    );
+
+    *m.get_mut(&3).unwrap() = vec![5];
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 1, 0), "update via get_mut: 1 read, 1 write");
+
+    *m.entry(4).or_default() = vec![4];
+    let r = end_call();
+    assert_eq!(r.rwd(), (2, 4, 0), "entry().or_default() on a new key: entry read, header read, 4 writes");
+}
+
+#[test]
+fn itermap_remove_cost_is_independent_of_neighbor_value() {
+    let mut results = StdVec::new();
+    for neighbor in [vec![9u8], big()] {
+        let mut m = iter_fixture(neighbor);
+        assert_eq!(m.remove(&1), Some(vec![1]));
+        let r = end_call();
+        assert_eq!(
+            r.rwd(),
+            (4, 3, 3),
+            "entry read, index read, header read, last-slot read; moved slot write, moved index \
+             write, header write; entry, index, last-slot removes"
+        );
+        assert!(r.max_value_bytes() <= 8, "no host call moves the neighbor's value");
+        results.push((r.rwd(), r.read_bytes(), r.written_and_replaced_bytes()));
+        // the moved key is still reachable and the vector is dense
+        assert_eq!(m.len(), 1);
+        assert_eq!(m.key_at(0), Some(2));
+    }
+    assert_eq!(results[0], results[1], "identical receipts beside a 1-byte and a 100 KiB neighbor");
+}
+
+#[test]
+fn itermap_remove_last_key_has_no_moved_key() {
+    let mut m = iter_fixture(vec![9]);
+    m.remove(&2);
+    let r = end_call();
+    assert_eq!(r.rwd(), (3, 1, 3), "removing the last key skips the moved-key read and 2 writes");
+    m.remove(&1);
+    let r = end_call();
+    assert_eq!(r.rwd(), (3, 0, 4), "emptying the map removes the header instead of writing 0");
+}
+
+#[test]
+fn itermap_discard_skips_entry_read() {
+    let mut m = iter_fixture(big());
+    assert!(m.discard(&1));
+    let r = end_call();
+    assert_eq!(r.rwd(), (3, 3, 3));
+}
+
+#[test]
+fn itermap_pagination_is_linear() {
+    testing::use_mock();
+    let mut m: IterMap<u32, u64> = at(1);
+    for i in 0..20 {
+        m.insert(i, i as u64);
+    }
+    end_call();
+    let pg = m.page(None, 5);
+    assert_eq!(pg.items.len(), 5);
+    assert_eq!(pg.next, Some(4));
+    let r = end_call();
+    assert_eq!(r.reads(), 1 + 2 * 5, "no cursor: header + 2 per item");
+
+    let pg2 = m.page(pg.next.as_ref(), 5);
+    assert_eq!(pg2.items[0].0, 5);
+    let r = end_call();
+    assert_eq!(r.reads(), 2 + 2 * 5, "cursor: index + header + 2 per item (2n + 2)");
+
+    let last = m.page(Some(&14), 50);
+    assert_eq!(last.items.len(), 5);
+    assert_eq!(last.next, None);
+    end_call();
+
+    let _ = m.keys().take(7).count();
+    assert_eq!(end_call().reads(), 1 + 7, "keys: 1 per key");
+    let _ = m.iter().take(7).count();
+    assert_eq!(end_call().reads(), 1 + 2 * 7, "iter: 2 per entry");
+}
+
+#[test]
+#[should_panic(expected = "cursor key no longer exists")]
+fn page_with_removed_cursor_panics() {
+    testing::use_mock();
+    let mut m: IterMap<u32, u64> = at(1);
+    for i in 0..3 {
+        m.insert(i, 0);
+    }
+    end_call();
+    m.discard(&1);
+    end_call();
+    m.page(Some(&1), 10);
+}
+
+/// Cursor pages skip a key when a removal between pages moves the last key into a gap
+/// before the cursor. The spec says this; the test pins the exact failure shape.
+#[test]
+fn page_skips_moved_key_after_interleaved_removal() {
+    testing::use_mock();
+    let mut m: IterMap<u32, u64> = at(1);
+    for i in 0..6 {
+        m.insert(i, 0);
+    }
+    end_call();
+    let p1 = m.page(None, 3); // 0,1,2
+    end_call();
+    m.discard(&0); // key 5 moves to slot 0
+    end_call();
+    let p2 = m.page(p1.next.as_ref(), 3);
+    let seen: StdVec<u32> =
+        p1.items.iter().chain(p2.items.iter()).map(|(k, _)| *k).collect();
+    assert_eq!(seen, vec![0, 1, 2, 3, 4], "key 5 is never returned");
+}
+
+#[test]
+fn no_debt_counts_do_not_depend_on_history() {
+    // fresh
+    testing::use_mock();
+    let mut m: IterMap<u32, u32> = at(1);
+    m.insert(1_000_000, 1);
+    m.insert(1_000_001, 1);
+    end_call();
+    m.insert(7, 7);
+    let ins_fresh = end_call().rwd();
+    m.remove(&1_000_000);
+    let rm_fresh = end_call().rwd();
+
+    // after 2,000 random-ish operations
+    testing::use_mock();
+    let mut m: IterMap<u32, u32> = at(1);
+    let mut x: u32 = 12345;
+    for _ in 0..2000 {
+        x = x.wrapping_mul(1_103_515_245).wrapping_add(12345);
+        let k = x % 300;
+        if x & 1 == 0 {
+            m.insert(k, x);
+        } else {
+            m.discard(&k);
+        }
+    }
+    m.insert(1_000_000, 1);
+    m.insert(1_000_001, 1);
+    end_call();
+    m.insert(7_000_000, 7);
+    let ins_old = end_call().rwd();
+    m.remove(&1_000_000);
+    let rm_old = end_call().rwd();
+    assert_eq!(ins_fresh, ins_old);
+    assert_eq!(rm_fresh, rm_old);
+}
+
+// ---------------------------------------------------------------------------------------
+// Vec, Lazy, Set
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn vec_costs() {
+    testing::use_mock();
+    let mut v: super::Vec<StdVec<u8>> = at(1);
+    v.push(vec![1]);
+    v.push(big());
+    end_call();
+    v.push(vec![3]);
+    assert_eq!(end_call().rwd(), (1, 2, 0), "push: header read, 1 write, header write");
+    assert_eq!(v.get(0).unwrap(), &vec![1]);
+    assert_eq!(end_call().rwd(), (1, 0, 0));
+    assert_eq!(v.pop(), Some(vec![3]));
+    assert_eq!(
+        end_call().rwd(),
+        (2, 1, 1),
+        "pop: the table says 1 remove + 1 header write; it also needs the header read and \
+         (to return the value) the slot read"
+    );
+    let removed = v.swap_remove(0);
+    assert_eq!(removed, vec![1]);
+    let r = end_call();
+    assert_eq!(r.rwd(), (3, 2, 1), "swap_remove: header, slot i, last slot reads; write i, header; remove last");
+    assert_eq!(
+        r.max_value_bytes(),
+        KIB100 + 4,
+        "swap_remove scales with the LAST element, as the table says: here it is 100 KiB"
+    );
+}
+
+#[test]
+fn lazy_costs() {
+    testing::use_mock();
+    let mut l: Lazy<StdVec<u8>> = at(5);
+    l.set(big());
+    assert_eq!(end_call().rwd(), (0, 1, 0));
+    assert_eq!(l.get().unwrap().len(), KIB100);
+    assert_eq!(end_call().rwd(), (1, 0, 0));
+    l.remove();
+    assert_eq!(end_call().rwd(), (0, 0, 1));
+    // the Lazy's key is the field path itself, no kind byte
+    assert!(store().is_empty());
+}
+
+#[test]
+fn sets() {
+    testing::use_mock();
+    let mut s: Set<u32> = at(1);
+    let mut is: IterSet<u32> = at(2);
+    s.insert(1);
+    is.insert(1);
+    is.insert(2);
+    end_call();
+    assert!(s.contains(&1));
+    assert!(!s.contains(&2));
+    assert_eq!(is.iter().collect::<StdVec<_>>(), vec![1, 2]);
+    s.remove(&1);
+    assert!(is.remove(&1));
+    let r = end_call();
+    assert_eq!(r.removes(), 1 + 3);
+}
+
+// ---------------------------------------------------------------------------------------
+// The cache: one write per key, ordering, absent-key elision, views
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn balance_updated_ten_times_is_one_write() {
+    testing::use_mock();
+    let mut m: IterMap<String, u128> = at(1);
+    m.insert("usdt".into(), 0);
+    end_call();
+    for _ in 0..10 {
+        *m.get_mut(&"usdt".to_string()).unwrap() += 1;
+    }
+    assert_eq!(end_call().rwd(), (1, 1, 0));
+}
+
+#[test]
+fn insert_then_remove_of_key_seen_absent_costs_nothing_but_the_read() {
+    testing::use_mock();
+    let mut m: Map<u32, u32> = at(1);
+    assert!(m.get(&1).is_none());
+    m.insert(1, 1);
+    m.discard(&1);
+    assert_eq!(end_call().rwd(), (1, 0, 0));
+}
+
+#[test]
+fn insert_then_remove_of_unseen_key_costs_a_remove() {
+    testing::use_mock();
+    let mut m: Map<u32, u32> = at(1);
+    m.insert(1, 1);
+    m.discard(&1);
+    assert_eq!(
+        end_call().rwd(),
+        (0, 0, 1),
+        "the cache cannot know the key was absent, so it must remove"
+    );
+}
+
+#[test]
+fn rewriting_the_same_value_is_elided_only_when_the_old_bytes_are_known() {
+    testing::use_mock();
+    let mut m: Map<u32, u32> = at(1);
+    m.insert(1, 5);
+    end_call();
+    m.insert(1, 5);
+    assert_eq!(end_call().rwd(), (0, 1, 0), "blind insert writes");
+    let _ = m.get(&1);
+    m.insert(1, 5);
+    assert_eq!(end_call().rwd(), (1, 0, 0), "after a read, an identical write is dropped");
+}
+
+#[test]
+fn flush_is_key_ordered_with_root_last() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    ex.fee_bps = 30;
+    for who in ["zed.near", "alice.near", "mike.near", "bob.near"] {
+        let id: AccountId = who.parse().unwrap();
+        let a = ex.accounts.entry(id).or_default();
+        a.nonce = 1;
+        *a.balances.entry("usdt".into()).or_default() += 1;
+    }
+    let before = receipt().ops.len();
+    assert!(flush_root(&ex));
+    let r = receipt();
+    let written: StdVec<StdVec<u8>> = r.ops[before..].iter().map(|o| o.key.clone()).collect();
+    let root = vec![DEFAULT_ROOT];
+    assert_eq!(written.last(), Some(&root), "root last");
+    let rest = &written[..written.len() - 1];
+    let mut sorted = rest.to_vec();
+    sorted.sort();
+    assert_eq!(rest, &sorted[..], "every other key in ascending byte order");
+    let mut dedup = sorted.clone();
+    dedup.dedup();
+    assert_eq!(dedup.len(), sorted.len(), "each key once");
+    assert!(rest.iter().all(|k| k[0] == DEFAULT_ROOT && k.len() > 1));
+}
+
+#[test]
+fn view_call_writes_nothing() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    *ex.accounts.entry(alice()).or_default().balances.entry("usdt".into()).or_default() = 5;
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    assert_eq!(ex.accounts.at(&alice()).balances.get(&"usdt".into()), Some(&5));
+    testing::assert_view_clean();
+    assert_eq!(receipt().writes(), 0);
+}
+
+#[test]
+fn unchanged_root_is_not_rewritten() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    ex.fee_bps = 1;
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    ex.accounts.insert(alice(), Account::default());
+    assert!(!flush_root(&ex), "a collection write does not rewrite the root record");
+    assert_eq!(receipt().rwd(), (1, 1, 0));
+}
+
+// ---------------------------------------------------------------------------------------
+// The spec's "one call through the cache" scenario
+// ---------------------------------------------------------------------------------------
+
+/// Existing account alice with balances {usdt, dai, eth}. One call: deposit usdt twice,
+/// bump the nonce, remove dai (not last, so eth moves into its slot).
+#[test]
+fn one_call_through_the_cache() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    let a = ex.accounts.entry(alice()).or_default();
+    for t in ["usdt", "dai", "eth"] {
+        a.balances.insert(t.into(), 100);
+    }
+    flush_root(&ex);
+    testing::begin_call();
+
+    let mut ex: Ex = load_root(); // read 1: root
+    let a = ex.accounts.entry(alice()).or_default(); // read 2: account record
+    *a.balances.entry("usdt".into()).or_default() += 1; // read 3: usdt entry
+    *a.balances.entry("usdt".into()).or_default() += 1; // cached
+    a.nonce += 1;
+    a.balances.remove(&"dai".to_string()); // reads 4-7: dai entry, dai index, header, last slot
+    flush_root(&ex);
+    let r = receipt();
+    assert_eq!(r.reads(), 7);
+    // writes: usdt entry, account record (nonce changed), slot 1 <- eth, eth index, header
+    assert_eq!(r.writes(), 5);
+    // removes: dai entry, dai index, last slot
+    assert_eq!(r.removes(), 3);
+    assert_eq!(r.sha256, 1 + 2 + 2 + 1, "alice; usdt twice (paths are recomputed per entry() call); dai entry + index; eth index");
+}
+
+// ---------------------------------------------------------------------------------------
+// Records: tags, unknown fields, canonical form
+// ---------------------------------------------------------------------------------------
+
+fn alice_record_key() -> StdVec<u8> {
+    Path::root(DEFAULT_ROOT).field(3).kind(kind::ENTRIES).entry(&alice()).as_bytes().to_vec()
+}
+
+#[test]
+fn unknown_tags_survive_a_rewrite() {
+    testing::use_mock();
+    // A newer schema wrote nonce = 1 and tag 9 = [0xAA, 0xBB].
+    let mut w = record::RecordWriter::new();
+    w.push(1, borsh::to_vec(&1u64).unwrap());
+    w.push(9, vec![0xAA, 0xBB]);
+    seed(&alice_record_key(), &w.finish(None, |_| true));
+
+    let mut ex: Ex = load_root();
+    ex.accounts.get_mut(&alice()).unwrap().nonce = 2;
+    flush_root(&ex);
+    let stored = store()[&alice_record_key()].clone();
+    let f = record::parse(&stored).unwrap();
+    assert_eq!(f, vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (9, &[0xAA, 0xBB][..])]);
+}
+
+#[test]
+fn missing_tag_reads_as_default() {
+    testing::use_mock();
+    seed(&alice_record_key(), &[]);
+    let ex: Ex = load_root();
+    let a = ex.accounts.get(&alice()).expect("an empty record is a present record");
+    assert_eq!(a.nonce, 0);
+    assert_eq!(a.balances.len(), 0);
+}
+
+#[test]
+#[should_panic(expected = "TagZero")]
+fn tag_zero_in_stored_record_panics() {
+    testing::use_mock();
+    seed(&alice_record_key(), &[0x00, 0x00]);
+    let ex: Ex = load_root();
+    ex.accounts.get(&alice());
+}
+
+#[test]
+#[should_panic(expected = "NonCanonicalVarint")]
+fn non_canonical_varint_in_stored_record_panics() {
+    testing::use_mock();
+    seed(&alice_record_key(), &[0x81, 0x00, 0x00]);
+    let ex: Ex = load_root();
+    ex.accounts.get(&alice());
+}
+
+/// "A scalar whose Borsh length changes fails loudly at decode."
+#[test]
+#[should_panic(expected = "Field { tag: 1")]
+fn scalar_length_change_fails_loudly() {
+    testing::use_mock();
+    let mut w = record::RecordWriter::new();
+    w.push(1, borsh::to_vec(&1u32).unwrap()); // was u32, now u64
+    seed(&alice_record_key(), &w.finish(None, |_| true));
+    let ex: Ex = load_root();
+    ex.accounts.get(&alice());
+}
+
+/// A field that changed from a scalar to a collection under the same tag: the stored bytes
+/// are preserved as unknown, the collection starts empty. Silent, as the spec warns.
+#[test]
+fn scalar_to_collection_swap_is_silent() {
+    testing::use_mock();
+    let mut w = record::RecordWriter::new();
+    w.push(2, borsh::to_vec(&77u128).unwrap()); // tag 2 used to be a scalar balance
+    seed(&alice_record_key(), &w.finish(None, |_| true));
+    let mut ex: Ex = load_root();
+    let a = ex.accounts.get_mut(&alice()).unwrap();
+    assert_eq!(a.balances.len(), 0);
+    a.nonce = 1;
+    flush_root(&ex);
+    let f = record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>();
+    assert_eq!(f, vec![1, 2], "the old scalar bytes are carried forward as unknown");
+}
+
+#[test]
+fn max_subpath_is_summed_along_the_schema() {
+    // Ex: tag 3 (1) + kind (1) + h16 (16) + AccountId (68) + Account subpath
+    // Account: tag 2 (1) + kind (1) + h16 (16) + String (516) + 0
+    assert_eq!(<Account as Value>::MAX_SUBPATH, 1 + 1 + 16 + 516);
+    assert_eq!(<Ex as Value>::MAX_SUBPATH, 1 + 1 + 16 + 68 + 534);
+}
+
+// ---------------------------------------------------------------------------------------
+// Records with nested collections: at, or_default, Removable, binding
+// ---------------------------------------------------------------------------------------
+
+fn deposit(ex: &mut Ex, who: AccountId, token: &str, amount: u128) {
+    let acct = ex.accounts.entry(who).or_default();
+    *acct.balances.entry(token.into()).or_default() += amount;
+}
+
+#[test]
+fn deposit_costs_and_parent_write_rule() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "usdt", 5);
+    flush_root(&ex);
+    let r = receipt();
+    // root read, account read, usdt entry read, header read; account record write, 4 writes
+    assert_eq!(r.rwd(), (4, 6, 0), "the 6th write is the root itself: absent before the first call, so it is created");
+
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "usdt", 5);
+    flush_root(&ex);
+    let r = receipt();
+    assert_eq!(
+        r.rwd(),
+        (3, 1, 0),
+        "existing account and token: root, account, entry reads; 1 write. The account record \
+         is not rewritten: under the literal reading of 'written if anything below it was \
+         written' this would be 2 writes"
+    );
+}
+
+#[test]
+fn balance_of_via_at_is_one_read_and_never_loads_the_record() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "usdt", 5);
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    let before = receipt().reads();
+    let bal = ex.accounts.at(&alice()).balances.get(&"usdt".into()).copied().unwrap_or(0);
+    assert_eq!(bal, 5);
+    let r = receipt();
+    assert_eq!(r.reads() - before, 1);
+    assert!(r.ops.iter().all(|o| o.key != alice_record_key()));
+
+    // a scalar through the view reads the record once
+    assert_eq!(ex.accounts.at(&alice()).nonce.get(), Some(&0));
+    assert_eq!(ex.accounts.at(&alice()).nonce.get(), Some(&0));
+    assert_eq!(receipt().reads() - before, 2);
+}
+
+#[test]
+fn view_on_absent_key() {
+    testing::use_mock();
+    let ex: Ex = load_root();
+    let v = ex.accounts.at(&bob());
+    assert_eq!(v.balances.len(), 0);
+    assert_eq!(v.balances.get(&"usdt".into()), None);
+    assert_eq!(v.nonce.get(), None);
+    assert!(v.balances.page(None, 10).items.is_empty());
+}
+
+#[test]
+fn removing_a_record_clears_its_collections() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    for t in ["a", "b", "c"] {
+        deposit(&mut ex, alice(), t, 1);
+    }
+    flush_root(&ex);
+    let keys_before = store().len();
+    assert_eq!(keys_before, 1 + 1 + 3 * 3 + 1, "root, account, 3x(entry, index, slot), header");
+
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    let a = ex.accounts.remove(&alice()).unwrap();
+    assert_eq!(a.nonce, 0);
+    flush_root(&ex);
+    let r = receipt();
+    // reads: root, account, header, 3 slots. removes: 3x3 + header + account
+    assert_eq!(r.rwd(), (6, 0, 11));
+    assert_eq!(store().len(), 1, "only the root is left, nothing orphaned");
+}
+
+#[test]
+#[should_panic(expected = "not bound")]
+fn removed_records_collections_are_unbound() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    let a = ex.accounts.remove(&alice()).unwrap();
+    // Without unbinding, this would write under alice's (cleared) path and orphan the key.
+    a.balances.len();
+}
+
+/// Inserting a fresh record over an existing one does not clear the old record's
+/// collections: the new record's (empty, unbound) collections bind to the same path and
+/// see the old children.
+#[test]
+fn insert_over_existing_record_keeps_old_children() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    ex.accounts.insert(alice(), Account { nonce: 9, balances: IterMap::default() });
+    assert_eq!(ex.accounts.get(&alice()).unwrap().balances.len(), 1, "old balances still there");
+}
+
+/// Moving a record to another key: its collections were cleared by `remove`, so the moved
+/// record arrives with empty collections. No error, data gone.
+#[test]
+fn moving_a_record_between_keys_drops_its_collections() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    let a = ex.accounts.remove(&alice()).unwrap();
+    ex.accounts.insert(bob(), a);
+    assert_eq!(ex.accounts.get(&bob()).unwrap().balances.len(), 0);
+}
+
+/// `mem::take` on a `&mut Record` moves a bound collection handle out and leaves an unbound
+/// one in the cache. Inserting the taken record elsewhere panics; reading the original
+/// key's collections panics too.
+#[test]
+#[should_panic(expected = "already bound")]
+fn mem_take_breaks_binding() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    let taken = core::mem::take(ex.accounts.get_mut(&alice()).unwrap());
+    ex.accounts.insert(bob(), taken);
+}
+
+#[test]
+#[should_panic(expected = "not bound")]
+fn mem_take_leaves_unbound_collection_behind() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    let _taken = core::mem::take(ex.accounts.get_mut(&alice()).unwrap());
+    ex.accounts.get(&alice()).unwrap().balances.len();
+}
+
+#[test]
+#[should_panic(expected = "not bound")]
+fn touching_an_unbound_collection_panics() {
+    testing::use_mock();
+    let a = Account::default();
+    a.balances.len();
+}
+
+/// Clearing a big record with `clear_some` bounds work per call.
+#[test]
+fn bounded_clear() {
+    testing::use_mock();
+    let mut m: IterMap<u32, u32> = at(1);
+    for i in 0..10 {
+        m.insert(i, i);
+    }
+    end_call();
+    assert!(m.clear_some(4));
+    let r = end_call();
+    assert_eq!(r.rwd(), (1 + 4, 1, 12), "header + 4 slot reads; header write; 3 removes each");
+    assert!(m.clear_some(4));
+    end_call();
+    assert!(!m.clear_some(4));
+    end_call();
+    assert_eq!(store().len(), 0);
+}
+
+#[test]
+fn grouped_map_groups_are_independent_itermaps() {
+    testing::use_mock();
+    let mut g: GroupedMap<u32, u64, u64> = at(4);
+    g.group_mut(&1).insert(10, 1);
+    g.group_mut(&1).insert(11, 1);
+    g.group_mut(&2).insert(10, 2);
+    end_call();
+    assert_eq!(g.group(&1).len(), 2);
+    assert_eq!(g.group(&2).get(&10), Some(&2));
+    end_call();
+    g.group_mut(&2).remove(&10);
+    let r = end_call();
+    assert_eq!(r.rwd(), (3, 0, 4), "last entry of a group: header removed when the group empties");
+    // group(&1) keys are under 04 00 h16(1) borsh(1) 00 ...
+    let k = Path::root(DEFAULT_ROOT).field(4).kind(kind::ENTRIES).entry(&1u32).kind(kind::ENTRIES).entry(&10u64);
+    assert!(store().contains_key(k.as_bytes()));
+}
+
+/// Cache memory: a loop over n entries holds n decoded values plus their bookkeeping slots.
+#[test]
+fn cache_holds_every_touched_key_for_the_call() {
+    testing::use_mock();
+    let mut m: IterMap<u32, StdVec<u8>> = at(1);
+    for i in 0..100 {
+        m.insert(i, vec![0; 1024]);
+    }
+    end_call();
+    let n = m.iter().count();
+    assert_eq!(n, 100);
+    assert_eq!(testing::cache_slots(), 1 + 2 * 100, "header + slot + entry per item, none freed");
+}

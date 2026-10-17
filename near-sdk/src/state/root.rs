@@ -113,6 +113,12 @@ pub mod __private {
         if a > b { a } else { b }
     }
 
+    /// Worst-case bytes a field adds below its record's key: nothing for an inline leaf,
+    /// otherwise its tag plus its own subtree.
+    pub const fn field_subpath<T: Value>(tag: u32) -> usize {
+        if T::INLINE && T::MAX_SUBPATH == 0 { 0 } else { varint_len(tag) + T::MAX_SUBPATH }
+    }
+
     pub const fn varint_len(v: u32) -> usize {
         let mut n = 1;
         let mut v = v >> 7;

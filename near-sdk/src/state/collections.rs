@@ -896,3 +896,41 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
         GroupMut { map: IterMap::__bound_at(self.group_path(g)), _m: PhantomData }
     }
 }
+
+macro_rules! view_as_handle {
+    ($ty:ident < $($g:ident),* > where $($b:tt)*) => {
+        impl<'a, R: Value, $($g),*> super::value::ViewField<'a, R> for $ty<$($g),*>
+        where $($b)*
+        {
+            type Out = $ty<$($g),*>;
+            fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
+                Self::__bound_at(field_path)
+            }
+        }
+    };
+}
+view_as_handle!(Map<K, V> where K: StorageKey + 'static, V: Value);
+view_as_handle!(IterMap<K, V> where K: StorageKey + Clone + 'static, V: Value);
+view_as_handle!(Vec<T> where T: Value);
+view_as_handle!(Lazy<T> where T: Value);
+
+impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
+    super::value::ViewField<'a, R> for GroupedMap<G, K, V>
+{
+    type Out = GroupedMap<G, K, V>;
+    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
+        GroupedMap { path: Some(field_path), _m: PhantomData }
+    }
+}
+impl<'a, R: Value, K: StorageKey + 'static> super::value::ViewField<'a, R> for Set<K> {
+    type Out = Set<K>;
+    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
+        Set(Map::__bound_at(field_path))
+    }
+}
+impl<'a, R: Value, K: StorageKey + Clone + 'static> super::value::ViewField<'a, R> for IterSet<K> {
+    type Out = IterSet<K>;
+    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
+        IterSet(IterMap::__bound_at(field_path))
+    }
+}
