@@ -387,3 +387,42 @@ Applied `/tmp/storage-v2-proto/revision-1.md` on `proto/storage-v2` (commits `3f
 - `near-sdk` doc tests: **343 passed**, 6 ignored.
 - `near-sdk-macros`: **49 + 1 passed** (2 + 2 ignored). Snapshots unchanged against master.
 - `proto-wasm-check`: wasm32 check, native check and wasm32 release build all ok.
+
+## Revision 2 results
+
+Applied `/tmp/storage-v2-proto/revision-2.md` in commit `8b37bb4f`.
+
+### Success check
+
+**Still passes.** `proto-wasm-check/src/lib.rs` is unchanged this round, with `required` on `owner` as its only edit. wasm32 check, native check (`--features near-sdk/unit-testing`) and wasm32 release build (270,717 bytes, +215 over round 2) all ok.
+
+### Correction to round 2
+
+The round-2 table marked revision-1 item 22 "not implemented: no runtime key-length check in `entry()`". That was wrong. `Path::entry` has checked `borsh(k).len() <= K::MAX_LEN` since round 1, and every `entry`/`get`/`insert`/`remove`/`contains_key` goes through it. A key-level unit test already existed. What was missing was a test through a collection, which this round adds. The `StorageKey`-derive half of item 22 is still not done.
+
+### Per item
+
+| # | Status | Reason |
+|---|---|---|
+| 1 | **changed** | Not "methods on the group handle return `'a` references". On a `&mut self` handle that is unsound: two `get_mut(&k)` calls on the same key would give two live `&'a mut V`. Making the methods consume the handle instead breaks a named handle after one call. Instead, `GroupMut<'a, K, V>` is now a type alias for `&'a mut IterMap<K, V>`. `group_mut` moves a fresh `IterMap` handle into a per-call arena in the cache, freed with the slots at the flush (same invariant 4 as records), and returns `&'a mut` to it. Every `IterMap` method then borrows from the `GroupedMap`, not a temporary. Both `let o = self.orders.group_mut(&m).get_mut(&k);` (a `fill` method in the `#[near]` impl) and a named `let g = group_mut(&7)` used for `get_mut`, `get_mut`, `get`, `insert` compile. Ordinary borrowck still prevents aliasing. Test `group_mut_references_outlive_the_temporary`; `fill` costs 1 root read + 1 order read + 1 write, the same as a plain `IterMap`. |
+| 2 | applied | The derive emits `impl Exchange { pub fn bind(self) -> Self }` forwarding to `Root::bind`, outside any `#[near]` block, so it is not exported. The inherent fn wins over the trait method, so having both in scope is not ambiguous. The exchange test dropped its `use ...::Root` and `new_seeded` still compiles. |
+| 3 | already held; test added | See the correction above. New test `oversized_key_panics_naming_the_limit` inserts a 600-byte `String` token into `balances` and gets "storage key is 604 bytes, over its declared MAX_LEN of 516". **Friction:** the limit is in borsh bytes, so a `String` key documented as 512 bytes reports 516 (the 4-byte length prefix). The message is accurate but will read as off-by-four to anyone thinking in characters. |
+| 4 | applied | The generated record `Default` no longer spells the fields itself. Each record gets a private `__decode_fields(fields, Option<&Path>)` holding the one spanned `field::<T>` call per field. `decode_value` calls it with `Some(path)`; `Default` calls it with no fields and `None`, which leaves collections unbound. `__private::field` / `field_required` now take `Option<&Path>`, and `field_default` is gone. A record with `#[key(1)] who: AccountId` now produces exactly one E0277, pointing at the field type (checked with a scratch probe). |
+| 5 | **rejected, documented** | A plain `&V` has no hook on use, so nothing can fail loudly short of returning guard types from every getter, which is the API change revision 1 decided against. The options I looked at don't fail *loudly*: keeping freed allocations alive under `unit-testing`, or poisoning their bytes after `drop_value`. The first still reads a dropped value; the second is UB that may or may not crash. Miri catches it reliably. `ContractState::state_write` now documents the rule: drop every reference before a manual `state_write()`, and re-read afterwards. |
+| 6 | applied | Renamed to `UseGetForScalars`, `#[doc(hidden)]`. `at(&id).nonce.get()` fails with "no method named `get` found for struct `near_sdk::state::UseGetForScalars`" (probe). It is still a field in autocomplete, but now its type says what to do. |
+
+### New friction and edge cases
+
+- **The arena allocates per `group_mut` call.** A method that calls `group_mut` in a loop over N groups holds N small handle allocations (a `Path` each) until the flush. That is bounded by the call and similar in size to the records the same loop would cache, but it is new memory that a view-only loop over `group()` does not pay.
+- **The `String` key limit is stated in borsh bytes** (item 3 above).
+- **A user-defined inherent `bind` on a v2 root** is E0592 duplicate definitions, as accepted. One that takes different arguments collides the same way. Not probed.
+- **The hand-expanded `AccountView` in `state/tests.rs`** warns "field `nonce` is never read". The generated views in the integration test don't warn. Cosmetic.
+
+### Test counts
+
+- `near-sdk` lib `state::` unit tests: **56 passed**.
+- `near-sdk/tests/state_v2_exchange.rs`: **19 passed** (+2: `group_mut_references_outlive_the_temporary`, `oversized_key_panics_naming_the_limit`), including 4 `should_panic`.
+- `near-sdk` full lib (`unstable,abi,unit-testing`): **565 passed**, 1 ignored.
+- `near-sdk` doc tests: **343 passed**, 6 ignored.
+- `near-sdk-macros`: **49 + 1 passed** (2 + 2 ignored). Snapshots unchanged against master.
+- `proto-wasm-check`: wasm32 check, native check and wasm32 release build all ok.
