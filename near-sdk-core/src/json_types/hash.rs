@@ -2,13 +2,19 @@ use bs58::decode::Error as B58Error;
 use near_crypto_hash::CryptoHash;
 use std::convert::TryFrom;
 
+#[cfg(feature = "serde")]
+use serde_with::serde_as;
+
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "serde", derive(serde_with::SerializeDisplay, serde_with::DeserializeFromStr))]
+#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default, Hash)]
 #[repr(transparent)]
-pub struct Base58CryptoHash(CryptoHash);
+pub struct Base58CryptoHash(
+    #[cfg_attr(feature = "serde", serde_as(as = "serde_with::DisplayFromStr"))] CryptoHash,
+);
 
 impl PartialEq<CryptoHash> for Base58CryptoHash {
     fn eq(&self, other: &CryptoHash) -> bool {
