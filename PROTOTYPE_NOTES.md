@@ -15,7 +15,7 @@ NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable -
 (`NEAR_SANDBOX_BIN_PATH` only stops the `near-workspaces` dev-dependency build script from
 downloading a sandbox binary, which this environment does not allow. It does nothing else.)
 
-Results: 52 unit tests, 13 integration tests, all 560 existing near-sdk lib tests, and the
+Results: 52 new unit tests, 13 integration tests, the full near-sdk lib suite (560 = 508 pre-existing + the 52 new), and the
 49 near-sdk-macros snapshot tests pass.
 
 ## 1. What was built and what is stubbed
@@ -110,7 +110,7 @@ Every cost test puts a 100 KiB value next to the entry under test.
 | Vec swap_remove | (pop) + 1r 1w = 1r 2w 1d | **3r 2w 1d** | same two reads missing |
 | Lazy get / set / remove | 1r / 1w / 1d | same | key is `parent ++ tag`, no kind byte |
 | GroupedMap remove, group empties | as IterMap + 1 header remove | 3r 0w 4d | |
-| sha256 | not in the table | 1 per map hop per op | `balance_of` = 2; the one-call scenario = 6. Roughly 4.5 Ggas each on chain, about 8% of a read per hop. |
+| sha256 | not in the table | 1 per map hop per op | `balance_of` = 2; the one-call scenario = 6 (counted). Not measured here: by the protocol config, `sha256_base` is about 4.5 Ggas vs about 56 Ggas `storage_read_base`. |
 
 **The "one call through the cache" scenario**: existing alice with {usdt, dai, eth}; deposit
 usdt twice, bump the nonce, remove dai (not last). The measured cost is 7 reads, 5 writes,
