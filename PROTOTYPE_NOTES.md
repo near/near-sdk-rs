@@ -503,3 +503,131 @@ No other edit. wasm32 check, native check (`--features near-sdk/unit-testing`) a
   - `UseGetMutForScalars` on `at_mut(..).nonce += 1`;
   - `store::LookupMap` and `store::IterableMap` rejected in a record;
   - a v2 `LookupMap` accepted in a record.
+
+## Migration round
+
+The upgrade path from v1 was never prototyped before this round. Here it is tested against a real deployed v1 layout: the unmodified `examples/fungible-token`, populated through its own methods with 300 funded accounts and a 100 KiB icon in the metadata. It then gets two upgrades over the same storage: v1 → v2 ("move the root") → v3 ("rekey"). Both run on the mocked blockchain and on nearcore's runtime via near-contract-sim.
+
+How to run:
+
+```text
+(cd examples/fungible-token && NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p fungible-token-v2)          # migration.rs (16), nested_trap.rs (1)
+NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable,unit-testing --test state_v2_migrate  # 4
+(cd proto-migration-sim && CARGO_TARGET_DIR=~/Developer/near-contract-sim-scenario/target cargo +1.95.0 test --test ft_upgrade -- --nocapture --include-ignored)  # 2
+```
+
+Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-reproducible-wasm --no-abi`:
+
+| wasm | built from | size | sha256 |
+| --- | --- | --- | --- |
+| `ft_v1.wasm` | `examples/fungible-token/ft` | 128,954 B | `de994ad5…` |
+| `ft_v2.wasm` | `ft-v2` | 183,629 B | `eb451243…` |
+| `ft_v3.wasm` | `ft-v2 --features v3` | 140,596 B | `c446ebaa…` |
+
+### What was built
+
+- **One ordered host log.** `env::storage_{read,write,remove,has_key}` feed an opt-in thread-local log (`state::testing::env_log_start/take/stop`, `env_store()`), gated on `unstable` + `unit-testing`, native only. The counting mock only sees the v2 cache, while v1 collections call `env` directly. So every same-storage test runs on `use_env_host()` plus this log. `MockedBlockchain::storage_snapshot` (crate-private) backs `env_store`.
+- **`state::Migrating<V1, V2>`** (`near-sdk/src/state/migrating.rs`), with three traits:
+  - `LegacyMap` (`collections::{LookupMap, UnorderedMap, TreeMap}`, `store::{LookupMap, IterableMap}`);
+  - `LegacyIterable` (all of those except the two `LookupMap`s, with an `on_unimplemented` message);
+  - `MigrationTarget` (v2 `LookupMap` and `Map`).
+- **`examples/fungible-token/ft-v2`.**
+  - `v2`: the v1 `FungibleToken` and `LazyOption` kept as root fields `#[key(1/2, required)]`, a new `#[key(3)] transfers_sent: Map<AccountId, u64>`, and a `#[private] #[init] migrate()` that reads the v1 `STATE` and removes it.
+  - `v3`: `reserved(1)`, `FungibleToken` flattened, `accounts: Migrating<collections::LookupMap, state::LookupMap>`, and `#[private] #[init(ignore_state)] migrate()` from `raw_root`.
+- **Macros.** No macro changes. The spec's `migrate(old: RawRecord)` hook is not a macro feature. It is an ordinary `#[init]` that calls `raw_root`.
+
+### Claim 1, move the root: held, with changes
+
+- **Migrate.** `migrate_moves_only_the_root`: the init guard's `has_key(F0)`, read `STATE` (34 B), remove `STATE`, then the flush writes `F0` (38 B). That is `(1, 1, 1)` plus 1 has_key, and nothing else. All 302 non-`STATE` v1 keys are byte-identical afterwards (mock and sim). The root holds tags 1 and 2 (tag 3 is a collection). Running `migrate` a second time fails with "The contract has already been initialized".
+- **Reads.** `every_old_balance_reads_back_through_the_v2_root`: 300 users plus the owner. Each view costs 2 reads (root, balance) and never touches the 100 KiB metadata key `[01]`. Sim: all 300 match after `deploy v2 + migrate` in **one transaction** (13.455 Tgas for the call receipt, mostly the deploy).
+- **The spec conflates `collections` and `store`.** `FungibleToken` and `NonFungibleToken` hold `near_sdk::collections::*`. These write through, with no cache and no write-on-drop. So in `transfer_between_old_accounts_after_migration` the v1 ops land **in the method body**:
+  - body: `R F0, R 00‥a, W 00‥a, R 00‥b, W 00‥b`, then the new field's index and header reads;
+  - flush: 4 v2 writes (new `Map` key), and no root write (no root scalar changed);
+  - drop: nothing.
+
+  Only `store::*` defers to `Drop`. `status_message::store_write_on_drop_lands_after_the_v2_flush` (the `examples/status-message` state, `store::LookupMap`) shows it: flush `W f002‥, W f0`, then drop `W 07000000‥u7.near`. That v1 write lands **after the root**.
+- **Gas.** Sim, call receipt:
+
+  | transfer | Tgas | r/w | contract loading |
+  | --- | --- | --- | --- |
+  | v1 | 1.673 | 3/3 (STATE write) | 140 G |
+  | v2, sender's first (new `Map` key) | 2.204 | 5/6 | 200 G |
+  | v2, steady | 1.878 | 4/3 | 200 G |
+
+  - Without the new field, v2 is 3 r / 2 w: the `STATE` rewrite is gone.
+  - Loading rises 140 G → 200 G for the +55 KB wasm.
+- **New registrations still grow the v1 map** with the v1 bond (`new_registrations_after_the_upgrade_still_grow_the_v1_map`). "Add new fields as v2" does nothing for the map that grows.
+- **Deploying without `migrate` bricks the contract until `migrate` runs.** Every call fails with `state: cannot decode root: Missing { tag: 1 }`, because the `required` v1 fields are missing from the empty root (`deploy_without_migrate_window`, `v2_root_is_absent_until_migrate_runs`). `migrate` is `#[private]`, so a stranger gets "Method migrate is private".
+
+  Any *public* `#[init]` on the v2 contract would be callable in that window, because the guard checks the v2 root. Deploy and migrate belong in one transaction; this works on the sim.
+
+### Claim 2, root byte never collides: held for the real contracts, broke in general
+
+- **The real contracts are clean.**
+  - FT v1 first bytes are `{00, 01, 'S'}`. After both upgrades they are `{00, 01, F0}` (mock and sim).
+  - status-message has an **empty** prefix (unit-struct `BorshStorageKey`). Its keys are borsh(AccountId), so the first byte is a length ≤ 64.
+- **Broke.** `root_byte::empty_prefix_v1_map_with_caller_keys_can_write_a_v2_key`:
+  - Setup: a v1 `store::LookupMap<Vec<u8>, Vec<u8>>` with an empty prefix next to a v2 `LookupMap<String, u128>` at tag 1.
+  - Construction: a 496-byte v1 key serializes as `F0 01 00 00 ‥`. That is the v2 entry key of a 477-char handle whose h16 starts with `00`, found in about 256 hashes. A 12-byte v1 value is 16 Borsh bytes.
+  - Result: the attacker's v2 balance reads `340282366920938463463374607427473244172`.
+  - None of the three guards helps. The default byte only matters for enum prefixes, and a configurable byte is aliased the same way. The state scan is point-in-time and cannot see keys written later.
+  - **Suggested rule:** check the v1 *prefixes* instead of the keys. Every v1 field kept at a v2 root needs a non-empty prefix whose first byte is not the root byte. The prefixes are finite and sit in the root record, so this can be checked at migrate time.
+
+### Claim 3, rekey with `Migrating`: held, with changes
+
+- **Read fallback** (`migrating_read_falls_back_with_two_reads_per_miss`):
+  - an old account costs root + new miss (0 B) + old hit, i.e. 2 reads below the root;
+  - a key on neither side costs root + 2 misses.
+- **Write forward** (`migrating_write_moves_the_key_and_deletes_the_old_entry`):
+  - first transfer between two old accounts: `(7, 6, 2)`, which includes 4 writes for a new `transfers_sent` key;
+  - the two v1 entries are removed in the body (write-through) and the two v2 entries written at the flush;
+  - next transfer: `(4, 3, 0)`, with no old-side access.
+  - Sim: moving 2.176 Tgas (6/3/2), migrated 1.876 Tgas (4/3/0).
+- **`migrate_batch` on a v1 `LookupMap` is a compile error.** With the bound on the method (it started on the impl, which gave a bare E0599 without the message):
+
+  ```text
+  error[E0277]: `near_sdk::collections::LookupMap<near_sdk::AccountId, u128>` cannot enumerate its keys, so `Migrating` cannot move its entries in batches
+    = note: a v1 `LookupMap` stays on the lazy path permanently: reads fall back to it and each write moves one key; only an off-chain key list (an indexer) can drain it
+  ```
+
+- **Iterable v1 maps drain and the wrapper comes off.** `migrate_batch_drains_iterable_v1_maps_and_the_wrapper_comes_off` uses NFT's `owner_by_id: collections::TreeMap<String, AccountId>` shape plus a `store::IterableMap`:
+  - 120 + 120 entries move in 5 calls of `migrate_batch(25)` each;
+  - the first batch costs `(1437, 437, 100)`, almost all of it TreeMap rebalancing, so batch size has to be tuned to gas per v1 type;
+  - afterwards no v1 key is left;
+  - redeployed with bare `Map`s at the **same tags**, all entries read back with 0 writes;
+  - but the root still carries the stale v1 prefixes under tags 1 and 2 (48 bytes), because the encoder keeps stored bytes for a known non-inline tag. Harmless, but permanent.
+
+  `write_then_batch_keeps_the_newer_value`: a write through the wrapper followed by batches keeps the newer owner.
+- **Storage grows on every move.** An account key goes from 17 B (v1, `user001.near`) to 35 B (v2), +18 B paid by the contract, not the user. The v1 NEP-145 bond (`account_storage_usage` = 125 B, measured for v1 keys) undercharges a v2-side registration, which uses 143 B (`v1_storage_bond_undercharges_v2_keys`).
+- **`FungibleToken` cannot be wrapped.** Its `accounts` is a concrete `collections::LookupMap` field of a standards struct. v3 flattens it and re-implements `ft_transfer`, `ft_balance_of` and registration. `NonFungibleToken` has the same problem.
+
+### Claim 4, nested v1 is a trap: held (the trap is real and wider than stated)
+
+- Qualified `near_sdk::store::LookupMap` in a record: rejected, as before.
+- **Unqualified `use near_sdk::store::LookupMap;` next to `use near_sdk::state::*;`.** The explicit import silently shadows the glob. Every `LookupMap` in the file is then v1, including in `#[near(storage)]` records, with no error and no warning (`nested_trap.rs`, `mod shadowed`, which compiles and type-checks as v1). Round 3 predicted a name clash; there is none.
+- `removing_a_record_that_holds_a_fungible_token_orphans_its_balances`: a standards `FungibleToken` in a record is accepted (an opaque name), the record is blanket-`Removable`, and `remove` leaves alice's balance under `p1‥`. `collections::` nested in a record still *writes* (write-through); only `store::` writes late.
+
+### Every change and every invention
+
+- `env.rs`: the op log; `MockedBlockchain::storage_snapshot`; `testing::env_log_*`, `env_store`. Off by default; the full lib suite passes (565).
+- `Migrating` layout (invented):
+  - the v1 half is inline in the parent record and the v2 half sits at `record ++ tag`;
+  - `INLINE = true` with `MAX_SUBPATH = V2::MAX_SUBPATH`;
+  - must be `required`.
+- Tag changes (invented): v1 root field → `Migrating` is a **new tag** plus `reserved(old)`; `Migrating` → bare map is the **same tag**.
+- `Migrating` API (invented):
+  - `get` returns an owned `V: Clone`, because the v1 side doesn't cache;
+  - `insert` checks the new side first (a cache hit after `get`) and skips the old-side delete if the key is there (one-side invariant);
+  - `store::LookupMap` deletes via `set(k, None)` (lands at its `Drop`);
+  - `collections::LookupMap` deletes via `remove_raw` (1 `storage_remove`, no read).
+- `migrate` (invented):
+  - v1 → v2 removes `STATE` (the spec is silent; keeping it makes a rollback read a stale `total_supply`);
+  - v1 → v2 is a plain `#[init]`, which is idempotent by construction;
+  - v2 → v2 needs `#[init(ignore_state)]` plus a hand guard (tag 1 present), because the root exists.
+
+### Not done
+
+- **The real NFT contract.** Only its `owner_by_id` TreeMap shape and a `store::IterableMap` were tested; `NonFungibleToken` needs the same fork.
+- **Untested types and paths.** `collections::UnorderedMap` (implemented, untested); `Vector`/`LazyOption` rekeying; `ft_transfer_call`/resolve under v2.
+- **Not on the sim.** `migrate_batch`, and the aliasing attack.
+- **Not built.** The `migrate(old: RawRecord)` macro hook, and dropping stale inline bytes when a tag turns non-inline.
