@@ -1,6 +1,6 @@
-#[cfg(feature = "__abi-embed-checked")]
+#[cfg(feature = "__abi-embed")]
 mod abi_embed;
-#[cfg(feature = "__abi-embed-checked")]
+#[cfg(feature = "__abi-embed")]
 pub use abi_embed::embed;
 
 #[cfg(feature = "__abi-generate")]
