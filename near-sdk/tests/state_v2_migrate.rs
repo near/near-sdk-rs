@@ -264,3 +264,81 @@ fn migrating_lookup_map_has_no_migrate_batch() {
     // fails with E0599 and the `LegacyIterable` diagnostic. Nothing to run here.
     let _ = OpKind::Read;
 }
+
+/// `Migrating<store::LookupMap, _>`: the only legacy delete that is deferred. `set(k, None)`
+/// lands at the v1 map's `Drop`, after the v2 flush (root included).
+mod store_lookup {
+    use super::*;
+    use near_sdk::store::LookupMap as V1LookupMap;
+
+    #[derive(BorshStorageKey)]
+    #[near]
+    enum K {
+        Scores,
+    }
+
+    #[near(contract_state)]
+    pub struct V1 {
+        scores: V1LookupMap<String, u64>,
+    }
+
+    mod v2m {
+        use super::*;
+        #[near(contract_state(layout = v2))]
+        pub struct V2 {
+            #[key(1, required)]
+            pub scores: Migrating<V1LookupMap<String, u64>, Map<String, u64>>,
+            #[key(2)]
+            pub writes: u64,
+        }
+    }
+    use v2m::V2;
+
+    fn v1_key(k: &str) -> Vec<u8> {
+        [vec![0u8], near_sdk::borsh::to_vec(&k.to_string()).unwrap()].concat()
+    }
+
+    #[test]
+    fn store_lookup_map_delete_lands_at_drop_after_the_v2_flush() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        let mut c = V1 { scores: V1LookupMap::new(K::Scores) };
+        c.scores.insert("alice".into(), 7);
+        env::state_write(&c);
+        drop(c);
+        init(|| {
+            let old: V1 = env::state_read().unwrap();
+            env::storage_remove(b"STATE");
+            V2 { scores: Migrating::new(old.scores), writes: 0 }
+        });
+
+        // One write through the wrapper, phases split as the wrapper runs them.
+        ctx();
+        testing::begin_call();
+        testing::env_log_take();
+        let mut c = V2::state_read().unwrap();
+        assert_eq!(c.scores.get(&"alice".into()), Some(7), "read falls back to v1");
+        c.scores.insert("alice".into(), 8);
+        c.scores.insert("bob".into(), 1); // never on either side: blind old-side delete
+        c.writes += 1;
+        let body = testing::env_log_take().ops;
+        c.state_write();
+        let flush = testing::env_log_take().ops;
+        drop(c);
+        let dropped = testing::env_log_take().ops;
+        let show = |ops: &[testing::Op]| ops.iter().map(|o| format!("{:?} {:02x?}", o.kind, &o.key[..o.key.len().min(4)])).collect::<Vec<_>>();
+        println!("body {:?}\nflush {:?}\ndrop {:?}", show(&body), show(&flush), show(&dropped));
+
+        assert!(body.iter().all(|o| o.kind == OpKind::Read), "nothing written in the body");
+        assert!(flush.iter().all(|o| o.kind == OpKind::Write && o.key[0] == ROOT));
+        assert_eq!(flush.last().unwrap().key, vec![ROOT], "root last");
+        // At drop: alice's v1 entry removed, and a storage_remove for bob, who never existed.
+        let removes: Vec<_> = dropped.iter().filter(|o| o.kind == OpKind::Remove).map(|o| o.key.clone()).collect();
+        assert_eq!(removes, vec![v1_key("alice"), v1_key("bob")]);
+        assert!(!env::storage_has_key(&v1_key("alice")));
+
+        let (v, _) = call::<V2, _>(|c| (c.scores.get(&"alice".into()), c.scores.get(&"bob".into())));
+        assert_eq!(v, (Some(8), Some(1)));
+    }
+}

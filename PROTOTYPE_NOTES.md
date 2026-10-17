@@ -554,14 +554,18 @@ Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-repro
   | v2, sender's first (new `Map` key) | 2.204 | 5/6 | 200 G |
   | v2, steady | 1.878 | 4/3 | 200 G |
 
-  - Without the new field, v2 is 3 r / 2 w: the `STATE` rewrite is gone.
-  - Loading rises 140 G → 200 G for the +55 KB wasm.
+  - **v2 costs more per transfer than v1, not less.** From the profiles:
+    - contract loading +60 G (129 → 184 KB wasm, paid by every method);
+    - `WASM_INSTRUCTION` +50 G;
+    - the new field +1 r, +1 w;
+    - the `STATE` rewrite is gone, −1 w.
+  - "3 r / 2 w without the new field" is inferred from the op logs, not measured.
 - **New registrations still grow the v1 map** with the v1 bond (`new_registrations_after_the_upgrade_still_grow_the_v1_map`). "Add new fields as v2" does nothing for the map that grows.
 - **Deploying without `migrate` bricks the contract until `migrate` runs.** Every call fails with `state: cannot decode root: Missing { tag: 1 }`, because the `required` v1 fields are missing from the empty root (`deploy_without_migrate_window`, `v2_root_is_absent_until_migrate_runs`). `migrate` is `#[private]`, so a stranger gets "Method migrate is private".
 
   Any *public* `#[init]` on the v2 contract would be callable in that window, because the guard checks the v2 root. Deploy and migrate belong in one transaction; this works on the sim.
 
-### Claim 2, root byte never collides: held for the real contracts, broke in general
+### Claim 2, root byte never collides: held for the real contracts, broke under a reachable shape
 
 - **The real contracts are clean.**
   - FT v1 first bytes are `{00, 01, 'S'}`. After both upgrades they are `{00, 01, F0}` (mock and sim).
@@ -570,6 +574,11 @@ Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-repro
   - Setup: a v1 `store::LookupMap<Vec<u8>, Vec<u8>>` with an empty prefix next to a v2 `LookupMap<String, u128>` at tag 1.
   - Construction: a 496-byte v1 key serializes as `F0 01 00 00 ‥`. That is the v2 entry key of a 477-char handle whose h16 starts with `00`, found in about 256 hashes. A 12-byte v1 value is 16 Borsh bytes.
   - Result: the attacker's v2 balance reads `340282366920938463463374607427473244172`.
+  - **Preconditions.** All three must hold:
+    1. a v1 map at the root with an **empty** prefix;
+    2. caller-chosen variable-length v1 keys. With `Vec<u8>` keys the attack works as shown. With `String` keys the 15 random h16 bytes must also be UTF-8, about 2^15 more grinding.
+    3. a v2 map at **tag 1** with `String`/`Vec<u8>` keys. At tag ≥ 2 the v1 length prefix reads ≥ 752, so the v2 key would need a 733-byte handle, over `StorageKey`'s 512-byte bound. That bound guards by accident.
+  - **Immune:** an `AccountId`-keyed v2 map. Its key is at most 87 bytes, and the v1 key's length prefix can never read `F0 ..` at that size.
   - None of the three guards helps. The default byte only matters for enum prefixes, and a configurable byte is aliased the same way. The state scan is point-in-time and cannot see keys written later.
   - **Suggested rule:** check the v1 *prefixes* instead of the keys. Every v1 field kept at a v2 root needs a non-empty prefix whose first byte is not the root byte. The prefixes are finite and sit in the root record, so this can be checked at migrate time.
 
@@ -598,6 +607,10 @@ Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-repro
   - but the root still carries the stale v1 prefixes under tags 1 and 2 (48 bytes), because the encoder keeps stored bytes for a known non-inline tag. Harmless, but permanent.
 
   `write_then_batch_keeps_the_newer_value`: a write through the wrapper followed by batches keeps the newer owner.
+- **`Migrating<store::LookupMap, Map>`** (`store_lookup::store_lookup_map_delete_lands_at_drop_after_the_v2_flush`). This is the only deferred legacy delete.
+  - body: reads only;
+  - flush: the v2 writes, then the root last;
+  - drop: `Remove` of alice's v1 entry, plus a `storage_remove` for `bob`, who was never on either side. A write of a key not seen on the new side always pays one blind v1 remove.
 - **Storage grows on every move.** An account key goes from 17 B (v1, `user001.near`) to 35 B (v2), +18 B paid by the contract, not the user. The v1 NEP-145 bond (`account_storage_usage` = 125 B, measured for v1 keys) undercharges a v2-side registration, which uses 143 B (`v1_storage_bond_undercharges_v2_keys`).
 - **`FungibleToken` cannot be wrapped.** Its `accounts` is a concrete `collections::LookupMap` field of a standards struct. v3 flattens it and re-implements `ft_transfer`, `ft_balance_of` and registration. `NonFungibleToken` has the same problem.
 
@@ -606,6 +619,16 @@ Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-repro
 - Qualified `near_sdk::store::LookupMap` in a record: rejected, as before.
 - **Unqualified `use near_sdk::store::LookupMap;` next to `use near_sdk::state::*;`.** The explicit import silently shadows the glob. Every `LookupMap` in the file is then v1, including in `#[near(storage)]` records, with no error and no warning (`nested_trap.rs`, `mod shadowed`, which compiles and type-checks as v1). Round 3 predicted a name clash; there is none.
 - `removing_a_record_that_holds_a_fungible_token_orphans_its_balances`: a standards `FungibleToken` in a record is accepted (an opaque name), the record is blanket-`Removable`, and `remove` leaves alice's balance under `p1‥`. `collections::` nested in a record still *writes* (write-through); only `store::` writes late.
+
+### Sharpest edge
+
+**Every near-contract-standards token hits this when it rekeys.** Step 1 (move the root) is clean: one record rewritten, 302 keys untouched, deploy and migrate in one transaction. Step 3 is where it gets expensive. The accounts map is a concrete field of `FungibleToken`, so it cannot be wrapped: the contract forks the standard (v3 re-implements transfer, balance and registration).
+
+Then every lazily moved account grows its key from 17 B to 35 B, paid from the **contract's** balance, because `ft_transfer` attaches 1 yocto and no storage deposit. Take a token with 1M holders: about 18 MB, or about 180 NEAR of staked storage, drained a transfer at a time. Meanwhile new registrations keep paying the v1 bond (125 B) for a 143 B record. Nothing in the design re-measures the bond.
+
+Runners-up:
+- **The brick window.** Every method panics with `Missing { tag: 1 }` between deploy and migrate. One-transaction deploy + migrate avoids it (sim).
+- **Root-byte aliasing.** Claim 2 above: conditional, but it reopens the exploit class v2 was meant to close.
 
 ### Every change and every invention
 
@@ -628,6 +651,6 @@ Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-repro
 ### Not done
 
 - **The real NFT contract.** Only its `owner_by_id` TreeMap shape and a `store::IterableMap` were tested; `NonFungibleToken` needs the same fork.
-- **Untested types and paths.** `collections::UnorderedMap` (implemented, untested); `Vector`/`LazyOption` rekeying; `ft_transfer_call`/resolve under v2.
+- **Untested types and paths.** `collections::UnorderedMap` (implemented, untested); a real `store::LookupMap` contract (only the synthetic `store_lookup` test); `Vector`/`LazyOption` rekeying; `ft_transfer_call`/resolve under v2.
 - **Not on the sim.** `migrate_batch`, and the aliasing attack.
 - **Not built.** The `migrate(old: RawRecord)` macro hook, and dropping stale inline bytes when a tag turns non-inline.
