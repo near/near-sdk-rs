@@ -30,6 +30,13 @@ fn try_from_raw_rejects_trailing_and_truncated_bytes() {
     assert!(UniversalStateInit::try_from(RawStateInit(bytes[..bytes.len() - 1].to_vec())).is_err());
     // An unknown version tag is not a state init this crate can type.
     assert!(UniversalStateInit::try_from(RawStateInit(vec![1])).is_err());
+    // A declared count far beyond the input fails at the end of the bytes. The shared vectors
+    // cover the storage count; this covers the handle count.
+    let oversized_handles = [&[0, 0][..], &0u32.to_le_bytes(), &u32::MAX.to_le_bytes()].concat();
+    assert_eq!(
+        RawStateInit(oversized_handles).validate_canonical(),
+        Err(StateInitError::Malformed)
+    );
 }
 
 /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against

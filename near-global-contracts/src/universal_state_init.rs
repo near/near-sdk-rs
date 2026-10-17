@@ -330,10 +330,18 @@ pub struct UniversalStateInitV1 {
     pub access_keys: BTreeSet<PublicKeyHandle>,
 }
 
-/// Decoded by hand so the result does not depend on whether Borsh's `de_strict_order` feature is
-/// enabled anywhere in the dependency graph: unsorted or duplicate entries always decode, and
-/// [`RawStateInit::validate_canonical`] reports them as [`StateInitError::NonCanonical`], as the
-/// host does. A later duplicate replaces the earlier entry.
+/// Decoded by hand to keep [`RawStateInit::validate_canonical`] reporting the same error as the
+/// host. That check decodes, then compares the re-encoding with the input, so unsorted or
+/// duplicate entries must decode for it to return [`StateInitError::NonCanonical`]. The derived
+/// decoder rejects them outright when any crate in the build enables Borsh's `de_strict_order`
+/// feature, which would turn them into [`StateInitError::Malformed`]. A later duplicate replaces
+/// the earlier entry.
+///
+/// Contracts are unaffected either way: a typed argument that fails to decode is rejected, and
+/// one that decodes re-encodes canonically, so it derives the id it is sent to.
+///
+/// Cost is bounded by the input, as with the derived decoder: each entry consumes input, so a
+/// large declared count fails at the end of the bytes, and nothing is preallocated from it.
 #[cfg(feature = "borsh")]
 impl borsh::BorshDeserialize for UniversalStateInitV1 {
     fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {

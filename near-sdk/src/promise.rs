@@ -609,10 +609,15 @@ impl Promise {
     /// The runtime validates the new receipt when the calling function call finishes, and a
     /// mismatch fails that call and rolls back its state changes.
     ///
-    /// `state_init` converts into a
-    /// [`RawStateInit`](crate::universal_state_init::RawStateInit), whose bytes go into the action
-    /// verbatim; typed values are encoded once here. Forward bytes you were handed as they are:
-    /// decoding and re-encoding them can change the account they derive to.
+    /// `state_init` is either typed or raw; both convert into the
+    /// [`RawStateInit`](crate::universal_state_init::RawStateInit) bytes the action carries.
+    /// A typed [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit) (or
+    /// [`UniversalStateInitV1`](crate::universal_state_init::UniversalStateInitV1)) is encoded
+    /// once here, canonically, so its
+    /// [`derive_account_id`](crate::universal_state_init::UniversalStateInit::derive_account_id)
+    /// cannot fail. A `RawStateInit` goes in verbatim, which suits forwarding, including versions
+    /// this SDK cannot decode. Forward bytes you were handed as they are: decoding and re-encoding
+    /// them can change the account they derive to.
     ///
     /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`].
     ///
@@ -649,18 +654,18 @@ impl Promise {
     /// }
     /// ```
     ///
-    /// Building the state init in the contract:
+    /// Building a typed state init in the contract, which needs no validation:
     ///
     /// ```no_run
-    /// use near_sdk::universal_state_init::{RawStateInit, UniversalStateInitV1};
+    /// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
     /// use near_sdk::{env, GlobalContractId, NearToken, Promise};
     ///
-    /// let state_init = RawStateInit::from(
+    /// let state_init = UniversalStateInit::V1(
     ///     UniversalStateInitV1::default()
     ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
     ///         .with_access_key(env::signer_account_pk()),
     /// );
-    /// Promise::new(state_init.try_derive_account_id().unwrap())
+    /// Promise::new(state_init.derive_account_id())
     ///     .universal_state_init(state_init, NearToken::from_millinear(10));
     /// ```
     ///
