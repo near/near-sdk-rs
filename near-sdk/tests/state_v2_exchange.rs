@@ -6,7 +6,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, IterMap, Lazy, Map, Page};
+use near_sdk::state::{ContractState, GroupedMap, Map, Lazy, LookupMap, Page};
 use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
@@ -37,7 +37,7 @@ pub struct Exchange {
     #[key(2)]
     fee_bps: u16,
     #[key(3)]
-    accounts: Map<AccountId, Account>,
+    accounts: LookupMap<AccountId, Account>,
     #[key(4)]
     orders: GroupedMap<MarketId, OrderId, Order>,
     #[key(5)]
@@ -49,7 +49,7 @@ pub struct Account {
     #[key(1)]
     nonce: u64,
     #[key(2)]
-    balances: IterMap<TokenId, u128>, // lives at 3/<account>/2/<token>
+    balances: Map<TokenId, u128>, // lives at 3/<account>/2/<token>
 }
 
 #[near]
@@ -230,7 +230,7 @@ fn cancel_through_grouped_map() {
 }
 
 /// Revision 2 item 1: `group_mut(&m).get_mut(&k)` bound to a `let`, and a named group handle
-/// used for several operations, compile and cost what the plain `IterMap` costs.
+/// used for several operations, compile and cost what the plain `Map` costs.
 #[test]
 fn group_mut_references_outlive_the_temporary() {
     init("owner.near");
@@ -371,10 +371,10 @@ fn required_field_added_later_fails_old_records() {
     use near_sdk::state::Path;
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
-    let mut v1: Map<u32, SlimV1> = Map::__bound_at(root.clone());
+    let mut v1: LookupMap<u32, SlimV1> = LookupMap::__bound_at(root.clone());
     v1.insert(1, SlimV1 { nonce: 3 });
     testing::flush();
-    let v2: Map<u32, SlimV2> = Map::__bound_at(root);
+    let v2: LookupMap<u32, SlimV2> = LookupMap::__bound_at(root);
     let _ = v2.get(&1).map(|s| (&s.owner, s.nonce));
 }
 
@@ -390,7 +390,7 @@ pub struct Legacy {
     #[key(1, required)]
     old: near_sdk::store::LookupMap<u32, u32>,
     #[key(2)]
-    users: Map<u32, User>,
+    users: LookupMap<u32, User>,
 }
 
 // `notes: near_sdk::store::LookupMap<u32, u32>` is now rejected by the derive ("v1 collection
@@ -498,7 +498,7 @@ fn reserved_tag_is_dropped_on_rewrite_unknown_tag_is_kept() {
     use near_sdk::state::{Path, record};
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
-    let mut m: Map<u32, Slim> = Map::__bound_at(root.clone());
+    let mut m: LookupMap<u32, Slim> = LookupMap::__bound_at(root.clone());
     let key = root.kind(0).entry(&1u32);
     let mut w = record::RecordWriter::new();
     w.push(1, borsh::to_vec(&1u64).unwrap());

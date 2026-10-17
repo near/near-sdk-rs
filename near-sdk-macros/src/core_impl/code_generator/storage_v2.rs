@@ -35,25 +35,59 @@ struct KeyedField {
     required: bool,
 }
 
-/// v1 collection type names. A record (not the root) holding one is rejected: v1 collections
-/// belong at the root. Best effort: a renamed import or a type alias slips through, and v1
-/// `Lazy`/`LazyOption` cannot be told apart from `state::Lazy` by name.
-const V1_NAMES: &[&str] = &[
-    "LookupMap",
-    "LookupSet",
+/// Collection names that exist only in v1 (`near_sdk::store` / `near_sdk::collections`). A
+/// record (not the root) holding one is rejected: v1 collections belong at the root.
+const V1_ONLY_NAMES: &[&str] = &[
     "IterableMap",
     "IterableSet",
     "UnorderedMap",
     "UnorderedSet",
     "TreeMap",
-    "Vector",
     "LegacyTreeMap",
+    "LazyOption",
 ];
+
+/// Names shared by v1 and v2 (`LookupMap`, `LookupSet`, `Vector`, `Lazy`): rejected only when
+/// the path names the v1 module (`store::LookupMap`, `collections::Vector`). Best effort: an
+/// unqualified import of a v1 `LookupMap`, a renamed import or a type alias slips through.
+const SHARED_NAMES: &[&str] = &["LookupMap", "LookupSet", "Vector", "Lazy"];
 
 fn v1_name(ty: &syn::Type) -> Option<String> {
     let syn::Type::Path(tp) = ty else { return None };
     let last = tp.path.segments.last()?.ident.to_string();
-    V1_NAMES.contains(&last.as_str()).then_some(last)
+    if V1_ONLY_NAMES.contains(&last.as_str()) {
+        return Some(last);
+    }
+    let v1_module =
+        tp.path.segments.iter().any(|s| s.ident == "store" || s.ident == "collections");
+    (v1_module && SHARED_NAMES.contains(&last.as_str())).then_some(last)
+}
+
+/// v2 collection names, for the "collection as a map value" check.
+const V2_COLLECTIONS: &[&str] =
+    &["Map", "LookupMap", "Set", "LookupSet", "Vector", "Lazy", "GroupedMap"];
+
+/// `Map<_, X>`, `LookupMap<_, X>`, `GroupedMap<_, _, X>`, `Vector<X>`, `Lazy<X>` where `X` is
+/// a collection: returns `X`'s span. Syntactic, so an alias slips through to the
+/// post-monomorphization check, which stays as the backstop.
+fn collection_valued(ty: &syn::Type) -> Option<Span> {
+    let syn::Type::Path(tp) = ty else { return None };
+    let seg = tp.path.segments.last()?;
+    let syn::PathArguments::AngleBracketed(args) = &seg.arguments else { return None };
+    let tys: Vec<&syn::Type> = args
+        .args
+        .iter()
+        .filter_map(|a| if let syn::GenericArgument::Type(t) = a { Some(t) } else { None })
+        .collect();
+    let value = match seg.ident.to_string().as_str() {
+        "Map" | "LookupMap" => tys.get(1),
+        "GroupedMap" => tys.get(2),
+        "Vector" | "Lazy" => tys.first(),
+        _ => None,
+    }?;
+    let syn::Type::Path(vp) = value else { return None };
+    let name = vp.path.segments.last()?.ident.to_string();
+    V2_COLLECTIONS.contains(&name.as_str()).then(|| value.span())
 }
 
 fn derives(item: &ItemStruct, names: &[&str]) -> bool {
@@ -161,12 +195,22 @@ pub fn expand(
                 ),
             ));
         }
+        if v1_name(&f.ty).is_none()
+            && let Some(span) = collection_valued(&f.ty)
+        {
+            return Err(syn::Error::new(
+                span,
+                "a map value cannot be a collection; put it in a `#[near(storage)]` record, or \
+                 use `GroupedMap`",
+            ));
+        }
         fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), tag, required });
     }
 
     let name = &item.ident;
     let vis = &item.vis;
-    let view = format_ident!("{}View", name);
+    let view = format_ident!("{}At", name);
+    let view_mut = format_ident!("{}AtMut", name);
     let s = quote!(::near_sdk::state);
     let p = quote!(::near_sdk::state::__private);
     let tag_lit = |t: u32| LitInt::new(&format!("{t}u32"), Span::call_site());
@@ -179,6 +223,8 @@ pub fn expand(
     let mut detach = Vec::new();
     let mut view_fields = Vec::new();
     let mut view_inits = Vec::new();
+    let mut view_mut_fields = Vec::new();
+    let mut view_mut_inits = Vec::new();
     let mut removable_bounds = Vec::new();
     let mut clear = Vec::new();
 
@@ -198,6 +244,11 @@ pub fn expand(
         view_fields.push(quote! { #fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out, });
         view_inits.push(quote! {
             #ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#t)),
+        });
+        view_mut_fields
+            .push(quote! { #fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out, });
+        view_mut_inits.push(quote! {
+            #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t)),
         });
         removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
         clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
@@ -313,8 +364,17 @@ pub fn expand(
     });
 
     let view_doc = format!(
-        "Path-bound view of [`{name}`] returned by `at()`: collection and `Lazy` fields as \
-         handles, nothing read. Scalars are not readable here; use `get` for them."
+        "Read-only view of a [`{name}`] record, generated by `#[near(storage)]` and returned by \
+         `map.at(&k)`. Its collection and `Lazy` fields are read-only handles bound to the \
+         record's path; nothing is read until you call a method on one. Scalar fields are not \
+         readable here (they are typed `UseGetForScalars`): use `map.get(&k)` for them."
+    );
+    let view_mut_doc = format!(
+        "Mutable view of a [`{name}`] record, generated by `#[near(storage)]` and returned by \
+         `map.at_mut(&k)` (1 `storage_has_key`, panics if the record is absent). Its collection \
+         and `Lazy` fields are `&mut` handles bound to the record's path; the record itself is \
+         not read. Scalar fields are not available (typed `UseGetMutForScalars`): use \
+         `map.get_mut(&k)` to change them."
     );
 
     Ok(quote! {
@@ -322,10 +382,19 @@ pub fn expand(
         #item
 
         #[doc = #view_doc]
+        #[allow(dead_code)]
         #vis struct #view<'a> {
             #(#view_fields)*
             #[doc(hidden)]
             pub __m: ::core::marker::PhantomData<&'a ()>,
+        }
+
+        #[doc = #view_mut_doc]
+        #[allow(dead_code)]
+        #vis struct #view_mut<'a> {
+            #(#view_mut_fields)*
+            #[doc(hidden)]
+            pub __m: ::core::marker::PhantomData<&'a mut ()>,
         }
 
         const _: () = {
@@ -349,8 +418,12 @@ pub fn expand(
 
             impl #s::Record for #name {
                 type View<'a> = #view<'a>;
+                type ViewMut<'a> = #view_mut<'a>;
                 fn __view<'a>(path: #s::Path) -> #view<'a> {
                     #view { #(#view_inits)* __m: ::core::marker::PhantomData }
+                }
+                fn __view_mut<'a>(path: #s::Path) -> #view_mut<'a> {
+                    #view_mut { #(#view_mut_inits)* __m: ::core::marker::PhantomData }
                 }
             }
 
@@ -358,6 +431,13 @@ pub fn expand(
                 type Out = #view<'a>;
                 fn __view_field(field_path: #s::Path) -> #view<'a> {
                     <#name as #s::Record>::__view(field_path)
+                }
+            }
+
+            impl<'a, __R: #s::Value> #s::ViewFieldMut<'a, __R> for #name {
+                type Out = #view_mut<'a>;
+                fn __view_field_mut(field_path: #s::Path) -> #view_mut<'a> {
+                    <#name as #s::Record>::__view_mut(field_path)
                 }
             }
 

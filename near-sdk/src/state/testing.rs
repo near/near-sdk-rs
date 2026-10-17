@@ -1,8 +1,22 @@
-//! Counting mock host for `state`. Not a stable API.
+//! Test support for `near_sdk::state` contracts: a counting mock host and a small harness.
 //!
-//! `use_mock()` installs an in-memory host that records every read, write and remove with
-//! its key and byte counts. The store persists across `begin_call()`s on the same thread, so
-//! a test can model several calls; the receipt is per call.
+//! `use_mock()` installs an in-memory host that records every read, write, remove and
+//! `storage_has_key` with its key and byte counts. The store persists across `begin_call()`s
+//! on the same thread, so a test can model several calls; the [`Receipt`] is per call.
+//!
+//! [`Harness`] does what the `#[near]` wrapper does around each method:
+//!
+//! ```ignore
+//! let (h, _) = Harness::init("owner.near", || Exchange::new("owner.near".parse().unwrap()));
+//! let (_, r) = h.call("alice.near", NearToken::from_yoctonear(1), |c| c.deposit("usdt".into(), U128(5)));
+//! assert_eq!(r.rwd(), (3, 2, 0)); // reads, writes, removes in that call
+//! let (bal, _) = h.view(|c| c.balance_of("alice.near".parse().unwrap(), "usdt".into()));
+//! ```
+//!
+//! Two traps: only the mock produces receipts, and only `use_env_host()` (the mocked
+//! blockchain) tracks `env::storage_usage()`, so a storage-bond measurement needs the env host.
+//! And `testing_env!` resets `storage_usage` from its builder, so measure after the context
+//! switch.
 
 use super::cache::{self, Host};
 use std::cell::RefCell;
@@ -208,4 +222,74 @@ pub fn seed(key: &[u8], value: &[u8]) {
 /// Number of slots the cache holds in this call.
 pub fn cache_slots() -> usize {
     cache::slot_count()
+}
+
+/// Sets the mocked blockchain context: predecessor (and signer) `who`, attached `deposit`.
+#[cfg(feature = "unit-testing")]
+pub fn set_context(who: &str, deposit: crate::NearToken) {
+    let who: crate::AccountId = who.parse().expect("valid account id");
+    let ctx = crate::test_utils::VMContextBuilder::new()
+        .predecessor_account_id(who.clone())
+        .signer_account_id(who)
+        .attached_deposit(deposit)
+        .build();
+    crate::testing_env!(ctx);
+}
+
+/// Runs contract methods the way the `#[near]` wrapper does, against the counting mock:
+/// read the root, run the method, write the root (for `call`), and return the call's
+/// [`Receipt`]. The store persists across calls on the same thread.
+#[cfg(feature = "unit-testing")]
+pub struct Harness<T> {
+    _m: core::marker::PhantomData<fn() -> T>,
+}
+
+#[cfg(feature = "unit-testing")]
+impl<T> Harness<T>
+where
+    T: super::ContractState + super::StateRead + super::StateWrite,
+{
+    /// Installs a fresh counting mock (empty store), runs `init` as `who` with no deposit,
+    /// and writes the returned root, as an `#[init]` call does.
+    pub fn init(who: &str, init: impl FnOnce() -> T) -> (Self, Receipt) {
+        set_context(who, crate::NearToken::from_yoctonear(0));
+        use_mock();
+        let root = init();
+        root.state_write();
+        drop(root);
+        (Harness { _m: core::marker::PhantomData }, receipt())
+    }
+
+    /// A harness over whatever the current host and store hold (no reset).
+    pub fn attach() -> Self {
+        Harness { _m: core::marker::PhantomData }
+    }
+
+    /// A mutating call as `who` with `deposit` attached. The root is written after `f`
+    /// returns and dropped after the write, as in the wrapper.
+    pub fn call<R>(
+        &self,
+        who: &str,
+        deposit: crate::NearToken,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> (R, Receipt) {
+        set_context(who, deposit);
+        begin_call();
+        let mut root = T::state_read().expect("state: contract is not initialized");
+        let r = f(&mut root);
+        root.state_write();
+        drop(root);
+        (r, receipt())
+    }
+
+    /// A view call: nothing may be pending at the end ([`assert_view_clean`]). Keeps the
+    /// current context (predecessor, deposit).
+    pub fn view<R>(&self, f: impl FnOnce(&T) -> R) -> (R, Receipt) {
+        begin_call();
+        let root = T::state_read().expect("state: contract is not initialized");
+        let r = f(&root);
+        assert_view_clean();
+        drop(root);
+        (r, receipt())
+    }
 }

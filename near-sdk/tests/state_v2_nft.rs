@@ -6,7 +6,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, IterMap, KeyPage, Lazy};
+use near_sdk::state::{ContractState, GroupedMap, Map, KeyPage, Lazy};
 use near_sdk::{AccountId, NearToken, env, near, require};
 
 pub type TokenId = String;
@@ -44,7 +44,7 @@ pub struct Token {
     #[key(2)]
     next_approval_id: u64,
     #[key(3)]
-    approvals: IterMap<AccountId, u64>,
+    approvals: Map<AccountId, u64>,
     /// Kept out of the token record so transfers do not rewrite it.
     #[key(4)]
     metadata: Lazy<TokenMetadata>,
@@ -55,7 +55,7 @@ pub struct Nft {
     #[key(1, required)]
     owner: AccountId,
     #[key(2)]
-    tokens: IterMap<TokenId, Token>,
+    tokens: Map<TokenId, Token>,
     #[key(3)]
     tokens_per_owner: GroupedMap<AccountId, TokenId, ()>,
     #[key(4)]

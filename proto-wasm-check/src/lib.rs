@@ -23,7 +23,7 @@ pub struct Metadata {
 
 // ---------------- spec text from here, verbatim except `required` ----------------
 
-use near_sdk::state::{Map, IterMap, GroupedMap, Lazy, Page};
+use near_sdk::state::{LookupMap, Map, GroupedMap, Lazy, Page};
 use near_sdk::{env, near, AccountId};
 use near_sdk::json_types::U128;
 
@@ -31,7 +31,7 @@ use near_sdk::json_types::U128;
 pub struct Exchange {
     #[key(1, required)] owner: AccountId,
     #[key(2)] fee_bps: u16,
-    #[key(3)] accounts: Map<AccountId, Account>,
+    #[key(3)] accounts: LookupMap<AccountId, Account>,
     #[key(4)] orders: GroupedMap<MarketId, OrderId, Order>,
     #[key(5)] metadata: Lazy<Metadata>,          // large, loaded only when touched
 }
@@ -39,7 +39,7 @@ pub struct Exchange {
 #[near(storage)]
 pub struct Account {
     #[key(1)] nonce: u64,
-    #[key(2)] balances: IterMap<TokenId, u128>,  // lives at 3/<account>/2/<token>
+    #[key(2)] balances: Map<TokenId, u128>,  // lives at 3/<account>/2/<token>
 }
 
 #[near]

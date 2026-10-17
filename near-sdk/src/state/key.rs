@@ -76,7 +76,7 @@ impl Path {
         Path(out).checked()
     }
 
-    /// Map entry hop: `h16(borsh(k)) ++ borsh(k)`.
+    /// LookupMap entry hop: `h16(borsh(k)) ++ borsh(k)`.
     #[track_caller]
     pub fn entry<K: StorageKey + ?Sized>(&self, k: &K) -> Path {
         let enc = borsh::to_vec(k).expect("borsh serialization of a storage key cannot fail");
@@ -198,8 +198,8 @@ mod tests {
         "alice.near".parse().unwrap()
     }
 
-    /// The spec's worked example: Exchange { #[key(3)] accounts: Map<AccountId, Account> },
-    /// Account { #[key(2)] balances: IterMap<TokenId, u128> }, TokenId = String.
+    /// The spec's worked example: Exchange { #[key(3)] accounts: LookupMap<AccountId, Account> },
+    /// Account { #[key(2)] balances: Map<TokenId, u128> }, TokenId = String.
     #[test]
     fn worked_example_lengths_and_structure() {
         let r = Path::root(DEFAULT_ROOT);

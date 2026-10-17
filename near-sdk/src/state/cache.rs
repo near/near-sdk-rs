@@ -10,7 +10,7 @@
 //! sound under these rules, which every `unsafe` deref in `state` relies on:
 //!
 //! 1. Every slot and every decoded value is a separate heap allocation reached through a raw
-//!    pointer. Map rebalancing never moves them, and the cache never forms a `&mut` over a
+//!    pointer. LookupMap rebalancing never moves them, and the cache never forms a `&mut` over a
 //!    value while a collection operation is not running.
 //! 2. Within a call, a value is dropped or overwritten only by an operation that takes
 //!    `&mut` on the collection handle that owns the key (`insert`, `remove`, `discard`,
@@ -195,7 +195,7 @@ fn free_slots(taken: Taken) {
 
 /// Moves a collection handle into the per-call arena and returns a pointer that stays valid
 /// until the next flush or `begin_call` (invariant 4). Used so `GroupedMap::group_mut` can hand
-/// out `&'a mut IterMap` whose reads live as long as the `GroupedMap` borrow, not a temporary.
+/// out `&'a mut Map` whose reads live as long as the `GroupedMap` borrow, not a temporary.
 pub(crate) fn arena<T: Any>(v: T) -> NonNull<T> {
     let p = NonNull::from(Box::leak(Box::new(v)));
     with(|c| c.handles.push(p));

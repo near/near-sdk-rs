@@ -64,11 +64,16 @@ impl<T: Default> FieldDefault for T {
 
 /// A `#[near(storage)]` struct: a tagged record that may contain collections.
 pub trait Record: Value {
-    /// The view `Map::at` returns: the record's collection and `Lazy` fields as handles bound
-    /// to their nested paths. Reads nothing.
+    /// `{Name}At<'a>`, returned by `at(&k)`: the record's collection and `Lazy` fields as
+    /// read-only handles bound to their nested paths. Reads nothing.
     type View<'a>;
+    /// `{Name}AtMut<'a>`, returned by `at_mut(&k)`: the record's collection and `Lazy` fields
+    /// as `&'a mut` handles. Reads nothing below the record.
+    type ViewMut<'a>;
     #[doc(hidden)]
     fn __view<'a>(path: Path) -> Self::View<'a>;
+    #[doc(hidden)]
+    fn __view_mut<'a>(path: Path) -> Self::ViewMut<'a>;
 }
 
 /// A value that can be removed from a map without orphaning storage.
@@ -77,9 +82,17 @@ pub trait Record: Value {
 /// and derived for records whose fields are all `Removable`. `clear_children` removes every
 /// key below `path` that this value owns, without reading the value itself.
 ///
+/// Not removable: `LookupMap`, `LookupSet` and `GroupedMap` (they do not track their keys), and
+/// any record holding one.
+///
 /// Caveat: v1 collections are Borsh leaves too, so they are `Removable` by this rule even
-/// though they own storage. That is only safe because they are root-only (the derive rejects
-/// the common v1 type names in records; a renamed or aliased type slips through).
+/// though they own storage. v1 collections belong at the root; `remove` does not clear a
+/// nested one.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`/`GroupedMap`, which does not track its keys",
+    label = "not `Removable`",
+    note = "use `Map`/`Set` for collections inside records you remove, or keep the record and clear its fields by hand"
+)]
 pub trait Removable: Value {
     fn clear_children(_path: &Path) {}
 }
@@ -110,5 +123,26 @@ impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewField<'a,
     type Out = UseGetForScalars;
     fn __view_field(_field_path: Path) -> UseGetForScalars {
         UseGetForScalars
+    }
+}
+
+/// How a field of a record appears in that record's `AtMut` view: collections and `Lazy` as
+/// `&'a mut` handles, nested records as their own `AtMut`, scalars as `UseGetMutForScalars`.
+pub trait ViewFieldMut<'a, R: Value>: Value {
+    type Out;
+    #[doc(hidden)]
+    fn __view_field_mut(field_path: Path) -> Self::Out;
+}
+
+/// The type a scalar field has inside an `AtMut` view. `at_mut(&k)` does not read the record,
+/// so its scalars are not available; use `get_mut(&k)` to change them.
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug)]
+pub struct UseGetMutForScalars;
+
+impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewFieldMut<'a, R> for T {
+    type Out = UseGetMutForScalars;
+    fn __view_field_mut(_field_path: Path) -> UseGetMutForScalars {
+        UseGetMutForScalars
     }
 }

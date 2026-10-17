@@ -3,7 +3,7 @@
 #![cfg(feature = "unstable")]
 
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, IterMap, IterSet, Page};
+use near_sdk::state::{ContractState, Map, Set, Page};
 use near_sdk::{AccountId, env, near, require};
 
 pub type ProposalId = u64;
@@ -39,10 +39,10 @@ pub struct Member {
     joined_at: u64,
     /// Open proposals this member created.
     #[key(2)]
-    proposals: IterSet<ProposalId>,
+    proposals: Set<ProposalId>,
     /// Open proposals this member voted on.
     #[key(3)]
-    votes: IterSet<ProposalId>,
+    votes: Set<ProposalId>,
 }
 
 #[near(storage)]
@@ -52,7 +52,7 @@ pub struct Proposal {
     #[key(2)]
     description: String,
     #[key(3)]
-    votes: IterMap<AccountId, Vote>,
+    votes: Map<AccountId, Vote>,
 }
 
 #[near(serializers = [json])]
@@ -73,9 +73,9 @@ pub struct Dao {
     #[key(2)]
     config: Config,
     #[key(3)]
-    members: IterMap<AccountId, Member>,
+    members: Map<AccountId, Member>,
     #[key(4)]
-    proposals: IterMap<ProposalId, Proposal>,
+    proposals: Map<ProposalId, Proposal>,
     #[key(5)]
     next_id: ProposalId,
 }
@@ -199,7 +199,7 @@ impl Dao {
     }
 }
 
-fn tally(votes: &IterMap<AccountId, Vote>) -> (u32, u32) {
+fn tally(votes: &Map<AccountId, Vote>) -> (u32, u32) {
     votes.iter().fold((0, 0), |(y, n), (_, v)| match v {
         Vote::Yes => (y + 1, n),
         Vote::No => (y, n + 1),
@@ -402,7 +402,7 @@ fn vote_op_counts() {
     let (_, r) = call("b.near", |c| c.vote(pid, Vote::Yes));
     // reads: root, member record, proposal record (to reach its `votes`), votes index +
     // header (insert), member votes-set index + header. has_key: the double-vote check.
-    // writes: 4 for the votes IterMap entry, 4 for the member's IterSet entry. Neither record
+    // writes: 4 for the votes Map entry, 4 for the member's Set entry. Neither record
     // is rewritten (unchanged encoding).
     assert_eq!(r.rwd(), (7, 8, 0));
     assert_eq!(r.has_keys(), 1);

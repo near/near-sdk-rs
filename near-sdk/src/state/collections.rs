@@ -6,7 +6,7 @@
 use super::cache;
 use super::key::{ENTRY_HASH_LEN, Path, StorageKey, kind};
 use super::record::RecordError;
-use super::value::{Record, Removable, Value, ViewField};
+use super::value::{Record, Removable, Value, ViewField, ViewFieldMut};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
@@ -76,12 +76,98 @@ fn set_len_at(header: &Path, n: u32) {
     }
 }
 
+/// `at_mut`: 1 `storage_has_key` unless cached, panics if the record is absent (so it never
+/// creates children of a record that does not exist), reads nothing.
+#[track_caller]
+fn record_at_mut<'a, V: Record>(path: Path) -> V::ViewMut<'a> {
+    if !cache::exists(&path) {
+        panic!(
+            "state: `at_mut` on a record that does not exist; create it with \
+             `entry(k).or_default()` (or `insert`) first"
+        );
+    }
+    V::__view_mut(path)
+}
+
+/// Moves a bound handle into the per-call arena and returns `&'a mut` to it.
+///
+/// SAFETY (for callers): `'a` must be bounded by a `&mut` borrow of the parent collection,
+/// and the handle is freed at the flush (invariant 4 in `cache.rs`).
+unsafe fn arena_mut<'a, C: core::any::Any>(c: C) -> &'a mut C {
+    unsafe { &mut *cache::arena(c).as_ptr() }
+}
+
 /// Panics if `V` owns collections and a value already exists at `path`.
 #[track_caller]
 fn assert_insert_new<V: Value>(path: &Path) {
     if V::MAX_SUBPATH > 0 && cache::exists(path) {
         panic!("state: record exists; use get_mut, or remove it first");
     }
+}
+
+/// Iterator over a dense index range that reads only the positions it yields. `nth` (and so
+/// `skip(n)`) advances the index without touching storage, so offset pagination is
+/// `iter().skip(from).take(limit)` at the cost of the items returned.
+pub struct IndexIter<F> {
+    range: core::ops::Range<u32>,
+    f: F,
+}
+
+impl<F> IndexIter<F> {
+    fn new(len: u32, f: F) -> Self {
+        IndexIter { range: 0..len, f }
+    }
+}
+
+impl<T, F: FnMut(u32) -> T> Iterator for IndexIter<F> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        self.range.next().map(&mut self.f)
+    }
+    fn nth(&mut self, n: usize) -> Option<T> {
+        self.range.nth(n).map(&mut self.f)
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
+    fn count(self) -> usize {
+        self.range.len()
+    }
+}
+
+impl<T, F: FnMut(u32) -> T> DoubleEndedIterator for IndexIter<F> {
+    fn next_back(&mut self) -> Option<T> {
+        self.range.next_back().map(&mut self.f)
+    }
+    fn nth_back(&mut self, n: usize) -> Option<T> {
+        self.range.nth_back(n).map(&mut self.f)
+    }
+}
+
+impl<T, F: FnMut(u32) -> T> ExactSizeIterator for IndexIter<F> {}
+
+/// Marker for the read-only-view hint. Never implemented: calling a write method on an
+/// [`At`] view fails with this message.
+#[diagnostic::on_unimplemented(
+    message = "views are read-only; use `at_mut` or `get_mut`",
+    label = "`at(&k)` returns a read-only view",
+    note = "`at` walks the path without reading; `at_mut(&k)` gives `&mut` handles to a record's collections, `get_mut(&k)` reads the whole record"
+)]
+pub trait ViewIsReadOnly {}
+
+macro_rules! read_only {
+    ($($name:ident ( $($arg:ty),* );)*) => {
+        $(
+            #[doc(hidden)]
+            #[allow(unused_variables)]
+            pub fn $name(&self, $(_: $arg),*) -> !
+            where
+                Self: ViewIsReadOnly,
+            {
+                unreachable!()
+            }
+        )*
+    };
 }
 
 /// One page of a cursor-paginated collection.
@@ -160,23 +246,23 @@ macro_rules! not_inline_value {
 }
 
 // ---------------------------------------------------------------------------------------
-// Map
+// LookupMap
 // ---------------------------------------------------------------------------------------
 
 /// Lookup-only map. Entries at `path ++ 00 ++ h16(k) ++ borsh(k)`.
-pub struct Map<K, V> {
+pub struct LookupMap<K, V> {
     path: Binding,
     _m: PhantomData<fn() -> (K, V)>,
 }
-collection_value!(Map<K, V>);
+collection_value!(LookupMap<K, V>);
 
-impl<K: StorageKey + 'static, V: Value> Value for Map<K, V> {
+impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
     not_inline_value!();
 }
 
-impl<K: StorageKey + 'static, V: Value> Map<K, V> {
+impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; use GroupedMap");
 
     #[track_caller]
@@ -263,12 +349,12 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
     }
 
     #[track_caller]
-    pub fn entry(&mut self, k: K) -> MapEntry<'_, K, V> {
+    pub fn entry(&mut self, k: K) -> LookupMapEntry<'_, K, V> {
         let path = self.entry_path(&k);
-        MapEntry { path, _m: PhantomData }
+        LookupMapEntry { path, _m: PhantomData }
     }
 
-    /// A view bound to the path for `k`. Reads nothing by itself.
+    /// A read-only view bound to the path for `k`. Reads nothing by itself.
     #[track_caller]
     pub fn at(&self, k: &K) -> V::View<'_>
     where
@@ -276,9 +362,28 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
     {
         V::__view(self.entry_path(k))
     }
+
+    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
+    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
+    /// record itself is not read. Panics if the record does not exist.
+    #[track_caller]
+    pub fn at_mut(&mut self, k: &K) -> V::ViewMut<'_>
+    where
+        V: Record,
+    {
+        record_at_mut::<V>(self.entry_path(k))
+    }
 }
 
-impl<'a, K: StorageKey + 'static, V: Value> At<'a, Map<K, V>> {
+impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
+    read_only! {
+        insert(K, V);
+        remove(&K);
+        discard(&K);
+        get_mut(&K);
+        entry(K);
+        at_mut(&K);
+    }
     #[track_caller]
     pub fn get(&self, k: &K) -> Option<&'a V> {
         cache::get::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
@@ -296,12 +401,12 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, Map<K, V>> {
     }
 }
 
-pub struct MapEntry<'a, K, V> {
+pub struct LookupMapEntry<'a, K, V> {
     path: Path,
-    _m: PhantomData<(&'a mut Map<K, V>, K)>,
+    _m: PhantomData<(&'a mut LookupMap<K, V>, K)>,
 }
 
-impl<'a, K, V: Value> MapEntry<'a, K, V> {
+impl<'a, K, V: Value> LookupMapEntry<'a, K, V> {
     /// 1 read; if absent, 1 write at flush.
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
         if let Some(p) = cache::get::<V>(&self.path) {
@@ -324,29 +429,29 @@ impl<'a, K, V: Value> MapEntry<'a, K, V> {
 }
 
 // ---------------------------------------------------------------------------------------
-// IterMap
+// Map
 // ---------------------------------------------------------------------------------------
 
-/// `Map` plus a dense key vector: entries `00`, index `01`, key slots `02`, header `03`.
-pub struct IterMap<K, V> {
+/// `LookupMap` plus a dense key vector: entries `00`, index `01`, key slots `02`, header `03`.
+pub struct Map<K, V> {
     path: Binding,
     _m: PhantomData<fn() -> (K, V)>,
 }
-collection_value!(IterMap<K, V>);
+collection_value!(Map<K, V>);
 
-impl<K: StorageKey + Clone + 'static, V: Value> Value for IterMap<K, V> {
+impl<K: StorageKey + Clone + 'static, V: Value> Value for Map<K, V> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
     not_inline_value!();
 }
 
-impl<K: StorageKey + Clone + 'static, V: Removable> Removable for IterMap<K, V> {
+impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
     fn clear_children(path: &Path) {
-        IterMap::<K, V>::__bound_at(path.clone()).clear();
+        Map::<K, V>::__bound_at(path.clone()).clear();
     }
 }
 
-impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
+impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; use GroupedMap");
 
     #[track_caller]
@@ -400,13 +505,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         let len = self.len();
         cache::put(&self.index_path(k), len);
         cache::put(&self.slot_path(len), k.clone());
-        set_len_at(&self.header(), len.checked_add(1).expect("IterMap is full"));
+        set_len_at(&self.header(), len.checked_add(1).expect("Map is full"));
     }
 
+    /// Returns `true` if the key was new.
+    ///
     /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write
-    /// (leaf values only; a record that owns collections panics: insert is insert-new).
+    /// (leaf values only; a record that owns collections panics: insert is insert-new). So
+    /// "first write wins" is `require!(map.insert(k, v), "exists")`, except that a leaf value
+    /// has already been overwritten when it returns `false`; panicking aborts the call, so
+    /// nothing is written.
     #[track_caller]
-    pub fn insert(&mut self, k: K, mut v: V) {
+    pub fn insert(&mut self, k: K, mut v: V) -> bool {
         let path = self.entry_path(&k);
         let exists = cache::get::<u32>(&self.index_path(&k)).is_some();
         if exists && V::MAX_SUBPATH > 0 {
@@ -417,11 +527,12 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         if !exists {
             self.push_key(&k);
         }
+        !exists
     }
 
     #[track_caller]
-    pub fn entry(&mut self, k: K) -> IterEntry<'_, K, V> {
-        IterEntry { map: self, k }
+    pub fn entry(&mut self, k: K) -> MapEntry<'_, K, V> {
+        MapEntry { map: self, k }
     }
 
     fn remove_inner(&mut self, k: &K, read_value: bool) -> Option<Option<V>>
@@ -457,11 +568,25 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
     /// 1 entry read, 1 index read, 1 header read, 2 removes (entry, index), 1 read and 1
     /// remove of the last slot, 2 writes for the moved key, 1 header write (a remove when
     /// the map empties). If the key is last: no moved key.
+    ///
+    /// A zero-sized `V` (such as `()`) skips the entry read: the index read already says
+    /// whether the key exists, and the value carries no bytes. So `Map<K, ()>` and
+    /// `GroupedMap<G, K, ()>` remove at the cost of `discard`.
     #[track_caller]
     pub fn remove(&mut self, k: &K) -> Option<V>
     where
         V: Removable,
     {
+        if core::mem::size_of::<V>() == 0 {
+            let path = self.entry_path(k);
+            return match self.remove_inner(k, false)? {
+                Some(v) => Some(v),
+                // Not cached: rebuild the (byte-less) value instead of reading it.
+                None => Some(V::decode_value(&[], &path).unwrap_or_else(|e| {
+                    panic!("state: zero-sized value does not decode from no bytes: {e}")
+                })),
+            };
+        }
         self.remove_inner(k, true).flatten()
     }
 
@@ -502,25 +627,40 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
     /// Cursor page: with a cursor, 2 reads (cursor index, header) plus 2 per item.
     /// Without a cursor, 1 read plus 2 per item. Panics if the cursor key no longer exists.
     #[track_caller]
+    ///
+    /// Needs `V: Clone`, which a record holding a collection never is: use [`Map::page_with`]
+    /// and map each record to the type you return.
     pub fn page(&self, after: Option<&K>, limit: u32) -> Page<K, V>
     where
         V: Clone,
     {
+        self.page_with(after, limit, |_, v| v.clone())
+    }
+
+    /// Cursor page with each value mapped by `f`: same reads as `page`. The path for
+    /// record-valued maps: `map.page_with(after, 50, |id, p| ProposalJson::new(id, p))`.
+    /// Panics if the cursor key no longer exists.
+    #[track_caller]
+    pub fn page_with<T>(
+        &self,
+        after: Option<&K>,
+        limit: u32,
+        mut f: impl FnMut(&K, &V) -> T,
+    ) -> Page<K, T> {
         let start = self.cursor_start(after);
         let len = self.len();
         let end = start.saturating_add(limit).min(len);
         let mut items = std::vec::Vec::with_capacity((end.saturating_sub(start)) as usize);
         for i in start..end {
             let k = self.key_at(i).expect("dense key vector");
-            let v = self.get(&k).expect("indexed key has an entry").clone();
+            let v = f(&k, self.get(&k).expect("indexed key has an entry"));
             items.push((k, v));
         }
         let next = if end < len { items.last().map(|(k, _)| k.clone()) } else { None };
         Page { items, next }
     }
 
-    /// Key-only cursor page: as `page`, 1 read per key. With `get`, this is the path for
-    /// record-valued maps, which `page` cannot clone.
+    /// Key-only cursor page: as `page`, 1 read per key.
     #[track_caller]
     pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
         let start = self.cursor_start(after);
@@ -532,18 +672,20 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         KeyPage { keys, next }
     }
 
-    /// 2 reads per entry, plus 1 for the length.
-    pub fn iter(&self) -> impl Iterator<Item = (K, &V)> + '_ {
-        (0..self.len()).map(move |i| {
+    /// 2 reads per entry yielded, plus 1 for the length. Order is the key vector's: insertion
+    /// order until a remove moves the last key into the hole. `skip(n)` is free, so offset
+    /// pagination is `iter().skip(from).take(limit)`.
+    pub fn iter<'s>(&'s self) -> IndexIter<impl FnMut(u32) -> (K, &'s V) + 's> {
+        IndexIter::new(self.len(), move |i| {
             let k = self.key_at(i).expect("dense key vector");
             let v = cache::get::<V>(&self.entry_path(&k)).expect("indexed key has an entry");
             (k, unsafe { r(v) })
         })
     }
 
-    /// 1 read per key, plus 1 for the length.
-    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
-        (0..self.len()).map(move |i| self.key_at(i).expect("dense key vector"))
+    /// 1 read per key yielded, plus 1 for the length. `skip(n)` is free.
+    pub fn keys(&self) -> IndexIter<impl FnMut(u32) -> K + '_> {
+        IndexIter::new(self.len(), move |i| self.key_at(i).expect("dense key vector"))
     }
 
     /// Removes everything: 1 header read, then per entry 1 slot read and 3 removes (entry,
@@ -575,6 +717,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         stop > 0
     }
 
+    /// A read-only view bound to the path for `k`. Reads nothing by itself.
     #[track_caller]
     pub fn at(&self, k: &K) -> V::View<'_>
     where
@@ -582,9 +725,29 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
     {
         V::__view(self.entry_path(k))
     }
+
+    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
+    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
+    /// record itself is not read. Panics if the record does not exist.
+    #[track_caller]
+    pub fn at_mut(&mut self, k: &K) -> V::ViewMut<'_>
+    where
+        V: Record,
+    {
+        record_at_mut::<V>(self.entry_path(k))
+    }
 }
 
-impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, IterMap<K, V>> {
+impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
+    read_only! {
+        insert(K, V);
+        remove(&K);
+        discard(&K);
+        get_mut(&K);
+        entry(K);
+        at_mut(&K);
+        clear();
+    }
     #[track_caller]
     pub fn get(&self, k: &K) -> Option<&'a V> {
         cache::get::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
@@ -610,20 +773,32 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, IterMap<K, V>> {
         self.inner.page(after, limit)
     }
     #[track_caller]
+    pub fn page_with<T>(
+        &self,
+        after: Option<&K>,
+        limit: u32,
+        mut f: impl FnMut(&K, &'a V) -> T,
+    ) -> Page<K, T> {
+        // The reads live for 'a (see `get`), so `f` may keep them.
+        self.inner.page_with(after, limit, |k, v| f(k, unsafe { &*(v as *const V) }))
+    }
+    #[track_caller]
     pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
         self.inner.keys_page(after, limit)
     }
-    pub fn iter(&self) -> impl Iterator<Item = (K, &'a V)> + 'a {
-        let map = IterMap::<K, V>::__bound_at(self.inner.p().clone());
-        (0..map.len()).map(move |i| {
+    /// As `Map::iter`; `skip(n)` is free.
+    pub fn iter(&self) -> IndexIter<impl FnMut(u32) -> (K, &'a V) + use<'a, K, V>> {
+        let map = Map::<K, V>::__bound_at(self.inner.p().clone());
+        IndexIter::new(map.len(), move |i| {
             let k = map.key_at(i).expect("dense key vector");
             let v = cache::get::<V>(&map.entry_path(&k)).expect("indexed key has an entry");
             (k, unsafe { r(v) })
         })
     }
-    pub fn keys(&self) -> impl Iterator<Item = K> + 'a {
-        let map = IterMap::<K, V>::__bound_at(self.inner.p().clone());
-        (0..map.len()).map(move |i| map.key_at(i).expect("dense key vector"))
+    /// As `Map::keys`; `skip(n)` is free.
+    pub fn keys(&self) -> IndexIter<impl FnMut(u32) -> K + use<'a, K, V>> {
+        let map = Map::<K, V>::__bound_at(self.inner.p().clone());
+        IndexIter::new(map.len(), move |i| map.key_at(i).expect("dense key vector"))
     }
     #[track_caller]
     pub fn at(&self, k: &K) -> V::View<'a>
@@ -634,12 +809,12 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, IterMap<K, V>> {
     }
 }
 
-pub struct IterEntry<'a, K, V> {
-    map: &'a mut IterMap<K, V>,
+pub struct MapEntry<'a, K, V> {
+    map: &'a mut Map<K, V>,
     k: K,
 }
 
-impl<'a, K: StorageKey + Clone + 'static, V: Value> IterEntry<'a, K, V> {
+impl<'a, K: StorageKey + Clone + 'static, V: Value> MapEntry<'a, K, V> {
     /// Existing: 1 read. New: 1 entry read, 1 header read, 4 writes (no index read: an absent
     /// entry implies an absent index).
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
@@ -666,30 +841,30 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> IterEntry<'a, K, V> {
 }
 
 // ---------------------------------------------------------------------------------------
-// Vec
+// Vector
 // ---------------------------------------------------------------------------------------
 
 /// Dense slots `00 ++ u32` and a length header `03`.
-pub struct Vec<T> {
+pub struct Vector<T> {
     path: Binding,
     _m: PhantomData<fn() -> T>,
 }
-collection_value!(Vec<T>);
+collection_value!(Vector<T>);
 
-impl<T: Value> Value for Vec<T> {
+impl<T: Value> Value for Vector<T> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + 4 + T::MAX_SUBPATH;
     not_inline_value!();
 }
 
-impl<T: Removable> Removable for Vec<T> {
+impl<T: Removable> Removable for Vector<T> {
     fn clear_children(path: &Path) {
-        Vec::<T>::__bound_at(path.clone()).clear();
+        Vector::<T>::__bound_at(path.clone()).clear();
     }
 }
 
-impl<T: Value> Vec<T> {
-    const CHECK: () = assert!(T::INLINE, "a Vec element cannot itself be a collection");
+impl<T: Value> Vector<T> {
+    const CHECK: () = assert!(T::INLINE, "a Vector element cannot itself be a collection");
     /// Elements that own a subtree cannot move between slots: their collections would stay
     /// behind at the old slot's path.
     const CHECK_MOVABLE: () =
@@ -761,7 +936,7 @@ impl<T: Value> Vec<T> {
     pub fn swap_remove(&mut self, i: u32) -> T {
         let () = Self::CHECK_MOVABLE;
         let len = self.len();
-        assert!(i < len, "state::Vec index {i} out of bounds (len {len})");
+        assert!(i < len, "state::Vector index {i} out of bounds (len {len})");
         let path = self.slot(i);
         cache::get::<T>(&path).expect("dense");
         let v = cache::delete::<T>(&path).expect("just read");
@@ -791,12 +966,27 @@ impl<T: Value> Vec<T> {
         set_len_at(&self.header(), 0);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
-        (0..self.len()).map(move |i| self.get(i).expect("dense"))
+    /// 1 read per element yielded, plus 1 for the length. `skip(n)` is free.
+    pub fn iter<'s>(&'s self) -> IndexIter<impl FnMut(u32) -> &'s T + 's> {
+        IndexIter::new(self.len(), move |i| self.get(i).expect("dense"))
     }
 }
 
-impl<'a, T: Value> At<'a, Vec<T>> {
+impl<'a, T: Value> At<'a, Vector<T>> {
+    read_only! {
+        push(T);
+        pop();
+        get_mut(u32);
+        swap_remove(u32);
+        clear();
+    }
+    /// As `Vector::iter`; `skip(n)` is free.
+    pub fn iter(&self) -> IndexIter<impl FnMut(u32) -> &'a T + use<'a, T>> {
+        let v = Vector::<T>::__bound_at(self.inner.p().clone());
+        IndexIter::new(v.len(), move |i| {
+            cache::get::<T>(&v.slot(i)).map(|p| unsafe { r(p) }).expect("dense")
+        })
+    }
     pub fn get(&self, i: u32) -> Option<&'a T> {
         cache::get::<T>(&self.inner.slot(i)).map(|p| unsafe { r(p) })
     }
@@ -813,16 +1003,66 @@ impl<'a, T: Value> At<'a, Vec<T>> {
 // ---------------------------------------------------------------------------------------
 
 /// One value at its own key (`parent ++ tag`), read only when touched.
+///
+/// `Lazy::new(v)` holds `v` until the record is placed (by `insert`, `or_insert`, or `bind` on
+/// the root) and writes it then, so a struct literal can carry the value:
+/// `tokens.insert(id, Token { owner, metadata: Lazy::new(m), ..Default::default() })`. A
+/// `Lazy::new` that is never placed writes nothing. `Default` is an empty `Lazy`.
 pub struct Lazy<T> {
     path: Binding,
-    _m: PhantomData<fn() -> T>,
+    pending: Option<T>,
 }
-collection_value!(Lazy<T>);
+
+impl<T> Default for Lazy<T> {
+    fn default() -> Self {
+        Lazy { path: Binding::Unbound, pending: None }
+    }
+}
+impl<T> core::fmt::Debug for Lazy<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Lazy({:?}, pending: {})", self.path, self.pending.is_some())
+    }
+}
+impl<T> Lazy<T> {
+    /// A `Lazy` holding `v`, written when its record is placed. See the type docs.
+    pub fn new(v: T) -> Self {
+        Lazy { path: Binding::Unbound, pending: Some(v) }
+    }
+    /// The path this handle is bound to, if any.
+    pub fn path(&self) -> Option<&Path> {
+        match &self.path {
+            Binding::Bound(p) => Some(p),
+            _ => None,
+        }
+    }
+    #[doc(hidden)]
+    pub fn __bound_at(path: Path) -> Self {
+        Lazy { path: Binding::Bound(path), pending: None }
+    }
+}
 
 impl<T: Value> Value for Lazy<T> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = T::MAX_SUBPATH;
-    not_inline_value!();
+    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
+        unreachable!("collections are not stored inline")
+    }
+    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
+        not_inline()
+    }
+    /// Binds, then writes a pending `Lazy::new` value (1 write; a record value that owns
+    /// collections is insert-new, as `set`).
+    #[track_caller]
+    fn bind(&mut self, path: &Path) {
+        bind_slot(&mut self.path, path);
+        if let Some(v) = self.pending.take() {
+            self.set(v);
+        }
+    }
+    fn detach(&mut self) {
+        self.path = Binding::Detached;
+        self.pending = None;
+    }
 }
 
 impl<T: Removable> Removable for Lazy<T> {
@@ -845,7 +1085,7 @@ impl<T: Value> Lazy<T> {
         cache::touch(&path);
         Some(unsafe { m(p) })
     }
-    /// 1 write (a record that owns collections: insert-new, as `Map::insert`).
+    /// 1 write (a record that owns collections: insert-new, as `LookupMap::insert`).
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
         let path = bound(&self.path).clone();
@@ -866,6 +1106,11 @@ impl<T: Value> Lazy<T> {
 }
 
 impl<'a, T: Value> At<'a, Lazy<T>> {
+    read_only! {
+        set(T);
+        get_mut();
+        remove();
+    }
     #[track_caller]
     pub fn get(&self) -> Option<&'a T> {
         cache::get::<T>(bound(&self.inner.path)).map(|p| unsafe { r(p) })
@@ -873,8 +1118,56 @@ impl<'a, T: Value> At<'a, Lazy<T>> {
 }
 
 // ---------------------------------------------------------------------------------------
-// Set / IterSet
+// LookupSet / Set
 // ---------------------------------------------------------------------------------------
+
+/// `LookupMap<K, ()>`.
+#[derive(Debug)]
+pub struct LookupSet<K>(LookupMap<K, ()>);
+impl<K> Default for LookupSet<K> {
+    fn default() -> Self {
+        LookupSet(LookupMap::default())
+    }
+}
+impl<K: StorageKey + 'static> Value for LookupSet<K> {
+    const INLINE: bool = false;
+    const MAX_SUBPATH: usize = <LookupMap<K, ()> as Value>::MAX_SUBPATH;
+    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
+        unreachable!()
+    }
+    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
+        not_inline()
+    }
+    fn bind(&mut self, path: &Path) {
+        self.0.bind(path)
+    }
+    fn detach(&mut self) {
+        self.0.detach()
+    }
+}
+impl<K: StorageKey + 'static> LookupSet<K> {
+    /// 1 `storage_has_key`.
+    pub fn contains(&self, k: &K) -> bool {
+        self.0.contains_key(k)
+    }
+    /// 1 write.
+    pub fn insert(&mut self, k: K) {
+        self.0.insert(k, ())
+    }
+    /// 1 remove.
+    pub fn remove(&mut self, k: &K) {
+        self.0.discard(k)
+    }
+}
+impl<K: StorageKey + 'static> At<'_, LookupSet<K>> {
+    read_only! {
+        insert(K);
+        remove(&K);
+    }
+    pub fn contains(&self, k: &K) -> bool {
+        self.inner.contains(k)
+    }
+}
 
 /// `Map<K, ()>`.
 #[derive(Debug)]
@@ -884,7 +1177,7 @@ impl<K> Default for Set<K> {
         Set(Map::default())
     }
 }
-impl<K: StorageKey + 'static> Value for Set<K> {
+impl<K: StorageKey + Clone + 'static> Value for Set<K> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = <Map<K, ()> as Value>::MAX_SUBPATH;
     fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
@@ -900,81 +1193,75 @@ impl<K: StorageKey + 'static> Value for Set<K> {
         self.0.detach()
     }
 }
-impl<K: StorageKey + 'static> Set<K> {
-    /// 1 `storage_has_key`.
-    pub fn contains(&self, k: &K) -> bool {
-        self.0.contains_key(k)
-    }
-    /// 1 write.
-    pub fn insert(&mut self, k: K) {
-        self.0.insert(k, ())
-    }
-    /// 1 remove.
-    pub fn remove(&mut self, k: &K) {
-        self.0.discard(k)
-    }
-}
-impl<K: StorageKey + 'static> At<'_, Set<K>> {
-    pub fn contains(&self, k: &K) -> bool {
-        self.inner.contains(k)
-    }
-}
-
-/// `IterMap<K, ()>`.
-#[derive(Debug)]
-pub struct IterSet<K>(IterMap<K, ()>);
-impl<K> Default for IterSet<K> {
-    fn default() -> Self {
-        IterSet(IterMap::default())
-    }
-}
-impl<K: StorageKey + Clone + 'static> Value for IterSet<K> {
-    const INLINE: bool = false;
-    const MAX_SUBPATH: usize = <IterMap<K, ()> as Value>::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!()
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        self.0.bind(path)
-    }
-    fn detach(&mut self) {
-        self.0.detach()
-    }
-}
-impl<K: StorageKey + Clone + 'static> Removable for IterSet<K> {
+impl<K: StorageKey + Clone + 'static> Removable for Set<K> {
     fn clear_children(path: &Path) {
-        <IterMap<K, ()> as Removable>::clear_children(path)
+        <Map<K, ()> as Removable>::clear_children(path)
     }
 }
-impl<K: StorageKey + Clone + 'static> IterSet<K> {
+impl<K: StorageKey + Clone + 'static> Set<K> {
+    /// 1 `storage_has_key` unless cached.
     pub fn contains(&self, k: &K) -> bool {
         self.0.contains_key(k)
     }
-    pub fn insert(&mut self, k: K) {
+    /// Returns `true` if the key was new. New: 1 index read, 1 header read, 4 writes;
+    /// existing: 1 index read, nothing written.
+    pub fn insert(&mut self, k: K) -> bool {
+        if cache::get::<u32>(&self.0.index_path(&k)).is_some() {
+            return false;
+        }
         self.0.insert(k, ())
     }
+    /// Returns `true` if the key was present. No entry read.
     pub fn remove(&mut self, k: &K) -> bool {
         self.0.discard(k)
     }
+    /// 1 read.
     pub fn len(&self) -> u32 {
         self.0.len()
     }
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    pub fn iter(&self) -> impl Iterator<Item = K> + '_ {
+    /// The `i`th key in key-vector order: 1 read.
+    pub fn key_at(&self, i: u32) -> Option<K> {
+        self.0.key_at(i)
+    }
+    /// Cursor page of keys: as `Map::keys_page`. Panics if the cursor key no longer exists.
+    #[track_caller]
+    pub fn page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+        self.0.keys_page(after, limit)
+    }
+    /// 1 read per key yielded, plus 1 for the length. `skip(n)` is free, so offset pagination
+    /// is `iter().skip(from).take(limit)`. Order is not insertion order after a remove.
+    pub fn iter(&self) -> IndexIter<impl FnMut(u32) -> K + '_> {
         self.0.keys()
     }
 }
-impl<K: StorageKey + Clone + 'static> At<'_, IterSet<K>> {
+impl<'a, K: StorageKey + Clone + 'static> At<'a, Set<K>> {
+    read_only! {
+        insert(K);
+        remove(&K);
+        clear();
+    }
     pub fn contains(&self, k: &K) -> bool {
         self.inner.contains(k)
     }
     pub fn len(&self) -> u32 {
         self.inner.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+    pub fn key_at(&self, i: u32) -> Option<K> {
+        self.inner.key_at(i)
+    }
+    #[track_caller]
+    pub fn page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+        self.inner.page(after, limit)
+    }
+    /// As `Set::iter`; `skip(n)` is free.
+    pub fn iter(&self) -> IndexIter<impl FnMut(u32) -> K + use<'a, K>> {
+        At::<'a, Map<K, ()>>::new(Map::__bound_at(self.inner.0.p().clone())).keys()
     }
 }
 
@@ -982,7 +1269,12 @@ impl<K: StorageKey + Clone + 'static> At<'_, IterSet<K>> {
 // GroupedMap
 // ---------------------------------------------------------------------------------------
 
-/// One `IterMap` per group, at `path ++ 00 ++ h16(g) ++ borsh(g)`. Groups are not iterated.
+/// One `Map` per group, at `path ++ 00 ++ h16(g) ++ borsh(g)`. Groups are not iterated, so a
+/// `GroupedMap` is not `Removable`.
+///
+/// `GroupedMap<G, K, ()>` is a grouped set (tokens per owner, members per role) at no extra
+/// cost: `Map::remove` on a zero-sized value skips the entry read, and `group(&g).keys()` /
+/// `keys().skip(from).take(n)` / `keys_page` enumerate one group.
 pub struct GroupedMap<G, K, V> {
     path: Binding,
     _m: PhantomData<fn() -> (G, K, V)>,
@@ -996,17 +1288,17 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
     for GroupedMap<G, K, V>
 {
     const INLINE: bool = false;
-    const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <IterMap<K, V> as Value>::MAX_SUBPATH;
+    const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <Map<K, V> as Value>::MAX_SUBPATH;
     not_inline_value!();
 }
 
-/// A group's `IterMap`, read-only, with reads living as long as the `GroupedMap` borrow.
-pub type Group<'a, K, V> = At<'a, IterMap<K, V>>;
+/// A group's `Map`, read-only, with reads living as long as the `GroupedMap` borrow.
+pub type Group<'a, K, V> = At<'a, Map<K, V>>;
 
-/// A group's `IterMap`, mutably borrowed from the `GroupedMap` for `'a`. A plain `&mut`, so
+/// A group's `Map`, mutably borrowed from the `GroupedMap` for `'a`. A plain `&mut`, so
 /// `let o = orders.group_mut(&m).get_mut(&k);` borrows from the `GroupedMap`, not a
 /// temporary. The handle lives in the per-call cache arena until the flush (invariant 4).
-pub type GroupMut<'a, K, V> = &'a mut IterMap<K, V>;
+pub type GroupMut<'a, K, V> = &'a mut Map<K, V>;
 
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> GroupedMap<G, K, V> {
     #[track_caller]
@@ -1015,11 +1307,11 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
     }
     #[track_caller]
     pub fn group(&self, g: &G) -> Group<'_, K, V> {
-        At::new(IterMap::__bound_at(self.group_path(g)))
+        At::new(Map::__bound_at(self.group_path(g)))
     }
     #[track_caller]
     pub fn group_mut(&mut self, g: &G) -> GroupMut<'_, K, V> {
-        let p = cache::arena(IterMap::<K, V>::__bound_at(self.group_path(g)));
+        let p = cache::arena(Map::<K, V>::__bound_at(self.group_path(g)));
         // SAFETY: the handle is a fresh allocation owned by the cache arena and freed only at
         // the flush / `begin_call` (invariant 4). `&mut self` for `'_` makes this the only
         // `&mut` reachable from this `GroupedMap` during the borrow.
@@ -1030,9 +1322,12 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
 impl<'a, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
     At<'a, GroupedMap<G, K, V>>
 {
+    read_only! {
+        group_mut(&G);
+    }
     #[track_caller]
     pub fn group(&self, g: &G) -> Group<'a, K, V> {
-        At::new(IterMap::__bound_at(self.inner.group_path(g)))
+        At::new(Map::__bound_at(self.inner.group_path(g)))
     }
 }
 
@@ -1052,9 +1347,9 @@ macro_rules! view_as_at {
         }
     };
 }
-view_as_at!(Map<K, V> where K: StorageKey + 'static, V: Value);
-view_as_at!(IterMap<K, V> where K: StorageKey + Clone + 'static, V: Value);
-view_as_at!(Vec<T> where T: Value);
+view_as_at!(LookupMap<K, V> where K: StorageKey + 'static, V: Value);
+view_as_at!(Map<K, V> where K: StorageKey + Clone + 'static, V: Value);
+view_as_at!(Vector<T> where T: Value);
 view_as_at!(Lazy<T> where T: Value);
 
 impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
@@ -1065,15 +1360,44 @@ impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: 
         At::new(GroupedMap { path: Binding::Bound(field_path), _m: PhantomData })
     }
 }
-impl<'a, R: Value, K: StorageKey + 'static> ViewField<'a, R> for Set<K> {
+impl<'a, R: Value, K: StorageKey + 'static> ViewField<'a, R> for LookupSet<K> {
+    type Out = At<'a, LookupSet<K>>;
+    fn __view_field(field_path: Path) -> Self::Out {
+        At::new(LookupSet(LookupMap::__bound_at(field_path)))
+    }
+}
+impl<'a, R: Value, K: StorageKey + Clone + 'static> ViewField<'a, R> for Set<K> {
     type Out = At<'a, Set<K>>;
     fn __view_field(field_path: Path) -> Self::Out {
         At::new(Set(Map::__bound_at(field_path)))
     }
 }
-impl<'a, R: Value, K: StorageKey + Clone + 'static> ViewField<'a, R> for IterSet<K> {
-    type Out = At<'a, IterSet<K>>;
-    fn __view_field(field_path: Path) -> Self::Out {
-        At::new(IterSet(IterMap::__bound_at(field_path)))
-    }
+
+// ---------------------------------------------------------------------------------------
+// Mutable view fields: collections appear as `&'a mut` handles from the cache arena
+// ---------------------------------------------------------------------------------------
+
+macro_rules! view_mut_as_arena {
+    ($ty:ty, [$($g:tt)*], $make:expr) => {
+        impl<'a, R: Value, $($g)*> ViewFieldMut<'a, R> for $ty {
+            type Out = &'a mut $ty;
+            fn __view_field_mut(field_path: Path) -> Self::Out {
+                let make: fn(Path) -> $ty = $make;
+                // SAFETY: `at_mut` holds `&'a mut` on the parent collection, every field has a
+                // distinct path, and the handle lives in the arena until the flush.
+                unsafe { arena_mut(make(field_path)) }
+            }
+        }
+    };
 }
+view_mut_as_arena!(LookupMap<K, V>, [K: StorageKey + 'static, V: Value], LookupMap::__bound_at);
+view_mut_as_arena!(Map<K, V>, [K: StorageKey + Clone + 'static, V: Value], Map::__bound_at);
+view_mut_as_arena!(Vector<T>, [T: Value], Vector::__bound_at);
+view_mut_as_arena!(Lazy<T>, [T: Value], Lazy::__bound_at);
+view_mut_as_arena!(
+    GroupedMap<G, K, V>,
+    [G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value],
+    |p| GroupedMap { path: Binding::Bound(p), _m: PhantomData }
+);
+view_mut_as_arena!(LookupSet<K>, [K: StorageKey + 'static], |p| LookupSet(LookupMap::__bound_at(p)));
+view_mut_as_arena!(Set<K>, [K: StorageKey + Clone + 'static], |p| Set(Map::__bound_at(p)));

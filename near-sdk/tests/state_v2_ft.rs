@@ -4,7 +4,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, Lazy, Map};
+use near_sdk::state::{ContractState, Lazy, LookupMap};
 use near_sdk::{AccountId, NearToken, Promise, env, near, require};
 
 /// NEP-145 bond per registered account. A real contract measures `env::storage_usage()`
@@ -48,7 +48,7 @@ pub struct Ft {
     #[key(2)]
     total_supply: u128,
     #[key(3)]
-    accounts: Map<AccountId, FtAccount>,
+    accounts: LookupMap<AccountId, FtAccount>,
     #[key(4)]
     metadata: Lazy<FtMetadata>,
 }

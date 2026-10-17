@@ -14,19 +14,19 @@ use std::vec::Vec as StdVec;
 
 // ---------------------------------------------------------------------------------------
 // Hand-expanded #[near(storage)] struct Account { #[key(1)] nonce: u64,
-//                                                #[key(2)] balances: IterMap<String, u128> }
+//                                                #[key(2)] balances: Map<String, u128> }
 // ---------------------------------------------------------------------------------------
 
 #[derive(Default, Debug)]
 pub struct Account {
     pub nonce: u64,
-    pub balances: IterMap<String, u128>,
+    pub balances: Map<String, u128>,
 }
 
 impl Value for Account {
     const MAX_SUBPATH: usize = p::max(
         p::field_subpath::<u64>(1),
-        p::field_subpath::<IterMap<String, u128>>(2),
+        p::field_subpath::<Map<String, u128>>(2),
     );
     fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
@@ -35,7 +35,7 @@ impl Value for Account {
         p::encode_field(&mut w, of.as_ref(), 2, &self.balances);
         w.finish(orig, |t| match t {
             1 => !<u64 as Value>::INLINE,
-            2 => !<IterMap<String, u128> as Value>::INLINE,
+            2 => !<Map<String, u128> as Value>::INLINE,
             _ => true,
         })
     }
@@ -53,18 +53,36 @@ impl Value for Account {
     }
 }
 
-pub struct AccountView<'a> {
+#[allow(dead_code)]
+pub struct AccountAt<'a> {
     pub nonce: <u64 as ViewField<'a, Account>>::Out,
-    pub balances: <IterMap<String, u128> as ViewField<'a, Account>>::Out,
+    pub balances: <Map<String, u128> as ViewField<'a, Account>>::Out,
     _m: PhantomData<&'a ()>,
 }
 
+#[allow(dead_code)]
+pub struct AccountAtMut<'a> {
+    pub nonce: <u64 as ViewFieldMut<'a, Account>>::Out,
+    pub balances: <Map<String, u128> as ViewFieldMut<'a, Account>>::Out,
+    _m: PhantomData<&'a mut ()>,
+}
+
 impl Record for Account {
-    type View<'a> = AccountView<'a>;
-    fn __view<'a>(path: Path) -> AccountView<'a> {
-        AccountView {
+    type View<'a> = AccountAt<'a>;
+    type ViewMut<'a> = AccountAtMut<'a>;
+    fn __view<'a>(path: Path) -> AccountAt<'a> {
+        AccountAt {
             nonce: <u64 as ViewField<'a, Account>>::__view_field(path.field(1)),
-            balances: <IterMap<String, u128> as ViewField<'a, Account>>::__view_field(path.field(2)),
+            balances: <Map<String, u128> as ViewField<'a, Account>>::__view_field(path.field(2)),
+            _m: PhantomData,
+        }
+    }
+    fn __view_mut<'a>(path: Path) -> AccountAtMut<'a> {
+        AccountAtMut {
+            nonce: <u64 as ViewFieldMut<'a, Account>>::__view_field_mut(path.field(1)),
+            balances: <Map<String, u128> as ViewFieldMut<'a, Account>>::__view_field_mut(
+                path.field(2),
+            ),
             _m: PhantomData,
         }
     }
@@ -73,27 +91,27 @@ impl Record for Account {
 impl Removable for Account
 where
     for<'x> u64: Removable,
-    for<'x> IterMap<String, u128>: Removable,
+    for<'x> Map<String, u128>: Removable,
 {
     fn clear_children(path: &Path) {
         <u64 as Removable>::clear_children(&path.field(1));
-        <IterMap<String, u128> as Removable>::clear_children(&path.field(2));
+        <Map<String, u128> as Removable>::clear_children(&path.field(2));
     }
 }
 
 // ---------------------------------------------------------------------------------------
 // Hand-expanded #[near(contract_state(layout = v2))] struct Ex { #[key(2)] fee_bps: u16,
-//                          #[key(3)] accounts: Map<AccountId, Account> }
+//                          #[key(3)] accounts: LookupMap<AccountId, Account> }
 // ---------------------------------------------------------------------------------------
 
 pub struct Ex {
     pub fee_bps: u16,
-    pub accounts: Map<AccountId, Account>,
+    pub accounts: LookupMap<AccountId, Account>,
 }
 impl Root for Ex {
     const MAX_SUBPATH: usize = p::max(
         p::field_subpath::<u16>(2),
-        p::field_subpath::<Map<AccountId, Account>>(3),
+        p::field_subpath::<LookupMap<AccountId, Account>>(3),
     );
     fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
@@ -102,7 +120,7 @@ impl Root for Ex {
         p::encode_field(&mut w, of.as_ref(), 3, &self.accounts);
         w.finish(orig, |t| match t {
             2 => !<u16 as Value>::INLINE,
-            3 => !<Map<AccountId, Account> as Value>::INLINE,
+            3 => !<LookupMap<AccountId, Account> as Value>::INLINE,
             _ => true,
         })
     }
@@ -137,13 +155,13 @@ fn at<C: Default + Value>(tag: u32) -> C {
 const KIB100: usize = 100 * 1024;
 
 // ---------------------------------------------------------------------------------------
-// Map: cost table rows
+// LookupMap: cost table rows
 // ---------------------------------------------------------------------------------------
 
 #[test]
 fn map_costs_match_table_beside_100kib_neighbor() {
     testing::use_mock();
-    let mut m: Map<u32, StdVec<u8>> = at(1);
+    let mut m: LookupMap<u32, StdVec<u8>> = at(1);
     m.insert(1, big());
     m.insert(2, vec![1]);
     end_call();
@@ -178,12 +196,12 @@ fn map_costs_match_table_beside_100kib_neighbor() {
 }
 
 // ---------------------------------------------------------------------------------------
-// IterMap: cost table rows, and removal locality
+// Map: cost table rows, and removal locality
 // ---------------------------------------------------------------------------------------
 
-fn iter_fixture(neighbor: StdVec<u8>) -> IterMap<u32, StdVec<u8>> {
+fn iter_fixture(neighbor: StdVec<u8>) -> Map<u32, StdVec<u8>> {
     testing::use_mock();
-    let mut m: IterMap<u32, StdVec<u8>> = at(1);
+    let mut m: Map<u32, StdVec<u8>> = at(1);
     m.insert(1, vec![1]); // the entry under test, slot 0
     m.insert(2, neighbor); // the neighbor, last slot: it is the key that moves on removal
     end_call();
@@ -259,7 +277,7 @@ fn itermap_discard_skips_entry_read() {
 #[test]
 fn itermap_pagination_is_linear() {
     testing::use_mock();
-    let mut m: IterMap<u32, u64> = at(1);
+    let mut m: Map<u32, u64> = at(1);
     for i in 0..20 {
         m.insert(i, i as u64);
     }
@@ -290,7 +308,7 @@ fn itermap_pagination_is_linear() {
 #[should_panic(expected = "cursor key no longer exists")]
 fn page_with_removed_cursor_panics() {
     testing::use_mock();
-    let mut m: IterMap<u32, u64> = at(1);
+    let mut m: Map<u32, u64> = at(1);
     for i in 0..3 {
         m.insert(i, 0);
     }
@@ -305,7 +323,7 @@ fn page_with_removed_cursor_panics() {
 #[test]
 fn page_skips_moved_key_after_interleaved_removal() {
     testing::use_mock();
-    let mut m: IterMap<u32, u64> = at(1);
+    let mut m: Map<u32, u64> = at(1);
     for i in 0..6 {
         m.insert(i, 0);
     }
@@ -324,7 +342,7 @@ fn page_skips_moved_key_after_interleaved_removal() {
 fn no_debt_counts_do_not_depend_on_history() {
     // fresh
     testing::use_mock();
-    let mut m: IterMap<u32, u32> = at(1);
+    let mut m: Map<u32, u32> = at(1);
     m.insert(1_000_000, 1);
     m.insert(1_000_001, 1);
     end_call();
@@ -335,7 +353,7 @@ fn no_debt_counts_do_not_depend_on_history() {
 
     // after 2,000 random-ish operations
     testing::use_mock();
-    let mut m: IterMap<u32, u32> = at(1);
+    let mut m: Map<u32, u32> = at(1);
     let mut x: u32 = 12345;
     for _ in 0..2000 {
         x = x.wrapping_mul(1_103_515_245).wrapping_add(12345);
@@ -358,13 +376,13 @@ fn no_debt_counts_do_not_depend_on_history() {
 }
 
 // ---------------------------------------------------------------------------------------
-// Vec, Lazy, Set
+// Vec, Lazy, LookupSet
 // ---------------------------------------------------------------------------------------
 
 #[test]
 fn vec_costs() {
     testing::use_mock();
-    let mut v: super::Vec<StdVec<u8>> = at(1);
+    let mut v: super::Vector<StdVec<u8>> = at(1);
     v.push(vec![1]);
     v.push(big());
     end_call();
@@ -407,8 +425,8 @@ fn lazy_costs() {
 #[test]
 fn sets() {
     testing::use_mock();
-    let mut s: Set<u32> = at(1);
-    let mut is: IterSet<u32> = at(2);
+    let mut s: LookupSet<u32> = at(1);
+    let mut is: Set<u32> = at(2);
     s.insert(1);
     is.insert(1);
     is.insert(2);
@@ -429,7 +447,7 @@ fn sets() {
 #[test]
 fn balance_updated_ten_times_is_one_write() {
     testing::use_mock();
-    let mut m: IterMap<String, u128> = at(1);
+    let mut m: Map<String, u128> = at(1);
     m.insert("usdt".into(), 0);
     end_call();
     for _ in 0..10 {
@@ -441,7 +459,7 @@ fn balance_updated_ten_times_is_one_write() {
 #[test]
 fn insert_then_remove_of_key_seen_absent_costs_nothing_but_the_read() {
     testing::use_mock();
-    let mut m: Map<u32, u32> = at(1);
+    let mut m: LookupMap<u32, u32> = at(1);
     assert!(m.get(&1).is_none());
     m.insert(1, 1);
     m.discard(&1);
@@ -451,7 +469,7 @@ fn insert_then_remove_of_key_seen_absent_costs_nothing_but_the_read() {
 #[test]
 fn insert_then_remove_of_unseen_key_costs_a_remove() {
     testing::use_mock();
-    let mut m: Map<u32, u32> = at(1);
+    let mut m: LookupMap<u32, u32> = at(1);
     m.insert(1, 1);
     m.discard(&1);
     assert_eq!(
@@ -464,7 +482,7 @@ fn insert_then_remove_of_unseen_key_costs_a_remove() {
 #[test]
 fn rewriting_the_same_value_is_elided_only_when_the_old_bytes_are_known() {
     testing::use_mock();
-    let mut m: Map<u32, u32> = at(1);
+    let mut m: LookupMap<u32, u32> = at(1);
     m.insert(1, 5);
     end_call();
     m.insert(1, 5);
@@ -622,7 +640,7 @@ fn blind_insert_drops_unknown_tags_get_mut_keeps_them() {
     for read_first in [false, true] {
         testing::use_mock();
         seed(key.as_bytes(), &newer());
-        let mut m: Map<u32, Slim> = at(7);
+        let mut m: LookupMap<u32, Slim> = at(7);
         if read_first {
             let _ = m.get(&1);
         }
@@ -633,7 +651,7 @@ fn blind_insert_drops_unknown_tags_get_mut_keeps_them() {
 
     testing::use_mock();
     seed(key.as_bytes(), &newer());
-    let mut m: Map<u32, Slim> = at(7);
+    let mut m: LookupMap<u32, Slim> = at(7);
     m.get_mut(&1).unwrap().nonce = 2;
     testing::flush();
     assert_eq!(tags(), vec![1, 9], "read-modify-write keeps tag 9");
@@ -661,7 +679,7 @@ fn insert_of_new_record_costs_a_has_key_and_a_write() {
 #[test]
 fn contains_key_uses_has_key() {
     testing::use_mock();
-    let mut m: Map<u32, StdVec<u8>> = at(1);
+    let mut m: LookupMap<u32, StdVec<u8>> = at(1);
     m.insert(1, big());
     end_call();
     assert!(m.contains_key(&1));
@@ -871,7 +889,7 @@ fn insert_over_existing_record_panics() {
     flush_root(&ex);
     testing::begin_call();
     let mut ex: Ex = load_root();
-    ex.accounts.insert(alice(), Account { nonce: 9, balances: IterMap::default() });
+    ex.accounts.insert(alice(), Account { nonce: 9, balances: Map::default() });
 }
 
 /// Item 16: moving a record between keys is remove + rebuild. Re-inserting the removed value
@@ -972,7 +990,7 @@ fn touching_an_unbound_collection_panics() {
 #[test]
 fn bounded_clear() {
     testing::use_mock();
-    let mut m: IterMap<u32, u32> = at(1);
+    let mut m: Map<u32, u32> = at(1);
     for i in 0..10 {
         m.insert(i, i);
     }
@@ -1010,12 +1028,12 @@ fn grouped_map_groups_are_independent_itermaps() {
 #[test]
 fn cache_holds_every_touched_key_for_the_call() {
     testing::use_mock();
-    let mut m: IterMap<u32, StdVec<u8>> = at(1);
+    let mut m: Map<u32, StdVec<u8>> = at(1);
     for i in 0..100 {
         m.insert(i, vec![0; 1024]);
     }
     end_call();
-    let n = m.iter().count();
+    let n = m.iter().fold(0, |n, _| n + 1); // `count()` alone reads only the header
     assert_eq!(n, 100);
     assert_eq!(testing::cache_slots(), 1 + 2 * 100, "header + slot + entry per item, none freed");
 }
