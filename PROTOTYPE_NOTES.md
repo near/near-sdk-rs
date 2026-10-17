@@ -426,3 +426,80 @@ The round-2 table marked revision-1 item 22 "not implemented: no runtime key-len
 - `near-sdk` doc tests: **343 passed**, 6 ignored.
 - `near-sdk-macros`: **49 + 1 passed** (2 + 2 ignored). Snapshots unchanged against master.
 - `proto-wasm-check`: wasm32 check, native check and wasm32 release build all ok.
+
+## Revision 3 results
+
+Applied `/tmp/storage-v2-proto/revision-3.md` (the usability pass), commits `502d185b` (module, macro, renames, API) and `cc3cf0b2` (contract tests, root `Lazy::new`, new unit tests, success check), plus this notes commit. The three usability contracts (`state_v2_ft.rs`, `state_v2_nft.rs`, `state_v2_dao.rs`) are updated for every rename and use the new APIs where the revision says so.
+
+### Success check
+
+**Passes.** `proto-wasm-check/src/lib.rs` now holds the *revised* spec's `Exchange` verbatim (spec-rev.md, "What the developer writes"):
+- `Map` for both `accounts` and `balances`;
+- `required` on `owner`;
+- the new `set_balance` via `at_mut`.
+
+No other edit. wasm32 check, native check (`--features near-sdk/unit-testing`) and wasm32 release build all ok: 279,729 bytes, +9,012 over round 3. The extra is mostly `accounts` becoming the iterable `Map`, plus `set_balance`. The original spec's text with only the renames applied is a subset of this and also compiles.
+
+### Per item
+
+| # | Status | Reason |
+|---|---|---|
+| 1 | applied | `IterMap`→`Map`, `Map`→`LookupMap`, `IterSet`→`Set`, `Set`→`LookupSet`. The entry types are now `MapEntry` (for `Map`) and `LookupMapEntry`. Layout, kind bytes and tags are unchanged; every existing cost assertion passed untouched after the rename. **Consequence for v1 detection**, see objections. |
+| 2 | applied | `Vec`→`Vector`. `state::*` no longer shadows `std::vec::Vec`. |
+| 3 | applied | `{Name}At<'a>` and `{Name}AtMut<'a>`, each with generated rustdoc saying where it comes from and why its scalars are unavailable. |
+| 4 | n/a | `Lazy` stays. |
+| 5 | applied | `at_mut(&k)` on `Map` and `LookupMap` returns `{Name}AtMut<'a>`. It costs 1 `storage_has_key` (none if the key is already cached, e.g. after `contains_key`), panics on an absent record with "`at_mut` on a record that does not exist; create it with `entry(k).or_default()` (or `insert`) first", and reads nothing. Collection fields are `&'a mut` handles allocated in the round-2 cache arena (one per collection field of the record, per call); scalars are `UseGetMutForScalars`. The read-only hint uses `#[doc(hidden)]` stub methods (`insert`, `remove`, `get_mut`, `entry`, `push`, `set`, ...) on every `At<'a, C>`. Each stub is bounded on a never-implemented `ViewIsReadOnly` that carries `on_unimplemented`. `at(&k).balances.insert(..)` now says "views are read-only; use `at_mut` or `get_mut`" instead of suggesting `iter` (probe). The DAO `vote` moved to `at_mut`: **(7, 8, 0) + 1 has_key → (5, 8, 0) + 2 has_key**. It no longer reads the 2,000-byte proposal record (`vote_op_counts`, `read_bytes < 500`). |
+| 6 | applied, extended | `Map::insert -> bool`. Also `Set::insert -> bool`, which now returns early on an existing key: 1 index read, 0 writes. Before, it rewrote the `()` entry. `LookupMap::insert` and `LookupSet::insert` stay `()`. The DAO double-vote check is `require!(proposal.votes.insert(voter, vote), "already voted")`. |
+| 7 | applied | `page_with(after, limit, \|k, &v\| T) -> Page<K, T>` on `Map` and on `At<Map>`, where the closure can keep the `&'a V`. `page` is now `page_with(.., clone)`, and its rustdoc points at `page_with`. The DAO's hand-rolled `keys_page` + `get` is replaced. |
+| 8 | **changed** | `Lazy::new(v)` holds `v` and writes it at `bind`, so `insert(id, Token { metadata: Lazy::new(m), .. })` works, and NFT `nft_mint` uses it. **As specified it loses data at the root**: an `#[init]` returning `Self { metadata: Lazy::new(m), .. }` without `.bind()` is never bound (the v2 `state_write` only flushes), so the value would vanish silently. I made the pending value a `Cell`, added a generated `__write_pending` walk, and `flush_root` writes pending root `Lazy` values through `&self`. NFT `new` now has no `.bind()`; test `init_lazy_new_at_the_root_is_written_without_bind`. Unchanged: `set` on an unplaced `Lazy` still panics "not bound", and a `Lazy::new` inside a record that is never placed writes nothing. |
+| 9 | applied, extended | `Set` gets `key_at`, `page` (returns `KeyPage<K>`, since a unit value would be noise) and `iter`, and its view gets the same. `iter()`/`keys()` on `Map`, `Set`, `Vector` and their views return `IndexIter`, which overrides `nth`, `nth_back` and `count`. So `skip(n)` is free, and `count()` reads only the header. That broke one cache-memory test, which relied on `count()` touching every entry; it now uses `fold`. NFT `nft_tokens_for_owner` is `keys().skip(from).take(limit)`; test `offset_page_cost_does_not_depend_on_the_offset` shows offsets 0 and 5 cost the same. The module doc documents offset paging. |
+| 10 | applied (`Map` only) | `Map::remove` with a zero-sized `V` skips the entry read and rebuilds the value from zero bytes (`decode_value(&[])`). Test `unit_valued_remove_costs_what_discard_costs`. NFT transfer and burn now use `remove` on the `()` group; `nft_transfer` still costs (8, 8, 3), the `discard` cost. `GroupedMap` docs call `GroupedMap<G, K, ()>` a grouped set. `LookupMap::remove` on a unit value still reads; `LookupSet::remove` already discarded. |
+| 11 | applied | The derive rejects `Map<_, X>`, `LookupMap<_, X>`, `GroupedMap<_, _, X>`, `Vector<X>` and `Lazy<X>` when `X`'s last segment is a v2 collection name. The error says "a map value cannot be a collection; put it in a `#[near(storage)]` record, or use `GroupedMap`" and points at `X` (probe: the span is on `Set` in `Map<u32, Set<u32>>`). Syntactic, so an alias still reaches the post-mono backstop. |
+| 12 | applied, reworded | `on_unimplemented` on `Removable`. The revision's text names only `LookupMap`, but the error usually fires on the *record* (`HasLookup: Removable`), and `LookupSet`/`GroupedMap` cause it too. Message: "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`/`GroupedMap`, which does not track its keys", with the note "use `Map`/`Set` ..., or keep the record and clear its fields by hand". The compiler still adds the "unsatisfied requirement introduced here" pointer at the derive (probe). |
+| 13 | applied | Module rustdoc for `near_sdk::state`, under a page. It covers: <ul><li>the attributes and their options;</li><li>what the derive emits;</li><li>tags never reused;</li><li>`at`/`get`/`at_mut`;</li><li>once-per-call reads and ordered writes;</li><li>`contains_key` not warming the cache;</li><li>`remove` detaching;</li><li>enumeration order after a remove;</li><li>cursor panics → offset paging.</li></ul> |
+| 14 | applied | `state::testing` is public (no `doc(hidden)`), with module docs naming the two harness traps from the usability notes. New items: `set_context(who, deposit)`, plus `Harness<T>` with `init(who, f)`, `attach()`, `call(who, deposit, f)` and `view(f)`. `view` asserts nothing is pending; `call` drops the root after the write, as the wrapper does. FT, NFT and DAO use it: about 30 copied lines each became three one-line wrappers. The exchange test keeps its own helpers, because its `mod legacy` v1-root tests need the env host and explicit drop timing. |
+
+### Where I think the revision is wrong
+
+- **Item 1 hands v1's names to v2 types, and that blinds the derive's v1 check.**
+  - Round 2's "v1 collection in a record" rejection worked by last path segment. `LookupMap`, `LookupSet`, `Vector` and `Lazy` are now ambiguous: a record field written `LookupMap<_, _>` is a legitimate v2 field. A contract that did `use near_sdk::store::LookupMap;` produces exactly the same tokens and is no longer rejected.
+  - I kept the check for v1-only names (`IterableMap`, `UnorderedMap`, `TreeMap`, `LazyOption`, ...) and for paths that name `store::`/`collections::`; probe: both rejected.
+  - The unqualified case is now caught by nothing. A nested v1 `LookupMap` is a Borsh leaf, so it is blanket-`Removable` and `remove` orphans its entries (the round-2 test `removing_a_record_with_a_nested_v1_field_orphans_its_entries` still passes).
+  - Migration friction is also likely: a file importing `near_sdk::store::LookupMap` and `near_sdk::state::*` gets a name clash. That one is by construction; I did not probe it.
+  - If the names stay, the doc rule "v1 collections belong at the root" is now the *only* guard for the most common v1 type.
+- **Item 1 also makes the spec example more expensive by default.**
+  - In the revised `Exchange`, `accounts: Map<AccountId, Account>` is iterable. A first deposit by a new account goes from entry read + 1 write (round-2 `Map`, now `LookupMap`) to entry read + header read + 4 writes for that record. That is +1 read, +3 writes per new account, from the cost table (the exchange integration test still uses `LookupMap` for `accounts`, so this is not measured there).
+  - That is the intended trade ("the default name is the safe type"). But the spec's headline example now pays it for a map nobody iterates, which reads oddly next to the cost claims.
+- **Item 6: `insert -> bool` on a leaf has already overwritten when it returns `false`.**
+  - `require!(votes.insert(voter, vote), "already voted")` is correct only because the panic aborts the receipt.
+  - `if !map.insert(k, v) { log!("kept the old one") }` is wrong: the old value is gone (`map_insert_reports_whether_the_key_was_new`: `get` returns 11 after a `false`).
+  - `std::collections::HashSet::insert -> bool` does not overwrite, and `HashMap::insert` returns the old value. This is neither. An `insert_new(k, v) -> bool` that does not write when the key exists would be the safe spelling for "first write wins". `Set::insert` now behaves that way, because the value is `()`.
+- **Item 8 as written loses root `Lazy::new` values** (above). The fix needs interior mutability in `Lazy` and a flush-time walk. That is cheap, but it is a mechanism the revision didn't anticipate.
+- **Item 5's "`&mut` handles" are allocations.** `at_mut` allocates one arena handle per collection field of the record, whether or not you touch them, freed at the flush. That is small and bounded per call, but a loop of N `at_mut`s on a record with 3 collections holds 3N handles until the end of the call.
+
+### New friction and edge cases
+
+- **`count()` is now free** (header only). That is an improvement, but anyone using `iter().count()` to warm the cache, as one of my own tests did, gets nothing.
+- **The `At` view now has hidden write methods.** They exist only to carry the diagnostic. rust-analyzer hides `doc(hidden)` items from completion in other crates, as far as I know (not verified here).
+- **`IndexIter` is a public type** in the return position of every `iter()`. Returning `impl Iterator` would have kept the `nth` override just as well. Naming the type is only so its docs can say "`skip` is free"; it could be hidden again without loss.
+- **The `Harness::view` context.** It keeps the previous call's predecessor and deposit. A view that branches on `predecessor_account_id()` sees the last caller.
+- **`at_mut` after `contains_key`** (both maps). After `contains_key(&k)` returned true, `at_mut(&k)` is free (`Orig::PresentUnread`). After it returned false, `at_mut` panics without a second host call. Both are as intended; the DAO `vote` relies on the first.
+
+### Test counts
+
+- `near-sdk` lib `state::` unit tests: **63 passed** (+7 revision-3 tests).
+- `state_v2_exchange.rs`: **19 passed**.
+- `state_v2_ft.rs`: **14 passed**.
+- `state_v2_nft.rs`: **17 passed** (+2: `init_lazy_new_at_the_root_is_written_without_bind`, `offset_page_cost_does_not_depend_on_the_offset`).
+- `state_v2_dao.rs`: **14 passed** (+1: `at_mut_on_absent_record_panics`).
+- `near-sdk` full lib (`unstable,abi,unit-testing`): **572 passed**, 1 ignored.
+- `near-sdk` doc tests: **343 passed**, 7 ignored (+1 ignored: the `testing` module example).
+- `near-sdk-macros`: **49 + 1 passed** (2 + 2 ignored). Snapshots unchanged against master.
+- `proto-wasm-check`: wasm32 check, native check and wasm32 release build all ok (279,729 bytes).
+- Compile probes (scratch file, removed):
+  - the read-only view hint;
+  - the item-11 rejection at the field;
+  - the `Removable` message;
+  - `UseGetMutForScalars` on `at_mut(..).nonce += 1`;
+  - `store::LookupMap` and `store::IterableMap` rejected in a record;
+  - a v2 `LookupMap` accepted in a record.
