@@ -1602,6 +1602,13 @@ pub mod collections;
 mod environment;
 pub use environment::env;
 
+// ABI generation builds the contract as a host `cdylib`, which has to resolve the
+// `near-sys` host-function symbols the NEAR runtime supplies on-chain. Unit tests get
+// working versions of the same symbols from `environment::mock::mock_chain`, so the two
+// are mutually exclusive.
+#[cfg(all(not(target_arch = "wasm32"), feature = "__abi-generate", not(feature = "unit-testing")))]
+mod abi_host_stubs;
+
 #[cfg(feature = "unstable")]
 pub use near_sys as sys;
 
