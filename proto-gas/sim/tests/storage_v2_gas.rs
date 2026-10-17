@@ -169,8 +169,39 @@ fn call(sim: &mut Sim, method: &str, args: Value) -> TxOutcome {
     sim.call(ALICE, C, method).args_json(args).transact()
 }
 
+/// Other accounts holding contract data (`GAS_OTHERS`, default 0): each gets a `STATE` entry and
+/// one map entry, as `contract_state_records` in the simulator's tests does for every tenth of
+/// its mainnet-like accounts. All contract data shares one trie column, so these deepen the
+/// path to every key of `bench.near`. Only the data is written (no account records): only the
+/// contract-data column shapes the path.
+fn others() -> u32 {
+    std::env::var("GAS_OTHERS").map(|s| s.parse().unwrap()).unwrap_or(0)
+}
+
+fn other_data(n: u32) -> Vec<StateRecord> {
+    (0..n)
+        .flat_map(|i| {
+            let r = hash(format!("pop{i}").as_bytes()).0;
+            let id = match i % 3 {
+                0 => hex(&r),
+                1 => format!("user{}.near", u32::from_le_bytes([r[0], r[1], r[2], 0])),
+                _ => format!("{}.tg", hex(&r[..4])),
+            };
+            let account_id: near_contract_sim::AccountId = id.parse().unwrap();
+            let mut k = b"a".to_vec();
+            k.extend(borsh::to_vec(&id).unwrap());
+            [(b"STATE".to_vec(), r.to_vec()), (k, (i as u128).to_le_bytes().to_vec())].map(|(k, v)| {
+                StateRecord::Data { account_id: account_id.clone(), data_key: k.into(), value: v.into() }
+            })
+        })
+        .collect()
+}
+
 fn world(v: Variant) -> Sim {
     let mut sim = Sim::new();
+    if others() > 0 {
+        sim.apply_state_records(other_data(others()));
+    }
     sim.create_account(ALICE, Balance::from_near(1_000));
     sim.create_account(C, Balance::from_near(100_000));
     sim.deploy(C, v.wasm());
@@ -309,6 +340,7 @@ fn layouts_match_contract_writes() {
 #[test]
 #[ignore = "slow (100k-key tries); run with --nocapture"]
 fn gas_report() {
+    println!("\nother accounts holding contract data: {}", others());
     // 1 + 3: map ops at each size, all variants.
     println!("\n### Insert / update / remove, Map<AccountId, u128> vs LookupMap<AccountId, u128>\n");
     println!("{HEADER}");
