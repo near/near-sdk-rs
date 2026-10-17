@@ -1,0 +1,3 @@
+[toolchain]
+# nearcore 2.14 declares rust-version = 1.95.0.
+channel = "1.95.0"
