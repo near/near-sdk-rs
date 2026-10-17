@@ -6,22 +6,20 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, IterMap, Lazy, Map, Page};
-use near_sdk::{AccountId, PanicOnDefault, env, near};
+use near_sdk::state::{ContractState, GroupedMap, IterMap, Lazy, Map, Page, Root};
+use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
 pub type MarketId = u32;
 pub type OrderId = u64;
 
+// Revision 1: no `removable_leaf!` needed, every Borsh leaf is Removable.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Order {
     pub price: u128,
     pub qty: u128,
 }
-// Without this, `self.orders.group_mut(&market).remove(&order)` does not compile:
-// `remove` needs `Order: Removable`, and a plain Borsh leaf must opt in.
-near_sdk::state::removable_leaf!(Order);
 
 #[near(serializers = [borsh])]
 #[derive(Default)]
@@ -30,10 +28,9 @@ pub struct Metadata {
     pub blob: Vec<u8>,
 }
 
-// `owner: AccountId` has no `Default`, so a missing tag cannot read as a default:
-// the spec's `#[key(1)] owner: AccountId` does not compile; `required` makes it an error instead.
+// `owner: AccountId` has no `Default`: `required` is the one edit to the spec's struct.
+// Revision 1: no `PanicOnDefault` (the derive emits `Default`), no `#[derive(Default)]` on Account.
 #[near(contract_state(layout = v2))]
-#[derive(PanicOnDefault)]
 pub struct Exchange {
     #[key(1, required)]
     owner: AccountId,
@@ -48,7 +45,6 @@ pub struct Exchange {
 }
 
 #[near(storage)]
-#[derive(Default)]
 pub struct Account {
     #[key(1)]
     nonce: u64,
@@ -67,6 +63,21 @@ impl Exchange {
             orders: Default::default(),
             metadata: Default::default(),
         }
+    }
+
+    /// Item 12: an init body that seeds collections binds the root first.
+    #[init]
+    pub fn new_seeded(owner: AccountId) -> Self {
+        let mut this = Self {
+            owner: owner.clone(),
+            fee_bps: 0,
+            accounts: Default::default(),
+            orders: Default::default(),
+            metadata: Default::default(),
+        }
+        .bind();
+        this.accounts.entry(owner).or_default().nonce = 1;
+        this
     }
 
     // ---- the spec's four methods, verbatim except for `place` and `set_fee` ----
@@ -247,33 +258,87 @@ fn uninitialized_contract_panics_on_required_field() {
     view(|c| c.balance_of(alice(), "usdt".into()));
 }
 
-/// The init body runs before the wrapper can bind the root's collections.
+/// Without `.bind()`, an init body that touches a collection still panics, now pointing at it.
 #[test]
-#[should_panic(expected = "not bound")]
-fn init_body_cannot_touch_collections() {
+#[should_panic(expected = "call `.bind()` on the root")]
+fn init_body_without_bind_panics_with_hint() {
     testing::use_mock();
     let mut c = Exchange::new("owner.near".parse().unwrap());
     c.accounts.insert(alice(), Account::default());
 }
 
-/// `state_exists()` (the init-twice guard) goes straight to `env::storage_has_key`, bypassing
-/// the cache and the `Host` trait: here the counting mock holds the root but env does not.
+/// Item 12: `.bind()` in `#[init]` lets the body seed collections; the wrapper's write
+/// flushes them before the root.
 #[test]
-fn state_exists_bypasses_the_host() {
+fn init_with_bind_seeds_collections() {
+    testing::use_mock();
+    let c = Exchange::new_seeded("owner.near".parse().unwrap());
+    c.state_write();
+    let r = testing::receipt();
+    // has_key? no: or_default reads the record (1 read), then record write + root write
+    assert_eq!(r.rwd(), (1, 2, 0));
+    assert_eq!(r.ops.last().unwrap().key, vec![0xF0], "root last");
+    let (n, _) = view(|c| c.accounts.get(&"owner.near".parse().unwrap()).map(|a| a.nonce));
+    assert_eq!(n, Some(1));
+}
+
+/// `bind()` is idempotent.
+#[test]
+fn bind_is_idempotent() {
+    testing::use_mock();
+    let c = Exchange::new("owner.near".parse().unwrap()).bind().bind();
+    assert!(c.accounts.get(&alice()).is_none());
+}
+
+/// Item 13: `state_exists()` on a v2 root goes through the host trait (round 1: it bypassed
+/// it and saw nothing in the counting mock).
+#[test]
+fn state_exists_goes_through_the_host() {
     init("owner.near");
-    assert!(testing::store().contains_key(&vec![0xF0]));
-    assert!(!Exchange::state_exists());
+    testing::begin_call();
+    assert!(Exchange::state_exists());
+    assert_eq!(testing::receipt().has_keys(), 1);
 }
 
 // ---------------------------------------------------------------------------------------
-// v1 collections as leaf fields ("keeps v1's write-on-drop")
+// Item 5: a `required` field added after deploy fails every old record
+// ---------------------------------------------------------------------------------------
+
+#[near(storage)]
+pub struct SlimV1 {
+    #[key(1)]
+    nonce: u64,
+}
+
+#[near(storage)]
+pub struct SlimV2 {
+    #[key(1)]
+    nonce: u64,
+    #[key(2, required)]
+    owner: AccountId, // added in v2: wrong, must be Option<AccountId>
+}
+
+#[test]
+#[should_panic(expected = "Missing { tag: 2 }")]
+fn required_field_added_later_fails_old_records() {
+    use near_sdk::state::Path;
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut v1: Map<u32, SlimV1> = Map::__bound_at(root.clone());
+    v1.insert(1, SlimV1 { nonce: 3 });
+    testing::flush();
+    let v2: Map<u32, SlimV2> = Map::__bound_at(root);
+    let _ = v2.get(&1).map(|s| (&s.owner, s.nonce));
+}
+
+// ---------------------------------------------------------------------------------------
+// v1 collections as leaf fields (item 9)
 // ---------------------------------------------------------------------------------------
 
 mod legacy {
 use super::*;
 
 #[near(contract_state(layout = v2, root = 0xF1))]
-#[derive(PanicOnDefault)]
 pub struct Legacy {
     #[key(1, required)]
     old: near_sdk::store::LookupMap<u32, u32>,
@@ -281,11 +346,16 @@ pub struct Legacy {
     users: Map<u32, User>,
 }
 
+// `notes: near_sdk::store::LookupMap<u32, u32>` is now rejected by the derive ("v1 collection
+// `LookupMap` inside a storage record"). A type alias slips past the name check: this is the
+// "best effort" hole, used here on purpose to exercise the drop-after-flush safety net.
+type Notes = near_sdk::store::LookupMap<u32, u32>;
+
 #[near(storage)]
 pub struct User {
     // LookupMap has no Default, so the field must be `required`.
     #[key(1, required)]
-    notes: near_sdk::store::LookupMap<u32, u32>,
+    notes: Notes,
 }
 
 fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
@@ -294,19 +364,19 @@ fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
     key
 }
 
+fn setup() {
+    as_caller("alice.near");
+    testing::use_env_host();
+    let c = Legacy { old: near_sdk::store::LookupMap::new(b"o".to_vec()), users: Default::default() };
+    c.state_write();
+    drop(c);
+}
+
 /// At the root, a v1 field is dropped with the root after `state_write`, so its writes land
 /// after the v2 flush (not "root last"), but they do land.
 #[test]
 fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
-    as_caller("alice.near");
-    testing::use_env_host();
-    let c = Legacy {
-        old: near_sdk::store::LookupMap::new(b"o".to_vec()),
-        users: Default::default(),
-    };
-    c.state_write();
-    drop(c);
-
+    setup();
     testing::begin_call();
     let mut c = Legacy::state_read().unwrap();
     c.old.insert(1, 11);
@@ -317,19 +387,11 @@ fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
     assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
 }
 
-/// Nested in a record that lives in the v2 cache, a v1 field is never dropped (cache values
-/// are leaked per call), so its write-on-drop never happens: the write is lost silently.
+/// Item 9: nested in a record held by the v2 cache, a v1 field's write-on-drop now runs when
+/// the flush frees the cache slots: late (after the root) but not lost. Round 1: lost.
 #[test]
-fn v1_leaf_nested_in_a_cached_record_never_flushes() {
-    as_caller("alice.near");
-    testing::use_env_host();
-    let c = Legacy {
-        old: near_sdk::store::LookupMap::new(b"o".to_vec()),
-        users: Default::default(),
-    };
-    c.state_write();
-    drop(c);
-
+fn v1_leaf_nested_in_a_cached_record_writes_late_not_lost() {
+    setup();
     testing::begin_call();
     let mut c = Legacy::state_read().unwrap();
     c.users.insert(1, User { notes: near_sdk::store::LookupMap::new(b"n1".to_vec()) });
@@ -339,15 +401,15 @@ fn v1_leaf_nested_in_a_cached_record_never_flushes() {
     testing::begin_call();
     let mut c = Legacy::state_read().unwrap();
     c.users.get_mut(&1).unwrap().notes.insert(5, 55);
-    c.state_write();
-    drop(c);
-    testing::begin_call();
-
     let k = v1_key(b"n1", 5);
-    assert!(!env::storage_has_key(&k), "the v1 write was lost");
+    assert!(!env::storage_has_key(&k));
+    c.state_write();
+    assert!(env::storage_has_key(&k), "written when the flush dropped the cached record");
+    drop(c);
 }
 
 } // mod legacy
+
 
 // ---------------------------------------------------------------------------------------
 // reserved tags
