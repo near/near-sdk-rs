@@ -72,7 +72,8 @@ error[E0308]: mismatched types   (x6)
 Nothing in the rustdoc says the derive emits a public type named `<Name>View`. `Record::View<'a>`
 is documented as an associated type, not as a named struct in my module. `ProposalView`,
 `TokenView`, and `AccountView` are exactly the names people give their JSON view DTOs in NEAR
-contracts; NEP-171's own reference implementation has `JsonToken`, but `*View` is everywhere.
+contracts (`near-contract-standards` names its NFT JSON type `Token`, which is the other natural
+choice and would collide with a `#[near(storage)] struct Token` just as easily via `TokenView`).
 **Fix:** I renamed my DTO to `ProposalJson`.
 **Suggestion:** don't put a generated name into the user's namespace, or at least pick one
 nobody uses (`ProposalAt`, `__ProposalView`, or a hidden module), allow
@@ -437,7 +438,7 @@ pay for itself.
    `get_mut`. A force unregister rewrites the root only because `total_supply` changed.
 4. **The per-method op-count docs are accurate.** Every receipt I asserted matched the doc
    comments exactly, once I added them up: `nft_transfer (8,8,3)`, `vote (7,8,0)`,
-   `nft_burn (11,2,17)`, and `ft_balance_of`/`ft_total_supply` views of `(2,0,0)`/`(1,0,0)`
+   `nft_burn (10,2,17)` (with `discard` on the owner group), and `ft_balance_of`/`ft_total_supply` views of `(2,0,0)`/`(1,0,0)`
    with `Lazy` metadata untouched. Both times I was wrong, the doc was right.
 5. **The per-call cache makes natural code cheap.** `get` then `remove` is one read. `tally()` and
    `drop_proposal` both iterate the same votes map in `finalize` with no re-reads.
@@ -464,5 +465,6 @@ pay for itself.
 
 All three run with
 `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable,unit-testing --test state_v2_{ft,nft,dao}`.
-The errors in 1.3, 1.6 and 1.7 came from a throwaway file (not committed), written to see what
-a developer would hit with the obvious first attempt.
+The errors in 1.3 through 1.7 came from temporary code (a throwaway test file, and methods added
+to the DAO file and then reverted), written to see what a developer would hit with the obvious
+first attempt. None of it is committed.

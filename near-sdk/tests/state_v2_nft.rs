@@ -140,9 +140,10 @@ impl Nft {
     }
 
     pub fn nft_burn(&mut self, token_id: TokenId) {
-        let token = self.tokens.remove(&token_id).expect("no such token");
-        require!(token.owner_id == env::predecessor_account_id(), "only the owner can burn");
-        self.tokens_per_owner.group_mut(&token.owner_id).remove(&token_id);
+        let owner = self.tokens.get(&token_id).expect("no such token").owner_id.clone();
+        require!(owner == env::predecessor_account_id(), "only the owner can burn");
+        self.tokens.remove(&token_id); // cached: no second read
+        self.tokens_per_owner.group_mut(&owner).discard(&token_id);
     }
 
     pub fn nft_token(&self, token_id: TokenId) -> Option<JsonToken> {
