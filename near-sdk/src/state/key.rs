@@ -18,8 +18,12 @@ use near_digest::Digest;
 pub const DEFAULT_ROOT: u8 = 0xF0;
 /// The protocol rejects storage keys longer than this.
 pub const MAX_KEY_LEN: usize = 2048;
-/// Width of the placement hash in front of every map key.
+/// Width of the placement hash in front of every map key. The prototype feature
+/// `unstable-state-hash8` builds an 8-byte variant, only to measure the difference in gas.
+#[cfg(not(feature = "unstable-state-hash8"))]
 pub const ENTRY_HASH_LEN: usize = 16;
+#[cfg(feature = "unstable-state-hash8")]
+pub const ENTRY_HASH_LEN: usize = 8;
 
 /// Kind bytes: which internal table of a collection a key belongs to.
 pub mod kind {
@@ -128,7 +132,7 @@ pub fn sha_calls() -> u64 {
     SHA_CALLS.with(|c| c.get())
 }
 
-/// First 16 bytes of sha256.
+/// First `ENTRY_HASH_LEN` bytes of sha256 (16 unless built with `unstable-state-hash8`).
 pub fn h16(bytes: &[u8]) -> [u8; ENTRY_HASH_LEN] {
     SHA_CALLS.with(|c| c.set(c.get() + 1));
     let full = near_digest::sha2::Sha256::digest(bytes);
@@ -201,6 +205,7 @@ mod tests {
     /// The spec's worked example: Exchange { #[key(3)] accounts: LookupMap<AccountId, Account> },
     /// Account { #[key(2)] balances: Map<TokenId, u128> }, TokenId = String.
     #[test]
+    #[cfg(not(feature = "unstable-state-hash8"))]
     fn worked_example_lengths_and_structure() {
         let r = Path::root(DEFAULT_ROOT);
         assert_eq!(r.len(), 1);
@@ -262,7 +267,22 @@ mod tests {
     #[test]
     fn string_key_at_cap_is_fine() {
         let p = Path::root(DEFAULT_ROOT).field(1).kind(0).entry(&"x".repeat(512));
-        assert_eq!(p.len(), 3 + 16 + 4 + 512);
+        assert_eq!(p.len(), 3 + ENTRY_HASH_LEN + 4 + 512);
+    }
+
+    /// accounts[alice].balances[usdt] in the spec's Exchange: 59 bytes with a 16-byte hash,
+    /// 43 with an 8-byte one (27 fixed bytes plus two hashes).
+    #[test]
+    fn nested_two_level_key_length_tracks_hash_width() {
+        let v = Path::root(DEFAULT_ROOT)
+            .field(3)
+            .kind(kind::ENTRIES)
+            .entry(&alice())
+            .field(2)
+            .kind(kind::ENTRIES)
+            .entry(&String::from("usdt"));
+        assert_eq!(v.len(), 27 + 2 * ENTRY_HASH_LEN);
+        assert_eq!(v.len(), if ENTRY_HASH_LEN == 16 { 59 } else { 43 });
     }
 
     /// Four nested maps keyed by max-length strings exceed 2048 bytes. The runtime check
