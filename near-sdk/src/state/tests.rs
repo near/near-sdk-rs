@@ -85,29 +85,6 @@ where
     }
 }
 
-/// A record holding a `Map`, so it is NOT `Removable` (the HRTB bound is false).
-#[derive(Default)]
-pub struct Holder {
-    pub inner: Map<u32, u32>,
-}
-impl Value for Holder {
-    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
-        p::RecordWriter::new().finish(orig, |_| true)
-    }
-    fn decode_value(_: &[u8], path: &Path) -> Result<Self, RecordError> {
-        let f = p::Fields::new();
-        Ok(Self { inner: p::field(&f, 1, path)? })
-    }
-    fn bind(&mut self, path: &Path) {
-        Value::bind(&mut self.inner, &path.field(1));
-    }
-}
-impl Removable for Holder
-where
-    for<'x> Map<u32, u32>: Removable,
-{
-}
-
 // ---------------------------------------------------------------------------------------
 // Hand-expanded #[near(contract_state(layout = v2))] struct Ex { #[key(2)] fee_bps: u16,
 //                          #[key(3)] accounts: Map<AccountId, Account> }
@@ -604,6 +581,37 @@ fn unknown_tags_survive_a_rewrite() {
     let stored = store()[&alice_record_key()].clone();
     let f = record::parse(&stored).unwrap();
     assert_eq!(f, vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (9, &[0xAA, 0xBB][..])]);
+}
+
+/// Overwriting a record with `insert`: whether a newer version's unknown tags survive depends
+/// on whether this call happened to read the key first. The merge source is "bytes stored at
+/// this key", known only after a read.
+#[test]
+fn unknown_tags_on_overwrite_depend_on_whether_the_key_was_read() {
+    let newer = || {
+        let mut w = record::RecordWriter::new();
+        w.push(1, borsh::to_vec(&1u64).unwrap());
+        w.push(9, vec![0xAA]);
+        w.finish(None, |_| true)
+    };
+    let tags = || {
+        record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>()
+    };
+
+    testing::use_mock();
+    seed(&alice_record_key(), &newer());
+    let mut ex: Ex = load_root();
+    ex.accounts.insert(alice(), Account { nonce: 2, balances: Default::default() });
+    flush_root(&ex);
+    assert_eq!(tags(), vec![1], "blind overwrite: tag 9 dropped");
+
+    testing::use_mock();
+    seed(&alice_record_key(), &newer());
+    let mut ex: Ex = load_root();
+    let _ = ex.accounts.get(&alice());
+    ex.accounts.insert(alice(), Account { nonce: 2, balances: Default::default() });
+    flush_root(&ex);
+    assert_eq!(tags(), vec![1, 9], "read-then-overwrite: tag 9 kept");
 }
 
 #[test]

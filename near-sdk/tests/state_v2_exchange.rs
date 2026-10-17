@@ -349,6 +349,39 @@ fn v1_leaf_nested_in_a_cached_record_never_flushes() {
 
 } // mod legacy
 
+// ---------------------------------------------------------------------------------------
+// reserved tags
+// ---------------------------------------------------------------------------------------
+
+#[near(storage, reserved(3))]
+#[derive(Default)]
+pub struct Slim {
+    #[key(1)]
+    nonce: u64,
+}
+
+#[test]
+fn reserved_tag_is_dropped_on_rewrite_unknown_tag_is_kept() {
+    use near_sdk::state::{Path, record};
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut m: Map<u32, Slim> = Map::__bound_at(root.clone());
+    let key = root.kind(0).entry(&1u32);
+    let mut w = record::RecordWriter::new();
+    w.push(1, borsh::to_vec(&1u64).unwrap());
+    w.push(3, vec![0x33]); // a deliberately removed field
+    w.push(4, vec![0x44]); // a field from a newer version
+    testing::seed(key.as_bytes(), &w.finish(None, |_| true));
+    m.get_mut(&1).unwrap().nonce = 2;
+    testing::flush();
+    let tags: Vec<u32> = record::parse(&testing::store()[key.as_bytes()])
+        .unwrap()
+        .into_iter()
+        .map(|(t, _)| t)
+        .collect();
+    assert_eq!(tags, vec![1, 4]);
+}
+
 /// The same flow through the real mocked blockchain (`env::storage_*`), no counting mock.
 #[test]
 fn works_against_the_mocked_blockchain() {
