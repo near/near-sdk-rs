@@ -179,16 +179,15 @@ where
     pub fn old_side(&mut self) -> &mut V1 {
         &mut self.old
     }
-}
 
-impl<V1, V2, K, V> Migrating<V1, V2>
-where
-    V1: LegacyIterable<K = K, V = V>,
-    V2: MigrationTarget<K = K, V = V>,
-{
     /// Moves up to `n` entries from the old side to the new. Returns how many moved. By the
     /// one-side invariant an old entry is never stale, so it overwrites nothing newer.
-    pub fn migrate_batch(&mut self, n: u32) -> u32 {
+    /// (The bound sits on the method, not the impl, so a v1 `LookupMap` gets the
+    /// `LegacyIterable` diagnostic instead of a bare "method exists but bounds not satisfied".)
+    pub fn migrate_batch(&mut self, n: u32) -> u32
+    where
+        V1: LegacyIterable,
+    {
         let moved = self.old.legacy_take(n);
         let count = moved.len() as u32;
         for (k, v) in moved {
@@ -198,7 +197,10 @@ where
     }
 
     /// When true, redeploy with the field declared as the bare v2 map at the same tag.
-    pub fn old_is_empty(&self) -> bool {
+    pub fn old_is_empty(&self) -> bool
+    where
+        V1: LegacyIterable,
+    {
         self.old.legacy_is_empty()
     }
 }
