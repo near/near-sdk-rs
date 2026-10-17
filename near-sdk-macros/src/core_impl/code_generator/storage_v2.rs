@@ -6,9 +6,16 @@
 //! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
 //!   decode (missing tag -> `FieldDefault`, or an error for `#[key(n, required)]`),
 //!   bind / detach, and `MAX_SUBPATH` summed over fields;
-//! - `SView<'a>` plus `impl Record for S` and `impl ViewField for S`: one field per struct
-//!   field, typed `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested
-//!   view for records, `UseGetForScalars` for scalars);
+//! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
+//!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
+//!   `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested view for
+//!   records, `UseGetForScalars` for scalars) or `<T as ViewFieldMut<'a, S>>::Out` (`&'a mut`
+//!   handles from the cache arena, `UseGetMutForScalars` for scalars);
+//! - `__write_pending` walks, so a root struct literal's `Lazy::new` values are written by
+//!   the flush without `.bind()`;
+//! - rejections: a missing `#[key]`, a reused or reserved tag, a v1 collection in a record
+//!   (v1-only names, or `store::`/`collections::`-qualified shared names), and a collection
+//!   as a map value (`Map<_, Set<_>>` and friends) at the field;
 //! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
 //!   the impl inapplicable instead of a compile error at the struct);
 //! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
@@ -220,6 +227,7 @@ pub fn expand(
     let mut known_arms = Vec::new();
     let mut dec = Vec::new();
     let mut bind = Vec::new();
+    let mut pending = Vec::new();
     let mut detach = Vec::new();
     let mut view_fields = Vec::new();
     let mut view_inits = Vec::new();
@@ -240,6 +248,7 @@ pub fn expand(
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
         }
         bind.push(quote! { #s::Value::bind(&mut self.#ident, &path.field(#t)); });
+        pending.push(quote! { #s::Value::__write_pending(&self.#ident, &path.field(#t)); });
         detach.push(quote! { #s::Value::detach(&mut self.#ident); });
         view_fields.push(quote! { #fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out, });
         view_inits.push(quote! {
@@ -331,6 +340,9 @@ pub fn expand(
                     fn __bind_root(&mut self, path: &#s::Path) {
                         #(#bind)*
                     }
+                    fn __write_pending_root(&self, path: &#s::Path) {
+                        #(#pending)*
+                    }
                 }
                 #decode_fields
                 #default_impl
@@ -413,6 +425,9 @@ pub fn expand(
                 }
                 fn detach(&mut self) {
                     #(#detach)*
+                }
+                fn __write_pending(&self, path: &#s::Path) {
+                    #(#pending)*
                 }
             }
 

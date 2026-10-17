@@ -1010,23 +1010,23 @@ impl<'a, T: Value> At<'a, Vector<T>> {
 /// `Lazy::new` that is never placed writes nothing. `Default` is an empty `Lazy`.
 pub struct Lazy<T> {
     path: Binding,
-    pending: Option<T>,
+    pending: core::cell::Cell<Option<T>>,
 }
 
 impl<T> Default for Lazy<T> {
     fn default() -> Self {
-        Lazy { path: Binding::Unbound, pending: None }
+        Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(None) }
     }
 }
 impl<T> core::fmt::Debug for Lazy<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Lazy({:?}, pending: {})", self.path, self.pending.is_some())
+        write!(f, "Lazy({:?})", self.path)
     }
 }
 impl<T> Lazy<T> {
     /// A `Lazy` holding `v`, written when its record is placed. See the type docs.
     pub fn new(v: T) -> Self {
-        Lazy { path: Binding::Unbound, pending: Some(v) }
+        Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(Some(v)) }
     }
     /// The path this handle is bound to, if any.
     pub fn path(&self) -> Option<&Path> {
@@ -1037,7 +1037,7 @@ impl<T> Lazy<T> {
     }
     #[doc(hidden)]
     pub fn __bound_at(path: Path) -> Self {
-        Lazy { path: Binding::Bound(path), pending: None }
+        Lazy { path: Binding::Bound(path), pending: core::cell::Cell::new(None) }
     }
 }
 
@@ -1061,7 +1061,15 @@ impl<T: Value> Value for Lazy<T> {
     }
     fn detach(&mut self) {
         self.path = Binding::Detached;
-        self.pending = None;
+        self.pending.set(None);
+    }
+    #[track_caller]
+    fn __write_pending(&self, path: &Path) {
+        if let Some(mut v) = self.pending.take() {
+            assert_insert_new::<T>(path);
+            v.bind(path);
+            cache::put(path, v);
+        }
     }
 }
 

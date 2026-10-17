@@ -5,8 +5,8 @@
 use std::collections::{BTreeSet, HashMap};
 
 use near_sdk::json_types::U128;
-use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, Map, KeyPage, Lazy};
+use near_sdk::state::testing::{self, Harness, Receipt};
+use near_sdk::state::{GroupedMap, KeyPage, Lazy, Map};
 use near_sdk::{AccountId, NearToken, env, near, require};
 
 pub type TokenId = String;
@@ -69,18 +69,18 @@ fn assert_one_yocto() {
 #[near]
 impl Nft {
     #[init]
+    /// Revision 3: `Lazy::new` in the struct literal, no `.bind()`: the root's pending `Lazy`
+    /// is written by the flush.
     pub fn new(owner: AccountId, metadata: NftContractMetadata) -> Self {
-        let mut this = Self {
+        Self {
             owner,
             tokens: Default::default(),
             tokens_per_owner: Default::default(),
-            metadata: Default::default(),
+            metadata: Lazy::new(metadata),
         }
-        .bind();
-        this.metadata.set(metadata);
-        this
     }
 
+    /// Revision 3: `Lazy::new(metadata)` is written when `insert` places the record.
     pub fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId, metadata: TokenMetadata) {
         require!(env::predecessor_account_id() == self.owner, "owner only");
         require!(!self.tokens.contains_key(&token_id), "token already exists");
@@ -90,11 +90,9 @@ impl Nft {
                 owner_id: receiver_id.clone(),
                 next_approval_id: 0,
                 approvals: Default::default(),
-                metadata: Default::default(),
+                metadata: Lazy::new(metadata),
             },
         );
-        // The Lazy is unbound until the record is placed, so set it through the map.
-        self.tokens.get_mut(&token_id).expect("just inserted").metadata.set(metadata);
         self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
@@ -134,8 +132,8 @@ impl Nft {
         token.approvals.clear();
         // `token` (a &mut into `self.tokens`) is still live here in the source order I first
         // wrote; disjoint field borrows make this fine.
-        // `discard`, not `remove`: `remove` reads the `()` value first (one extra read).
-        self.tokens_per_owner.group_mut(&old_owner).discard(&token_id);
+        // Revision 3: `remove` on a `()` value skips the entry read, so it costs `discard`.
+        self.tokens_per_owner.group_mut(&old_owner).remove(&token_id);
         self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
@@ -143,7 +141,7 @@ impl Nft {
         let owner = self.tokens.get(&token_id).expect("no such token").owner_id.clone();
         require!(owner == env::predecessor_account_id(), "only the owner can burn");
         self.tokens.remove(&token_id); // cached: no second read
-        self.tokens_per_owner.group_mut(&owner).discard(&token_id);
+        self.tokens_per_owner.group_mut(&owner).remove(&token_id);
     }
 
     pub fn nft_token(&self, token_id: TokenId) -> Option<JsonToken> {
@@ -166,19 +164,21 @@ impl Nft {
         U128(self.tokens_per_owner.group(&account_id).len() as u128)
     }
 
-    /// NEP-181: offset pagination.
+    /// NEP-181: offset pagination. Revision 3: `keys().skip(from).take(limit)`; `skip` reads
+    /// nothing.
     pub fn nft_tokens_for_owner(
         &self,
         account_id: AccountId,
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<JsonToken> {
-        let group = self.tokens_per_owner.group(&account_id);
-        let start = u32::try_from(from_index.map_or(0, |i| i.0)).unwrap_or(u32::MAX);
-        let limit = u32::try_from(limit.unwrap_or(50)).unwrap_or(u32::MAX);
-        let end = start.saturating_add(limit).min(group.len());
-        (start..end)
-            .map(|i| group.key_at(i).expect("dense"))
+        let from = usize::try_from(from_index.map_or(0, |i| i.0)).unwrap_or(usize::MAX);
+        let limit = usize::try_from(limit.unwrap_or(50)).unwrap_or(usize::MAX);
+        self.tokens_per_owner
+            .group(&account_id)
+            .keys()
+            .skip(from)
+            .take(limit)
             .map(|id| self.nft_token(id).expect("indexed token exists"))
             .collect()
     }
@@ -202,44 +202,26 @@ impl Nft {
 // harness
 // ---------------------------------------------------------------------------------------
 
-fn ctx(who: &str, deposit: u128) {
-    let ctx = near_sdk::test_utils::VMContextBuilder::new()
-        .predecessor_account_id(who.parse().unwrap())
-        .attached_deposit(NearToken::from_yoctonear(deposit))
-        .build();
-    near_sdk::testing_env!(ctx);
-}
-
 fn id(s: &str) -> AccountId {
     s.parse().unwrap()
 }
 
 fn init() -> Receipt {
-    ctx("minter.near", 0);
-    testing::use_mock();
-    let c = Nft::new(
-        id("minter.near"),
-        NftContractMetadata { spec: "nft-1.0.0".into(), name: "N".into(), symbol: "N".into() },
-    );
-    c.state_write();
-    testing::receipt()
+    Harness::init("minter.near", || {
+        Nft::new(
+            id("minter.near"),
+            NftContractMetadata { spec: "nft-1.0.0".into(), name: "N".into(), symbol: "N".into() },
+        )
+    })
+    .1
 }
 
 fn call<R>(who: &str, f: impl FnOnce(&mut Nft) -> R) -> (R, Receipt) {
-    ctx(who, 1);
-    testing::begin_call();
-    let mut c = Nft::state_read().unwrap();
-    let r = f(&mut c);
-    c.state_write();
-    (r, testing::receipt())
+    Harness::<Nft>::attach().call(who, NearToken::from_yoctonear(1), f)
 }
 
 fn view<R>(f: impl FnOnce(&Nft) -> R) -> (R, Receipt) {
-    testing::begin_call();
-    let c = Nft::state_read().unwrap();
-    let r = f(&c);
-    testing::assert_view_clean();
-    (r, testing::receipt())
+    Harness::<Nft>::attach().view(f)
 }
 
 fn mint(token: &str, to: &str) {
@@ -456,4 +438,32 @@ fn setting_a_nested_lazy_before_insert_panics() {
         t.metadata.set(TokenMetadata::default());
         c.tokens.insert("t1".into(), t);
     });
+}
+
+/// Revision 3: `Lazy::new` is the struct-literal form (`nft_mint` uses it); `set` on an
+/// unplaced `Lazy` still panics, as above. Here: the root's `Lazy::new` from `#[init]`, with
+/// no `.bind()`, is written by the flush.
+#[test]
+fn init_lazy_new_at_the_root_is_written_without_bind() {
+    init();
+    let (m, _) = view(|c| c.nft_metadata());
+    assert_eq!(m.name, "N");
+    let (t, _) = view(|c| c.nft_token("none".into()));
+    assert!(t.is_none());
+    mint("t1", "alice.near");
+    let (t, _) = view(|c| c.nft_token("t1".into()));
+    assert_eq!(t.unwrap().metadata.unwrap().title.as_deref(), Some("t1"));
+}
+
+/// Revision 3: `skip(from)` reads nothing, so a deep offset page costs what the first does.
+#[test]
+fn offset_page_cost_does_not_depend_on_the_offset() {
+    init();
+    for i in 0..6 {
+        mint(&format!("t{i}"), "alice.near");
+    }
+    let (first, r0) = view(|c| c.nft_tokens_for_owner(id("alice.near"), Some(U128(0)), Some(1)));
+    let (deep, r5) = view(|c| c.nft_tokens_for_owner(id("alice.near"), Some(U128(5)), Some(1)));
+    assert_eq!((first[0].token_id.as_str(), deep[0].token_id.as_str()), ("t0", "t5"));
+    assert_eq!(r0.rwd(), r5.rwd());
 }

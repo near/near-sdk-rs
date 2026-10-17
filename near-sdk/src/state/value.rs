@@ -31,6 +31,12 @@ pub trait Value: Sized + 'static {
 
     /// Detaches collections inside this value (after `remove`), so touching them panics.
     fn detach(&mut self) {}
+
+    /// Writes `Lazy::new` values held by this value (or its inline nested records) at
+    /// `path`, without binding. Called on the root by the flush, so a root built as a struct
+    /// literal in `#[init]` writes its pending `Lazy` values without a `.bind()` call.
+    #[doc(hidden)]
+    fn __write_pending(&self, _path: &Path) {}
 }
 
 impl<T: BorshSerialize + BorshDeserialize + 'static> Value for T {

@@ -1037,3 +1037,111 @@ fn cache_holds_every_touched_key_for_the_call() {
     assert_eq!(n, 100);
     assert_eq!(testing::cache_slots(), 1 + 2 * 100, "header + slot + entry per item, none freed");
 }
+
+// ---------------------------------------------------------------------------------------
+// Revision 3
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn map_insert_reports_whether_the_key_was_new() {
+    testing::use_mock();
+    let mut m: Map<u32, u32> = at(1);
+    assert!(m.insert(1, 10));
+    assert!(!m.insert(1, 11));
+    assert_eq!(m.get(&1), Some(&11));
+    end_call();
+    assert!(!m.insert(1, 12));
+    assert_eq!(end_call().rwd(), (1, 1, 0), "existing key: index read, entry write");
+}
+
+#[test]
+fn set_insert_of_an_existing_key_writes_nothing_and_set_has_map_parity() {
+    testing::use_mock();
+    let mut s: Set<u32> = at(2);
+    for i in 0..5 {
+        assert!(s.insert(i));
+    }
+    end_call();
+    assert!(!s.insert(3));
+    assert_eq!(end_call().rwd(), (1, 0, 0), "index read only");
+    assert_eq!(s.key_at(4), Some(4));
+    let p = s.page(None, 2);
+    assert_eq!((p.keys, p.next), (vec![0, 1], Some(1)));
+    end_call();
+    let got: StdVec<u32> = s.iter().skip(3).take(2).collect();
+    assert_eq!(got, vec![3, 4]);
+    assert_eq!(end_call().rwd(), (3, 0, 0), "header + 2 key slots; skip reads nothing");
+}
+
+#[test]
+fn skip_and_count_are_free_on_map_and_vector() {
+    testing::use_mock();
+    let mut m: Map<u32, u32> = at(3);
+    let mut v: Vector<u32> = at(4);
+    for i in 0..10 {
+        m.insert(i, i);
+        v.push(i);
+    }
+    end_call();
+    let x: StdVec<(u32, u32)> = m.iter().skip(8).map(|(k, v)| (k, *v)).collect();
+    assert_eq!(x, vec![(8, 8), (9, 9)]);
+    assert_eq!(end_call().rwd(), (5, 0, 0), "header + 2 x (key slot, entry)");
+    let y: StdVec<u32> = v.iter().skip(9).copied().collect();
+    assert_eq!(y, vec![9]);
+    assert_eq!(end_call().rwd(), (2, 0, 0), "header + 1 slot");
+    assert_eq!(m.iter().count(), 10);
+    assert_eq!(end_call().rwd(), (1, 0, 0), "count reads only the header");
+}
+
+#[test]
+fn unit_valued_remove_costs_what_discard_costs() {
+    testing::use_mock();
+    let mut a: Map<u32, ()> = at(5);
+    let mut b: Map<u32, ()> = at(6);
+    for i in 0..3 {
+        a.insert(i, ());
+        b.insert(i, ());
+    }
+    end_call();
+    assert_eq!(a.remove(&0), Some(()));
+    let ra = end_call();
+    assert!(b.discard(&0));
+    let rb = end_call();
+    assert_eq!(ra.rwd(), rb.rwd());
+    assert_eq!(a.remove(&0), None);
+}
+
+#[test]
+fn page_with_maps_record_values() {
+    testing::use_mock();
+    let mut m: Map<u32, Account> = at(7);
+    for i in 0..3u32 {
+        m.entry(i).or_default().nonce = u64::from(i) * 10;
+    }
+    end_call();
+    let p = m.page_with(None, 2, |k, a| (*k, a.nonce));
+    assert_eq!(p.items, vec![(0, (0, 0)), (1, (1, 10))]);
+    assert_eq!(p.next, Some(1));
+}
+
+#[test]
+fn at_mut_writes_below_the_record_without_reading_it() {
+    testing::use_mock();
+    let mut m: Map<u32, Account> = at(8);
+    m.entry(1).or_default().nonce = 7;
+    end_call();
+    m.at_mut(&1).balances.insert("usdt".into(), 5);
+    let r = end_call();
+    assert_eq!(r.has_keys(), 1, "existence check");
+    assert_eq!(r.rwd(), (2, 4, 0), "balances index + header reads, 4 writes; record not read");
+    assert_eq!(m.get(&1).unwrap().balances.get(&"usdt".to_string()), Some(&5));
+    assert_eq!(m.get(&1).unwrap().nonce, 7);
+}
+
+#[test]
+#[should_panic(expected = "`at_mut` on a record that does not exist")]
+fn at_mut_on_an_absent_record_panics() {
+    testing::use_mock();
+    let mut m: Map<u32, Account> = at(9);
+    let _ = m.at_mut(&9);
+}

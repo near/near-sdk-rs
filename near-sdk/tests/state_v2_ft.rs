@@ -3,7 +3,7 @@
 #![cfg(feature = "unstable")]
 
 use near_sdk::json_types::U128;
-use near_sdk::state::testing::{self, Receipt};
+use near_sdk::state::testing::{self, Harness, Receipt};
 use near_sdk::state::{ContractState, Lazy, LookupMap};
 use near_sdk::{AccountId, NearToken, Promise, env, near, require};
 
@@ -151,16 +151,8 @@ impl Ft {
 }
 
 // ---------------------------------------------------------------------------------------
-// harness (copied from state_v2_exchange.rs, plus a deposit)
+// harness (revision 3: `state::testing::Harness`)
 // ---------------------------------------------------------------------------------------
-
-fn ctx(who: &str, deposit: NearToken) {
-    let ctx = near_sdk::test_utils::VMContextBuilder::new()
-        .predecessor_account_id(who.parse().unwrap())
-        .attached_deposit(deposit)
-        .build();
-    near_sdk::testing_env!(ctx);
-}
 
 fn id(s: &str) -> AccountId {
     s.parse().unwrap()
@@ -171,20 +163,11 @@ fn meta() -> FtMetadata {
 }
 
 fn init() -> Receipt {
-    ctx("owner.near", NearToken::from_yoctonear(0));
-    testing::use_mock();
-    let c = Ft::new(id("owner.near"), U128(1_000), meta());
-    c.state_write();
-    testing::receipt()
+    Harness::init("owner.near", || Ft::new(id("owner.near"), U128(1_000), meta())).1
 }
 
 fn call_with<R>(who: &str, deposit: NearToken, f: impl FnOnce(&mut Ft) -> R) -> (R, Receipt) {
-    ctx(who, deposit);
-    testing::begin_call();
-    let mut c = Ft::state_read().unwrap();
-    let r = f(&mut c);
-    c.state_write();
-    (r, testing::receipt())
+    Harness::<Ft>::attach().call(who, deposit, f)
 }
 
 fn call<R>(who: &str, f: impl FnOnce(&mut Ft) -> R) -> (R, Receipt) {
@@ -192,11 +175,7 @@ fn call<R>(who: &str, f: impl FnOnce(&mut Ft) -> R) -> (R, Receipt) {
 }
 
 fn view<R>(f: impl FnOnce(&Ft) -> R) -> (R, Receipt) {
-    testing::begin_call();
-    let c = Ft::state_read().unwrap();
-    let r = f(&c);
-    testing::assert_view_clean();
-    (r, testing::receipt())
+    Harness::<Ft>::attach().view(f)
 }
 
 fn register(who: &str) {
@@ -344,13 +323,13 @@ fn views_read_only_what_they_need() {
 /// the mocked blockchain's `storage_usage`, which the counting mock does not track.
 #[test]
 fn storage_bond_covers_one_account() {
-    ctx("owner.near", NearToken::from_yoctonear(0));
+    testing::set_context("owner.near", NearToken::from_yoctonear(0));
     testing::use_env_host();
     let c = Ft::new(id("owner.near"), U128(1_000), meta());
     c.state_write();
     drop(c);
     // testing_env! resets storage_usage from the builder, so measure after switching context.
-    ctx("a-rather-long-account-name-for-measuring-storage.near", storage_bond());
+    testing::set_context("a-rather-long-account-name-for-measuring-storage.near", storage_bond());
     let before = env::storage_usage();
     testing::begin_call();
     let mut c = Ft::state_read().unwrap();

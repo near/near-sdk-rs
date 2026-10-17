@@ -21,6 +21,8 @@ pub trait Root: Sized {
     fn __decode_root(bytes: &[u8], path: &Path) -> Result<Self, RecordError>;
     #[doc(hidden)]
     fn __bind_root(&mut self, path: &Path);
+    #[doc(hidden)]
+    fn __write_pending_root(&self, _path: &Path) {}
 
     /// Binds the root's collections to their paths. Idempotent. An `#[init]` body that seeds
     /// collections writes `let mut this = Exchange { .. }.bind();` (with `Root` in scope).
@@ -58,6 +60,9 @@ pub fn load_root<T: Root>() -> T {
 /// last, written only if its encoding changed. Returns whether the root was written.
 pub fn flush_root<T: Root>(root: &T) -> bool {
     let p = T::root_path();
+    // `Lazy::new` values in a root built as a struct literal (an `#[init]` body without
+    // `.bind()`) are written here, so they are not lost.
+    root.__write_pending_root(&p);
     cache::flush(Some((&p, &|orig| root.__encode_root(orig))))
 }
 

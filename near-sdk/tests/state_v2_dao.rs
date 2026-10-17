@@ -2,9 +2,9 @@
 //! record), written against `near_sdk::state` (storage v2).
 #![cfg(feature = "unstable")]
 
-use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, Map, Set, Page};
-use near_sdk::{AccountId, env, near, require};
+use near_sdk::state::testing::{self, Harness, Receipt};
+use near_sdk::state::{Map, Page, Set};
+use near_sdk::{AccountId, NearToken, env, near, require};
 
 pub type ProposalId = u64;
 
@@ -137,13 +137,14 @@ impl Dao {
         id
     }
 
+    /// Revision 3: `at_mut` reaches `votes` without reading the proposal record (or the
+    /// member's), and `insert` returning `bool` is the double-vote check.
     pub fn vote(&mut self, id: ProposalId, vote: Vote) {
         let voter = env::predecessor_account_id();
-        let member = self.members.get_mut(&voter).expect("members only");
-        let proposal = self.proposals.get_mut(&id).expect("no such proposal");
-        require!(!proposal.votes.contains_key(&voter), "already voted");
-        proposal.votes.insert(voter, vote);
-        member.votes.insert(id);
+        require!(self.members.contains_key(&voter), "members only");
+        require!(self.proposals.contains_key(&id), "no such proposal");
+        require!(self.proposals.at_mut(&id).votes.insert(voter.clone(), vote), "already voted");
+        self.members.at_mut(&voter).votes.insert(id);
     }
 
     /// Counts the votes, removes the proposal, and reports the outcome.
@@ -174,20 +175,12 @@ impl Dao {
     }
 
     pub fn get_proposal(&self, id: ProposalId) -> Option<ProposalJson> {
-        let p = self.proposals.get(&id)?;
-        let votes: Vec<(AccountId, Vote)> = p.votes.iter().map(|(k, v)| (k, *v)).collect();
-        let (yes, no) = tally(&p.votes);
-        Some(ProposalJson { id, proposer: p.proposer.clone(), description: p.description.clone(), yes, no, votes })
+        self.proposals.get(&id).map(|p| proposal_json(id, p))
     }
 
-    /// Paginated proposals, as views.
+    /// Paginated proposals, as views. Revision 3: `page_with` maps each record.
     pub fn proposals(&self, after: Option<ProposalId>, limit: u32) -> Page<ProposalId, ProposalJson> {
-        // `page` needs `V: Clone`, which a record holding a collection can never be.
-        let page = self.proposals.keys_page(after.as_ref(), limit);
-        Page {
-            items: page.keys.into_iter().map(|id| (id, self.get_proposal(id).unwrap())).collect(),
-            next: page.next,
-        }
+        self.proposals.page_with(after.as_ref(), limit, |id, p| proposal_json(*id, p))
     }
 
     pub fn is_member(&self, account_id: AccountId) -> bool {
@@ -199,6 +192,12 @@ impl Dao {
     }
 }
 
+fn proposal_json(id: ProposalId, p: &Proposal) -> ProposalJson {
+    let votes: Vec<(AccountId, Vote)> = p.votes.iter().map(|(k, v)| (k, *v)).collect();
+    let (yes, no) = tally(&p.votes);
+    ProposalJson { id, proposer: p.proposer.clone(), description: p.description.clone(), yes, no, votes }
+}
+
 fn tally(votes: &Map<AccountId, Vote>) -> (u32, u32) {
     votes.iter().fold((0, 0), |(y, n), (_, v)| match v {
         Vote::Yes => (y + 1, n),
@@ -207,43 +206,23 @@ fn tally(votes: &Map<AccountId, Vote>) -> (u32, u32) {
 }
 
 // ---------------------------------------------------------------------------------------
-// harness
+// harness (revision 3: `state::testing::Harness` instead of copied boilerplate)
 // ---------------------------------------------------------------------------------------
-
-fn ctx(who: &str) {
-    let ctx = near_sdk::test_utils::VMContextBuilder::new()
-        .predecessor_account_id(who.parse().unwrap())
-        .build();
-    near_sdk::testing_env!(ctx);
-}
 
 fn id(s: &str) -> AccountId {
     s.parse().unwrap()
 }
 
 fn init() -> Receipt {
-    ctx("council.near");
-    testing::use_mock();
-    let c = Dao::new(id("council.near"), 2, 50);
-    c.state_write();
-    testing::receipt()
+    Harness::init("council.near", || Dao::new(id("council.near"), 2, 50)).1
 }
 
 fn call<R>(who: &str, f: impl FnOnce(&mut Dao) -> R) -> (R, Receipt) {
-    ctx(who);
-    testing::begin_call();
-    let mut c = Dao::state_read().unwrap();
-    let r = f(&mut c);
-    c.state_write();
-    (r, testing::receipt())
+    Harness::<Dao>::attach().call(who, NearToken::from_yoctonear(0), f)
 }
 
 fn view<R>(f: impl FnOnce(&Dao) -> R) -> (R, Receipt) {
-    testing::begin_call();
-    let c = Dao::state_read().unwrap();
-    let r = f(&c);
-    testing::assert_view_clean();
-    (r, testing::receipt())
+    Harness::<Dao>::attach().view(f)
 }
 
 fn setup(members: &[&str]) {
@@ -400,15 +379,24 @@ fn vote_op_counts() {
     setup(&["a.near", "b.near"]);
     let (pid, _) = call("a.near", |c| c.propose("x".repeat(2_000)));
     let (_, r) = call("b.near", |c| c.vote(pid, Vote::Yes));
-    // reads: root, member record, proposal record (to reach its `votes`), votes index +
-    // header (insert), member votes-set index + header. has_key: the double-vote check.
-    // writes: 4 for the votes Map entry, 4 for the member's Set entry. Neither record
-    // is rewritten (unchanged encoding).
-    assert_eq!(r.rwd(), (7, 8, 0));
-    assert_eq!(r.has_keys(), 1);
-    // The proposal record, description and all, is read just to insert a vote: there is no
-    // `at_mut`, so the only way to a nested collection for writing is `get_mut` on its record.
-    assert!(r.read_bytes() > 2_000, "read {} bytes", r.read_bytes());
+    // Revision 3, with `at_mut` and `insert -> bool`. reads: root, votes index + header
+    // (insert), member votes-set index + header. has_key: member and proposal existence
+    // (`at_mut` reuses them from the cache). writes: 4 for the votes Map entry, 4 for the
+    // member's Set entry. Before: (7, 8, 0) + 1 has_key, reading both records.
+    assert_eq!(r.rwd(), (5, 8, 0));
+    assert_eq!(r.has_keys(), 2);
+    // The proposal record (2,000-byte description) is no longer read to insert a vote.
+    assert!(r.read_bytes() < 500, "read {} bytes", r.read_bytes());
+}
+
+/// Revision 3: `at_mut` on an absent record panics instead of creating orphan children.
+#[test]
+#[should_panic(expected = "`at_mut` on a record that does not exist")]
+fn at_mut_on_absent_record_panics() {
+    setup(&["a.near"]);
+    call("a.near", |c| {
+        c.proposals.at_mut(&99).votes.insert(id("a.near"), Vote::Yes);
+    });
 }
 
 #[test]
