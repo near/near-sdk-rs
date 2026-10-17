@@ -408,6 +408,30 @@ fn v1_leaf_nested_in_a_cached_record_writes_late_not_lost() {
     drop(c);
 }
 
+/// Against revision item 6 ("no leaf can orphan anything"): a nested v1 collection that slips
+/// past the name check is Borsh, hence blanket-`Removable`, so `remove` compiles and leaves
+/// the v1 entries behind with nothing pointing at them.
+#[test]
+fn removing_a_record_with_a_nested_v1_field_orphans_its_entries() {
+    setup();
+    testing::begin_call();
+    let mut c = Legacy::state_read().unwrap();
+    let mut u = User { notes: near_sdk::store::LookupMap::new(b"n2".to_vec()) };
+    u.notes.insert(7, 77);
+    c.users.insert(2, u);
+    c.state_write();
+    drop(c);
+    let k = v1_key(b"n2", 7);
+    assert!(env::storage_has_key(&k));
+
+    testing::begin_call();
+    let mut c = Legacy::state_read().unwrap();
+    assert!(c.users.remove(&2).is_some());
+    c.state_write();
+    drop(c);
+    assert!(env::storage_has_key(&k), "orphaned: the record is gone, its v1 entry is not");
+}
+
 } // mod legacy
 
 
