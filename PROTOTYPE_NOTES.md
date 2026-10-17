@@ -512,7 +512,7 @@ How to run:
 
 ```text
 (cd examples/fungible-token && NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p fungible-token-v2)          # migration.rs (16), nested_trap.rs (1)
-NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable,unit-testing --test state_v2_migrate  # 4
+NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable,unit-testing --test state_v2_migrate  # 5
 (cd proto-migration-sim && CARGO_TARGET_DIR=~/Developer/near-contract-sim-scenario/target cargo +1.95.0 test --test ft_upgrade -- --nocapture --include-ignored)  # 2
 ```
 
