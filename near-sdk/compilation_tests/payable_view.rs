@@ -1,4 +1,4 @@
-//! Payable view are not valid
+//! Payable view methods are now valid since nearcore PR #8433
 
 use near_sdk::near;
 
