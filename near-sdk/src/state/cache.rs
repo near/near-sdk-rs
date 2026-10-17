@@ -125,11 +125,13 @@ pub(crate) struct Cache {
     slots: BTreeMap<Vec<u8>, NonNull<Slot>>,
     /// Key of the root record, excluded from the ordered pass and written last.
     root: Option<Vec<u8>>,
+    /// Collection handles handed out by reference (`group_mut`); freed with the slots.
+    handles: std::vec::Vec<NonNull<dyn Any>>,
 }
 
 impl Cache {
     fn new(host: Box<dyn Host>) -> Self {
-        Cache { host, slots: BTreeMap::new(), root: None }
+        Cache { host, slots: BTreeMap::new(), root: None, handles: std::vec::Vec::new() }
     }
 
     fn slot(&mut self, key: &[u8]) -> NonNull<Slot> {
@@ -161,21 +163,43 @@ impl Cache {
         sp
     }
 
-    /// Takes every slot out of the cache; the caller drops them outside the `RefCell` borrow.
-    fn take_slots(&mut self) -> std::vec::Vec<NonNull<Slot>> {
+    /// Takes every slot and handle out of the cache; the caller drops them outside the
+    /// `RefCell` borrow.
+    fn take_slots(&mut self) -> Taken {
         self.root = None;
-        core::mem::take(&mut self.slots).into_values().collect()
+        Taken {
+            slots: core::mem::take(&mut self.slots).into_values().collect(),
+            handles: core::mem::take(&mut self.handles),
+        }
     }
 }
 
-/// Frees slots and their values (outside the cache borrow, so a value's `Drop`, e.g. a v1
-/// collection's write-on-drop, may call the host).
-fn free_slots(slots: std::vec::Vec<NonNull<Slot>>) {
-    for sp in slots {
+struct Taken {
+    slots: std::vec::Vec<NonNull<Slot>>,
+    handles: std::vec::Vec<NonNull<dyn Any>>,
+}
+
+/// Frees slots and their values, then handles (outside the cache borrow, so a value's `Drop`,
+/// e.g. a v1 collection's write-on-drop, may call the host).
+fn free_slots(taken: Taken) {
+    for sp in taken.slots {
         // SAFETY: invariant 4; the slot has been removed from the cache.
         let mut slot = unsafe { Box::from_raw(sp.as_ptr()) };
         slot.drop_value();
     }
+    for hp in taken.handles {
+        // SAFETY: invariant 4 (handles are freed with the slots).
+        unsafe { drop(Box::from_raw(hp.as_ptr())) };
+    }
+}
+
+/// Moves a collection handle into the per-call arena and returns a pointer that stays valid
+/// until the next flush or `begin_call` (invariant 4). Used so `GroupedMap::group_mut` can hand
+/// out `&'a mut IterMap` whose reads live as long as the `GroupedMap` borrow, not a temporary.
+pub(crate) fn arena<T: Any>(v: T) -> NonNull<T> {
+    let p = NonNull::from(Box::leak(Box::new(v)));
+    with(|c| c.handles.push(p));
+    p
 }
 
 std::thread_local! {

@@ -41,7 +41,7 @@ impl Value for Account {
     }
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let f = p::parse(bytes)?;
-        Ok(Self { nonce: p::field(&f, 1, path)?, balances: p::field(&f, 2, path)? })
+        Ok(Self { nonce: p::field(&f, 1, Some(path))?, balances: p::field(&f, 2, Some(path))? })
     }
     fn bind(&mut self, path: &Path) {
         Value::bind(&mut self.nonce, &path.field(1));
@@ -108,7 +108,7 @@ impl Root for Ex {
     }
     fn __decode_root(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let f = p::parse(bytes)?;
-        Ok(Self { fee_bps: p::field(&f, 2, path)?, accounts: p::field(&f, 3, path)? })
+        Ok(Self { fee_bps: p::field(&f, 2, Some(path))?, accounts: p::field(&f, 3, Some(path))? })
     }
     fn __bind_root(&mut self, path: &Path) {
         Value::bind(&mut self.fee_bps, &path.field(2));
@@ -600,7 +600,7 @@ impl Value for Slim {
     }
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let f = p::parse(bytes)?;
-        Ok(Self { nonce: p::field(&f, 1, path)? })
+        Ok(Self { nonce: p::field(&f, 1, Some(path))? })
     }
 }
 

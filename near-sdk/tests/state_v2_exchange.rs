@@ -6,7 +6,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, IterMap, Lazy, Map, Page, Root};
+use near_sdk::state::{ContractState, GroupedMap, IterMap, Lazy, Map, Page};
 use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
@@ -105,6 +105,13 @@ impl Exchange {
 
     pub fn place(&mut self, market: MarketId, id: OrderId, order: Order) {
         self.orders.group_mut(&market).insert(id, order);
+    }
+
+    // Revision 2 item 1: the reference outlives the `group_mut` temporary (E0716 before).
+    pub fn fill(&mut self, market: MarketId, order: OrderId, qty: U128) -> U128 {
+        let o = self.orders.group_mut(&market).get_mut(&order).expect("no such order");
+        o.qty -= qty.0;
+        o.qty.into()
     }
 
     pub fn set_fee(&mut self, fee_bps: u16) {
@@ -220,6 +227,46 @@ fn cancel_through_grouped_map() {
     assert_eq!(r.rwd(), (5, 3, 3));
     let (_, r) = call("alice.near", |c| c.cancel(7, 99));
     assert_eq!(r.rwd(), (2, 0, 0), "cancelling an unknown order: root + entry read");
+}
+
+/// Revision 2 item 1: `group_mut(&m).get_mut(&k)` bound to a `let`, and a named group handle
+/// used for several operations, compile and cost what the plain `IterMap` costs.
+#[test]
+fn group_mut_references_outlive_the_temporary() {
+    init("owner.near");
+    call("alice.near", |c| {
+        c.place(7, 1, Order { price: 1, qty: 10 });
+        c.place(7, 2, Order { price: 1, qty: 20 });
+    });
+    let (left, r) = call("alice.near", |c| c.fill(7, 1, U128(4)));
+    assert_eq!(left.0, 6);
+    assert_eq!(r.rwd(), (2, 1, 0), "root + order read, order write");
+
+    let (sum, _) = call("alice.near", |c| {
+        let g = c.orders.group_mut(&7);
+        g.get_mut(&1).unwrap().qty += 1;
+        let b = g.get_mut(&2).unwrap();
+        b.qty += 1;
+        let total = b.qty + g.get(&1).unwrap().qty;
+        g.insert(3, Order { price: 2, qty: 0 });
+        total
+    });
+    assert_eq!(sum, 21 + 7);
+    let (n, _) = view(|c| c.orders.group(&7).len());
+    assert_eq!(n, 3);
+}
+
+/// Revision 2 item 3: a key over its declared `MAX_LEN` panics at the map hop, naming the
+/// limit. The limit is in borsh bytes: a `String` key may hold 512 bytes of text, which the
+/// message reports as 516 (the 4-byte length prefix included).
+#[test]
+#[should_panic(expected = "storage key is 604 bytes, over its declared MAX_LEN of 516")]
+fn oversized_key_panics_naming_the_limit() {
+    init("owner.near");
+    call("alice.near", |c| {
+        let acct = c.accounts.entry(alice()).or_default();
+        acct.balances.insert("x".repeat(600), 1);
+    });
 }
 
 #[test]

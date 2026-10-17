@@ -76,45 +76,41 @@ pub mod __private {
 
     pub type Fields<'a> = std::vec::Vec<(u32, &'a [u8])>;
 
-    /// Decodes field `tag`, or its `Default` (bound at `path ++ tag`) if missing.
+    /// Decodes field `tag`, or its `Default` if missing. With a path, the value is bound at
+    /// `path ++ tag`; without one (the generated `Default`), it stays unbound. The generated
+    /// `decode_value` and `Default` both go through here, so a missing `Default` is reported
+    /// once per field.
     pub fn field<T: Value + crate::state::FieldDefault>(
         fields: &Fields<'_>,
         tag: u32,
-        path: &Path,
+        path: Option<&Path>,
     ) -> Result<T, RecordError> {
-        let fp = path.field(tag);
-        match find(fields, tag) {
-            Some(b) if T::INLINE => {
-                T::decode_value(b, &fp).map_err(|e| RecordError::Field { tag, msg: e.to_string() })
-            }
-            _ => {
+        match (find(fields, tag), path) {
+            (Some(b), Some(path)) if T::INLINE => T::decode_value(b, &path.field(tag))
+                .map_err(|e| RecordError::Field { tag, msg: e.to_string() }),
+            (_, path) => {
                 let mut v = T::field_default();
-                v.bind(&fp);
+                if let Some(path) = path {
+                    v.bind(&path.field(tag));
+                }
                 Ok(v)
             }
         }
-    }
-
-    /// The `Default` a generated `impl Default` uses for one field (unbound).
-    pub fn field_default<T: crate::state::FieldDefault>() -> T {
-        T::field_default()
     }
 
     /// Decodes a `#[key(n, required)]` field: missing is an error instead of a default.
     pub fn field_required<T: Value>(
         fields: &Fields<'_>,
         tag: u32,
-        path: &Path,
+        path: Option<&Path>,
     ) -> Result<T, RecordError> {
         if !T::INLINE {
             return Err(RecordError::Leaf("`required` on a collection field".into()));
         }
-        let fp = path.field(tag);
-        match find(fields, tag) {
-            Some(b) => {
-                T::decode_value(b, &fp).map_err(|e| RecordError::Field { tag, msg: e.to_string() })
-            }
-            None => Err(RecordError::Missing { tag }),
+        match (find(fields, tag), path) {
+            (Some(b), Some(path)) => T::decode_value(b, &path.field(tag))
+                .map_err(|e| RecordError::Field { tag, msg: e.to_string() }),
+            _ => Err(RecordError::Missing { tag }),
         }
     }
 

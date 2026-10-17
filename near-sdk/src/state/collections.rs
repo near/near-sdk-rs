@@ -1003,22 +1003,10 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
 /// A group's `IterMap`, read-only, with reads living as long as the `GroupedMap` borrow.
 pub type Group<'a, K, V> = At<'a, IterMap<K, V>>;
 
-/// A group's `IterMap`, mutably borrowed from the `GroupedMap`.
-pub struct GroupMut<'a, K, V> {
-    map: IterMap<K, V>,
-    _m: PhantomData<&'a mut ()>,
-}
-impl<K, V> core::ops::Deref for GroupMut<'_, K, V> {
-    type Target = IterMap<K, V>;
-    fn deref(&self) -> &IterMap<K, V> {
-        &self.map
-    }
-}
-impl<K, V> core::ops::DerefMut for GroupMut<'_, K, V> {
-    fn deref_mut(&mut self) -> &mut IterMap<K, V> {
-        &mut self.map
-    }
-}
+/// A group's `IterMap`, mutably borrowed from the `GroupedMap` for `'a`. A plain `&mut`, so
+/// `let o = orders.group_mut(&m).get_mut(&k);` borrows from the `GroupedMap`, not a
+/// temporary. The handle lives in the per-call cache arena until the flush (invariant 4).
+pub type GroupMut<'a, K, V> = &'a mut IterMap<K, V>;
 
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> GroupedMap<G, K, V> {
     #[track_caller]
@@ -1031,7 +1019,11 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
     }
     #[track_caller]
     pub fn group_mut(&mut self, g: &G) -> GroupMut<'_, K, V> {
-        GroupMut { map: IterMap::__bound_at(self.group_path(g)), _m: PhantomData }
+        let p = cache::arena(IterMap::<K, V>::__bound_at(self.group_path(g)));
+        // SAFETY: the handle is a fresh allocation owned by the cache arena and freed only at
+        // the flush / `begin_call` (invariant 4). `&mut self` for `'_` makes this the only
+        // `&mut` reachable from this `GroupedMap` during the borrow.
+        unsafe { &mut *p.as_ptr() }
     }
 }
 

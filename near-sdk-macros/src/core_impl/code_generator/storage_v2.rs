@@ -8,7 +8,7 @@
 //!   bind / detach, and `MAX_SUBPATH` summed over fields;
 //! - `SView<'a>` plus `impl Record for S` and `impl ViewField for S`: one field per struct
 //!   field, typed `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested
-//!   view for records, `ScalarNotInView` for scalars);
+//!   view for records, `UseGetForScalars` for scalars);
 //! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
 //!   the impl inapplicable instead of a compile error at the struct);
 //! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
@@ -181,7 +181,6 @@ pub fn expand(
     let mut view_inits = Vec::new();
     let mut removable_bounds = Vec::new();
     let mut clear = Vec::new();
-    let mut defaults = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required } in &fields {
         let t = tag_lit(*tag);
@@ -190,10 +189,9 @@ pub fn expand(
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
         // Spanned at the field type, so a missing `Default` points at the field.
         if *required {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(&f, #t, path)?, });
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
         } else {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(&f, #t, path)?, });
-            defaults.push(quote_spanned! {ty.span()=> #ident: #p::field_default::<#ty>(), });
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
         }
         bind.push(quote! { #s::Value::bind(&mut self.#ident, &path.field(#t)); });
         detach.push(quote! { #s::Value::detach(&mut self.#ident); });
@@ -225,9 +223,23 @@ pub fn expand(
             _ => true,
         })
     };
+    // The one place each field's decode (and its `FieldDefault` bound) is spelled, shared by
+    // `decode_value` and the generated `Default`, so a missing `Default` is reported once.
+    let decode_fields = quote! {
+        impl #name {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            fn __decode_fields(
+                f: &#p::Fields<'_>,
+                path: ::core::option::Option<&#s::Path>,
+            ) -> ::core::result::Result<Self, #s::RecordError> {
+                ::core::result::Result::Ok(Self { #(#dec)* })
+            }
+        }
+    };
     let decode_body = quote! {
         let f = #p::parse(bytes)?;
-        ::core::result::Result::Ok(Self { #(#dec)* })
+        Self::__decode_fields(&f, ::core::option::Option::Some(path))
     };
     let user_default = derives(&item, &["Default", "PanicOnDefault", "SmartDefault"]);
 
@@ -269,8 +281,19 @@ pub fn expand(
                         #(#bind)*
                     }
                 }
+                #decode_fields
                 #default_impl
             };
+
+            impl #name {
+                /// Binds the root's collections to their paths, for an `#[init]` body that
+                /// seeds them: `let mut this = Self { .. }.bind();`. Idempotent; the wrapper
+                /// binds the returned root anyway.
+                #[track_caller]
+                pub fn bind(self) -> Self {
+                    <Self as #s::Root>::bind(self)
+                }
+            }
         });
     }
 
@@ -279,7 +302,11 @@ pub fn expand(
         quote! {
             impl ::core::default::Default for #name {
                 fn default() -> Self {
-                    Self { #(#defaults)* }
+                    // no `required` field, so decoding an empty record cannot fail
+                    match Self::__decode_fields(&::std::vec::Vec::new(), ::core::option::Option::None) {
+                        ::core::result::Result::Ok(v) => v,
+                        ::core::result::Result::Err(e) => ::core::panic!("state: {e}"),
+                    }
                 }
             }
         }
@@ -341,6 +368,7 @@ pub fn expand(
                 }
             }
 
+            #decode_fields
             #default_impl
         };
     })

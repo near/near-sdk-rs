@@ -90,7 +90,7 @@ impl<T: BorshSerialize + BorshDeserialize + 'static> Removable for T {}
 ///
 /// Collections and `Lazy` appear as [`At`](super::At) handles bound to the nested path, whose
 /// reads live as long as the view's borrow. Nested records appear as their own view. Scalars
-/// appear as [`ScalarNotInView`]: `at` walks the path without reading; use `get` to read a
+/// appear as `UseGetForScalars` (hidden from docs): `at` walks the path without reading; use `get` to read a
 /// record's scalars.
 pub trait ViewField<'a, R: Value>: Value {
     type Out;
@@ -99,13 +99,16 @@ pub trait ViewField<'a, R: Value>: Value {
 }
 
 /// The type a scalar field has inside a `View`: nothing can be done with it. `at(&k)` walks the
-/// path without reading the record; read scalars with `get(&k)`.
+/// path without reading the record; read scalars with `get(&k)`. The name is the hint: it is
+/// what autocomplete shows for `at(&k).nonce`, and `.get()` on it fails with "no method named
+/// `get` found for struct `UseGetForScalars`".
+#[doc(hidden)]
 #[derive(Clone, Copy, Debug)]
-pub struct ScalarNotInView;
+pub struct UseGetForScalars;
 
 impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewField<'a, R> for T {
-    type Out = ScalarNotInView;
-    fn __view_field(_field_path: Path) -> ScalarNotInView {
-        ScalarNotInView
+    type Out = UseGetForScalars;
+    fn __view_field(_field_path: Path) -> UseGetForScalars {
+        UseGetForScalars
     }
 }

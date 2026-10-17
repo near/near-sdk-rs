@@ -22,6 +22,15 @@ pub trait ContractState {
         <Self as StateRead>::read_state(Self::state_key())
     }
 
+    /// Writes the contract state. The `#[near]` wrapper calls this after a mutating method.
+    ///
+    /// For a storage v2 root (`contract_state(layout = v2)`) this flushes the per-call cache
+    /// and then frees every cached record. Any `&V` or `&mut V` obtained from a collection
+    /// before the call dangles afterwards. Borrowck does not catch it, because `state_write`
+    /// takes `&self` and the reference is a shared borrow of the same root. The wrapper never
+    /// does this (it writes after the method body returns). Code that calls `state_write()` by
+    /// hand in the middle of a method must drop every reference it read first, and re-read
+    /// through the collections afterwards. In debug builds this is not checked; Miri catches it.
     #[inline]
     #[track_caller]
     fn state_write(&self) -> bool
@@ -102,4 +111,4 @@ pub use record::RecordError;
 #[cfg(feature = "unstable")]
 pub use root::{Root, __private, flush_root, load_root, raw_root, root_exists};
 #[cfg(feature = "unstable")]
-pub use value::{FieldDefault, Record, Removable, ScalarNotInView, Value, ViewField};
+pub use value::{FieldDefault, Record, Removable, UseGetForScalars, Value, ViewField};
