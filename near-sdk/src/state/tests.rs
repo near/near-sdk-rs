@@ -117,12 +117,12 @@ pub struct Ex {
     pub fee_bps: u16,
     pub accounts: Map<AccountId, Account>,
 }
-impl Value for Ex {
+impl Root for Ex {
     const MAX_SUBPATH: usize = p::max(
         p::field_subpath::<u16>(2),
         p::field_subpath::<Map<AccountId, Account>>(3),
     );
-    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+    fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
         let mut w = p::RecordWriter::new();
         p::encode_field(&mut w, of.as_ref(), 2, &self.fee_bps);
@@ -133,20 +133,11 @@ impl Value for Ex {
             _ => true,
         })
     }
-    fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
+    fn __decode_root(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let f = p::parse(bytes)?;
         Ok(Self { fee_bps: p::field(&f, 2, path)?, accounts: p::field(&f, 3, path)? })
     }
-    fn bind(&mut self, path: &Path) {
-        Value::bind(&mut self.fee_bps, &path.field(2));
-        Value::bind(&mut self.accounts, &path.field(3));
-    }
 }
-impl Record for Ex {
-    type View<'a> = ();
-    fn __view<'a>(_: Path) -> Self::View<'a> {}
-}
-impl Root for Ex {}
 
 // ---------------------------------------------------------------------------------------
 // helpers
@@ -677,7 +668,7 @@ fn max_subpath_is_summed_along_the_schema() {
     // Ex: tag 3 (1) + kind (1) + h16 (16) + AccountId (68) + Account subpath
     // Account: tag 2 (1) + kind (1) + h16 (16) + String (516) + 0
     assert_eq!(<Account as Value>::MAX_SUBPATH, 1 + 1 + 16 + 516);
-    assert_eq!(<Ex as Value>::MAX_SUBPATH, 1 + 1 + 16 + 68 + 534);
+    assert_eq!(<Ex as Root>::MAX_SUBPATH, 1 + 1 + 16 + 68 + 534);
 }
 
 // ---------------------------------------------------------------------------------------

@@ -132,6 +132,11 @@ pub fn use_mock() {
     begin_call();
 }
 
+/// Routes the cache to `env::storage_*` (the mocked blockchain under `unit-testing`).
+pub fn use_env_host() {
+    cache::install_host(Box::new(cache::EnvHost));
+}
+
 /// Starts a new call: empty cache, empty receipt. The store persists.
 pub fn begin_call() {
     cache::begin_call();

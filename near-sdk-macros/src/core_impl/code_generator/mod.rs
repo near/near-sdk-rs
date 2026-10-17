@@ -9,5 +9,6 @@ mod item_impl_info;
 pub(crate) mod ext;
 pub(crate) mod metadata;
 pub(crate) mod state;
+pub(crate) mod storage_v2;
 
 pub(crate) mod serializer;

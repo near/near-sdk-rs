@@ -4,14 +4,22 @@
 use super::cache;
 use super::key::{MAX_KEY_LEN, Path};
 use super::record::{self, RecordError};
-use super::value::{Record, Value};
+use super::value::Value;
 
 /// A v2 contract root: a record at the root key.
-pub trait Root: Record {
+///
+/// Deliberately NOT a `Value`: the root must also implement Borsh (placeholder impls) to
+/// satisfy the `#[near]` wrapper's `ContractState` bounds, and a Borsh type already gets the
+/// blanket leaf `Value` impl, so a generated `impl Value` would conflict (E0119). The root
+/// therefore carries its own copies of the record methods. See PROTOTYPE_NOTES.md.
+pub trait Root: Sized {
     const ROOT_BYTE: u8 = super::key::DEFAULT_ROOT;
+    const MAX_SUBPATH: usize;
     fn root_path() -> Path {
         Path::root(Self::ROOT_BYTE)
     }
+    fn __encode_root(&self, orig: Option<&[u8]>) -> std::vec::Vec<u8>;
+    fn __decode_root(bytes: &[u8], path: &Path) -> Result<Self, RecordError>;
 }
 
 /// Called before the method body: starts the call, reads the root record once, decodes it
@@ -28,7 +36,7 @@ pub fn load_root<T: Root>() -> T {
     cache::begin_call();
     let p = T::root_path();
     let bytes = cache::read_root(&p);
-    T::decode_value(bytes.as_deref().unwrap_or(&[]), &p)
+    T::__decode_root(bytes.as_deref().unwrap_or(&[]), &p)
         .unwrap_or_else(|e| crate::env::panic_str(&format!("state: cannot decode root: {e}")))
 }
 
@@ -36,7 +44,7 @@ pub fn load_root<T: Root>() -> T {
 /// last, written only if its encoding changed. Returns whether the root was written.
 pub fn flush_root<T: Root>(root: &T) -> bool {
     let p = T::root_path();
-    cache::flush(Some((&p, &|orig| root.encode_value(orig))))
+    cache::flush(Some((&p, &|orig| root.__encode_root(orig))))
 }
 
 /// Raw tagged fields of the stored root, for a `migrate(old: RawRecord)` hook.
