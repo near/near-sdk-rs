@@ -22,6 +22,7 @@ impl ContractStateArgs {
         self,
         ident: &Ident,
         generics: &Generics,
+        near_sdk_crate: &syn::Path,
     ) -> proc_macro2::TokenStream {
         let key = self.key.map(|key| {
             quote! {
@@ -33,7 +34,7 @@ impl ContractStateArgs {
         });
         quote! {
             const _: () = {
-                impl ::near_sdk::state::ContractState for #generics #ident #generics {
+                impl #near_sdk_crate::state::ContractState for #generics #ident #generics {
                     #key
                 }
             };
