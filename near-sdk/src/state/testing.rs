@@ -13,6 +13,8 @@ pub enum OpKind {
     Read,
     Write,
     Remove,
+    /// `storage_has_key`: charged per key byte, moves no value bytes.
+    HasKey,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +45,9 @@ impl Receipt {
     pub fn writes(&self) -> usize {
         self.count(OpKind::Write)
     }
+    pub fn has_keys(&self) -> usize {
+        self.count(OpKind::HasKey)
+    }
     pub fn removes(&self) -> usize {
         self.count(OpKind::Remove)
     }
@@ -68,7 +73,7 @@ impl Receipt {
         self.ops.iter().map(|o| o.value_len.max(o.replaced_len.unwrap_or(0))).max().unwrap_or(0)
     }
     pub fn keys_written(&self) -> Vec<Vec<u8>> {
-        self.ops.iter().filter(|o| o.kind != OpKind::Read).map(|o| o.key.clone()).collect()
+        self.ops.iter().filter(|o| matches!(o.kind, OpKind::Write | OpKind::Remove)).map(|o| o.key.clone()).collect()
     }
 }
 
@@ -109,6 +114,19 @@ impl Host for MockHost {
                 value_len: value.len(),
                 replaced_len: old.map(|o| o.len()),
             });
+        })
+    }
+    fn has_key(&mut self, key: &[u8]) -> bool {
+        MOCK.with(|m| {
+            let mut m = m.borrow_mut();
+            let present = m.store.contains_key(key);
+            m.receipt.ops.push(Op {
+                kind: OpKind::HasKey,
+                key: key.to_vec(),
+                value_len: 0,
+                replaced_len: None,
+            });
+            present
         })
     }
     fn remove(&mut self, key: &[u8]) {

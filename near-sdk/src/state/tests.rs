@@ -47,9 +47,9 @@ impl Value for Account {
         Value::bind(&mut self.nonce, &path.field(1));
         Value::bind(&mut self.balances, &path.field(2));
     }
-    fn unbind(&mut self) {
-        Value::unbind(&mut self.nonce);
-        Value::unbind(&mut self.balances);
+    fn detach(&mut self) {
+        Value::detach(&mut self.nonce);
+        Value::detach(&mut self.balances);
     }
 }
 
@@ -63,12 +63,8 @@ impl Record for Account {
     type View<'a> = AccountView<'a>;
     fn __view<'a>(path: Path) -> AccountView<'a> {
         AccountView {
-            nonce: <u64 as ViewField<'a, Account>>::__view_field(&path, path.field(1), |r| &r.nonce),
-            balances: <IterMap<String, u128> as ViewField<'a, Account>>::__view_field(
-                &path,
-                path.field(2),
-                |r| &r.balances,
-            ),
+            nonce: <u64 as ViewField<'a, Account>>::__view_field(path.field(1)),
+            balances: <IterMap<String, u128> as ViewField<'a, Account>>::__view_field(path.field(2)),
             _m: PhantomData,
         }
     }
@@ -114,6 +110,10 @@ impl Root for Ex {
         let f = p::parse(bytes)?;
         Ok(Self { fee_bps: p::field(&f, 2, path)?, accounts: p::field(&f, 3, path)? })
     }
+    fn __bind_root(&mut self, path: &Path) {
+        Value::bind(&mut self.fee_bps, &path.field(2));
+        Value::bind(&mut self.accounts, &path.field(3));
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -130,7 +130,9 @@ fn big() -> StdVec<u8> {
     vec![7u8; 100 * 1024]
 }
 fn at<C: Default + Value>(tag: u32) -> C {
-    C::missing_at(&Path::root(DEFAULT_ROOT).field(tag))
+    let mut c = C::default();
+    c.bind(&Path::root(DEFAULT_ROOT).field(tag));
+    c
 }
 const KIB100: usize = 100 * 1024;
 
@@ -583,35 +585,108 @@ fn unknown_tags_survive_a_rewrite() {
     assert_eq!(f, vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (9, &[0xAA, 0xBB][..])]);
 }
 
-/// Overwriting a record with `insert`: whether a newer version's unknown tags survive depends
-/// on whether this call happened to read the key first. The merge source is "bytes stored at
-/// this key", known only after a read.
+/// Hand-expanded scalar-only record `Slim { #[key(1)] nonce: u64 }` (owns no collections, so
+/// `insert` stays a blind overwrite).
+#[derive(Default, Debug)]
+pub struct Slim {
+    pub nonce: u64,
+}
+impl Value for Slim {
+    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+        let of = p::parse_orig(orig);
+        let mut w = p::RecordWriter::new();
+        p::encode_field(&mut w, of.as_ref(), 1, &self.nonce);
+        w.finish(orig, |t| t != 1)
+    }
+    fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
+        let f = p::parse(bytes)?;
+        Ok(Self { nonce: p::field(&f, 1, path)? })
+    }
+}
+
+/// Item 8: a blind `insert` replaces the record whole and drops unknown tags, whether or not
+/// the call read the key first (round 1: it depended on the read). `get_mut` preserves them.
 #[test]
-fn unknown_tags_on_overwrite_depend_on_whether_the_key_was_read() {
+fn blind_insert_drops_unknown_tags_get_mut_keeps_them() {
     let newer = || {
         let mut w = record::RecordWriter::new();
         w.push(1, borsh::to_vec(&1u64).unwrap());
         w.push(9, vec![0xAA]);
         w.finish(None, |_| true)
     };
+    let key = Path::root(DEFAULT_ROOT).field(7).kind(kind::ENTRIES).entry(&1u32);
     let tags = || {
-        record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>()
+        record::parse(&store()[key.as_bytes()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>()
     };
 
-    testing::use_mock();
-    seed(&alice_record_key(), &newer());
-    let mut ex: Ex = load_root();
-    ex.accounts.insert(alice(), Account { nonce: 2, balances: Default::default() });
-    flush_root(&ex);
-    assert_eq!(tags(), vec![1], "blind overwrite: tag 9 dropped");
+    for read_first in [false, true] {
+        testing::use_mock();
+        seed(key.as_bytes(), &newer());
+        let mut m: Map<u32, Slim> = at(7);
+        if read_first {
+            let _ = m.get(&1);
+        }
+        m.insert(1, Slim { nonce: 2 });
+        testing::flush();
+        assert_eq!(tags(), vec![1], "blind insert drops tag 9 (read_first = {read_first})");
+    }
 
     testing::use_mock();
-    seed(&alice_record_key(), &newer());
+    seed(key.as_bytes(), &newer());
+    let mut m: Map<u32, Slim> = at(7);
+    m.get_mut(&1).unwrap().nonce = 2;
+    testing::flush();
+    assert_eq!(tags(), vec![1, 9], "read-modify-write keeps tag 9");
+}
+
+/// Item 15: insert of a record that owns collections is insert-new: 1 has_key + 1 write.
+#[test]
+fn insert_of_new_record_costs_a_has_key_and_a_write() {
+    testing::use_mock();
     let mut ex: Ex = load_root();
-    let _ = ex.accounts.get(&alice());
-    ex.accounts.insert(alice(), Account { nonce: 2, balances: Default::default() });
     flush_root(&ex);
-    assert_eq!(tags(), vec![1, 9], "read-then-overwrite: tag 9 kept");
+    testing::begin_call();
+    let mut ex2: Ex = load_root();
+    let before = receipt();
+    ex2.accounts.insert(alice(), Account::default());
+    flush_root(&ex2);
+    let r = receipt();
+    assert_eq!(r.has_keys() - before.has_keys(), 1);
+    assert_eq!(r.writes() - before.writes(), 1);
+    let _ = &mut ex;
+}
+
+/// Item 17: `contains_key` is one `storage_has_key` (no value bytes) when uncached, and a
+/// later `get` still reads.
+#[test]
+fn contains_key_uses_has_key() {
+    testing::use_mock();
+    let mut m: Map<u32, StdVec<u8>> = at(1);
+    m.insert(1, big());
+    end_call();
+    assert!(m.contains_key(&1));
+    assert!(!m.contains_key(&2));
+    let r = end_call();
+    assert_eq!((r.has_keys(), r.reads()), (2, 0));
+    assert_eq!(r.max_value_bytes(), 0, "no value bytes moved for a 100 KiB value");
+
+    assert!(m.contains_key(&1));
+    assert_eq!(m.get(&1).unwrap().len(), KIB100);
+    assert!(m.contains_key(&1), "cached now");
+    let r = end_call();
+    assert_eq!((r.has_keys(), r.reads()), (1, 1));
+
+    let _ = m.get(&1);
+    assert!(m.contains_key(&1));
+    let r = end_call();
+    assert_eq!((r.has_keys(), r.reads()), (0, 1), "after a read, contains_key is free");
+
+    // has_key then remove/insert still flush correctly
+    assert!(m.contains_key(&1));
+    m.discard(&1);
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 0, 1));
+    assert!(store().is_empty());
 }
 
 #[test]
@@ -727,10 +802,14 @@ fn balance_of_via_at_is_one_read_and_never_loads_the_record() {
     assert_eq!(r.reads() - before, 1);
     assert!(r.ops.iter().all(|o| o.key != alice_record_key()));
 
-    // a scalar through the view reads the record once
-    assert_eq!(ex.accounts.at(&alice()).nonce.get(), Some(&0));
-    assert_eq!(ex.accounts.at(&alice()).nonce.get(), Some(&0));
+    // scalars: `get` reads the record once (item 1: `at` navigates, `get` reads)
+    assert_eq!(ex.accounts.get(&alice()).map(|a| a.nonce), Some(0));
+    assert_eq!(ex.accounts.get(&alice()).map(|a| a.nonce), Some(0));
     assert_eq!(receipt().reads() - before, 2);
+
+    // item 3: a read through a view outlives the view temporary
+    let bal = ex.accounts.at(&alice()).balances.get(&"usdt".into());
+    assert_eq!(bal, Some(&5));
 }
 
 #[test]
@@ -740,7 +819,7 @@ fn view_on_absent_key() {
     let v = ex.accounts.at(&bob());
     assert_eq!(v.balances.len(), 0);
     assert_eq!(v.balances.get(&"usdt".into()), None);
-    assert_eq!(v.nonce.get(), None);
+    assert!(ex.accounts.get(&bob()).is_none());
     assert!(v.balances.page(None, 10).items.is_empty());
 }
 
@@ -766,9 +845,10 @@ fn removing_a_record_clears_its_collections() {
     assert_eq!(store().len(), 1, "only the root is left, nothing orphaned");
 }
 
+/// Item 16: the removed record's collections are detached, with their own message.
 #[test]
-#[should_panic(expected = "not bound")]
-fn removed_records_collections_are_unbound() {
+#[should_panic(expected = "collection detached by remove; read it before removing")]
+fn removed_records_collections_are_detached() {
     testing::use_mock();
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
@@ -776,15 +856,15 @@ fn removed_records_collections_are_unbound() {
     testing::begin_call();
     let mut ex: Ex = load_root();
     let a = ex.accounts.remove(&alice()).unwrap();
-    // Without unbinding, this would write under alice's (cleared) path and orphan the key.
+    // Without detaching, this would write under alice's (cleared) path and orphan the key.
     a.balances.len();
 }
 
-/// Inserting a fresh record over an existing one does not clear the old record's
-/// collections: the new record's (empty, unbound) collections bind to the same path and
-/// see the old children.
+/// Item 15: inserting a record that owns collections over an existing key panics instead of
+/// silently inheriting the old record's children (round 1 behaviour).
 #[test]
-fn insert_over_existing_record_keeps_old_children() {
+#[should_panic(expected = "record exists; use get_mut, or remove it first")]
+fn insert_over_existing_record_panics() {
     testing::use_mock();
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
@@ -792,13 +872,13 @@ fn insert_over_existing_record_keeps_old_children() {
     testing::begin_call();
     let mut ex: Ex = load_root();
     ex.accounts.insert(alice(), Account { nonce: 9, balances: IterMap::default() });
-    assert_eq!(ex.accounts.get(&alice()).unwrap().balances.len(), 1, "old balances still there");
 }
 
-/// Moving a record to another key: its collections were cleared by `remove`, so the moved
-/// record arrives with empty collections. No error, data gone.
+/// Item 16: moving a record between keys is remove + rebuild. Re-inserting the removed value
+/// panics instead of silently arriving with empty collections (round 1 behaviour).
 #[test]
-fn moving_a_record_between_keys_drops_its_collections() {
+#[should_panic(expected = "build a new record instead of re-inserting the removed one")]
+fn moving_a_record_between_keys_panics() {
     testing::use_mock();
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
@@ -807,7 +887,54 @@ fn moving_a_record_between_keys_drops_its_collections() {
     let mut ex: Ex = load_root();
     let a = ex.accounts.remove(&alice()).unwrap();
     ex.accounts.insert(bob(), a);
-    assert_eq!(ex.accounts.get(&bob()).unwrap().balances.len(), 0);
+}
+
+/// Item 16, the supported path: a removed record's scalars stay readable and a new record is
+/// built from them.
+#[test]
+fn remove_then_rebuild() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    ex.accounts.get_mut(&alice()).unwrap().nonce = 4;
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    let bal = *ex.accounts.at(&alice()).balances.get(&"a".into()).unwrap(); // read first
+    let old = ex.accounts.remove(&alice()).unwrap();
+    let new = ex.accounts.entry(bob()).or_default();
+    new.nonce = old.nonce;
+    new.balances.insert("a".into(), bal);
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    assert_eq!(ex.accounts.get(&bob()).unwrap().nonce, 4);
+    assert_eq!(ex.accounts.at(&bob()).balances.get(&"a".into()), Some(&1));
+}
+
+/// Item 4: the sequential transfer pattern compiles, and the second `entry` on the same
+/// record is free (cached).
+#[test]
+fn sequential_transfer_pattern() {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "t", 10);
+    deposit(&mut ex, bob(), "t", 0);
+    flush_root(&ex);
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    let t: String = "t".into();
+    *ex.accounts.entry(alice()).or_default().balances.entry(t.clone()).or_default() -= 3;
+    *ex.accounts.entry(bob()).or_default().balances.entry(t.clone()).or_default() += 3;
+    let reads_after_transfer = receipt().reads();
+    // touching the same records again costs nothing
+    *ex.accounts.entry(alice()).or_default().balances.entry(t.clone()).or_default() -= 1;
+    *ex.accounts.entry(bob()).or_default().balances.entry(t).or_default() += 1;
+    assert_eq!(receipt().reads(), reads_after_transfer);
+    flush_root(&ex);
+    let r = receipt();
+    // root, 2 records, 2 balance entries; 2 balance writes (records unchanged)
+    assert_eq!(r.rwd(), (5, 2, 0));
 }
 
 /// `mem::take` on a `&mut Record` moves a bound collection handle out and leaves an unbound

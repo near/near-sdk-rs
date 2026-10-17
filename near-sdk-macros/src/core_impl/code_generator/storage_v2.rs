@@ -1,19 +1,24 @@
 //! Code generation for `#[near(storage)]` records and `#[near(contract_state(layout = v2))]`
 //! roots (storage v2 prototype, see PROTOTYPE_NOTES.md at the repo root).
 //!
-//! For a struct `S` with `#[key(n)]` on every named field this emits:
+//! For a record `S` with `#[key(n)]` on every named field this emits:
 //! - the struct itself with the `#[key]` attributes stripped;
 //! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
-//!   decode (missing tag -> `Default`, or an error for `#[key(n, required)]`), bind / unbind,
-//!   and `MAX_SUBPATH` summed over fields;
-//! - `SView<'a>` plus `impl Record for S`: one public field per struct field, typed
-//!   `<T as ViewField<'a, S>>::Out` (a bound handle for collections, a lazy `Scalar` otherwise);
+//!   decode (missing tag -> `FieldDefault`, or an error for `#[key(n, required)]`),
+//!   bind / detach, and `MAX_SUBPATH` summed over fields;
+//! - `SView<'a>` plus `impl Record for S` and `impl ViewField for S`: one field per struct
+//!   field, typed `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested
+//!   view for records, `ScalarNotInView` for scalars);
 //! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
 //!   the impl inapplicable instead of a compile error at the struct);
-//! - for a root: `impl Root`, and the `ContractState` overrides (emitted by `state.rs`).
+//! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
+//!
+//! For a root: `impl Root` (encode, decode, bind), `impl Default` (decode of an empty record,
+//! unless derived), and the `ContractState` / `StateRead` / `StateWrite` impls from
+//! [`contract_state_v2`].
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{Fields, ItemStruct, LitInt, spanned::Spanned};
 
 pub struct V2Options {
@@ -28,6 +33,45 @@ struct KeyedField {
     vis: syn::Visibility,
     tag: u32,
     required: bool,
+}
+
+/// v1 collection type names. A record (not the root) holding one is rejected: v1 collections
+/// belong at the root. Best effort: a renamed import or a type alias slips through, and v1
+/// `Lazy`/`LazyOption` cannot be told apart from `state::Lazy` by name.
+const V1_NAMES: &[&str] = &[
+    "LookupMap",
+    "LookupSet",
+    "IterableMap",
+    "IterableSet",
+    "UnorderedMap",
+    "UnorderedSet",
+    "TreeMap",
+    "Vector",
+    "LegacyTreeMap",
+];
+
+fn v1_name(ty: &syn::Type) -> Option<String> {
+    let syn::Type::Path(tp) = ty else { return None };
+    let last = tp.path.segments.last()?.ident.to_string();
+    V1_NAMES.contains(&last.as_str()).then_some(last)
+}
+
+fn derives(item: &ItemStruct, names: &[&str]) -> bool {
+    item.attrs.iter().any(|a| {
+        if !a.path().is_ident("derive") {
+            return false;
+        }
+        let mut hit = false;
+        let _ = a.parse_nested_meta(|meta| {
+            if let Some(last) = meta.path.segments.last()
+                && names.iter().any(|n| last.ident == n)
+            {
+                hit = true;
+            }
+            Ok(())
+        });
+        hit
+    })
 }
 
 fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool)> {
@@ -58,13 +102,18 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool)> {
     Ok((tag, required))
 }
 
-pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) -> syn::Result<TokenStream> {
+pub fn expand(
+    mut item: ItemStruct,
+    opts: V2Options,
+    struct_attrs: TokenStream,
+) -> syn::Result<TokenStream> {
     if !item.generics.params.is_empty() {
         return Err(syn::Error::new(
             item.generics.span(),
             "storage v2 prototype: generic records are not supported",
         ));
     }
+    let is_root = opts.root.is_some();
     let Fields::Named(named) = &mut item.fields else {
         return Err(syn::Error::new(item.span(), "storage records need named fields"));
     };
@@ -103,6 +152,15 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
                 format!("tag {tag} is already used by `{}`", prev.ident),
             ));
         }
+        if !is_root && let Some(n) = v1_name(&f.ty) {
+            return Err(syn::Error::new(
+                f.ty.span(),
+                format!(
+                    "v1 collection `{n}` inside a storage record: v1 collections belong at the \
+                     contract root (their write-on-drop and removal do not compose with records)"
+                ),
+            ));
+        }
         fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), tag, required });
     }
 
@@ -118,28 +176,30 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
     let mut known_arms = Vec::new();
     let mut dec = Vec::new();
     let mut bind = Vec::new();
-    let mut unbind = Vec::new();
+    let mut detach = Vec::new();
     let mut view_fields = Vec::new();
     let mut view_inits = Vec::new();
     let mut removable_bounds = Vec::new();
     let mut clear = Vec::new();
+    let mut defaults = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required } in &fields {
         let t = tag_lit(*tag);
         max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
+        // Spanned at the field type, so a missing `Default` points at the field.
         if *required {
-            dec.push(quote! { #ident: #p::field_required::<#ty>(&f, #t, path)?, });
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(&f, #t, path)?, });
         } else {
-            dec.push(quote! { #ident: #p::field::<#ty>(&f, #t, path)?, });
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(&f, #t, path)?, });
+            defaults.push(quote_spanned! {ty.span()=> #ident: #p::field_default::<#ty>(), });
         }
         bind.push(quote! { #s::Value::bind(&mut self.#ident, &path.field(#t)); });
-        unbind.push(quote! { #s::Value::unbind(&mut self.#ident); });
+        detach.push(quote! { #s::Value::detach(&mut self.#ident); });
         view_fields.push(quote! { #fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out, });
         view_inits.push(quote! {
-            #ident: <#ty as #s::ViewField<'a, #name>>::__view_field(
-                &path, path.field(#t), |r: &#name| &r.#ident),
+            #ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#t)),
         });
         removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
         clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
@@ -169,9 +229,26 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
         let f = #p::parse(bytes)?;
         ::core::result::Result::Ok(Self { #(#dec)* })
     };
+    let user_default = derives(&item, &["Default", "PanicOnDefault", "SmartDefault"]);
 
     if let Some(root) = &opts.root {
-        // A root is not a `Value` (see `state::Root` docs): it only needs encode/decode.
+        // A root never returns `None` from `state_read`, but the wrapper's `unwrap_or_default()`
+        // still needs `Default`: decode an empty record at the root path (bound collections;
+        // panics on a `required` field).
+        let default_impl = (!user_default).then(|| {
+            quote! {
+                impl ::core::default::Default for #name {
+                    fn default() -> Self {
+                        let path = <Self as #s::Root>::root_path();
+                        <Self as #s::Root>::__decode_root(&[], &path).unwrap_or_else(|e| {
+                            ::near_sdk::env::panic_str(&::std::format!(
+                                "state: `Default` for a v2 root decodes an empty record: {e}"
+                            ))
+                        })
+                    }
+                }
+            }
+        });
         return Ok(quote! {
             #struct_attrs
             #item
@@ -188,12 +265,30 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
                     {
                         #decode_body
                     }
+                    fn __bind_root(&mut self, path: &#s::Path) {
+                        #(#bind)*
+                    }
                 }
+                #default_impl
             };
         });
     }
 
-    let view_doc = format!("Path-bound view of [`{name}`] returned by `at()`; reads nothing by itself.");
+    let has_required = fields.iter().any(|f| f.required);
+    let default_impl = (!user_default && !has_required).then(|| {
+        quote! {
+            impl ::core::default::Default for #name {
+                fn default() -> Self {
+                    Self { #(#defaults)* }
+                }
+            }
+        }
+    });
+
+    let view_doc = format!(
+        "Path-bound view of [`{name}`] returned by `at()`: collection and `Lazy` fields as \
+         handles, nothing read. Scalars are not readable here; use `get` for them."
+    );
 
     Ok(quote! {
         #struct_attrs
@@ -220,8 +315,8 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
                 fn bind(&mut self, path: &#s::Path) {
                     #(#bind)*
                 }
-                fn unbind(&mut self) {
-                    #(#unbind)*
+                fn detach(&mut self) {
+                    #(#detach)*
                 }
             }
 
@@ -232,21 +327,28 @@ pub fn expand(mut item: ItemStruct, opts: V2Options, struct_attrs: TokenStream) 
                 }
             }
 
+            impl<'a, __R: #s::Value> #s::ViewField<'a, __R> for #name {
+                type Out = #view<'a>;
+                fn __view_field(field_path: #s::Path) -> #view<'a> {
+                    <#name as #s::Record>::__view(field_path)
+                }
+            }
+
             #[allow(unused_lifetimes)]
             impl #s::Removable for #name where #(#removable_bounds)* {
                 fn clear_children(path: &#s::Path) {
                     #(#clear)*
                 }
             }
+
+            #default_impl
         };
     })
 }
 
-/// `ContractState` overrides and placeholder Borsh impls for a v2 root.
-///
-/// The `#[near]` method wrapper calls `ContractState::state_read()` / `state_write()`, whose
-/// default bodies carry `where Self: BorshDeserialize` / `BorshSerialize`. An override cannot
-/// drop those bounds, so the root must implement Borsh even though it is never Borsh-encoded.
+/// `ContractState` and the wrapper hooks for a v2 root. No Borsh impls: the wrapper's
+/// `state_read()` / `state_write()` are bounded on `StateRead` / `StateWrite`, which v1 roots
+/// get from a Borsh blanket and v2 roots get here.
 pub fn contract_state_v2(ident: &syn::Ident, root: &TokenStream) -> TokenStream {
     quote! {
         const _: () = {
@@ -256,32 +358,19 @@ pub fn contract_state_v2(ident: &syn::Ident, root: &TokenStream) -> TokenStream 
                     const KEY: [u8; 1] = [#root];
                     &KEY
                 }
-                fn state_read() -> ::core::option::Option<Self>
-                where
-                    Self: ::near_sdk::borsh::BorshDeserialize,
-                {
+                fn state_exists() -> bool {
+                    ::near_sdk::state::root_exists::<Self>()
+                }
+            }
+            impl ::near_sdk::state::StateRead for #ident {
+                fn read_state(_key: &[u8]) -> ::core::option::Option<Self> {
                     ::core::option::Option::Some(::near_sdk::state::load_root::<Self>())
                 }
-                fn state_write(&self) -> bool
-                where
-                    Self: ::near_sdk::borsh::BorshSerialize,
-                {
+            }
+            impl ::near_sdk::state::StateWrite for #ident {
+                fn write_state(&self, _key: &[u8]) -> bool {
                     ::near_sdk::state::flush_root(self);
                     true
-                }
-            }
-            impl ::near_sdk::borsh::BorshSerialize for #ident {
-                fn serialize<W: ::near_sdk::borsh::io::Write>(&self, _: &mut W)
-                    -> ::near_sdk::borsh::io::Result<()>
-                {
-                    ::core::unreachable!("a storage v2 root is a tagged record, not Borsh")
-                }
-            }
-            impl ::near_sdk::borsh::BorshDeserialize for #ident {
-                fn deserialize_reader<R: ::near_sdk::borsh::io::Read>(_: &mut R)
-                    -> ::near_sdk::borsh::io::Result<Self>
-                {
-                    ::core::unreachable!("a storage v2 root is a tagged record, not Borsh")
                 }
             }
         };

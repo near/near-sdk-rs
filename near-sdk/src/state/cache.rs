@@ -2,7 +2,7 @@
 //!
 //! A read fills a slot, a write marks it dirty, a remove marks it deleted, and a mutable
 //! hand-out marks it touched (re-encoded and compared at flush). The flush writes each
-//! modified key once, in key order, with the root record last.
+//! modified key once, in key order, with the root record last, and then drops every slot.
 //!
 //! # Safety invariant for the references collections hand out
 //!
@@ -17,10 +17,12 @@
 //!    `clear`). Borrowck then guarantees no reference from *that handle* is alive.
 //! 3. Exactly one handle can produce a `&mut` to a given key: the borrow chain from the
 //!    single root. This is NOT type-enforced. Two roots alive at once (possible in tests by
-//!    calling `state_read()` twice), or a `View` and a `&mut` record reached from different
-//!    roots, can alias. See PROTOTYPE_NOTES.md.
-//! 4. `begin_call` does not free the previous call's slots; it leaks them, so a reference that
-//!    outlives a test's "call" stays valid (but stale). On chain the instance ends instead.
+//!    calling `state_read()` twice) can alias.
+//! 4. The flush (and `begin_call`) frees every slot. No reference obtained from the root may
+//!    be alive at the flush. The wrapper guarantees this (it flushes after the method body
+//!    returns); code calling `state_write(&root)` by hand while holding a reference does not,
+//!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
+//!    what makes a v1 collection nested in a v2 record run its write-on-drop.
 
 use super::key::Path;
 use super::value::Value;
@@ -32,6 +34,7 @@ use std::collections::BTreeMap;
 /// Every storage host call `state` makes goes through this trait. Private to the crate.
 pub(crate) trait Host {
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>>;
+    fn has_key(&mut self, key: &[u8]) -> bool;
     fn write(&mut self, key: &[u8], value: &[u8]);
     fn remove(&mut self, key: &[u8]);
 }
@@ -42,6 +45,9 @@ pub(crate) struct EnvHost;
 impl Host for EnvHost {
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
         crate::env::storage_read(key)
+    }
+    fn has_key(&mut self, key: &[u8]) -> bool {
+        crate::env::storage_has_key(key)
     }
     fn write(&mut self, key: &[u8], value: &[u8]) {
         crate::env::storage_write(key, value);
@@ -70,6 +76,8 @@ enum Orig {
     /// Never read in this call.
     Unknown,
     Absent,
+    /// Known present (from `storage_has_key`), bytes not read.
+    PresentUnread,
     Present(Vec<u8>),
 }
 
@@ -98,6 +106,9 @@ struct Slot {
     /// Current decoded value; `None` means absent (or never decoded, for raw slots).
     value: Option<NonNull<dyn Erased>>,
     mode: Mode,
+    /// Whether the flush merges unknown tags from `orig`. A blind `put` replaces the value
+    /// whole, so it clears this; read-modify-write keeps it.
+    merge: bool,
 }
 
 impl Slot {
@@ -129,6 +140,7 @@ impl Cache {
             orig: Orig::Unknown,
             value: None,
             mode: Mode::Clean,
+            merge: true,
         })));
         self.slots.insert(key.to_vec(), s);
         s
@@ -139,13 +151,30 @@ impl Cache {
         let mut sp = self.slot(key);
         // SAFETY: slots are only accessed inside cache operations (invariant 1).
         let s = unsafe { sp.as_mut() };
-        if s.orig == Orig::Unknown && s.mode == Mode::Clean {
+        let unread = matches!(s.orig, Orig::Unknown | Orig::PresentUnread);
+        if unread && s.value.is_none() && s.mode == Mode::Clean {
             s.orig = match self.host.read(key) {
                 Some(b) => Orig::Present(b),
                 None => Orig::Absent,
             };
         }
         sp
+    }
+
+    /// Takes every slot out of the cache; the caller drops them outside the `RefCell` borrow.
+    fn take_slots(&mut self) -> std::vec::Vec<NonNull<Slot>> {
+        self.root = None;
+        core::mem::take(&mut self.slots).into_values().collect()
+    }
+}
+
+/// Frees slots and their values (outside the cache borrow, so a value's `Drop`, e.g. a v1
+/// collection's write-on-drop, may call the host).
+fn free_slots(slots: std::vec::Vec<NonNull<Slot>>) {
+    for sp in slots {
+        // SAFETY: invariant 4; the slot has been removed from the cache.
+        let mut slot = unsafe { Box::from_raw(sp.as_ptr()) };
+        slot.drop_value();
     }
 }
 
@@ -157,16 +186,14 @@ fn with<R>(f: impl FnOnce(&mut Cache) -> R) -> R {
     CACHE.with(|c| f(&mut c.borrow_mut()))
 }
 
-/// Starts a new call: forgets every slot (leaking them, invariant 4), keeps the host.
+/// Starts a new call: frees every slot, keeps the host.
 pub(crate) fn begin_call() {
-    with(|c| {
-        c.slots = BTreeMap::new();
-        c.root = None;
-    });
+    free_slots(with(|c| c.take_slots()));
 }
 
 /// Replaces the host and starts a new call.
 pub(crate) fn install_host(host: Box<dyn Host>) {
+    begin_call();
     with(|c| *c = Cache::new(host));
 }
 
@@ -189,8 +216,6 @@ pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
             (sp, s.orig.bytes().map(<[u8]>::to_vec))
         }
     });
-    // Decode outside the RefCell borrow: decoding a record binds its collections, which
-    // never touches the cache, but keep the borrow short regardless.
     // SAFETY: invariant 1.
     let s = unsafe { sp.as_mut() };
     if let Some(bytes) = bytes {
@@ -212,6 +237,32 @@ pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
     }
 }
 
+/// Whether a value exists at `path`: answered from the cache, else one `storage_has_key`
+/// (no value bytes moved).
+pub(crate) fn exists(path: &Path) -> bool {
+    with(|c| {
+        let key = path.as_bytes();
+        let mut sp = c.slot(key);
+        // SAFETY: invariant 1.
+        let s = unsafe { sp.as_mut() };
+        if s.value.is_some() {
+            return true;
+        }
+        if s.mode == Mode::Deleted {
+            return false;
+        }
+        match s.orig {
+            Orig::Absent => false,
+            Orig::Present(_) | Orig::PresentUnread => true,
+            Orig::Unknown => {
+                let present = c.host.has_key(key);
+                s.orig = if present { Orig::PresentUnread } else { Orig::Absent };
+                present
+            }
+        }
+    })
+}
+
 /// Marks a key whose value was handed out as `&mut`.
 pub(crate) fn touch(path: &Path) {
     with(|c| {
@@ -224,7 +275,8 @@ pub(crate) fn touch(path: &Path) {
     })
 }
 
-/// Writes a value without reading the key first.
+/// Writes a value without reading the key first. The value replaces whatever is stored,
+/// unknown tags included.
 pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     let mut sp = with(|c| c.slot(path.as_bytes()));
     // SAFETY: invariants 1 and 2.
@@ -234,6 +286,7 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     let p = NonNull::from(Box::leak(b));
     s.value = Some(p);
     s.mode = Mode::Dirty;
+    s.merge = false;
     // SAFETY: just allocated as a `V`.
     let any = unsafe { (*p.as_ptr()).as_any_mut() };
     NonNull::from(any.downcast_mut::<V>().expect("just stored"))
@@ -272,12 +325,13 @@ pub(crate) fn root_orig(path: &Path) -> Option<Vec<u8>> {
     })
 }
 
-/// Flushes every modified key once in key order, then the root record last.
+/// Flushes every modified key once in key order, then the root record last, then frees
+/// every slot (invariant 4).
 ///
 /// `root` is `(root path, encoder)`; the encoder receives the root's original bytes so it can
 /// preserve unknown tags. Returns whether the root was written.
 pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) -> bool {
-    with(|c| {
+    let (wrote_root, slots) = with(|c| {
         let root_key = root.map(|(p, _)| p.as_bytes().to_vec()).or_else(|| c.root.clone());
         let keys: std::vec::Vec<(std::vec::Vec<u8>, NonNull<Slot>)> =
             c.slots.iter().map(|(k, s)| (k.clone(), *s)).collect();
@@ -291,20 +345,17 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
                 Mode::Clean => {}
                 Mode::Touched | Mode::Dirty => {
                     let p = s.value.expect("dirty slot has a value");
+                    let merge_from = if s.merge { s.orig.bytes() } else { None };
                     // SAFETY: invariant 1.
-                    let enc = unsafe { p.as_ref() }.encode(s.orig.bytes());
+                    let enc = unsafe { p.as_ref() }.encode(merge_from);
                     if s.orig.bytes() != Some(&enc[..]) {
                         c.host.write(&key, &enc);
                     }
-                    s.orig = Orig::Present(enc);
-                    s.mode = Mode::Clean;
                 }
                 Mode::Deleted => {
                     if s.orig != Orig::Absent {
                         c.host.remove(&key);
                     }
-                    s.orig = Orig::Absent;
-                    s.mode = Mode::Clean;
                 }
             }
         }
@@ -318,10 +369,11 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
                 c.host.write(path.as_bytes(), &enc);
                 wrote_root = true;
             }
-            s.orig = Orig::Present(enc);
         }
-        wrote_root
-    })
+        (wrote_root, c.take_slots())
+    });
+    free_slots(slots);
+    wrote_root
 }
 
 /// Whether any key would be written or removed by a flush (the root excluded).
@@ -338,11 +390,17 @@ pub(crate) fn has_pending_writes() -> bool {
                 Mode::Deleted => s.orig != Orig::Absent,
                 Mode::Touched | Mode::Dirty => {
                     let p = s.value.expect("dirty slot has a value");
+                    let merge_from = if s.merge { s.orig.bytes() } else { None };
                     // SAFETY: invariant 1.
-                    let enc = unsafe { p.as_ref() }.encode(s.orig.bytes());
+                    let enc = unsafe { p.as_ref() }.encode(merge_from);
                     s.orig.bytes() != Some(&enc[..])
                 }
             }
         })
     })
+}
+
+/// `storage_has_key` through the host, for `ContractState::state_exists` on a v2 root.
+pub(crate) fn host_has_key(key: &[u8]) -> bool {
+    with(|c| c.host.has_key(key))
 }

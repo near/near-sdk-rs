@@ -8,18 +8,32 @@ use super::value::Value;
 
 /// A v2 contract root: a record at the root key.
 ///
-/// Deliberately NOT a `Value`: the root must also implement Borsh (placeholder impls) to
-/// satisfy the `#[near]` wrapper's `ContractState` bounds, and a Borsh type already gets the
-/// blanket leaf `Value` impl, so a generated `impl Value` would conflict (E0119). The root
-/// therefore carries its own copies of the record methods. See PROTOTYPE_NOTES.md.
+/// Not a `Value`: a root is never stored in a map, so it only needs encode/decode and binding.
 pub trait Root: Sized {
     const ROOT_BYTE: u8 = super::key::DEFAULT_ROOT;
     const MAX_SUBPATH: usize;
     fn root_path() -> Path {
         Path::root(Self::ROOT_BYTE)
     }
+    #[doc(hidden)]
     fn __encode_root(&self, orig: Option<&[u8]>) -> std::vec::Vec<u8>;
+    #[doc(hidden)]
     fn __decode_root(bytes: &[u8], path: &Path) -> Result<Self, RecordError>;
+    #[doc(hidden)]
+    fn __bind_root(&mut self, path: &Path);
+
+    /// Binds the root's collections to their paths. Idempotent. An `#[init]` body that seeds
+    /// collections writes `let mut this = Exchange { .. }.bind();` (with `Root` in scope).
+    #[track_caller]
+    fn bind(mut self) -> Self {
+        self.__bind_root(&Self::root_path());
+        self
+    }
+}
+
+/// `ContractState::state_exists` for a v2 root: `storage_has_key` through the host trait.
+pub fn root_exists<T: Root>() -> bool {
+    cache::host_has_key(T::root_path().as_bytes())
 }
 
 /// Called before the method body: starts the call, reads the root record once, decodes it
@@ -63,7 +77,7 @@ pub mod __private {
     pub type Fields<'a> = std::vec::Vec<(u32, &'a [u8])>;
 
     /// Decodes field `tag`, or its `Default` (bound at `path ++ tag`) if missing.
-    pub fn field<T: Value + Default>(
+    pub fn field<T: Value + crate::state::FieldDefault>(
         fields: &Fields<'_>,
         tag: u32,
         path: &Path,
@@ -73,8 +87,17 @@ pub mod __private {
             Some(b) if T::INLINE => {
                 T::decode_value(b, &fp).map_err(|e| RecordError::Field { tag, msg: e.to_string() })
             }
-            _ => Ok(T::missing_at(&fp)),
+            _ => {
+                let mut v = T::field_default();
+                v.bind(&fp);
+                Ok(v)
+            }
         }
+    }
+
+    /// The `Default` a generated `impl Default` uses for one field (unbound).
+    pub fn field_default<T: crate::state::FieldDefault>() -> T {
+        T::field_default()
     }
 
     /// Decodes a `#[key(n, required)]` field: missing is an error instead of a default.
@@ -83,12 +106,15 @@ pub mod __private {
         tag: u32,
         path: &Path,
     ) -> Result<T, RecordError> {
+        if !T::INLINE {
+            return Err(RecordError::Leaf("`required` on a collection field".into()));
+        }
         let fp = path.field(tag);
         match find(fields, tag) {
-            Some(b) if T::INLINE => {
+            Some(b) => {
                 T::decode_value(b, &fp).map_err(|e| RecordError::Field { tag, msg: e.to_string() })
             }
-            _ => Err(RecordError::Missing { tag }),
+            None => Err(RecordError::Missing { tag }),
         }
     }
 

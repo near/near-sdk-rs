@@ -6,12 +6,12 @@
 use super::cache;
 use super::key::{ENTRY_HASH_LEN, Path, StorageKey, kind};
 use super::record::RecordError;
-use super::value::{Record, Removable, Value};
+use super::value::{Record, Removable, Value, ViewField};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
 /// SAFETY: see the invariant in `cache.rs`. The returned lifetime is tied by the caller to a
-/// borrow of the handle that owns the key.
+/// borrow of the handle (or view) that owns the key.
 unsafe fn r<'a, V>(p: NonNull<V>) -> &'a V {
     unsafe { &*p.as_ptr() }
 }
@@ -20,27 +20,44 @@ unsafe fn m<'a, V>(p: NonNull<V>) -> &'a mut V {
     unsafe { &mut *p.as_ptr() }
 }
 
-#[track_caller]
-fn bound(p: &Option<Path>) -> &Path {
-    p.as_ref().unwrap_or_else(|| {
-        panic!(
-            "state: collection is not bound to a path; place its record with `insert` or \
-             `or_default()` first (the wrapper binds root fields)"
-        )
-    })
+/// Where a collection handle points.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+enum Binding {
+    /// Constructed with `Default` and not yet placed.
+    #[default]
+    Unbound,
+    Bound(Path),
+    /// The record holding this collection was removed; its children were cleared.
+    Detached,
 }
 
 #[track_caller]
-fn bind_slot(slot: &mut Option<Path>, path: &Path) {
-    if let Some(old) = slot
-        && old != path
-    {
-        panic!(
-            "state: collection already bound to {old:?}; moving a record to another key does not \
-             move its collections"
-        );
+fn bound(b: &Binding) -> &Path {
+    match b {
+        Binding::Bound(p) => p,
+        Binding::Unbound => panic!(
+            "state: collection is not bound to a path; place its record with `insert` or \
+             `or_default()` first (in `#[init]`, call `.bind()` on the root). If the record was \
+             moved out with `mem::take`/`mem::replace`, that is unsupported"
+        ),
+        Binding::Detached => panic!("state: collection detached by remove; read it before removing"),
     }
-    *slot = Some(path.clone());
+}
+
+#[track_caller]
+fn bind_slot(slot: &mut Binding, path: &Path) {
+    match slot {
+        Binding::Bound(old) if old != path => panic!(
+            "state: collection already bound to {old:?}; a record cannot move to another key \
+             (`mem::take`/`mem::replace` on a stored record is unsupported; remove it and build \
+             a new one)"
+        ),
+        Binding::Detached => panic!(
+            "state: this record was removed and its collections cleared; build a new record \
+             instead of re-inserting the removed one"
+        ),
+        _ => *slot = Binding::Bound(path.clone()),
+    }
 }
 
 fn not_inline<T>() -> Result<T, RecordError> {
@@ -59,6 +76,14 @@ fn set_len_at(header: &Path, n: u32) {
     }
 }
 
+/// Panics if `V` owns collections and a value already exists at `path`.
+#[track_caller]
+fn assert_insert_new<V: Value>(path: &Path) {
+    if V::MAX_SUBPATH > 0 && cache::exists(path) {
+        panic!("state: record exists; use get_mut, or remove it first");
+    }
+}
+
 /// One page of a cursor-paginated collection.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
@@ -67,11 +92,33 @@ pub struct Page<K, V> {
     pub next: Option<K>,
 }
 
+/// One page of keys.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(crate = "crate::serde")]
+pub struct KeyPage<K> {
+    pub keys: std::vec::Vec<K>,
+    pub next: Option<K>,
+}
+
+/// A collection handle reached through a view (or `GroupedMap::group`). Reads through it
+/// live for `'a`, the borrow of the parent collection, not for the handle itself, so
+/// `let bal = map.at(&id).balances.get(&t);` compiles.
+pub struct At<'a, C> {
+    inner: C,
+    _m: PhantomData<&'a ()>,
+}
+
+impl<C> At<'_, C> {
+    fn new(inner: C) -> Self {
+        At { inner, _m: PhantomData }
+    }
+}
+
 macro_rules! collection_value {
-    ($ty:ident < $($g:ident),* > where $($bounds:tt)*) => {
+    ($ty:ident < $($g:ident),* >) => {
         impl<$($g),*> Default for $ty<$($g),*> {
             fn default() -> Self {
-                Self { path: None, _m: PhantomData }
+                Self { path: Binding::Unbound, _m: PhantomData }
             }
         }
         impl<$($g),*> core::fmt::Debug for $ty<$($g),*> {
@@ -82,12 +129,32 @@ macro_rules! collection_value {
         impl<$($g),*> $ty<$($g),*> {
             /// The path this handle is bound to, if any.
             pub fn path(&self) -> Option<&Path> {
-                self.path.as_ref()
+                match &self.path {
+                    Binding::Bound(p) => Some(p),
+                    _ => None,
+                }
             }
             #[doc(hidden)]
             pub fn __bound_at(path: Path) -> Self {
-                Self { path: Some(path), _m: PhantomData }
+                Self { path: Binding::Bound(path), _m: PhantomData }
             }
+        }
+    };
+}
+
+macro_rules! not_inline_value {
+    () => {
+        fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
+            unreachable!("collections are not stored inline")
+        }
+        fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
+            not_inline()
+        }
+        fn bind(&mut self, path: &Path) {
+            bind_slot(&mut self.path, path)
+        }
+        fn detach(&mut self) {
+            self.path = Binding::Detached;
         }
     };
 }
@@ -98,26 +165,15 @@ macro_rules! collection_value {
 
 /// Lookup-only map. Entries at `path ++ 00 ++ h16(k) ++ borsh(k)`.
 pub struct Map<K, V> {
-    path: Option<Path>,
+    path: Binding,
     _m: PhantomData<fn() -> (K, V)>,
 }
-collection_value!(Map<K, V> where);
+collection_value!(Map<K, V>);
 
 impl<K: StorageKey + 'static, V: Value> Value for Map<K, V> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!("collections are not stored inline")
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        bind_slot(&mut self.path, path)
-    }
-    fn unbind(&mut self) {
-        self.path = None;
-    }
+    not_inline_value!();
 }
 
 impl<K: StorageKey + 'static, V: Value> Map<K, V> {
@@ -135,13 +191,13 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
         cache::get::<V>(&self.entry_path(k)).map(|p| unsafe { r(p) })
     }
 
-    /// 1 read (the value is read and decoded; see notes on `storage_has_key`).
+    /// 1 `storage_has_key` (no value bytes) unless the key is already cached.
     #[track_caller]
     pub fn contains_key(&self, k: &K) -> bool {
-        self.get(k).is_some()
+        cache::exists(&self.entry_path(k))
     }
 
-    /// 1 read; 1 write at flush if the value changed.
+    /// 1 read; 1 write at flush if the value changed. Unknown tags are preserved.
     #[track_caller]
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         let path = self.entry_path(k);
@@ -150,29 +206,38 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
         Some(unsafe { m(p) })
     }
 
-    /// 1 write, no read. Binds the value's collections to the entry path.
+    /// Leaf value: 1 write, no read, replaces the stored value whole.
+    /// Record that owns collections: insert-new, 1 `storage_has_key` + 1 write, and panics
+    /// if the key exists ("record exists; use get_mut, or remove it first").
     #[track_caller]
     pub fn insert(&mut self, k: K, mut v: V) {
         let path = self.entry_path(&k);
+        assert_insert_new::<V>(&path);
         v.bind(&path);
         cache::put(&path, v);
     }
 
-    /// 1 read, 1 write.
+    /// 1 read, 1 write. The old value comes back detached, its collections cleared.
     #[track_caller]
-    pub fn replace(&mut self, k: K, mut v: V) -> Option<V> {
+    pub fn replace(&mut self, k: K, mut v: V) -> Option<V>
+    where
+        V: Removable,
+    {
         let path = self.entry_path(&k);
-        let _ = cache::get::<V>(&path);
-        let mut old = cache::delete::<V>(&path);
-        if let Some(o) = old.as_mut() {
-            o.unbind();
+        let mut old = None;
+        if cache::get::<V>(&path).is_some() {
+            V::clear_children(&path);
+            let mut o = cache::delete::<V>(&path).expect("value was just read");
+            o.detach();
+            old = Some(o);
         }
         v.bind(&path);
         cache::put(&path, v);
         old
     }
 
-    /// 1 read, 1 remove, plus clearing the value's collections.
+    /// 1 read, 1 remove, plus clearing the value's collections. The returned record is
+    /// detached: its collections panic on use.
     #[track_caller]
     pub fn remove(&mut self, k: &K) -> Option<V>
     where
@@ -182,7 +247,7 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
         cache::get::<V>(&path)?;
         V::clear_children(&path);
         let mut v = cache::delete::<V>(&path).expect("value was just read");
-        v.unbind();
+        v.detach();
         Some(v)
     }
 
@@ -210,6 +275,24 @@ impl<K: StorageKey + 'static, V: Value> Map<K, V> {
         V: Record,
     {
         V::__view(self.entry_path(k))
+    }
+}
+
+impl<'a, K: StorageKey + 'static, V: Value> At<'a, Map<K, V>> {
+    #[track_caller]
+    pub fn get(&self, k: &K) -> Option<&'a V> {
+        cache::get::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
+    }
+    #[track_caller]
+    pub fn contains_key(&self, k: &K) -> bool {
+        self.inner.contains_key(k)
+    }
+    #[track_caller]
+    pub fn at(&self, k: &K) -> V::View<'a>
+    where
+        V: Record,
+    {
+        V::__view(self.inner.entry_path(k))
     }
 }
 
@@ -246,27 +329,15 @@ impl<'a, K, V: Value> MapEntry<'a, K, V> {
 
 /// `Map` plus a dense key vector: entries `00`, index `01`, key slots `02`, header `03`.
 pub struct IterMap<K, V> {
-    path: Option<Path>,
+    path: Binding,
     _m: PhantomData<fn() -> (K, V)>,
 }
-collection_value!(IterMap<K, V> where);
+collection_value!(IterMap<K, V>);
 
 impl<K: StorageKey + Clone + 'static, V: Value> Value for IterMap<K, V> {
     const INLINE: bool = false;
-    // entries/index: kind + h16 + key; slots: kind + 4. Value subtree hangs off entries.
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!("collections are not stored inline")
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        bind_slot(&mut self.path, path)
-    }
-    fn unbind(&mut self) {
-        self.path = None;
-    }
+    not_inline_value!();
 }
 
 impl<K: StorageKey + Clone + 'static, V: Removable> Removable for IterMap<K, V> {
@@ -310,9 +381,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         cache::get::<V>(&self.entry_path(k)).map(|p| unsafe { r(p) })
     }
 
+    /// 1 `storage_has_key` unless cached.
     #[track_caller]
     pub fn contains_key(&self, k: &K) -> bool {
-        self.get(k).is_some()
+        cache::exists(&self.entry_path(k))
     }
 
     /// 1 read; 1 write at flush if the value changed.
@@ -331,12 +403,16 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         set_len_at(&self.header(), len.checked_add(1).expect("IterMap is full"));
     }
 
-    /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write.
+    /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write
+    /// (leaf values only; a record that owns collections panics: insert is insert-new).
     #[track_caller]
     pub fn insert(&mut self, k: K, mut v: V) {
         let path = self.entry_path(&k);
-        v.bind(&path);
         let exists = cache::get::<u32>(&self.index_path(&k)).is_some();
+        if exists && V::MAX_SUBPATH > 0 {
+            panic!("state: record exists; use get_mut, or remove it first");
+        }
+        v.bind(&path);
         cache::put(&path, v);
         if !exists {
             self.push_key(&k);
@@ -362,7 +438,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         let len = self.len();
         V::clear_children(&path);
         if let Some(mut v) = cache::delete::<V>(&path) {
-            v.unbind();
+            v.detach();
             value = Some(v);
         }
         cache::delete::<u32>(&idx_path);
@@ -398,9 +474,29 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         self.remove_inner(k, false).is_some()
     }
 
+    fn key_at_ptr(&self, i: u32) -> Option<NonNull<K>> {
+        cache::get::<K>(&self.slot_path(i))
+    }
+
     /// The `i`th key in key-vector order: 1 read.
     pub fn key_at(&self, i: u32) -> Option<K> {
-        cache::get::<K>(&self.slot_path(i)).map(|p| unsafe { r(p) }.clone())
+        self.key_at_ptr(i).map(|p| unsafe { r(p) }.clone())
+    }
+
+    #[track_caller]
+    fn cursor_start(&self, after: Option<&K>) -> u32 {
+        match after {
+            None => 0,
+            Some(k) => {
+                let i = cache::get::<u32>(&self.index_path(k)).unwrap_or_else(|| {
+                    panic!(
+                        "state: page cursor key no longer exists (removed since the last page); \
+                         restart from a known key"
+                    )
+                });
+                (unsafe { *r(i) }) + 1
+            }
+        }
     }
 
     /// Cursor page: with a cursor, 2 reads (cursor index, header) plus 2 per item.
@@ -410,14 +506,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
     where
         V: Clone,
     {
-        let start = match after {
-            None => 0,
-            Some(k) => {
-                let i = cache::get::<u32>(&self.index_path(k))
-                    .unwrap_or_else(|| panic!("state: page cursor key no longer exists"));
-                (unsafe { *r(i) }) + 1
-            }
-        };
+        let start = self.cursor_start(after);
         let len = self.len();
         let end = start.saturating_add(limit).min(len);
         let mut items = std::vec::Vec::with_capacity((end.saturating_sub(start)) as usize);
@@ -430,12 +519,17 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
         Page { items, next }
     }
 
-    /// Key-only page: as `page`, 1 read per item.
-    pub fn keys_page(&self, start: u32, limit: u32) -> std::vec::Vec<K> {
+    /// Key-only cursor page: as `page`, 1 read per key. With `get`, this is the path for
+    /// record-valued maps, which `page` cannot clone.
+    #[track_caller]
+    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+        let start = self.cursor_start(after);
         let len = self.len();
-        (start..start.saturating_add(limit).min(len))
-            .map(|i| self.key_at(i).expect("dense key vector"))
-            .collect()
+        let end = start.saturating_add(limit).min(len);
+        let keys: std::vec::Vec<K> =
+            (start..end).map(|i| self.key_at(i).expect("dense key vector")).collect();
+        let next = if end < len { keys.last().cloned() } else { None };
+        KeyPage { keys, next }
     }
 
     /// 2 reads per entry, plus 1 for the length.
@@ -490,6 +584,56 @@ impl<K: StorageKey + Clone + 'static, V: Value> IterMap<K, V> {
     }
 }
 
+impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, IterMap<K, V>> {
+    #[track_caller]
+    pub fn get(&self, k: &K) -> Option<&'a V> {
+        cache::get::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
+    }
+    #[track_caller]
+    pub fn contains_key(&self, k: &K) -> bool {
+        self.inner.contains_key(k)
+    }
+    pub fn len(&self) -> u32 {
+        self.inner.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+    pub fn key_at(&self, i: u32) -> Option<K> {
+        self.inner.key_at(i)
+    }
+    #[track_caller]
+    pub fn page(&self, after: Option<&K>, limit: u32) -> Page<K, V>
+    where
+        V: Clone,
+    {
+        self.inner.page(after, limit)
+    }
+    #[track_caller]
+    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+        self.inner.keys_page(after, limit)
+    }
+    pub fn iter(&self) -> impl Iterator<Item = (K, &'a V)> + 'a {
+        let map = IterMap::<K, V>::__bound_at(self.inner.p().clone());
+        (0..map.len()).map(move |i| {
+            let k = map.key_at(i).expect("dense key vector");
+            let v = cache::get::<V>(&map.entry_path(&k)).expect("indexed key has an entry");
+            (k, unsafe { r(v) })
+        })
+    }
+    pub fn keys(&self) -> impl Iterator<Item = K> + 'a {
+        let map = IterMap::<K, V>::__bound_at(self.inner.p().clone());
+        (0..map.len()).map(move |i| map.key_at(i).expect("dense key vector"))
+    }
+    #[track_caller]
+    pub fn at(&self, k: &K) -> V::View<'a>
+    where
+        V: Record,
+    {
+        V::__view(self.inner.entry_path(k))
+    }
+}
+
 pub struct IterEntry<'a, K, V> {
     map: &'a mut IterMap<K, V>,
     k: K,
@@ -527,26 +671,15 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> IterEntry<'a, K, V> {
 
 /// Dense slots `00 ++ u32` and a length header `03`.
 pub struct Vec<T> {
-    path: Option<Path>,
+    path: Binding,
     _m: PhantomData<fn() -> T>,
 }
-collection_value!(Vec<T> where);
+collection_value!(Vec<T>);
 
 impl<T: Value> Value for Vec<T> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + 4 + T::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!("collections are not stored inline")
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        bind_slot(&mut self.path, path)
-    }
-    fn unbind(&mut self) {
-        self.path = None;
-    }
+    not_inline_value!();
 }
 
 impl<T: Removable> Removable for Vec<T> {
@@ -617,7 +750,7 @@ impl<T: Value> Vec<T> {
         T::clear_children(&path);
         let mut v = cache::delete::<T>(&path);
         if let Some(v) = v.as_mut() {
-            v.unbind();
+            v.detach();
         }
         set_len_at(&self.header(), len - 1);
         v
@@ -663,32 +796,33 @@ impl<T: Value> Vec<T> {
     }
 }
 
+impl<'a, T: Value> At<'a, Vec<T>> {
+    pub fn get(&self, i: u32) -> Option<&'a T> {
+        cache::get::<T>(&self.inner.slot(i)).map(|p| unsafe { r(p) })
+    }
+    pub fn len(&self) -> u32 {
+        self.inner.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
 // ---------------------------------------------------------------------------------------
 // Lazy
 // ---------------------------------------------------------------------------------------
 
 /// One value at its own key (`parent ++ tag`), read only when touched.
 pub struct Lazy<T> {
-    path: Option<Path>,
+    path: Binding,
     _m: PhantomData<fn() -> T>,
 }
-collection_value!(Lazy<T> where);
+collection_value!(Lazy<T>);
 
 impl<T: Value> Value for Lazy<T> {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = T::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!("Lazy is not stored inline")
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        bind_slot(&mut self.path, path)
-    }
-    fn unbind(&mut self) {
-        self.path = None;
-    }
+    not_inline_value!();
 }
 
 impl<T: Removable> Removable for Lazy<T> {
@@ -711,10 +845,11 @@ impl<T: Value> Lazy<T> {
         cache::touch(&path);
         Some(unsafe { m(p) })
     }
-    /// 1 write.
+    /// 1 write (a record that owns collections: insert-new, as `Map::insert`).
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
         let path = bound(&self.path).clone();
+        assert_insert_new::<T>(&path);
         v.bind(&path);
         cache::put(&path, v);
     }
@@ -727,6 +862,13 @@ impl<T: Value> Lazy<T> {
         let path = bound(&self.path).clone();
         T::clear_children(&path);
         cache::delete::<T>(&path);
+    }
+}
+
+impl<'a, T: Value> At<'a, Lazy<T>> {
+    #[track_caller]
+    pub fn get(&self) -> Option<&'a T> {
+        cache::get::<T>(bound(&self.inner.path)).map(|p| unsafe { r(p) })
     }
 }
 
@@ -754,11 +896,12 @@ impl<K: StorageKey + 'static> Value for Set<K> {
     fn bind(&mut self, path: &Path) {
         self.0.bind(path)
     }
-    fn unbind(&mut self) {
-        self.0.unbind()
+    fn detach(&mut self) {
+        self.0.detach()
     }
 }
 impl<K: StorageKey + 'static> Set<K> {
+    /// 1 `storage_has_key`.
     pub fn contains(&self, k: &K) -> bool {
         self.0.contains_key(k)
     }
@@ -769,6 +912,11 @@ impl<K: StorageKey + 'static> Set<K> {
     /// 1 remove.
     pub fn remove(&mut self, k: &K) {
         self.0.discard(k)
+    }
+}
+impl<K: StorageKey + 'static> At<'_, Set<K>> {
+    pub fn contains(&self, k: &K) -> bool {
+        self.inner.contains(k)
     }
 }
 
@@ -792,8 +940,8 @@ impl<K: StorageKey + Clone + 'static> Value for IterSet<K> {
     fn bind(&mut self, path: &Path) {
         self.0.bind(path)
     }
-    fn unbind(&mut self) {
-        self.0.unbind()
+    fn detach(&mut self) {
+        self.0.detach()
     }
 }
 impl<K: StorageKey + Clone + 'static> Removable for IterSet<K> {
@@ -821,6 +969,14 @@ impl<K: StorageKey + Clone + 'static> IterSet<K> {
         self.0.keys()
     }
 }
+impl<K: StorageKey + Clone + 'static> At<'_, IterSet<K>> {
+    pub fn contains(&self, k: &K) -> bool {
+        self.inner.contains(k)
+    }
+    pub fn len(&self) -> u32 {
+        self.inner.len()
+    }
+}
 
 // ---------------------------------------------------------------------------------------
 // GroupedMap
@@ -828,12 +984,12 @@ impl<K: StorageKey + Clone + 'static> IterSet<K> {
 
 /// One `IterMap` per group, at `path ++ 00 ++ h16(g) ++ borsh(g)`. Groups are not iterated.
 pub struct GroupedMap<G, K, V> {
-    path: Option<Path>,
+    path: Binding,
     _m: PhantomData<fn() -> (G, K, V)>,
 }
 impl<G, K, V> Default for GroupedMap<G, K, V> {
     fn default() -> Self {
-        Self { path: None, _m: PhantomData }
+        Self { path: Binding::Unbound, _m: PhantomData }
     }
 }
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
@@ -841,31 +997,12 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
 {
     const INLINE: bool = false;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <IterMap<K, V> as Value>::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!()
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        bind_slot(&mut self.path, path)
-    }
-    fn unbind(&mut self) {
-        self.path = None;
-    }
+    not_inline_value!();
 }
 
-/// A group's `IterMap`, borrowed from the `GroupedMap`.
-pub struct Group<'a, K, V> {
-    map: IterMap<K, V>,
-    _m: PhantomData<&'a ()>,
-}
-impl<K, V> core::ops::Deref for Group<'_, K, V> {
-    type Target = IterMap<K, V>;
-    fn deref(&self) -> &IterMap<K, V> {
-        &self.map
-    }
-}
+/// A group's `IterMap`, read-only, with reads living as long as the `GroupedMap` borrow.
+pub type Group<'a, K, V> = At<'a, IterMap<K, V>>;
+
 /// A group's `IterMap`, mutably borrowed from the `GroupedMap`.
 pub struct GroupMut<'a, K, V> {
     map: IterMap<K, V>,
@@ -884,12 +1021,13 @@ impl<K, V> core::ops::DerefMut for GroupMut<'_, K, V> {
 }
 
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> GroupedMap<G, K, V> {
+    #[track_caller]
     fn group_path(&self, g: &G) -> Path {
         bound(&self.path).kind(kind::ENTRIES).entry(g)
     }
     #[track_caller]
     pub fn group(&self, g: &G) -> Group<'_, K, V> {
-        Group { map: IterMap::__bound_at(self.group_path(g)), _m: PhantomData }
+        At::new(IterMap::__bound_at(self.group_path(g)))
     }
     #[track_caller]
     pub fn group_mut(&mut self, g: &G) -> GroupMut<'_, K, V> {
@@ -897,40 +1035,53 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
     }
 }
 
-macro_rules! view_as_handle {
+impl<'a, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
+    At<'a, GroupedMap<G, K, V>>
+{
+    #[track_caller]
+    pub fn group(&self, g: &G) -> Group<'a, K, V> {
+        At::new(IterMap::__bound_at(self.inner.group_path(g)))
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// View fields: collections appear as `At` handles
+// ---------------------------------------------------------------------------------------
+
+macro_rules! view_as_at {
     ($ty:ident < $($g:ident),* > where $($b:tt)*) => {
-        impl<'a, R: Value, $($g),*> super::value::ViewField<'a, R> for $ty<$($g),*>
+        impl<'a, R: Value, $($g),*> ViewField<'a, R> for $ty<$($g),*>
         where $($b)*
         {
-            type Out = $ty<$($g),*>;
-            fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
-                Self::__bound_at(field_path)
+            type Out = At<'a, $ty<$($g),*>>;
+            fn __view_field(field_path: Path) -> Self::Out {
+                At::new(Self::__bound_at(field_path))
             }
         }
     };
 }
-view_as_handle!(Map<K, V> where K: StorageKey + 'static, V: Value);
-view_as_handle!(IterMap<K, V> where K: StorageKey + Clone + 'static, V: Value);
-view_as_handle!(Vec<T> where T: Value);
-view_as_handle!(Lazy<T> where T: Value);
+view_as_at!(Map<K, V> where K: StorageKey + 'static, V: Value);
+view_as_at!(IterMap<K, V> where K: StorageKey + Clone + 'static, V: Value);
+view_as_at!(Vec<T> where T: Value);
+view_as_at!(Lazy<T> where T: Value);
 
 impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
-    super::value::ViewField<'a, R> for GroupedMap<G, K, V>
+    ViewField<'a, R> for GroupedMap<G, K, V>
 {
-    type Out = GroupedMap<G, K, V>;
-    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
-        GroupedMap { path: Some(field_path), _m: PhantomData }
+    type Out = At<'a, GroupedMap<G, K, V>>;
+    fn __view_field(field_path: Path) -> Self::Out {
+        At::new(GroupedMap { path: Binding::Bound(field_path), _m: PhantomData })
     }
 }
-impl<'a, R: Value, K: StorageKey + 'static> super::value::ViewField<'a, R> for Set<K> {
-    type Out = Set<K>;
-    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
-        Set(Map::__bound_at(field_path))
+impl<'a, R: Value, K: StorageKey + 'static> ViewField<'a, R> for Set<K> {
+    type Out = At<'a, Set<K>>;
+    fn __view_field(field_path: Path) -> Self::Out {
+        At::new(Set(Map::__bound_at(field_path)))
     }
 }
-impl<'a, R: Value, K: StorageKey + Clone + 'static> super::value::ViewField<'a, R> for IterSet<K> {
-    type Out = IterSet<K>;
-    fn __view_field(_: &Path, field_path: Path, _: fn(&R) -> &Self) -> Self {
-        IterSet(IterMap::__bound_at(field_path))
+impl<'a, R: Value, K: StorageKey + Clone + 'static> ViewField<'a, R> for IterSet<K> {
+    type Out = At<'a, IterSet<K>>;
+    fn __view_field(field_path: Path) -> Self::Out {
+        At::new(IterSet(IterMap::__bound_at(field_path)))
     }
 }
