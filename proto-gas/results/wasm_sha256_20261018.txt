@@ -1,0 +1,8 @@
+# SHA-256 of the measured wasms (wasms are gitignored). Oct 18 = proto-gas/res at 6c622757; Oct 17 = 9382156c rebuilt in .baseline-oct17/ (path-dependent panic locations).
+adaa2e2048ea36706d37649d24795e0b77244c04f33a0801929ad9e53bc3bd36  v1.wasm  (Oct 18)
+727ed3ead5ef803009456de4795cfbef50ecfd00fb54a1005015e649b957f0f6  v2_h16.wasm  (Oct 18)
+8cff58bbae3f1e40912a971d5605a9c14234cd90525989e4cce19fe73327fa6a  v2_h8.wasm  (Oct 18)
+814f20c0381481d15d1dca106c87673be3383696c62a5c17df2dd2158ed88cb2  v2_h16_ext.wasm  (Oct 18)
+37771f85050f78de4781ba33877c16c13247671cedff5aa68e08c451fe717912  v1.wasm  (Oct 17 rebuilt)
+f0aef347c9a382c4c8bbea77e24039e17374399d0ef17f9fe89f9a38edd7abe6  v2_h16.wasm  (Oct 17 rebuilt)
+a6fdf16fec84c207b5df352a59d4be15788234a09ad25911e99b264bce481a5e  v2_h8.wasm  (Oct 17 rebuilt)

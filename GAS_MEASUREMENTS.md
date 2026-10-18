@@ -15,6 +15,13 @@ header add no host call to these rows: their maps hold leaf values, `balance_of`
 `at`, and the root carries no markers. The one storage-level change is +8 bytes on the header
 write of a `Map` removal (12-byte header once `revision > 0`), about 0.5 Ggas. v1 is unchanged.
 
+The commit attribution is measured (bisection below). The mechanism comes from reading the D9
+diff, not from measurement: `flush_ops` now builds a `Vec<FlushOp>` with copied keys, and
+re-encodes and compares each dirty slot, for every key whether flaggable or not. That is why
+leaf-only rows pay it with no extra host call. The `Map::try_insert` record row's +10 Ggas over
+a leaf insert compares two different builds (ext vs non-ext), so codegen differences are not
+excluded. It is consistent with the cost of encoding the record.
+
 ### Method changes
 
 - **The "before" is a rebuild.** The Oct 17 wasms were not kept. `9382156c` (the Oct 17 branch head)
@@ -78,7 +85,7 @@ that the Oct 17 run used as its noise scale, the op-only deltas are within it ex
 
 | trie | Map − LookupMap (v2) | Map (v2) − IterableMap (v1) | op-only Map : LookupMap |
 |---|---:|---:|---:|
-| 1k keys | +0.489 Tgas (was 0.480) | +0.302 (was 0.283) | 0.74 : 0.25 (3.0x) |
+| 1k keys | +0.489 Tgas (was 0.480) | +0.302 (was 0.283) | 0.74 : 0.25 (2.9x) |
 | 100k keys | +0.496 (was 0.487) | +0.305 (was 0.286) | 0.75 : 0.26 (2.9x) |
 | 100k + 100k accounts | **+0.537 (was 0.527)** | +0.318 (was 0.299) | 0.81 : 0.27 (3.0x) |
 
