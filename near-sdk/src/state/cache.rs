@@ -356,11 +356,11 @@ pub(crate) fn slot_count() -> usize {
     with(|c| c.slots.len())
 }
 
-/// The flag key of the record whose key is `key`: one more byte, `00` (see [`Path::flag`]).
+/// The flag key of the record whose key is `key`: one more byte, `00` (see [`Path::flag`]),
+/// length-checked like every path hop.
+#[track_caller]
 fn flag_key(key: &[u8]) -> Vec<u8> {
-    let mut k = key.to_vec();
-    k.push(super::key::FLAG_SEGMENT);
-    k
+    super::key::flag_key_bytes(key)
 }
 
 /// Reads and decodes the value at `path`, once per call. `None` if absent or deleted.

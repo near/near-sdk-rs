@@ -119,9 +119,7 @@ impl Path {
     /// calls; absent otherwise.
     #[track_caller]
     pub fn flag(&self) -> Path {
-        let mut out = self.0.clone();
-        out.push(FLAG_SEGMENT);
-        Path(out).checked()
+        Path(flag_key_bytes(&self.0))
     }
 
     /// Dense slot hop.
@@ -141,6 +139,22 @@ impl Path {
         );
         self
     }
+}
+
+/// The flag key of the record stored at `record_key`: one more byte, `00`, length-checked
+/// against the protocol limit like every `Path` hop. The one place flag keys are built, for
+/// [`Path::flag`] and for the cache, which only holds key bytes.
+#[track_caller]
+pub(crate) fn flag_key_bytes(record_key: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(record_key.len() + 1);
+    out.extend_from_slice(record_key);
+    out.push(FLAG_SEGMENT);
+    assert!(
+        out.len() <= MAX_KEY_LEN,
+        "storage key of {} bytes exceeds the protocol limit of {MAX_KEY_LEN}",
+        out.len()
+    );
+    out
 }
 
 std::thread_local! {
@@ -278,6 +292,14 @@ mod tests {
             assert_ne!(child.as_bytes()[rec.len()], 0x00, "tag {tag}");
             assert!(flag < child, "the flag key sorts before every child of the record");
         }
+    }
+
+    /// The cache builds flag keys from bytes; they are length-checked like every path hop.
+    #[test]
+    fn flag_key_bytes_are_length_checked() {
+        assert_eq!(flag_key_bytes(&[7u8; MAX_KEY_LEN - 1]).len(), MAX_KEY_LEN);
+        let r = std::panic::catch_unwind(|| flag_key_bytes(&[7u8; MAX_KEY_LEN]));
+        assert!(r.is_err(), "a 2,049-byte flag key panics instead of reaching the host");
     }
 
     #[test]
