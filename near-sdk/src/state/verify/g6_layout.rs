@@ -39,7 +39,8 @@ fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>>
 
 /// Encode then parse is the identity (fields come back sorted by tag), whatever order they
 /// were pushed in. Bound (Kani): up to 2 fields, tags in 1..300 (one- and two-byte LEB128),
-/// bodies of 0..=4 bytes (4 fields x 16 bytes did not finish symbolic execution in 15 min).
+/// bodies of 0..=4 bytes. NOT VERIFIED: 4 fields x 16 bytes did not finish in 15 min, 2 fields
+/// x 4 bytes did not finish in 20 min (Kani 0.68, CPU shared with cargo-mutants).
 /// Random engine: up to 4 fields, bodies 0..=16, 20,000 records.
 #[test]
 #[cfg_attr(kani, kani::proof)]
@@ -67,7 +68,8 @@ fn g6_record_encode_then_parse_is_identity() {
 
 /// Canonical form: any byte string that parses re-encodes to exactly itself (after the
 /// optional leading clearing flag), so a record has one encoding. Bound (Kani): every byte
-/// string of length 0..=4 (10 bytes did not finish in 15 min, 6 bytes not in 27 min). Random engine: 50,000 strings of up to 64 bytes.
+/// string of length 0..=4. NOT VERIFIED: 10 bytes (15 min), 6 bytes (27 min), 4 bytes as a
+/// symbolic Vec (15 min) and 4 bytes as a fixed array (20 min) did not finish. Random engine: 50,000 strings of up to 64 bytes.
 #[test]
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(7))]
@@ -113,7 +115,8 @@ const TAGS: usize = if cfg!(kani) { 2 } else { 4 };
 /// rewrites the record (every known value + 1) merging the original bytes: unknown tags keep
 /// their exact bytes, reserved tags are dropped, known tags carry the new values. Reading the
 /// rewrite back with S1 (a rollback) sees its own unknown-to-S2 fields intact. Bound (Kani):
-/// all 2^2 written subsets x 5^2 schemas x u8 values (tags 1..=2). Random engine: 20,000 cases.
+/// all 2^2 written subsets x 5^2 schemas x u8 values (tags 1..=2). NOT VERIFIED: 4, 3 and 2
+/// tags each did not finish within 15-30 min. Random engine: 20,000 cases.
 #[test]
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(10))]

@@ -220,8 +220,8 @@ fn share_prefix(a: &SPath, b: &SPath, share: u8) -> SPath {
     b
 }
 
-/// G1 core claim, model-checked. Bound (Kani): two symbolic paths of depth <= 2 (depth 4
-/// was attempted and did not complete in 40 min), tags in
+/// G1 core claim. Bound (Kani, NOT VERIFIED: depth 4 did not complete in 40 min, depth 2 not
+/// in 30 min): two symbolic paths of depth <= 2, tags in
 /// 1..2^14 (one- and two-byte LEB128), map keys of width 0..=8 or length-prefixed with
 /// 0..=8 bytes, every collection and table kind, and the 16-byte placement hash as FREE
 /// symbolic bytes per hop (so the claim holds even if sha256 collides). Random engine: the
