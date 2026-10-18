@@ -558,7 +558,10 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         Some(v)
     }
 
-    /// 1 remove, no read, plus clearing the value's collections.
+    /// 1 remove, no read, plus clearing the value's collections. The remove is blind: it is
+    /// issued even when the key is absent (unless this call already read it as absent), since
+    /// nothing tells `discard` whether the key exists. For a value that owns collections it is
+    /// 2 removes, the record key and its D9 flag key, since a record being cleared lives there.
     #[track_caller]
     pub fn discard(&mut self, k: &K)
     where
@@ -581,7 +584,14 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// faster than it is cleared. `get` / `at` still read it. Cost per call: 1 read of the
     /// record (2 once it is flagged: the record key misses, then the flag key), then what
     /// clearing `n` entries costs; the first call that does not finish adds 1 remove (record
-    /// key) and 1 write (flag key), and the call that finishes removes the flag key.
+    /// key) and 1 write (flag key), and the call that finishes removes the flag key. A call that
+    /// does not finish also reads one key slot more than it removes (the loop reads the next
+    /// slot before it sees the budget is spent), plus each map's header.
+    ///
+    /// `n` counts map entries at any depth. `Lazy` values below the record are not counted:
+    /// they all go in the first call, so per-call work is bounded in entries, not in bytes, and
+    /// a record holding only `Lazy` values (or only empty maps) finishes even with `n = 0`. On a
+    /// record whose maps hold entries, `n = 0` removes nothing and returns `Pending` forever.
     #[track_caller]
     pub fn remove_step(&mut self, k: &K, n: u32) -> Removal
     where
@@ -894,7 +904,8 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 
     /// 1 entry read, 1 index read, 1 header read, 2 removes (entry, index), 1 read and 1
     /// remove of the last slot, 2 writes for the moved key, 1 header write (also when the map
-    /// empties: the header keeps the revision, T4). If the key is last: no moved key.
+    /// empties: the header keeps the revision, T4). If the key is last: no moved key, so neither
+    /// the last-slot read nor the 2 moved-key writes (3 reads in all; 2 for `discard`).
     ///
     /// A zero-sized `V` (such as `()`) skips the entry read: the index read already says
     /// whether the key exists, and the value carries no bytes. So `Map<K, ()>` and
@@ -952,11 +963,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// removed since the page that returned it (1 read, the cursor's index).
     ///
     /// Cursor and offset paging both assume the map does not change between pages. A cursor
-    /// whose key was removed fails loudly; offset paging (`iter().skip(from).take(n)`) does
-    /// not fail but can SKIP a key: a removal behind the offset moves the last key into the
-    /// hole, ahead of where the next page starts. Every page carries the map's `revision`
-    /// (T4, free: from the header read): a caller that needs an exact walk compares it across
-    /// pages, and equal revisions mean no removal happened in between.
+    /// whose key was removed fails loudly. Otherwise a removal between pages can SKIP a key,
+    /// with either kind of paging: it moves the last key into the hole, ahead of where the next
+    /// page starts. Cursor paging can also return keys TWICE: removals can move the cursor key
+    /// itself toward the front (each moves the then-last key into its hole, and the cursor key
+    /// can become the last key), and the next page then restarts from that earlier position
+    /// and repeats keys already returned (offset paging never repeats). Every
+    /// page carries the map's `revision` (T4, free: from the header read): a caller that needs
+    /// an exact walk compares it across pages, and equal revisions mean no removal happened in
+    /// between.
+    ///
+    /// `limit` 0 returns no items and `next: None` even when entries remain, so `next == None`
+    /// means the end only for `limit > 0`.
     ///
     /// Needs `V: Clone`, which a record holding a collection never is: use [`Map::page_with`]
     /// and map each record to the type you return.
@@ -1354,7 +1372,9 @@ impl<T: Value> Vector<T> {
         v
     }
 
-    /// 1 header read, 2 reads (slot `i`, last), 1 write, 1 remove, 1 header write.
+    /// 1 header read, 2 reads (slot `i`, last), 1 write, 1 remove, 1 header write. The write of
+    /// slot `i` is skipped when the moved last element's bytes equal the removed one's (slot `i`
+    /// was read, so the cache elides an identical rewrite).
     #[track_caller]
     pub fn swap_remove(&mut self, i: u32) -> T {
         self.path.live();
@@ -1537,7 +1557,8 @@ impl<T: Value> Lazy<T> {
         v.bind(&path);
         cache::put(&path, v);
     }
-    /// 1 remove.
+    /// 1 remove, no read. The remove is blind: it is issued even when the `Lazy` is empty
+    /// (unless this call already read it as empty).
     #[track_caller]
     pub fn remove(&mut self)
     where
@@ -1599,7 +1620,8 @@ impl<K: StorageKey + 'static> LookupSet<K> {
     pub fn insert(&mut self, k: K) {
         self.0.insert(k, ())
     }
-    /// 1 remove.
+    /// 1 remove, no read, issued even when the key is absent (a blind remove, as
+    /// [`LookupMap::discard`]).
     pub fn remove(&mut self, k: &K) {
         self.0.discard(k)
     }

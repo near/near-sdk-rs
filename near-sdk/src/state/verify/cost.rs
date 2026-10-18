@@ -67,18 +67,20 @@ pub fn add(a: Cost, b: Cost) -> Cost {
 }
 
 /// Differences between the spec's cost wording and what the prototype measures, each pinned by
-/// a formula above or in `g7_stated_cost`.
+/// a formula above or in `g7_stated_cost`. Indices are stable (code comments cite them);
+/// entries resolved by API rounds 2 to 4 say so (triage in PROTOTYPE_NOTES.md, "Merge and
+/// re-verify (Oct 18)"). The `collections.rs` rustdoc now states the still-true ones.
 #[allow(dead_code)] // the list the report reproduces
 pub const DOC_DIFFS: &[&str] = &[
     "Map/Set remove of the LAST key: the spec lists '1 read and 1 remove of the last slot' and only says the moved-key writes are skipped; the slot read is skipped too (3 reads, not 4, for remove; 2 for discard).",
-    "LookupMap::discard and LookupSet::remove of an ABSENT key still issue one storage_remove (blind remove, no read); the spec does not say.",
+    "LookupMap::discard and LookupSet::remove of an ABSENT key still issue one storage_remove (blind remove, no read); the spec does not say. For a value that owns collections, discard issues 2 (record key and flag key); the spec says that one.",
     "Lazy::remove issues one storage_remove even when the Lazy was empty (blind remove).",
-    "remove_some on a call that does not finish reads ONE MORE key slot than it removes (the loop reads the next slot before it sees the budget is spent): 2 + n + 1 reads, not 1 + n.",
-    "remove_some writes the record (the clearing flag) only on the FIRST unfinished call; later unfinished calls leave identical bytes and write nothing. The spec says '1 record write for the flag on a call that does not finish'.",
-    "at_mut is 1 read of the record (no decode) and no storage_has_key, as the spec now says; the rustdoc on Map::at_mut / LookupMap::at_mut still says '1 storage_has_key (no bytes)'.",
+    "remove_step on a call that does not finish reads ONE MORE key slot than it removes (the loop reads the next slot before it sees the budget is spent), plus the map header: record lookups + 1 + n + 1 reads. The spec's per-call line names only the record read(s) and 'the cost of clearing up to n entries'.",
+    "RESOLVED (API round 2): remove_step moves the record to its flag key only on the FIRST unfinished call (1 remove of the record key, then 1 write of the flag key); later unfinished calls write nothing. The spec now says so.",
+    "RESOLVED (API round 2): at_mut is 1 storage_has_key on a live record (2 on a miss: the flag key), no read, no decode, as the spec and the rustdoc say.",
     "Vector::swap_remove(i) of a non-last element writes slot i only if the moved last element's bytes differ from the removed one's (the cache read slot i, so an identical rewrite is elided): 1 write instead of 2 then. Correct, but the spec's 'plus 1 read and 1 write of the last slot' does not say so.",
     "Map page / keys_page with limit 0 return next = None even when entries remain (a client that pages with limit 0 sees the end).",
-    "sha256 per operation (spec: one per map hop): Map insert new 3, insert existing 2, remove/discard of an inner key 3 (own key twice, moved key once), at_mut + insert new below a record 4, record remove owning 2 items 7.",
+    "sha256 per operation (spec: one per map hop): Map insert new 3, insert existing 2, remove/discard of an inner key 3 (own key twice, moved key once), at_mut + insert new below a record 4, record remove owning 2 items 7. Unchanged by the merge.",
 ];
 
 /// What a formula may know: facts about the operation's own key, plus collection lengths
