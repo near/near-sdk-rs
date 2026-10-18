@@ -33,3 +33,5 @@ pub mod c2_orphans;
 pub mod c5_remove_some;
 #[cfg(test)]
 pub mod c3_lost_writes;
+#[cfg(test)]
+pub mod c1_hot_collision;
