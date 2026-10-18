@@ -11,7 +11,7 @@ This proposes `near_sdk::state`, a new opt-in storage module for NEAR contracts.
 - **Stated, bounded gas.** Every operation documents its reads, writes and bytes. Cost never depends on neighbors or on history, and CI checks the formula.
 - **v1 untouched.** `store` and `collections` keep working byte for byte. A deployed contract adopts the new module one field at a time.
 
-One protocol change is proposed, metered range iteration. Three more are listed for discussion. A prototype on branch `proto/storage-v2` compiles the example below as printed and checks the cost table; its findings are folded in.
+One protocol change is proposed, metered range iteration. Four more are listed for discussion. A prototype on branch `proto/storage-v2` compiles the example below as printed and checks the cost table; its findings are folded in. The migration and gas rounds ran on nearcore's real runtime through near-contract-sim.
 
 **How to read this.** The next two sections, the code and the seven guarantees, are enough to judge the proposal. The rest is mechanism and evidence. Comment anywhere; the Open questions at the end are where comments help most.
 
@@ -22,14 +22,14 @@ Terms: Borsh is NEAR's binary serialization format. `collections` and `store` ar
 A contract is a set of nested structs. Every field carries a tag, every collection is a field like any other, and the tags are the whole layout. There is no `StorageKey` enum, no `new(prefix)` and no `Default` impl hiding a prefix. The example is a small exchange with per-account balances and per-market order books.
 
 ```typescript
-use near_sdk::state::{Map, GroupedMap, Lazy, Page};
+use near_sdk::state::{CursorGone, Lazy, Map, Page};
 
 #[near(contract_state(layout = v2))]
 pub struct Exchange {
     #[key(1, required)] owner: AccountId,   // no Default, so a missing tag is an error
     #[key(2)] fee_bps: u16,
     #[key(3)] accounts: Map<AccountId, Account>,
-    #[key(4)] orders: GroupedMap<MarketId, OrderId, Order>,
+    #[key(4)] markets: Map<MarketId, Market>,
     #[key(5)] metadata: Lazy<Metadata>,          // large, loaded only when touched
 }
 
@@ -37,6 +37,13 @@ pub struct Exchange {
 pub struct Account {
     #[key(1)] nonce: u64,
     #[key(2)] balances: Map<TokenId, u128>,      // lives at 3/<account>/2/<token>
+}
+
+#[near(storage)]
+pub struct Market {
+    #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
+    #[key(2)] tick_size: u128,
+    #[key(3)] next_order_id: OrderId,
 }
 
 #[near]
@@ -48,7 +55,7 @@ impl Exchange {
 
     // writes below the record without reading it: one existence check, no decode
     pub fn set_balance(&mut self, id: AccountId, token: TokenId, amount: U128) {
-        self.accounts.at_mut(&id).balances.insert(token, amount.0);
+        self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
     }
 
     // one read below the root; the Account record is never loaded
@@ -56,42 +63,47 @@ impl Exchange {
         self.accounts.at(&id).balances.get(&token).copied().unwrap_or(0).into()
     }
 
-    // cursor pagination; offset pagination stays available and cheap
-    pub fn balances(&self, id: AccountId, after: Option<TokenId>) -> Page<TokenId, u128> {
+    // cursor pagination; a cursor removed since the last page is `Err(CursorGone)`
+    #[handle_result]
+    pub fn balances(
+        &self,
+        id: AccountId,
+        after: Option<TokenId>,
+    ) -> Result<Page<TokenId, u128>, CursorGone> {
         self.accounts.at(&id).balances.page(after.as_ref(), 50)
     }
 
     pub fn cancel(&mut self, market: MarketId, order: OrderId) {
-        self.orders.group_mut(&market).remove(&order);
+        self.markets.at_mut(&market).expect("no such market").orders.remove(&order);
     }
 }
 ```
 
 Gone: the `StorageKey` enum and `new(prefix)` calls, the migration for an added or removed field, the parent read before a nested lookup, and the hand-rolled map of maps.
 
-**Two new attributes.** `#[key(n)]` gives a field its identity. `#[near(storage)]` marks a struct as a tagged record that may contain collections, in place of the Borsh derive v1 needs on value structs. A struct without it is stored as an opaque Borsh leaf, which is fine for plain values. A field whose type has no `Default` says `#[key(n, required)]` or is an `Option`; the derive's error says so. The existing `#[near]` on the impl also flushes writes for a v2 root, as described under One cache, one flush.
+**Two new attributes.** `#[key(n)]` gives a field its identity. `#[near(storage)]` marks a struct as a tagged record that may contain collections, in place of the Borsh derive v1 needs on value structs. A struct without it is stored as an opaque Borsh leaf, which is fine for plain values. A field whose type has no `Default` says `#[key(n, default = expr)]`, as in serde, or `#[key(n, required)]`; the derive's error says so, and `Option` is never forced. `required` is allowed only for fields present since the record's first write: `storage diff`, run by `cargo near build` against the deployed wasm's ABI (not the previous local build), hard-fails a newly added `required` tag. The existing `#[near]` on the impl also flushes writes for a v2 root, as described under One cache, one flush.
 
 **`at` walks, `get` reads, `at_mut` writes below.** `self.accounts.at(&id)` is a generated `AccountAt<'_>` bound to the path for `id`. It reads nothing: it exposes the record's collection and `Lazy` fields as handles at the nested path, and nothing else. Scalars come from `get(&id)`, which reads and decodes the record. A view is valid for an absent key, where nested lookups return `None` and `len()` is 0, and anything read through it lives as long as the borrow of the parent collection, so `let bal = self.accounts.at(&id).balances.get(&token);` compiles. 
 
-**Two ways to write.** `get_mut(&id)` and `entry(id).or_default()` return `&mut Account`, the decoded record with its collections bound. `at_mut(&id)` returns `AccountAtMut<'_>`, the same handles mutably, after one existence check and no decode, so a vote lands under a proposal without reading its description; it panics if the record is absent. An absent record is created when `or_default` first touches it, and an existing record is rewritten only if one of its scalars changed. `balance_of` above is one read below the root and never decodes the `Account` record. Two records at once, as in a transfer, are written as two statements; the cache makes the second lookup free (prototype: 5 reads, 2 writes for a transfer between two existing accounts):
+**Two ways to write.** `get_mut(&id)` and `entry(id).or_default()` return `&mut Account`, the decoded record with its collections bound. `at_mut(&id)` returns `Option<AccountAtMut<'_>>`, the same handles mutably, after one read of the record's bytes and no decode (the read is there to see the clearing flag, under Collections and cost bounds); it is `None` if the record is absent, following std: named accessors return `Option`, and only indexing panics. `insert` always overwrites. For a value type that owns collections plain `insert` does not exist (a compile error): such a record enters through `insert_new(k, v)`, which panics if the key is present and returns the record handle, or through `entry(k).or_default()`. First-write-wins is `entry(k).or_insert(v)` or `insert_new`. An absent record is created when `or_default` first touches it, and an existing record is rewritten only if one of its scalars changed. `balance_of` above is one read below the root and never decodes the `Account` record. Two records at once, as in a transfer, are written as two statements; the cache makes the second lookup free (prototype: 5 reads, 2 writes for a transfer between two existing accounts):
 
 ```rust
 *self.accounts.entry(from).or_default().balances.entry(t).or_default() -= x;
 *self.accounts.entry(to).or_default().balances.entry(t).or_default() += x;
 ```
 
-**Constructing a record.** A `#[near(storage)]` struct is built like any struct, and the derive gives it `Default` unless a field is `required`. Its collection fields are unbound until the record is placed with `insert` or `or_default()`, which binds them to the path; touching an unbound collection panics with a message. `Lazy::new(v)` is the one exception: it holds its value and writes it when the record is bound, so a struct literal can carry it. The wrapper binds the root's collections when the method returns, so an `#[init]` body that seeds a collection builds the root with `Exchange { .. }.bind()` first. A record never moves: `remove` clears what it owns and returns it with its collections detached, so read a record's collections before removing it, and move data between keys by remove and rebuild. `Page<K, V>` is `{ items: Vec<(K, V)>, next: Option<K> }` and serializes to JSON; `page_with(after, limit, |k, v| ..)` builds one from records, which cannot be cloned. `iter()` yields decoded `(K, V)` pairs at two reads per entry; `keys()` costs one.
+**Constructing a record.** A `#[near(storage)]` struct is built like any struct, and the derive gives it `Default` unless a field is `required`. Its collection fields are unbound until the record is placed with `insert_new` or `or_default()`, which binds them to the path; touching an unbound collection panics with a message. `Lazy::new(v)` is the one exception: it holds its value and writes it when the record is bound, so a struct literal can carry it. The wrapper binds the root's collections when the method returns, so an `#[init]` body that seeds a collection builds the root with `Exchange { .. }.bind()` first. A record never moves: `remove` clears what it owns and returns it with its collections detached, so read a record's collections before removing it, and move data between keys by remove and rebuild. `Page<K, V>` is `{ items: Vec<(K, V)>, next: Option<K> }` and serializes to JSON; `page_with(after, limit, |k, v| ..)` builds one from records, which cannot be cloned; like `page`, it returns `Result<Page, CursorGone>`. `iter()` yields decoded `(K, V)` pairs at two reads per entry; `keys()` costs one.
 
 ## Seven guarantees
 
 These are the contract between the SDK and the developer. Each is checked by a test in CI.
 
-- **Addressable.** Every value has a key you can compute from the schema and the path, without reading state. No hand-picked prefixes, no parent read before a nested lookup, no view methods just to read state. Two paths cannot share a key, which is the collision fix.
+- **Addressable.** Every value has a key you can compute from the schema and the path, without reading state. No hand-picked prefixes, no parent read before a nested lookup, no view methods just to read state. Two paths cannot share a key, which is the collision fix. The stated exception is a v1 field kept at the root whose prefix is empty or starts with the root byte; `migrate` refuses it (Coexistence).
 - **Local.** An operation on one entry touches its own path plus a fixed amount of bookkeeping, never another entry's value. This removes the removal cost cliff. Two operations scale by the caller's choice: clearing a whole record, with the entries it owns, and `Vector::swap_remove`, which moves the last element.
 - **No debt.** Host calls per operation depend only on the operation, and bytes moved only on the keys and values involved, never on what happened before. No free lists, no holes, no iteration that slows with age.
-- **One write per key per call.** Writes land at the end of the method, once per modified key, in a fixed order, from the one root a call holds. View methods never write. Nothing happens in `Drop`. A v1 collection kept as a root field during migration keeps v1's write-on-drop, after the v2 flush.
+- **One write per key per call.** Writes land at the end of the method, once per modified key, in a fixed order, from the one root a call holds. View methods never write. Nothing happens in `Drop`. A v1 `store` collection kept as a root field during migration keeps its write-on-drop, after the v2 flush; a v1 `collections` type writes through in the method body, before it.
 - **Linear iteration.** A page of n entries costs two reads plus two per entry, or one per entry for keys alone, whatever the collection's size or age.
-- **Permanent layout.** A deploy never moves or rewrites existing data by itself. Adding, removing or reordering a field needs no migration, as long as an added field is `Default` or an `Option`; a `required` field is for fields present since the record's first write.
+- **Permanent layout.** A deploy never moves or rewrites existing data by itself. Adding, removing or reordering a field needs no migration, as long as an added field has a `Default` or a `default = expr`; a `required` tag is only for fields present since the record's first write, and `cargo near build` fails on a newly added one. A removed field's bytes persist until its tag is listed in `reserved(n)`.
 - **Stated cost.** Every operation documents its formula in reads, writes, removes and bytes, and CI asserts it with a 100 KiB entry next to the one under test.
 
 Together these make gas a function of the operations a method performs and the byte sizes it chooses, and of nothing else the contract controls. The one term outside the SDK's reach is the trie-node fee on writes and removes, about 2.3 Ggas per node since protocol version 82. Measured on the real runtime with near-contract-sim: a read touches no trie node at any size, because reads are served from flat storage. One write touches 9 nodes in an empty trie and 19 in a contract with 100,000 keys on a chain with 100,000 accounts, 20 to 43 Ggas. Each tenfold growth in keys adds about one node, and hashed placement keeps the trie balanced.
@@ -140,7 +152,7 @@ The protocol rejects storage keys over 2,048 bytes, and nesting compounds: three
 | same entry's index slot | `... 02 01 h16(usdt) 04000000 "usdt"` | 59 |
 | `balances` key vector, slot 7 | `... 02 02 07000000` | 39 |
 | `balances` header (length) | `... 02 03` | 35 |
-| `orders[market].group` entries | `R 04 00 h16(market) borsh(market) 00 h16(order) borsh(order)` | varies |
+| `markets[market].orders[order]` value | `R 04 00 h16(market) borsh(market) 01 00 h16(order) borsh(order)` | varies |
 
 &#91;embedded content: walk the path · interactive\]
 
@@ -162,13 +174,13 @@ field   := varint(tag) varint(len) bytes[len]
 - A tag missing from the record reads as the field's `Default`, or fails to decode if the field is `required`. A tag the code does not know is preserved, as below. Tags are strictly ascending, tag 0 and non-canonical varints are rejected, so every record has exactly one encoding.
 - Any other type, including a plain Borsh struct, is an opaque leaf. This is how v1 collections can sit inside a v2 record.
 
-**What this buys.** Adding a field is a deploy; every existing record reads it as its default. Removing a field is a deploy; its bytes drop the next time each record is rewritten. Reordering is free, since the tag is the identity. Changing a field's type still needs a migration. A scalar whose Borsh length changes fails loudly at decode. A swap the record cannot see is silent: a scalar of the same length, a reordered enum inside a leaf, or one collection type for another under the same tag. The ABI records every field's type and collection kind, and `storage diff` compares two ABIs, so this is caught at build time.
+**What this buys.** Adding a field is a deploy; every existing record reads it as its default. Removing a field is a deploy; its bytes stay in each record, preserved like any unknown tag, until the tag is listed in `reserved(n)`. Reordering is free, since the tag is the identity. Changing a field's type still needs a migration. A scalar whose Borsh length changes fails loudly at decode. A swap the record cannot see is silent: a scalar of the same length, a reordered enum inside a leaf, or one collection type for another under the same tag. The ABI records every field's type and collection kind, and `cargo near build` runs `storage diff` against the deployed wasm's ABI, so a swap, or a tag reused for a different type, is a build error.
 
 **Cost.** Two bytes per field for tags and lengths under 128, under 1 Ggas per write for a typical struct. The ABI gains a record schema so clients and `cargo near` can decode records without the contract.
 
 **Why it is in the first release.** A record encoding cannot be switched later without rewriting every stored record, which is the migration this design exists to remove. It freezes alongside the key format.
 
-**Unknown tags are preserved.** Code that meets a tag it does not know keeps those bytes and writes them back through `get_mut` and `entry`, so rolling back to an older version cannot destroy data the newer one wrote. A blind `insert` replaces the record whole and drops them. The cost is one boxed slice per record, empty in the common case. A deliberately removed field is listed as `#[near(storage, reserved(3))]`; reserved tags are dropped on rewrite and cannot be reused for a different type.
+**Unknown tags are preserved.** Code that meets a tag it does not know keeps those bytes and writes them back through `get_mut` and `entry`, so rolling back to an older version cannot destroy data the newer one wrote. A blind `insert` replaces the record whole and drops them. The cost is one boxed slice per record, empty in the common case. A deliberately removed field is listed as `#[near(storage, reserved(3))]`; reserved tags are dropped on rewrite. Reusing a tag for a different type is a build error against the deployed ABI, since stale bytes would resurface under the new field: an audit found stale `locked` bytes resurfacing as `claimable`.
 
 ## Collections and cost bounds
 
@@ -176,33 +188,63 @@ One family, each type with a stated bound. Operations are counted, not estimated
 
 Which type to reach for:
 
-- `Map<K, V>`: the default. A lookup table plus a key vector, so it has `len`, `page`, iteration, and a record holding one can be removed as a whole. Two small reads and four writes on a new key. `insert` overwrites and reports whether the key was new, so `require!(votes.insert(who, v), "already voted")` is one call; `entry(k).or_insert(v)` is first-write-wins.
-- `LookupMap<K, V>`: lookup only, one write per insert. Entries can be removed one by one but never iterated, so a record holding one cannot be removed as a whole (see Removing a record). Choose it knowingly: the choice is permanent.
+- `Map<K, V>`: the default. A lookup table plus a key vector, so it has `len`, `page`, iteration, and a record holding one can be removed as a whole. A new key costs two small reads and four writes, about 0.5 Tgas over `LookupMap`, and stakes 305 bytes against 115 for a `u128` value (staked bytes below the cost table). `insert` always overwrites and returns whether the key was new, so `require!(votes.insert(who, v), "already voted")` is one call; first-write-wins is `entry(k).or_insert(v)` or `insert_new`.
+- `LookupMap<K, V>`: lookup only, one write per insert, and `insert` returns `()` since it reads nothing. Entries can be removed one by one but never iterated, so a record holding one cannot be removed as a whole (see Removing a record). Choose it knowingly: the choice is permanent.
 - `Vector<T>`: dense slots with push, pop, swap-remove and indexing.
-- `Set<K>` and `LookupSet<K>`: the two maps with a unit value. A `GroupedMap<G, K, ()>` is a grouped set at no extra cost.
+- `Set<K>` and `LookupSet<K>`: the two maps with a unit value.
 - `Lazy<T>`: one value at its own key, read only when touched. For large or rarely used fields.
-- `GroupedMap<G, K, V>`: one `Map` per group under a single field, so order books per market need no wrapper struct. `group(&g)` returns a view that pages and counts within the group. Groups are not iterated unless the contract opts in.
+- A map of maps is a `Map` whose value is a record holding a `Map`, as `Market` above. `GroupedMap` is deferred out of the first release; allowing a collection directly as a map value is the alternative to weigh later.
 - `OrderedMap<K, V>`: sorted iteration and range queries, after the first release.
 
-| Type | Keys it owns | get | insert new | update existing | remove | Removal cost scales with |
-| --- | --- | --- | --- | --- | --- | --- |
-| `LookupMap<K, V>` | `00` entries | 1 read; `contains_key` and `at_mut` are 1 host call and no bytes | 1 write, no existence read. A value that owns collections adds 1 existence check and panics if present | 1 write plus the old value's bytes; `replace`, which returns the old value, adds 1 read | 1 read, 1 remove; `discard` skips the read, and so does a unit value; plus clearing any collections inside the value | removed value size, plus one remove per key the value's own collections hold |
-| `Map<K, V>` | `00` entries, `01` index, `02` key slots, `03` header | 1 read | 1 index read, 1 header read, 4 writes: entry, index, key slot, header | 1 write after a read in the same call; `insert` alone is 1 index read and 1 write | 1 entry read (skipped by `discard`), 1 index read, 1 header read, 2 removes for entry and index, 1 read and 1 remove of the last slot, 2 writes for the moved key and its index, 1 header write. Removing the last key skips the moved-key writes; emptying the map removes the header | removed value size, own key size, and the size of the last key, which moves into the gap |
-| `Vector<T>` | `00` slots, `03` header | 1 read | 1 header read, 1 write, 1 header write | 1 write | pop: 1 header read, 1 slot read for the returned value, 1 remove, 1 header write; swap\_remove: plus 1 read and 1 write of the last slot | last element size |
-| `Set<K>`, `LookupSet<K>` | as `Map` and `LookupMap` with a unit value | same | same | same | same, minus the value read | key size |
-| `Lazy<T>` | its own path | 1 read | 1 write | 1 write | 1 remove | value size |
-| `GroupedMap<G, K, V>` | a `Map` per group under `00 ++ entry(g)` | 1 read | as `Map` | 1 write | as `Map`, plus 1 header remove when the group empties | as `Map` |
-| `OrderedMap<K, V>` | `00` entries, `01` tree nodes, `03` header | 1 read | 1 write plus O(log n) small node writes | 1 write | 1 remove plus O(log n) small node writes | tree depth and key size |
+| Type | Keys it owns | get | insert new | update existing | remove | Removal cost scales with | Staked bytes per entry |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `LookupMap<K, V>` | `00` entries | 1 read; `contains_key` is 1 host call and no bytes; `at_mut` is 1 read of the record's bytes, no decode, to see the clearing flag | 1 write, no existence read; `insert` returns `()`. A value that owns collections has no `insert`: `insert_new` adds 1 existence check and panics if present | 1 write plus the old value's bytes; `replace`, which returns the old value, adds 1 read | 1 read, 1 remove; `discard` skips the read, and so does a unit value; plus clearing any collections inside the value | removed value size, plus one remove per key the value's own collections hold | 1 record: key + value + 40 |
+| `Map<K, V>` | `00` entries, `01` index, `02` key slots, `03` header | 1 read | 1 index read, 1 header read, 4 writes: entry, index, key slot, header; `insert` returns whether the key was new, from the index read. Values that own collections enter by `insert_new` or `entry(k).or_default()` | 1 write after a read in the same call; `insert` alone is 1 index read and 1 write | 1 entry read (skipped by `discard`), 1 index read, 1 header read, 2 removes for entry and index, 1 read and 1 remove of the last slot, 2 writes for the moved key and its index, 1 header write. Removing the last key skips the moved-key writes; emptying the map removes the header | removed value size, own key size, and the size of the last key, which moves into the gap | 3 records: entry (key + value + 40), index (key + 4 + 40), key slot (slot key + borsh(k) + 40); plus one header record per map |
+| `Vector<T>` | `00` slots, `03` header | 1 read | 1 header read, 1 write, 1 header write | 1 write | pop: 1 header read, 1 slot read for the returned value, 1 remove, 1 header write; swap\_remove: plus 1 read and 1 write of the last slot | last element size | 1 record: slot key + value + 40; plus one header record |
+| `Set<K>`, `LookupSet<K>` | as `Map` and `LookupMap` with a unit value | same | same | same | same, minus the value read | key size | as `Map` and `LookupMap` with a zero-byte value |
+| `Lazy<T>` | its own path | 1 read | 1 write | 1 write | 1 remove | value size | 1 record: key + value + 40 |
+| `OrderedMap<K, V>` | `00` entries, `01` tree nodes, `03` header | 1 read | 1 write plus O(log n) small node writes | 1 write | 1 remove plus O(log n) small node writes | tree depth and key size | entry record plus its tree-node record |
 
-**Removing a record.** A value's collections live under child keys, so removing the record alone would orphan them. `remove` therefore requires `V: Removable`: every plain Borsh value is, and a `#[near(storage)]` struct is when its collections can all be iterated (`Map`, `Set`, `Vector`, `Lazy`, and `GroupedMap` with group iteration on). The derive clears each collection before the record goes, one header read, then one slot read and three removes per `Map` entry. A struct holding a `LookupMap`, a `LookupSet` or a default `GroupedMap` is not `Removable`, and `remove` on it does not compile, with the error naming the field and the fix: use `Map`, or keep the record and clear fields by hand. A v1 collection is a plain Borsh value to the derive, so it belongs at the root, where `remove` never reaches it. Clearing is the one operation whose cost scales with what the record owns, so `clear(n)` removes at most n entries per call, and the `bounded_work` lint flags an unbounded `remove` on a record with collections. The same rules govern the old entry in `Migrating`. Protocol ask A turns the clearing into one host call.
+**Staked bytes.** The runtime charges 40 bytes of overhead per record, so a new `Map` entry stakes three records plus a per-map header. For `accounts[alice].balances[usdt]` holding a `u128`, that is 115 bytes for the entry, 103 for the index and 87 for the key slot, 305 in all, against 115 in a `LookupMap`; the header adds 79 once per map. NEP-145 deposit math must use these bytes.
+
+**Removing a record.** A value's collections live under child keys, so removing the record alone would orphan them. `remove` therefore requires `V: Removable`: every plain Borsh value is, and a `#[near(storage)]` struct is when its collections can all be iterated (`Map`, `Set`, `Vector`, `Lazy`). The derive clears each collection before the record goes, one header read, then one slot read and three removes per `Map` entry. A struct holding a `LookupMap` or a `LookupSet` is not `Removable`, and `remove` on it does not compile, with the error naming the field and the fix: use `Map`, or keep the record and clear fields by hand. A v1 collection is a plain Borsh value to the derive, so it belongs at the root, where `remove` never reaches it; nested in a record it is accepted, and `remove` orphans its entries (a `FungibleToken` inside a record does exactly that). Clearing is the one operation whose cost scales with what the record owns, so `remove_some(&k, n)` removes at most n entries per call and returns `true` while entries remain, and the `bounded_work` lint flags an unbounded `remove` on a record with collections. Across calls the record carries a clearing flag that makes writes below it panic until clearing finishes, since an attacker adding 600 orders per block would otherwise outrun `remove_some(&k, 500)`. The same rules govern the old entry in `Migrating`. Protocol ask A turns the clearing into one host call.
+
+**Bounded clearing in detail.** The call is `Map::remove_some(&k, n) -> bool` and `LookupMap::remove_some(&k, n) -> bool`, and the derive emits `Removable::clear_children_some(path, &mut budget)` beside `clear_children`. It is named `remove_some` and not `clear(n)` because it sits on the map, the same receiver as the existing whole-map `Map::clear()`, and Rust has no overloading; the operation also ends by removing the record, which only the map can do. The rules the prototype settled:
+
+- The flag is a leading empty tag 0, the two bytes `00 00`, at the front of the record. Canonical records reject tag 0, so it cannot be confused with a field. Only values with collections (`MAX_SUBPATH > 0`) consult it, because a Borsh leaf may legitimately start with `00 00`.
+- While the flag is set, `get_mut`, `entry` and `at_mut` on that record panic; `get` and `at` still read.
+- The budget counts entries removed at any depth; `Lazy` values do not count. `n = 0` clears nothing and sets the flag.
+- `replace` and `remove` on a clearing record are allowed: they clear without a bound and drop the flag.
+- A clear that fits in one call writes no flag. Per call: 1 read of the record, the cost of clearing up to `n` entries, and 1 record write for the flag on a call that does not finish.
+- `Map` drops the key from its key vector in the call that finishes.
+
+Tests: `clear_across_two_calls_refuses_an_interleaved_insert`, `writes_below_a_clearing_record_panic_in_the_same_call`, `clear_that_fits_in_one_call_writes_no_flag`, `remove_some_budgets_across_calls`, `clearing_flag_is_a_leading_empty_tag_zero`.
+
+**`at_mut` reads the record.** The flag lives in the record's bytes, which `storage_has_key` cannot see, so `at_mut` now reads the record without decoding it where it used to make one existence check: one more read and one fewer existence check per `at_mut`, plus the record's bytes. Measured in the prototype, in reads, writes, removes:
+
+| Method | Before the clearing flag | Now |
+| --- | --- | --- |
+| Exchange `set_balance` | (2, 1, 0) + 1 existence check | (3, 1, 0) |
+| Exchange `cancel` | (5, 3, 3) | (6, 3, 3) |
+| DAO `vote` | (5, 8, 0) + 2 existence checks | (7, 8, 0) + 1 existence check |
+
+The DAO `vote` reads the 2,000-byte proposal description again, so the earlier win, a vote landing under a proposal without reading it, is gone. The comment on `set_balance` in the example, carried verbatim from the prototype, predates this and still says "one existence check". The alternatives are an open question: a separate flag key checked by existence (two checks per `at_mut`), a check only at flush (still a read, later), or accepting the cost.
 
 **Two small keys instead of one big rewrite.** v1 `IterableMap` keeps each entry's key-vector index inside its value, so removing a non-last entry rewrites the moved key's whole value. v2 gives the index its own 4-byte slot: one extra small write on insert, and removal bounded by the caller's own value plus the moved key, never by a neighbor's value. The length gets its own 4-byte header key for the same reason: an insert never rewrites the parent record, and `at(&id).balances.len()` is one read. The last key moves into the gap, so iteration order is not insertion order after a removal.
 
-&#91;embedded content: removal · v1 IterableMap vs v2 IterMap\]
+&#91;embedded content: removal · v1 IterableMap vs v2 Map\]
 
-**Pagination.** `page(after, limit)` reads the cursor key's index slot and the header, then walks the key vector: two reads, plus one key slot and one entry per item. If the cursor key was removed since the last page, the call panics with a message saying so and the client restarts from a known key. A removal elsewhere between pages moves the last key into the gap, so a key can be skipped; cursor pages are exact only across calls with no interleaved removals, and the type's docs say so. `iter().skip(from).take(limit)` costs nothing per skipped element, since the key vector is indexed, and is the shape for NEP-181 offset enumeration and for public views that page while other calls remove. Each map hop also costs one sha256 of the key, about 4.5 Ggas against 56 for a read.
+**Pagination.** `page(after, limit)` reads the cursor key's index slot and the header, then walks the key vector: two reads, plus one key slot and one entry per item. If the cursor key was removed since the last page, it returns `Err(CursorGone)` instead of panicking, JSON views map the error, and the client restarts from a known key. A removal elsewhere between pages moves the last key into the gap, so a key can be skipped; cursor pages are exact only across calls with no interleaved removals, and the type's docs say so. On-chain batch jobs must not page a map that changes between calls, and offset paging can likewise skip a key after a removal behind the cursor. `iter().skip(from).take(limit)` costs nothing per skipped element, since the key vector is indexed, and is the shape for NEP-181 offset enumeration and for public views that page while other calls remove. Each map hop also costs one sha256 of the key, 4.8 Ggas measured against 56 for a read.
 
 **Removal returns the value.** The host remove runs at flush, so `remove` reads the value it returns now, one read on top of the remove. The host charges 11.5 Mgas per byte of the removed value either way. `discard` skips the read and the decode.
+
+**Measured on the real runtime.** near-contract-sim (nearcore 2.14.0-rc.2, protocol 87) gives the gas a node charges; full figures are in `GAS_MEASUREMENTS.md` on branch `proto/storage-v2-gas`. A new key in `Map` costs 0.48 to 0.53 Tgas more than in `LookupMap` and 0.28 to 0.30 more than in v1 `IterableMap`, flat from 1k to 100k keys: two more reads, three more writes and their trie nodes. Whole receipts at 100k keys, insert new: `Map` 1.80 Tgas, `LookupMap` 1.31, v1 `IterableMap` 1.52, v1 `LookupMap` 1.40; update existing: 1.42, 1.32, 1.43, 1.42.
+
+**Entry hash width.** Sixteen bytes stays: eight saves 0.5 to 2 Ggas per operation, about 0.1% of a receipt, and touches identical trie nodes. `accounts[alice].balances[usdt]` is 59 bytes at 16 and 43 at 8.
+
+**Removal beside a large neighbor.** Removing a non-last key from v1 `IterableMap` costs 1.91 Tgas beside a 1-byte neighbor and 10.75 beside a 100 KiB one, as whole receipts; the operation alone is 0.87 and 9.71. v2 `Map` costs 2.12 Tgas in both cases, with byte-identical receipts.
+
+**Per call.** The root read costs 89 Ggas on every call. A nested read below the root, the `balance_of` shape, costs 138 Ggas: one read and two sha256 at 4.8 Ggas per hop. An unchanged `&mut self` call writes nothing in v2, where v1 rewrites `STATE` for 92 Ggas.
 
 `UnorderedMap` and `UnorderedSet`, with their free-list holes, do not come to v2, and `IterableMap`'s name does not either: the iterable type is the default here, so it takes the plain name. `OrderedMap` ships after the first release on the same key scheme; its tree compares decoded keys, so it needs no order-preserving encoding.
 
@@ -212,7 +254,7 @@ The root struct is one tagged record at the root key, read and decoded once at t
 
 **What happens to `STATE`.** A v2 root lives at the root byte, not at `STATE`. The `#[near]` wrapper reads it before the call and flushes after, through a pair of load and store hooks on `ContractState` that carry no Borsh or `Default` bound, so a v2 root needs no `PanicOnDefault`. `Drop` is a no-op in release builds and, in tests, a debug assertion that the wrapper flushed, skipped while a panic is unwinding.
 
-**Migrations that remain.** Changing a field's type, splitting a map, or moving data between paths still needs code. A `fn migrate(old: RawRecord) -> Self` hook receives the old root as raw tagged fields, so renaming a tag or converting one field is a few lines. Versioned roots via an enum stay possible but are no longer the default advice.
+**Migrations that remain.** Changing a field's type, splitting a map, or moving data between paths still needs code. A `fn migrate(old: RawRecord) -> Self` hook, not yet built (the prototype's migrations are plain `#[init]` methods), receives the old root as raw tagged fields, so renaming a tag or converting one field is a few lines. Versioned roots via an enum stay possible but are no longer the default advice.
 
 ## One cache, one flush
 
@@ -222,9 +264,11 @@ The `#[near]` wrapper flushes at the end of the method: dirty keys once each in 
 
 &#91;embedded content: one call through the cache · interactive\]
 
-The same cache gives exact storage accounting. Every write and remove passes through one place, so after the flush the SDK knows the call's byte delta, including the 40 bytes the runtime charges per record, and exposes it as `env::storage_delta()` to a post-flush hook and to the storage-accounting guard. It cannot be known earlier, because the old length of an overwritten key only comes back from the host. Inside the method body `storage_usage()` is pre-flush, and the mock warns when a `state` contract reads it there, since the NEP-145 before-and-after pattern no longer measures anything.
+The same cache gives exact storage accounting. Every write and remove passes through one place, so after the flush the SDK knows the call's byte delta, including the 40 bytes the runtime charges per record, and exposes it as `env::storage_delta()` to a post-flush hook and to the storage-accounting guard; both ship in the first release (rollout step 5). It cannot be known earlier, because the old length of an overwritten key only comes back from the host. Inside the method body `storage_usage()` is pre-flush, so inside a v2 mutating method the mock treats reading it as an error, not a warning: the NEP-145 before-and-after pattern measures zero there, and registering for 1 yocto could drain the contract. NEP-145 deposit math uses the per-entry bytes under Collections and cost bounds.
 
-It is also less code: one cache replaces seven, and a key builder of LEB128 and sha256 replaces a Borsh serializer per prefix enum. Contract loading gas is proportional to wasm size, so the saving lands on every call.
+**What the prototype does.** Under `unit-testing`, `env::storage_usage()` panics while the v2 cache holds unflushed changes (any slot not clean), with a message pointing at `storage_delta()`. The guard keys on cache state, not on a "v2 call active" flag, so views and code between calls never trip it (the ft-v2 migration test reads `storage_usage()` right after a view), and any "after" read in a method that wrote does. The gap: a change to a root scalar alone does not trip it, because the root is encoded only at the flush. `Receipt::storage_delta()` and `testing::storage_delta()` give the post-flush value at key + value + 40 bytes per record, and removes record the replaced length when the key existed; in the token test the mock's delta equals the mocked blockchain's `storage_usage()` delta. Tests: `storage_usage_inside_a_v2_mutating_method_panics`, `storage_delta_is_the_post_flush_storage_change`. The on-chain `env::storage_delta()` is not built; inside a method body it needs host support (Protocol asks, E).
+
+Less code is a goal, not yet a result. The prototype's v2 wasm is larger than v1: 23 KB larger in the gas run, and 129 KB against 184 KB in the fungible-token migration run, about 60 Ggas of extra contract loading per call. One cache in place of seven, and a key builder of LEB128 and sha256 in place of a Borsh serializer per prefix enum, are meant to close that gap. `Map::insert` also hashes the key three times where once would do, about 10 Ggas, a known prototype inefficiency.
 
 ## Why the guarantees hold
 
@@ -249,7 +293,7 @@ Guarantee 1 carries security weight, so here is the argument that two different 
 
 **Hot-bridge replayed.** The exploit needed a 32-byte raw key `06 | chain | len | receiver` whose first 6 bytes were fixed and whose 26 tail bytes the caller chose. Here the pending-withdrawals entry is `R 06 00 h16(chain, receiver) borsh(chain, receiver)` and the balance entry is `R 03 00 h16(acct) borsh(acct) 02 00 h16(token) borsh(token)`. They differ at the second byte, the field tag, before any caller byte appears. The common v1 nested-prefix shape, an account id baked into a prefix, gets the same treatment: the id appears only as `h16(acct) ++ borsh(acct)` after a fixed tag, so it cannot aim at anything.
 
-**What the format does not protect against.** Direct `env::storage_write` under the root byte, which the simulator flags. A v1 collection whose raw prefix starts with the root byte, covered under Coexistence. And it does not make a single storage operation cheaper; it removes the paths that touched other entries.
+**What the format does not protect against.** Direct `env::storage_write` under the root byte, which the simulator flags. A v1 collection kept at the root whose prefix is empty or starts with the root byte: the one stated exception to guarantee 1, which `migrate` refuses as Coexistence describes. And it does not make a single storage operation cheaper; it removes the paths that touched other entries.
 
 ## Coexistence and migration from v1
 
@@ -259,11 +303,15 @@ Nothing in `store` or `collections` changes, and no default hasher moves. Moving
 
 **Deployed contracts** adopt it in three steps, each optional and each a normal upgrade.
 
-- **Move the root.** Switch to the v2 layout and write a one-time `migrate` that reads the old `STATE` blob into the new root record. Existing v1 collections stay as fields of the new root, with their old keys, their own cache and their write-on-drop, which runs after the v2 flush. They belong at the root: nested inside a record they still write, but `remove` on that record does not clear them, and the derive can only reject them when the field's type path names `store` or `collections`, since v2 reuses the `LookupMap` name. The big maps never move; one record is rewritten.
+- **Move the root.** Switch to the v2 layout and write a one-time `migrate` that reads the old `STATE` blob into the new root record and removes `STATE`. On the real runtime, against the unmodified fungible-token example, migrate costs 1 has_key, 1 read of `STATE`, 1 remove and 1 root write; every other v1 key stays byte-identical, and all 300 balances read back. Existing v1 collections stay as fields of the new root, with their old keys. The two v1 families differ: `near_sdk::store::*` writes at drop, after the v2 flush, while `near_sdk::collections::*`, which near-contract-standards' `FungibleToken` and `NonFungibleToken` use, writes immediately in the method body, before the flush. They belong at the root: nested inside a record they are accepted (a `FungibleToken` in a record compiles), but `remove` on that record orphans their entries; the name clash behind this is an open question. Each v1 prefix kept at the root must be non-empty and must not start with the root byte, and `migrate` checks it. The big maps never move; one record is rewritten. A v2 transfer costs more than v1, 1.88 against 1.67 Tgas in steady state and 2.20 on a sender's first touch of the new field, because the wasm is larger and the new field adds a read and a write; the `STATE` rewrite goes away.
 - **Add new fields as v2 types.** Every field added from now on is path-derived and collision-free. Most contracts stop here.
-- **Rekey an old collection when it is worth it.** `Migrating<V1, V2>` wraps an old and a new map: reads try the new path and fall back to the old, writes go to the new path and delete the old entry. `IterableMap` and `Vector` know their keys, so `migrate_batch(n)` moves entries across calls and the wrapper comes off when the old side is empty. A v1 `LookupMap` cannot be iterated, so for it the lazy path is permanent unless an indexer supplies the keys: every miss costs two reads, and the old digest keys remain a collision target as long as any raw-key writer remains.
+- **Rekey an old collection when it is worth it.** `Migrating<V1, V2>` wraps an old and a new map: reads try the new path and fall back to the old, two reads per miss; writes go to the new path and delete the old entry. Going to `Migrating` takes a new tag plus `reserved(old)`, and the field must be `required`. On iterable v1 types (`collections::TreeMap`, `store::IterableMap`) `migrate_batch(n)` moves entries across calls: it drained 240 entries in 5 calls, but TreeMap rebalancing made the first batch cost 1,437 reads, so size batches small. The wrapper then comes off cleanly, though the stale v1 prefixes stay in the root record forever under reserved tags. On a v1 `LookupMap`, `migrate_batch` is a compile error (E0277) with a message saying why, so the lazy path is permanent unless an indexer supplies the keys: every miss costs two reads, and the old digest keys remain a collision target as long as any raw-key writer remains.
 
-**The root byte.** All v2 keys start with one byte. A v1 prefix starting with that byte, or an empty v1 prefix, could alias a v2 key. Three guards: the default is outside the range small `BorshStorageKey` enums produce, it is configurable per contract, and the simulator scans real state and asserts that no v1 key starts with it. `STATE` cannot collide; its first byte is `S`.
+**Upgrade shape.** Deploy and `migrate` must be one transaction. v2 code deployed without running migrate bricks every call with `cannot decode root: Missing { tag: 1 }` until migrate runs, and any public `#[init]` would be callable in that window.
+
+**The sharpest edge: the standards.** near-contract-standards' maps are concrete fields of `FungibleToken` and `NonFungibleToken`, so rekeying means forking the standard. Each moved key grows from 17 to 35 bytes, about 180 NEAR of staked storage per million holders, paid by the contract, and new registrations keep paying the v1 bond (125 bytes) for a 143-byte record. Independent of the fork, the standards cannot adopt v2 at all until `env::storage_delta()` ships: `FungibleToken::new` measures its storage bond with `storage_usage()` before and after inside init, which the v2 mock now refuses, and there is no on-chain `env::storage_delta()` yet (Protocol asks, E).
+
+**The root byte.** All v2 keys start with one byte. A v1 prefix starting with that byte, or an empty v1 prefix, could alias a v2 key. The migration round showed that a default byte and a state scan are not enough: an empty v1 prefix with caller-chosen byte keys let a caller write a v2 key under tag 1 after about 256 hashes, and `String` keys need about 2^15 times more. `AccountId`-keyed v2 maps are immune. So `migrate` checks the v1 prefixes kept at the root: each must be non-empty and must not start with the root byte. The default byte stays outside the range small `BorshStorageKey` enums produce and configurable per contract, and the simulator's scan of real state stays as a second check. `STATE` cannot collide; its first byte is `S`.
 
 **Hardening v1 meanwhile.** Independent of v2, a `Namespaced` hasher producing `prefix ++ sha256(key)` fixes the collision shape on new fields with a one-type-parameter change, since every hashed key then carries its enum tag. It is a sixty-line, non-breaking addition to a sealed trait, and the v2 scheme in miniature.
 
@@ -277,11 +325,13 @@ The layout is machine-readable, so most safety checks become build artifacts rat
 
 **Gas receipt and gas-bound tests.** The mock counts reads, writes, removes and bytes per key per call; the simulator reports the same receipt in real Tgas. `#[gas_bound(reads = 1, writes = 2)]` asserts the counts in a unit test, and the SDK's CI runs one per operation per type, so the cost table above is checked rather than promised. A `bounded_work` lint, opt-in at first, warns on `iter()` without `take` or `page` inside a `#[near]` method.
 
-**cargo-near commands, next version.** `storage check` validates the schema and the v1 prefix set for overlap, `storage decode` prints state as paths and typed values from a dump or RPC, and `storage diff` lists paths whose keys or types changed between two ABIs, the input to a migration. There is no lockfile; the deployed wasm embeds its ABI.
+**cargo-near commands, next version.** `storage check` validates the schema and the v1 prefix set for overlap, `storage decode` prints state as paths and typed values from a dump or RPC, and `storage diff` lists paths whose keys or types changed between the deployed wasm's ABI and the new build, the input to a migration. `cargo near build` runs `storage diff` against the deployed ABI, not the previous local build, and fails hard on a newly added `required` tag, a tag reused for a different type, or a type swap the record cannot see; that check ships in the first release. There is no lockfile; the deployed wasm embeds its ABI.
+
+**Asks to cargo-near and near-abi.** Two of these checks live outside the SDK, and the prototype builds neither: the `storage diff` hard fail against the deployed ABI (a newly added `required` tag, a type swap the record cannot see), and the build error on a tag reused for a different type. Both need near-abi to carry the storage section and cargo-near to fetch the deployed wasm's ABI and compare. Until they ship, the prototype pins the tag-reuse hazard with `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes`, which shows a reused tag reading a removed field's stale bytes, and covers a late `required` tag at decode with `field_added_as_required_fails_an_old_record_naming_the_tag`.
 
 ## Protocol asks
 
-Everything above runs on today's host functions. The protocol cannot make moving bytes cheaper, but it can let contracts avoid moving them. A is proposed; B to D are for discussion. Runtime-team review of this section is requested before the proposal goes beyond NEAR One.
+Everything above runs on today's host functions. The protocol cannot make moving bytes cheaper, but it can let contracts avoid moving them. A is proposed; B to E are for discussion, and E gates standards adoption. Runtime-team review of this section is requested before the proposal goes beyond NEAR One.
 
 **A. Metered range iteration, as a NEP.** The trie is sorted by key, and `storage_iter_prefix`, `storage_iter_range` and `storage_iter_next` still exist in nearcore as stubs returning `Deprecated`. A revived version takes a start cursor, an end bound and a page limit, and charges per trie node visited plus per byte returned, with a hard page cap to bound proof size. This key format is built for it: every map's entries sit contiguously under `ns ++ 00`, so `Map` collapses to `LookupMap` plus a header, removal is one `storage_remove`, and cursors are plain keys.
 
@@ -291,7 +341,9 @@ Everything above runs on today's host functions. The protocol cannot make moving
 
 **D. Storage payment in the runtime.** Minimal version: apply a call's attached deposit to its storage delta and refund the rest, so users cannot drain a contract by filling its storage. Full version: a payer per key, refunded on delete, which adds per-key state and needs its own cost model.
 
-Storage accounting and callback guards follow in a later phase as explicit APIs: a guard object created at the top of a method and settled on return.
+**E. An on-chain `env::storage_delta()`.** After its flush the SDK can compute the v2 share of a call's byte delta. Inside the method body it cannot, because the old length of an overwritten key comes back only from the host, and v1 collections write around the cache. near-contract-standards needs the in-body value: `FungibleToken::new` measures its storage bond with `storage_usage()` before and after inside init, which the v2 mock refuses. The ask is host support for a call's storage delta so far; its exact shape is for the runtime team. Not built in the prototype; the mock has `Receipt::storage_delta()`.
+
+Callback guards follow in a later phase as an explicit API: a guard object created at the top of a method and settled on return. Storage accounting ships in the first release, as One cache, one flush describes.
 
 ## Rollout and first PRs
 
@@ -300,15 +352,43 @@ Storage accounting and callback guards follow in a later phase as explicit APIs:
 - **Harden v1 now.** Two small additive PRs: the `Namespaced` hasher, and a mock-time check that flags a raw-key collection writing 32-byte keys in a contract that also writes digests. The hasher goes first because it fixes the collision shape on new fields today.
 - **Freeze the formats.** A two-page spec: the root byte, the four segment kinds, the entry hash width, the record encoding, the format version, the key length rule and the `Removable` semantics. Reviewed before any `state` code merges, because none of it can change once data is on chain.
 - **Encoding module and schema derive.** The key builder, the record encoder, the `StorageKey` and `Removable` traits, the `#[key(n)]` and `#[near(storage)]` derives with their view types, and the ABI storage section. No collections yet. The harnesses for guarantees 1 and 6 ship here.
-- **Collections.** `Map`, `LookupMap`, `Vector`, `Lazy`, `Set`, `LookupSet`, the `at` accessors and `GroupedMap`, each with its gas-bound test in CI, and a public `state::testing` harness with the counting receipt, since every contract's tests want it.
-- **Root integration and migration.** The v2 `contract_state` layout, the wrapper's flush, the `migrate` hook, v1 collections as root fields, `Migrating`, and a minimal `storage diff` in `near-abi`, since it is the only check for the silent type swaps noted under records. The load and store hooks move a Borsh bound off `ContractState`'s provided methods, which is visible to a downstream override that restated it; the SDK has none, and the PR says so.
+- **Collections.** `Map`, `LookupMap`, `Vector`, `Lazy`, `Set`, `LookupSet` and the `at` accessors, each with its gas-bound test in CI, and a public `state::testing` harness with the counting receipt, since every contract's tests want it.
+- **Root integration, migration and accounting.** The v2 `contract_state` layout, the wrapper's flush, the `migrate` hook with its v1-prefix check, v1 collections as root fields, `Migrating`, the accounting guard and `env::storage_delta()`, which standards adoption waits on (Protocol asks, E), and `storage diff` in `cargo near build` against the deployed ABI, the only check for silent type swaps, reused tags and late `required` tags. The load and store hooks move a Borsh bound off `ContractState`'s provided methods, which is visible to a downstream override that restated it; the SDK has none, and the PR says so.
 - **Tooling.** The near-contract-sim checks, then the three `cargo near storage` commands.
 - **`OrderedMap`**, on the same key scheme.
 - **Range-iteration NEP**, written in parallel with steps 3 to 6 and taken to the runtime team.
 
-Steps 1 to 5 are the first release. Storage accounting, callback guards and the NEP-145 derive follow once the collections have shipped.
+Steps 1 to 5, storage accounting included, are the first release. Callback guards, the NEP-145 derive and `GroupedMap` follow once the collections have shipped.
 
-**What the prototype showed.** Branch `proto/storage-v2` holds every collection above, the views, the three macros, the `Exchange` contract, and three contracts written against the rustdoc alone: a NEP-141 token with storage deposits, an NFT with enumeration and approvals, and a DAO with per-proposal votes. All compile and pass; the `Exchange` above compiles natively and for wasm32 as printed. A counting host confirmed the key lengths, the cost table as corrected here, neighbor-independent removal, the flush order and the pagination formula. The usability pass set the names, `at_mut`, `page_with` and `Lazy::new`. The prototype is behind `unstable`, has no Kani or fuzz harnesses, and counts host calls rather than measuring gas. `PROTOTYPE_NOTES.md` and `USABILITY_NOTES.md` on the branch list every finding.
+**What the prototype showed.** Branch `proto/storage-v2` holds every collection above, the views, the three macros, the `Exchange` contract, and three contracts written against the rustdoc alone: a NEP-141 token with storage deposits, an NFT with enumeration and approvals, and a DAO with per-proposal votes. All compile and pass. A counting host confirmed the key lengths, the cost table as corrected here, neighbor-independent removal, the flush order and the pagination formula. The usability pass set the names, `at_mut`, `page_with` and `Lazy::new`. The prototype is behind `unstable` and has no Kani or fuzz harnesses. Test counts after the API round: lib 571, doctests 344, state_v2_exchange 34, state_v2_ft 16, state_v2_nft 17, state_v2_dao 15, state_v2_migrate 5, ft-v2 17, sim 2; the wasm32 check passes. `PROTOTYPE_NOTES.md` and `USABILITY_NOTES.md` on the branch list every finding.
+
+**Migration round, on the real runtime.** The unmodified fungible-token example, with 300 funded accounts and a 100 KiB icon, went v1 to v2 (move the root) to v3 (rekey) on nearcore's runtime through near-contract-sim. `migrate` cost 1 has_key, 1 read of `STATE`, 1 remove and 1 root write; every other v1 key stayed byte-identical, and all 300 balances read back after deploy and migrate in one transaction. A v2 transfer costs 1.88 Tgas steady and 2.20 on a sender's first touch of the new field, against 1.67 for v1: the 129 KB to 184 KB wasm adds 60 Ggas of loading, plus more wasm work and the new field, while the `STATE` rewrite goes away. `Migrating` costs two reads per miss; the first transfer while moving took 7 reads, 6 writes and 2 removes (2.18 Tgas), later ones 4 reads and 3 writes (1.88). `migrate_batch` drained 240 entries from a `collections::TreeMap` and a `store::IterableMap` in 5 calls, but TreeMap rebalancing made the first batch cost 1,437 reads, so batches must be small. On a v1 `LookupMap` it is a compile error (E0277) with a clear message. The wrapper came off cleanly, but the stale v1 prefixes stay in the root record under reserved tags. Going to `Migrating` takes a new tag plus `reserved(old)`, and the field must be `required`. Rekeying the standards' accounts map meant forking `FungibleToken`: each moved key grows from 17 to 35 bytes, about 180 NEAR of staked storage per million holders, paid by the contract, and new registrations keep paying the v1 bond of 125 bytes for a 143-byte record. Not built: the `migrate(old: RawRecord)` hook, since v3's migrate is a plain `#[init(ignore_state)]`; and `Migrating::get` returns an owned value (`V: Clone`).
+
+**API round (Oct 17).** The prototype applied decisions D2 to D9; each has a line in the `state` module docs.
+
+| Decision | What the prototype does | Tests |
+| --- | --- | --- |
+| D2 | `#[key(n, default = expr)]`: a missing tag evaluates `expr` lazily, in decode and in the generated `Default`, and the type needs no `Default`. `RecordError::Missing` names the tag and the fix. | `key_default_expr_fills_missing_tags`, `field_added_with_default_decodes_an_old_record`, `field_added_as_required_fails_an_old_record_naming_the_tag` |
+| D3 | `GroupedMap` is `#[doc(hidden)]` with a deferral note. Exchange uses `markets: Map<MarketId, Market>`. | `markets_place_and_cancel`, `market_record_scalars_and_orders`, `cancel_in_an_absent_market_panics` |
+| D4 | No change: unknown tags were already preserved and `reserved` tags dropped. | `unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped`, `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes` |
+| D5 | The mock's `storage_usage()` guard and `Receipt::storage_delta()`, under One cache, one flush. | `storage_usage_inside_a_v2_mutating_method_panics`, `storage_delta_is_the_post_flush_storage_change` |
+| D6 | `insert` always overwrites and needs `V: Leaf`, a blanket over Borsh that the derive also emits when no field owns storage. `insert_new(k, v) -> &mut V` panics if present. `Map::insert -> bool`, `LookupMap::insert -> ()`. The rejected call is E0277 with the fix in the note. | a `compile_fail,E0277` doctest, `insert_new_returns_the_bound_record`, `insert_new_over_existing_record_panics` |
+| D7 | `at_mut(&k) -> Option<NameAtMut>` on `Map` and `LookupMap`. | `at_mut_on_an_absent_record_is_none`, `set_balance_on_an_absent_account_panics` |
+| D8 | `page`, `page_with`, `keys_page` and `Set::page` return `Result<_, CursorGone>`; `CursorGone: AsRef<str>`, so a `#[handle_result]` view returns it as is. | `page_with_removed_cursor_returns_cursor_gone`, `offset_paging_skips_a_key_after_a_removal_behind_the_offset` |
+| D9 | `remove_some(&k, n)` and the clearing flag, under Collections and cost bounds. | listed there |
+
+Where the decisions were silent, the prototype chose, and these are open to change:
+
+- `default` and `required` together are a derive error; a `default` on a collection field is a post-monomorphization `const` assert.
+- The `Market` scalars are `tick_size: u128` and `next_order_id: OrderId`, at tags 2 and 3, with `orders` at tag 1. The Exchange above is the prototype's text.
+- The D5 guard keys on unflushed cache state, with the root-scalar gap described under One cache, one flush.
+- `Lazy::set` on a record that owns collections is still a runtime insert-new check, not a trait bound. `MigrationTarget` requires `V: Leaf`, since values migrated from v1 are always Borsh.
+- `keys_page` and `Set::page` also return `Result`, for consistency.
+- The bounded clear is `remove_some(&k, n)`, with the rules under Collections and cost bounds.
+
+The clearing flag changed the cost of `at_mut`, as the table under Collections and cost bounds shows. Not built: the deployed-ABI `storage diff` checks (Tooling, an ask to cargo-near and near-abi), the on-chain `env::storage_delta()` (Protocol asks, E, an ask to nearcore), and a trybuild `.stderr` snapshot for the D6 error; the doctest checks E0277 only.
+
+**Gas round.** The same simulator measured the cost table against v1 on branch `proto/storage-v2-gas`; Collections and cost bounds carries its figures.
 
 ## Open questions
 
@@ -316,15 +396,18 @@ Each row states the proposed answer and the evidence. Disagreement with an answe
 
 | Question | Why it matters | Proposed answer |
 | --- | --- | --- |
-| Entry hash width, 16 or 8 bytes | 8 saves 8 bytes per key on every operation; 16 matches Substrate and leaves more margin against trie shaping | Sixteen. Forcing k matching leading bits costs 2^k hashes, so 8 would do, but the extra 8 bytes cost under 0.6 Ggas per write. Revisit only with a profile. |
-| Unknown tags on rewrite, drop or preserve | Preserving keeps data written by a newer version across a rollback, at the cost of carrying unknown bytes in memory | Decided: preserve through `get_mut` and `entry`, drop on a blind `insert`, with a `reserved` list for removed tags. |
+| Entry hash width, 16 or 8 bytes | 8 saves 8 bytes per key on every operation; 16 matches Substrate and leaves more margin against trie shaping | Decided on measurement: sixteen. Eight saves 0.5 to 2 Ggas per operation, about 0.1% of a receipt, and touches identical trie nodes; `accounts[alice].balances[usdt]` is 59 bytes at 16 and 43 at 8. |
+| Unknown tags on rewrite, drop or preserve | Preserving keeps data written by a newer version across a rollback, at the cost of carrying unknown bytes in memory | Decided: preserve through `get_mut` and `entry`, drop on a blind `insert`. A removed field's bytes persist until `reserved(n)` lists its tag, and reusing a tag for a different type is a build error against the deployed ABI. |
 | How the macro selects v2 | Presence of `#[key]` is implicit; a flag is one more thing to type | Explicit `contract_state(layout = v2)`. The layout is permanent and should be visible at the declaration. |
-| `Map` insert at four writes | One more small write than v1 per new key, three more than `LookupMap`, in exchange for bounded removal | Accept. The index and header writes together cost about 0.2 Tgas, trie nodes included, and v1's insert rewrote the `STATE` blob instead. `LookupMap` exists for lookup-only fields. |
+| `Map` insert at four writes | One more small write than v1 per new key, three more than `LookupMap`, in exchange for bounded removal | Accept: `Map` stays the iterable default and `LookupMap` is the opt-out. Measured, a new key costs 0.48 to 0.53 Tgas more than in `LookupMap` and 0.28 to 0.30 more than v1 `IterableMap`, and stakes 305 bytes against 115 for a `u128` balance. |
 | Default root byte | Must avoid small enum discriminants and ASCII prefixes in deployed v1 contracts | 0xF0, configurable per contract. Every v1 prefix in the SDK's examples and standards is a small `BorshStorageKey` variant or a short ASCII string, none starting above 0x7F. The simulator asserts no overlap. |
-| Group iteration in `GroupedMap` | Listing which groups exist needs a group key vector maintained on first insert and last remove | Off by default; a variant with it for contracts that need it. |
+| `GroupedMap` | Order books per market are a map of maps | Deferred out of the first release. A `Map` of records holding a `Map` covers it; allowing a collection directly as a map value is the alternative worth considering later. |
 | `Lazy<T>` in the first release | Needed for large root fields once the root is a single record | Yes. It is the smallest type in the set. |
 | Key length limits | The protocol rejects keys over 2,048 bytes, and a nested path can get there with two long map keys | A declared maximum per key type, summed along each path by the derive, which refuses a schema that could exceed 2,048 bytes. Strings and byte vectors default to 512 bytes. The mock warns on any key over 256 bytes, since a 1 KiB key adds 70 Ggas to every write. Part of the step-2 spec, because a cap cannot be lowered once data is on chain. |
 | Writes to `env::storage_write` under the root byte | Bypasses every guarantee above | The simulator flags it. The SDK documents a `clippy.toml` snippet that denies `env::storage_write` and `env::storage_remove` in crates using `state`; clippy reads it from the contract's workspace, so the SDK cannot ship it. |
 | Name of the module | `state` reads well beside `store` but is close to `contract_state` | `state`. The module already exists and holds the `ContractState` trait every `#[near]` wrapper calls, so the collections join it. `storage` would clash with `env::storage_*`; `store2` says nothing. Confirm at step 2. |
 | Names | The usability pass hit `Vec` shadowing `std::vec::Vec`, and `Map` as the lookup-only type steering new schemas into a permanent no-iteration choice | Decided: `Map` and `Set` are the iterable types, `LookupMap` and `LookupSet` the lookup-only ones as in v1, `Vector` as in v1. |
-| `required` or `Option` for fields without `Default` | `required` keeps the field's type; `Option` makes the absence visible in code | `required`, with the evolution rule stated under Permanent layout. |
+| Fields without `Default` | `required` keeps the field's type; `Option` makes the absence visible in code | Decided: `#[key(n, default = expr)]` or `required`, never a forced `Option`. `required` only for fields present since the first write; `cargo near build` hard-fails a newly added `required` tag against the deployed wasm's ABI. |
+| v1 and v2 share `LookupMap`, `LookupSet` and `Vector` | `use near_sdk::store::LookupMap;` next to `use near_sdk::state::*;` silently makes every `LookupMap` in the file the v1 type, records included, with no clash and no warning; the derive cannot reject it by trait, since there are no negative bounds | Open. Options: distinct v2 names, or rely on the simulator's check that every write lands under a declared path, which catches it at test time. |
+| Name of the bounded clear across calls | `clear(n)` would sit on the map beside the existing `Map::clear()` | `remove_some(&k, n)`, as the prototype has it: the map is the receiver, `clear(n)` would collide with `clear()`, and the operation ends by removing the record. |
+| `at_mut` cost with the clearing flag in the record | The flag lives in the record's bytes, which an existence check cannot see | Open, for the designer. `at_mut` now reads the record (no decode) instead of one existence check: `set_balance` 2 reads to 3, `cancel` 5 to 6, DAO `vote` 5 reads and 2 checks to 7 reads and 1, rereading the 2,000-byte description. Options: (a) a separate flag key checked by existence, two checks per `at_mut`; (b) check only at flush, still a read; (c) accept the cost. |
