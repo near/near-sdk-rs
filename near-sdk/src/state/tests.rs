@@ -1271,3 +1271,68 @@ fn at_mut_on_an_absent_record_is_none() {
     assert_eq!(r.reads(), 2, "D9: at_mut reads the record bytes (absent: 0 bytes)");
     assert_eq!(r.keys_written().len(), 0, "nothing created");
 }
+
+// ---------------------------------------------------------------------------------------
+// Audit round (Oct 17, Codex claims). A1: `cache::get` retags `&mut V` on a shared lookup.
+//
+// The traces below compile in safe code: `Map::get(&self) -> Option<&V>`, so two shared
+// lookups may overlap. Plain `cargo test` cannot judge them (nothing is written through the
+// `&mut`), so they run only under Miri:
+//
+//   NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS=-Zmiri-ignore-leaks \
+//     cargo +nightly miri test -p near-sdk --lib --features unstable,unit-testing -- state::tests::audit_
+//
+// (add `-Zmiri-tree-borrows` to MIRIFLAGS for the Tree Borrows verdict).
+// ---------------------------------------------------------------------------------------
+
+fn audit_a1_fixture(tag: u32, n: u32) -> Map<u32, u128> {
+    testing::use_mock();
+    let mut m: Map<u32, u128> = at(tag);
+    for i in 0..n {
+        m.insert(i, 1000 + u128::from(i));
+    }
+    end_call();
+    m
+}
+
+/// A1, same key: `&V` from `get(k)` held across a second `get(k)`, then used.
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_shared_ref_held_across_second_get_of_same_key() {
+    let m = audit_a1_fixture(40, 1);
+    let first: &u128 = m.get(&0).unwrap();
+    let second: &u128 = m.get(&0).unwrap();
+    assert_eq!(*second, 1000);
+    assert_eq!(*first, 1000, "use of the first reference after the second get");
+    end_call();
+}
+
+/// A1, other keys: `&V` held across 200 `get`s of other keys (new slots, BTreeMap node splits),
+/// then used. Slots and values are separate boxes, so this exercises "could reallocate".
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_shared_ref_held_across_gets_of_other_keys() {
+    let m = audit_a1_fixture(41, 200);
+    let first: &u128 = m.get(&0).unwrap();
+    let mut sum = 0u128;
+    for i in 1..200 {
+        sum += *m.get(&i).unwrap();
+    }
+    assert!(sum > 0);
+    assert_eq!(*first, 1000);
+    end_call();
+}
+
+/// A1, realistic surface: references collected from `iter()`, then a lookup of one of those
+/// keys, then a use of the collected reference.
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_iter_refs_then_get_of_same_key() {
+    let m = audit_a1_fixture(42, 3);
+    let all: StdVec<(u32, &u128)> = m.iter().collect();
+    let again = m.get(&all[0].0).unwrap();
+    assert_eq!(*again, 1000);
+    assert_eq!(*all[0].1, 1000);
+    end_call();
+}
+
