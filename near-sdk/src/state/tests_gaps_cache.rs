@@ -289,3 +289,42 @@ fn gaps_cache_buried_value_is_dropped_at_the_flush() {
     assert_eq!(end_call().rwd(), (2, 0, 2), "the two reads above, then the two removes");
     assert_eq!(drops(), before + 2, "both buried values dropped at the flush");
 }
+
+// ---------------------------------------------------------------------------------------
+// 4. `check_live`: a fresh handle, and a handle at the removed key itself
+// ---------------------------------------------------------------------------------------
+
+/// A record removed and re-inserted at the same key: the new record's handles are stamped
+/// with that removal's epoch, so a later unrelated removal makes them scan only newer
+/// removals and they stay writable. Kills `> -> >=` in `check_live`'s `take_while` (line 446):
+/// it rescans the removal the handle was made at and panics.
+#[test]
+fn gaps_cache_reinserted_record_survives_a_later_unrelated_removal() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Account> = at(6);
+    let _ = m.try_insert(1, Account::default());
+    let _ = m.try_insert(2, Account::default());
+    end_call();
+    assert!(m.remove(&1).is_some());
+    let _ = m.try_insert(1, Account { nonce: 7, ..Default::default() }); // bound at the removal's epoch
+    assert!(m.remove(&2).is_some());
+    let _ = m.get_mut(&1).unwrap().balances.insert("usdt".into(), 5);
+    end_call();
+    assert_eq!(m.at(&1).balances.get(&"usdt".into()), Some(&5));
+    assert!(m.get(&2).is_none());
+}
+
+/// A `Lazy` holding a record that owns storage: removing the value logs the `Lazy`'s own path
+/// as gone, and the `Lazy` handle (at that path, not strictly below it) may set a new value.
+/// Kills `> -> >=` in `check_live`'s length check (line 447): it treats the handle as stale.
+#[test]
+fn gaps_cache_lazy_record_set_after_remove() {
+    testing::use_mock();
+    let mut l: Lazy<Account> = at(5);
+    l.set(Account { nonce: 1, ..Default::default() });
+    end_call();
+    l.remove();
+    l.set(Account { nonce: 2, ..Default::default() });
+    end_call();
+    assert_eq!(l.get().map(|a| a.nonce), Some(2));
+}
