@@ -18,6 +18,8 @@
 //!   as a map value (`Map<_, Set<_>>` and friends) at the field;
 //! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
 //!   the impl inapplicable instead of a compile error at the struct);
+//! - `impl Leaf for S where for<'x> T: Leaf, ...` (same trick): plain `insert` only for records
+//!   that own no collections;
 //! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
 //!
 //! For a root: `impl Root` (encode, decode, bind), `impl Default` (decode of an empty record,
@@ -234,6 +236,7 @@ pub fn expand(
     let mut view_mut_fields = Vec::new();
     let mut view_mut_inits = Vec::new();
     let mut removable_bounds = Vec::new();
+    let mut leaf_bounds = Vec::new();
     let mut clear = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required } in &fields {
@@ -260,6 +263,7 @@ pub fn expand(
             #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t)),
         });
         removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
+        leaf_bounds.push(quote! { for<'__x> #ty: #s::Leaf, });
         clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
     }
     let reserved_arms = opts.reserved.iter().map(|r| {
@@ -462,6 +466,11 @@ pub fn expand(
                     #(#clear)*
                 }
             }
+
+            // D6: a record owns no storage iff every field is a `Leaf`; plain `insert` (which
+            // overwrites) is only available for such records.
+            #[allow(unused_lifetimes)]
+            impl #s::Leaf for #name where #(#leaf_bounds)* {}
 
             #decode_fields
             #default_impl

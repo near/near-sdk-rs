@@ -38,8 +38,13 @@
 //! - Each key is read at most once per call, and written once at the end, in key order, with the
 //!   root last. A record is rewritten only if its encoding changed. `contains_key` is a
 //!   `storage_has_key` and does not warm the cache for a later `get`.
-//! - `remove` clears the value's collections and returns it detached. `insert` of a record
-//!   that owns collections panics if the key exists.
+//! - `remove` clears the value's collections and returns it detached.
+//! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
+//!   the index read); `LookupMap::insert` returns `()` (no existence read). It requires
+//!   `V: Leaf`, a value that owns no collections, so for a record that owns one plain `insert`
+//!   does not compile (E0277 naming the fix). The ways in are `insert_new(k, v)` (`V: Record`;
+//!   panics if present, returns the bound record) and `entry(k).or_default()`. First-write-wins
+//!   is `entry(k).or_insert(v)` or `insert_new`.
 //! - Enumeration order is the key vector's: insertion order until a remove moves the last key
 //!   into the hole. `page(after, n)` / `page_with` / `keys_page` return `Err(CursorGone)` if the
 //!   cursor key was removed since the last page (D8); a `#[handle_result]` view can return the
@@ -166,6 +171,6 @@ pub use record::RecordError;
 pub use root::{Root, __private, flush_root, load_root, raw_root, root_exists};
 #[cfg(feature = "unstable")]
 pub use value::{
-    FieldDefault, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value, ViewField,
+    FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value, ViewField,
     ViewFieldMut,
 };

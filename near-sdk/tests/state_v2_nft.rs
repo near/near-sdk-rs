@@ -84,7 +84,7 @@ impl Nft {
     pub fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId, metadata: TokenMetadata) {
         require!(env::predecessor_account_id() == self.owner, "owner only");
         require!(!self.tokens.contains_key(&token_id), "token already exists");
-        self.tokens.insert(
+        self.tokens.insert_new(
             token_id.clone(),
             Token {
                 owner_id: receiver_id.clone(),
@@ -439,7 +439,7 @@ fn setting_a_nested_lazy_before_insert_panics() {
             metadata: Default::default(),
         };
         t.metadata.set(TokenMetadata::default());
-        c.tokens.insert("t1".into(), t);
+        c.tokens.insert_new("t1".into(), t);
     });
 }
 

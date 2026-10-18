@@ -100,7 +100,7 @@ impl Dao {
     pub fn add_member(&mut self, account_id: AccountId) {
         self.assert_council();
         require!(!self.members.contains_key(&account_id), "already a member");
-        self.members.insert(
+        self.members.insert_new(
             account_id,
             Member { joined_at: env::block_height(), ..Default::default() },
         );
@@ -133,7 +133,7 @@ impl Dao {
         let id = self.next_id;
         self.next_id += 1;
         member.proposals.insert(id);
-        self.proposals.insert(id, Proposal { proposer, description, votes: Default::default() });
+        self.proposals.insert_new(id, Proposal { proposer, description, votes: Default::default() });
         id
     }
 

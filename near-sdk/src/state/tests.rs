@@ -567,7 +567,7 @@ fn unchanged_root_is_not_rewritten() {
     flush_root(&ex);
     testing::begin_call();
     let mut ex: Ex = load_root();
-    ex.accounts.insert(alice(), Account::default());
+    ex.accounts.insert_new(alice(), Account::default());
     assert!(!flush_root(&ex), "a collection write does not rewrite the root record");
     assert_eq!(receipt().rwd(), (1, 1, 0));
 }
@@ -636,6 +636,7 @@ fn unknown_tags_survive_a_rewrite() {
 pub struct Slim {
     pub nonce: u64,
 }
+impl Leaf for Slim where for<'x> u64: Leaf {}
 impl Value for Slim {
     fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
@@ -693,7 +694,7 @@ fn insert_of_new_record_costs_a_has_key_and_a_write() {
     testing::begin_call();
     let mut ex2: Ex = load_root();
     let before = receipt();
-    ex2.accounts.insert(alice(), Account::default());
+    ex2.accounts.insert_new(alice(), Account::default());
     flush_root(&ex2);
     let r = receipt();
     assert_eq!(r.has_keys() - before.has_keys(), 1);
@@ -906,18 +907,58 @@ fn removed_records_collections_are_detached() {
     a.balances.len();
 }
 
-/// Item 15: inserting a record that owns collections over an existing key panics instead of
-/// silently inheriting the old record's children (round 1 behaviour).
+/// D6: `insert_new` returns the record bound to its key, so its collections are usable at
+/// once; on `Map` it costs what a new-key `insert` costs.
+#[test]
+fn insert_new_returns_the_bound_record() {
+    testing::use_mock();
+    let mut m: Map<u32, Account> = at(11);
+    let a = m.insert_new(1, Account { nonce: 3, ..Default::default() });
+    a.balances.insert("usdt".into(), 5);
+    a.nonce += 1;
+    let r = end_call();
+    assert_eq!(r.rwd(), (4, 8, 0), "outer: index + header reads, 4 writes; balances: the same");
+    assert_eq!(m.get(&1).unwrap().nonce, 4);
+    assert_eq!(m.at(&1).balances.get(&"usdt".to_string()), Some(&5));
+    let mut lm: LookupMap<u32, Account> = at(12);
+    lm.insert_new(1, Account::default()).nonce = 2;
+    let r = end_call();
+    assert_eq!((r.has_keys(), r.writes()), (1, 1), "LookupMap: 1 existence check, 1 write");
+}
+
+/// D6: `insert` always overwrites a `Leaf` value, including a scalar-only record, and
+/// `Map::insert` reports whether the key was new.
+#[test]
+fn insert_always_overwrites_a_leaf_record() {
+    testing::use_mock();
+    let mut m: Map<u32, Slim> = at(13);
+    assert!(m.insert(1, Slim { nonce: 1 }));
+    end_call();
+    assert!(!m.insert(1, Slim { nonce: 2 }), "existing key: overwritten, returns false");
+    end_call();
+    assert_eq!(m.get(&1).unwrap().nonce, 2);
+    assert_eq!(m.len(), 1);
+    end_call();
+    let mut lm: LookupMap<u32, Slim> = at(14);
+    lm.insert(1, Slim { nonce: 1 });
+    lm.insert(1, Slim { nonce: 5 });
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 1, 0), "LookupMap::insert: no existence read");
+    assert_eq!(lm.get(&1).unwrap().nonce, 5);
+}
+
+/// Item 15 / D6: `insert_new` over an existing key panics instead of silently inheriting the
+/// old record's children (round 1 behaviour). Plain `insert` does not compile for this record.
 #[test]
 #[should_panic(expected = "record exists; use get_mut, or remove it first")]
-fn insert_over_existing_record_panics() {
+fn insert_new_over_existing_record_panics() {
     testing::use_mock();
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
     flush_root(&ex);
     testing::begin_call();
     let mut ex: Ex = load_root();
-    ex.accounts.insert(alice(), Account { nonce: 9, balances: Map::default() });
+    ex.accounts.insert_new(alice(), Account { nonce: 9, balances: Map::default() });
 }
 
 /// Item 16: moving a record between keys is remove + rebuild. Re-inserting the removed value
@@ -932,7 +973,7 @@ fn moving_a_record_between_keys_panics() {
     testing::begin_call();
     let mut ex: Ex = load_root();
     let a = ex.accounts.remove(&alice()).unwrap();
-    ex.accounts.insert(bob(), a);
+    ex.accounts.insert_new(bob(), a);
 }
 
 /// Item 16, the supported path: a removed record's scalars stay readable and a new record is
@@ -993,7 +1034,7 @@ fn mem_take_breaks_binding() {
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
     let taken = core::mem::take(ex.accounts.get_mut(&alice()).unwrap());
-    ex.accounts.insert(bob(), taken);
+    ex.accounts.insert_new(bob(), taken);
 }
 
 #[test]

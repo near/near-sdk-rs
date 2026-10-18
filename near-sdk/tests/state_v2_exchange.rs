@@ -311,7 +311,7 @@ fn uninitialized_contract_panics_on_required_field() {
 fn init_body_without_bind_panics_with_hint() {
     testing::use_mock();
     let mut c = Exchange::new("owner.near".parse().unwrap());
-    c.accounts.insert(alice(), Account::default());
+    c.accounts.insert_new(alice(), Account::default());
 }
 
 /// Item 12: `.bind()` in `#[init]` lets the body seed collections; the wrapper's write

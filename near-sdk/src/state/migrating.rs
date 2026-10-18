@@ -20,7 +20,7 @@
 use super::collections::{LookupMap as NewLookupMap, Map as NewMap};
 use super::key::{Path, StorageKey};
 use super::record::RecordError;
-use super::value::{Removable, Value};
+use super::value::{Leaf, Removable, Value};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 /// A v1 map that `Migrating` can read from and delete from.
@@ -54,7 +54,7 @@ pub trait MigrationTarget: Value + Default {
     fn target_remove(&mut self, k: &Self::K);
 }
 
-impl<K: StorageKey + 'static, V: Removable> MigrationTarget for NewLookupMap<K, V> {
+impl<K: StorageKey + 'static, V: Removable + Leaf> MigrationTarget for NewLookupMap<K, V> {
     type K = K;
     type V = V;
     fn target_get(&self, k: &K) -> Option<&V> {
@@ -68,7 +68,7 @@ impl<K: StorageKey + 'static, V: Removable> MigrationTarget for NewLookupMap<K, 
     }
 }
 
-impl<K: StorageKey + Clone + 'static, V: Removable> MigrationTarget for NewMap<K, V> {
+impl<K: StorageKey + Clone + 'static, V: Removable + Leaf> MigrationTarget for NewMap<K, V> {
     type K = K;
     type V = V;
     fn target_get(&self, k: &K) -> Option<&V> {

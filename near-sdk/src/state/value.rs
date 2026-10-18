@@ -82,6 +82,23 @@ pub trait Record: Value {
     fn __view_mut<'a>(path: Path) -> Self::ViewMut<'a>;
 }
 
+/// A value that owns no storage below its own key: every Borsh type (blanket impl), and every
+/// `#[near(storage)]` record whose fields are all `Leaf` (derived). Collections and `Lazy` are
+/// not, and neither is a record holding one.
+///
+/// `Map::insert` / `LookupMap::insert` always overwrite, so they require `V: Leaf`: overwriting
+/// a record that owns collections would leave its old entries behind or silently merge them.
+/// For such a record the ways in are `insert_new(k, v)` (panics if present) and
+/// `entry(k).or_default()`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` owns storage (a collection, a `Lazy`, or a record holding one), so `insert` cannot overwrite it",
+    label = "`insert` always overwrites; it needs a value that owns no collections",
+    note = "use `insert_new(k, v)` (panics if the key exists, returns the bound record) or `entry(k).or_default()`; to replace a record, `remove` it first"
+)]
+pub trait Leaf: Value {}
+
+impl<T: BorshSerialize + BorshDeserialize + 'static> Leaf for T {}
+
 /// A value that can be removed from a map without orphaning storage.
 ///
 /// Automatic for every Borsh leaf (blanket impl), implemented for the iterable collections,

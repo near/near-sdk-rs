@@ -6,7 +6,7 @@
 use super::cache;
 use super::key::{ENTRY_HASH_LEN, Path, StorageKey, kind};
 use super::record::RecordError;
-use super::value::{Record, Removable, Value, ViewField, ViewFieldMut};
+use super::value::{Leaf, Record, Removable, Value, ViewField, ViewFieldMut};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
@@ -314,15 +314,66 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         Some(unsafe { m(p) })
     }
 
-    /// Leaf value: 1 write, no read, replaces the stored value whole.
-    /// Record that owns collections: insert-new, 1 `storage_has_key` + 1 write, and panics
-    /// if the key exists ("record exists; use get_mut, or remove it first").
+    /// Always overwrites: 1 write, no read, replaces the stored value whole (unknown tags
+    /// included). Returns nothing, since knowing whether the key existed would cost a read.
+    ///
+    /// Only for values that own no collections (`V: Leaf`). For a record that owns collections
+    /// use [`LookupMap::insert_new`] or `entry(k).or_default()`:
+    ///
+    /// ```compile_fail,E0277
+    /// use near_sdk::near;
+    /// use near_sdk::state::{LookupMap, Map};
+    /// #[near(storage)]
+    /// pub struct Market {
+    ///     #[key(1)] orders: Map<u64, u128>,
+    /// }
+    /// fn place(markets: &mut LookupMap<u32, Market>) {
+    ///     // error[E0277]: `Market` owns storage (a collection, a `Lazy`, or a record holding
+    ///     // one), so `insert` cannot overwrite it
+    ///     // note: use `insert_new(k, v)` (panics if the key exists, returns the bound record)
+    ///     // or `entry(k).or_default()`; to replace a record, `remove` it first
+    ///     markets.insert(7, Market::default());
+    /// }
+    /// ```
+    ///
+    /// The fix:
+    ///
+    /// ```
+    /// # use near_sdk::near;
+    /// # use near_sdk::state::{LookupMap, Map};
+    /// # #[near(storage)]
+    /// # pub struct Market {
+    /// #     #[key(1)] orders: Map<u64, u128>,
+    /// # }
+    /// fn place(markets: &mut LookupMap<u32, Market>) {
+    ///     let m = markets.insert_new(7, Market::default());
+    ///     m.orders.insert(1, 100);
+    /// }
+    /// ```
     #[track_caller]
-    pub fn insert(&mut self, k: K, mut v: V) {
+    pub fn insert(&mut self, k: K, mut v: V)
+    where
+        V: Leaf,
+    {
         let path = self.entry_path(&k);
-        assert_insert_new::<V>(&path);
         v.bind(&path);
         cache::put(&path, v);
+    }
+
+    /// Inserts a record that may own collections, and returns it bound to its key:
+    /// 1 `storage_has_key` + 1 write. Panics if the key exists ("record exists; use get_mut,
+    /// or remove it first"), so first-write-wins needs no separate check.
+    #[track_caller]
+    pub fn insert_new(&mut self, k: K, mut v: V) -> &mut V
+    where
+        V: Record,
+    {
+        let path = self.entry_path(&k);
+        if cache::exists(&path) {
+            panic!("state: record exists; use get_mut, or remove it first");
+        }
+        v.bind(&path);
+        unsafe { m(cache::put(&path, v)) }
     }
 
     /// 1 read, 1 write. The old value comes back detached, its collections cleared.
@@ -401,6 +452,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
 impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
     read_only! {
         insert(K, V);
+        insert_new(K, V);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -531,26 +583,46 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         set_len_at(&self.header(), len.checked_add(1).expect("Map is full"));
     }
 
-    /// Returns `true` if the key was new.
+    /// Always overwrites. Returns `true` if the key was new (free: the index read says so).
     ///
-    /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write
-    /// (leaf values only; a record that owns collections panics: insert is insert-new). So
-    /// "first write wins" is `require!(map.insert(k, v), "exists")`, except that a leaf value
-    /// has already been overwritten when it returns `false`; panicking aborts the call, so
-    /// nothing is written.
+    /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write.
+    /// First-write-wins is `entry(k).or_insert(v)`, or `insert_new` for a record.
+    ///
+    /// Only for values that own no collections (`V: Leaf`); see [`LookupMap::insert`] for the
+    /// rejected call and the fix. For a record that owns collections use [`Map::insert_new`] or
+    /// `entry(k).or_default()`.
     #[track_caller]
-    pub fn insert(&mut self, k: K, mut v: V) -> bool {
+    pub fn insert(&mut self, k: K, mut v: V) -> bool
+    where
+        V: Leaf,
+    {
         let path = self.entry_path(&k);
         let exists = cache::get::<u32>(&self.index_path(&k)).is_some();
-        if exists && V::MAX_SUBPATH > 0 {
-            panic!("state: record exists; use get_mut, or remove it first");
-        }
         v.bind(&path);
         cache::put(&path, v);
         if !exists {
             self.push_key(&k);
         }
         !exists
+    }
+
+    /// Inserts a record that may own collections, and returns it bound to its key. New key:
+    /// 1 index read, 1 header read, 4 writes. Panics if the key exists ("record exists; use
+    /// get_mut, or remove it first"): an existing record's collections would otherwise be
+    /// left behind or merged.
+    #[track_caller]
+    pub fn insert_new(&mut self, k: K, mut v: V) -> &mut V
+    where
+        V: Record,
+    {
+        let path = self.entry_path(&k);
+        if cache::get::<u32>(&self.index_path(&k)).is_some() {
+            panic!("state: record exists; use get_mut, or remove it first");
+        }
+        v.bind(&path);
+        let p = cache::put(&path, v);
+        self.push_key(&k);
+        unsafe { m(p) }
     }
 
     #[track_caller]
@@ -762,6 +834,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     read_only! {
         insert(K, V);
+        insert_new(K, V);
         remove(&K);
         discard(&K);
         get_mut(&K);
