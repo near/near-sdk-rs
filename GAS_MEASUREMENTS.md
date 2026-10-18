@@ -22,6 +22,11 @@ leaf-only rows pay it with no extra host call. The `Map::try_insert` record row'
 a leaf insert compares two different builds (ext vs non-ext), so codegen differences are not
 excluded. It is consistent with the cost of encoding the record.
 
+*Update, same day:* measured and fixed in "Flush regression fix (Oct 18, 2026)" below. The
+copies were the cause, together with a key copy before every host read in `Cache::load`. The
+"re-encodes every dirty slot" part does not hold for the wasm path. With the fix, all six
+write-path rows are back at or below their Oct 17 op-only gas.
+
 ### Method changes
 
 - **The "before" is a rebuild.** The Oct 17 wasms were not kept. `9382156c` (the Oct 17 branch head)
@@ -137,6 +142,115 @@ spend is.
 - The original Oct 17 wasm bytes; see the rebuild note above.
 - The design doc's appendix C itself (the Claude Doc was not available to this session); the figures
   above are the ones quoted in the brief.
+
+### Flush regression fix (Oct 18, 2026)
+
+Branch `proto/storage-v2-perf` (from `5030854b` plus the gas harness, `cb867b4f`). Fix commit
+`19050adb`. Same simulator and harness. The rows are the six v2 h16 write-path rows at 10k keys,
+run by the new `perf_rows` helper (same `ops()` as `gas_report`, 7 keys per row, median). Raw
+output: `proto-gas/results/gas_flushfix_20261018.txt`. The sim ran from its own
+`CARGO_TARGET_DIR` (`.sim-target/` in this worktree), so the shared-binary hazard above could not
+arise.
+
+**Cause, measured.** The D9 flag-key commit added a heap allocate + copy + free in two places,
+and those two places account for the whole D9 delta:
+
+1. **Read path.** `Cache::load` copied the key before every host read (`key.to_vec()`, even when
+   the slot was not at its flag key). Each read also looked up the slot twice (`entry_slot`, then
+   `load`).
+2. **Flush.** `Slot::flush_ops` returned a `Vec<FlushOp>` per slot, with a copied key in every
+   op.
+
+Separately, the flush cloned every slot key before its loop (`keys: Vec<(Vec<u8>, _)>`). That
+cost predates Oct 17 and is not part of the regression. It was removable in the same change.
+
+One variant per cause, each built alone on the baseline, measured as WASM_INSTRUCTION Ggas
+(1 Ggas ≈ 1,215 wasm ops at nearcore's `wasm_regular_op_cost` of 822,756 gas):
+
+| row (10k keys) | D9 delta in the bisect (1k keys) | (a) read path only | (b) flush-op visitor only | (a)+(b) | (c) keys walked in place only | all three |
+|---|---:|---:|---:|---:|---:|---:|
+| `Map` insert new | +10.4 | −4.0 | −6.3 | −10.3 | −5.8 | −15.6 |
+| `Map` update existing | +3.9 | −2.3 | −1.6 | −3.9 | −3.8 | −7.8 |
+| `Map` remove non-last | +16.2 | −8.3 | −9.0 | −17.3 | −6.8 | −24.1 |
+| `LookupMap` insert new | +2.2 | −0.7 | −1.4 | −2.1 | −3.0 | −5.3 |
+| `LookupMap` update | +2.2 | −0.7 | −1.5 | −2.2 | −3.0 | −5.3 |
+| `LookupMap` remove | +4.1 | −2.6 | −1.5 | −4.1 | −3.0 | −7.2 |
+
+(a)+(b) reproduces the bisect's D9 delta on every row to within 1.1 Ggas. The savings add up:
+(a)+(b)+(c) taken separately is within 0.5 Ggas of the combined build. Per extra
+allocate/copy/free that is about 0.7-1.7 Ggas (850-2,000 wasm ops): the allocator's
+malloc and free, plus the copy of a 40-60 byte key. No storage op, byte or trie-node
+count moved in any variant.
+
+**The re-encode half of the earlier hypothesis is refuted for the wasm path.** Both before and
+after D9 the flush encodes each Touched/Dirty slot exactly once. The second encode is in
+`has_pending_writes`, which also calls the op builder, but only `state::testing` (the view-call
+check) calls it, never a contract. The copy half was right, and the read-path copy in `load` was
+the other half.
+
+**The change** (`near-sdk/src/state/cache.rs`):
+
+- `Cache::load(key, flaggable)` marks the slot and loads it with one slot lookup. It passes the
+  key to the host as is and builds the flag key only when the slot is known to be at it.
+- `Slot::flush_ops` → `Slot::for_each_flush_op(f)`, a visitor. Each `FlushOp<'_>` borrows the
+  encoded bytes and names its target as `At::Key` or `At::Flag`. The flush builds the flag key
+  only for an op that targets it (clearing moves, blind deletes of records). A verbatim
+  clearing move borrows the original bytes (`Cow`) instead of copying them.
+- `flush` walks the slot map in place with disjoint field borrows (`host`, `slots`, `root`) and
+  compares the root key as a slice. Nothing in the loop adds a slot, and a host call cannot
+  re-enter the cache, because its `RefCell` is borrowed for the whole flush.
+- Same ops in the same order: the record key before its flag key, and key order overall. Same
+  counts: `remove_count` still matches the visitor (the `pending_removes` debug assert). No new
+  `unsafe`: the flush keeps its existing `sp.as_ref()` deref.
+
+**Before / after** (Tgas whole receipt; op-only = minus the same wasm's `ping`, which removes the
+contract-loading difference):
+
+| row (10k keys) | Oct 17 (`9382156c` rebuilt) | Oct 18 before fix | after fix | op-only Oct 17 / before / after (Ggas) | op-only after − Oct 17 | WASM_INSTRUCTION Oct 17 / before / after (Ggas) |
+|---|---:|---:|---:|---:|---:|---:|
+| `Map` insert new | 1.794 | 1.813 | **1.796** | 732.7 / 745.3 / 729.8 | **−2.9** | 96.4 / 109.1 / 93.5 |
+| `Map` update existing | 1.419 | 1.431 | **1.422** | 358.3 / 363.3 / 355.6 | **−2.7** | 70.9 / 76.0 / 68.2 |
+| `Map` remove non-last | 2.145 | 2.175 | **2.150** | 1084.2 / 1107.9 / 1083.8 | **−0.4** | 117.1 / 140.2 / 116.1 |
+| `LookupMap` insert new | 1.312 | 1.321 | **1.315** | 250.8 / 254.0 / 248.7 | **−2.1** | 59.7 / 63.0 / 57.7 |
+| `LookupMap` update | 1.320 | 1.330 | **1.323** | 259.1 / 262.3 / 257.0 | **−2.1** | 60.0 / 63.3 / 58.0 |
+| `LookupMap` remove | 1.374 | 1.385 | **1.377** | 312.9 / 318.1 / 310.9 | **−2.0** | 59.9 / 65.1 / 57.9 |
+
+Ops are unchanged on every row: 3/4/0/0, 2/1/0/0, 5/3/3/0, 1/1/0/0, 1/1/0/0, 2/0/1/0.
+
+**Wasm size** (`v2_h16`, built in this worktree): Oct 17 rebuilt 158,806 B, before fix 164,513 B,
+after 163,361 B (**−1,152 B**). Contract loading is now 178.0 Ggas (was 179.2; Oct 17 173.0).
+So the whole-receipt gap to Oct 17 is +2 to +5 Ggas, which is the remaining load delta (+5.0)
+minus the op-only gain. The variant builds were (a) 164,509 B, (b) 164,050 B and (c) 163,834 B.
+The combined build was 163,328 B before comment-only edits. Those edits shift the source lines
+that `#[track_caller]` panic locations embed, which accounts for +33 B. The build is
+deterministic (same SHA-256 twice).
+
+**Target (within 3 Ggas of Oct 17 after the loading delta): met on all six rows.** Op-only is
+0.4-2.9 Ggas *below* Oct 17. That is not because the post-Oct-17 instruction growth is gone:
+
+- **D9 flag key, inherent part: about 0 on these rows.** (a)+(b) recover the whole D9 delta
+  (within 0.1 Ggas on five rows, and 1.1 Ggas more than the D9 delta on `Map` remove). These rows store leaf values, so
+  they never take a flag-key branch. The remove ordering (record key before flag key) is a
+  branch taken only for records being cleared, and it adds no host call here. The one D9 host
+  cost, the flag-key check on a record miss (`LookupMap::try_insert`, about 54 Ggas base), is
+  inherent to the design and untouched.
+- **Later commits, still present:** with only (a)+(b) applied (estimated by adding up the
+  separate variants), the rows would sit at +2.4, +1.2,
+  +5.8, +1.2, +1.1 and +1.1 Ggas of wasm over Oct 17. Per the bisect that is T4 revision (+4.3 on
+  remove), A2 generation stamps (+0.7 to +1.8) and the rest of round 3 (≤ 1). The 12-byte header
+  adds +0.5 Ggas of bytes on `Map` remove. This change does not touch them.
+- **Offset by (c):** walking the slots in place removes a cost that predates Oct 17 (3.0-6.8
+  Ggas per row). It more than covers the later commits, which is why op-only ends below Oct 17.
+  Against an Oct 17 build that also had (c) (an estimate, not built), `Map` remove would still be
+  about 6 Ggas behind, all of it from T4 and A2.
+
+Not measured: h8, the `ext` rows (`try_insert`, `remove_step`, page) and the 1k/100k sizes.
+They run the same flush and read path, so they should move the same way per slot and per read.
+The `ext` (188,950 B) and h8 (163,341 B) builds compile.
+
+Reproduce (from `proto-gas/sim`, after building the wasm into a directory):
+`CARGO_TARGET_DIR=<own target dir> GAS_RES_DIR=<dir with v2_h16.wasm> cargo +1.95.0 test --test storage_v2_gas perf_rows -- --include-ignored --nocapture`
+(`GAS_SIZES` overrides the default 10k).
 
 The Oct 17 run follows, unchanged.
 

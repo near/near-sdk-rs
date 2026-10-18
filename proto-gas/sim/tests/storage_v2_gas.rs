@@ -533,3 +533,35 @@ fn bisect_rows() {
     line.push(format!("balance_of: {} (wasm {})", t(c.total), gg(c.wasm)));
     println!("BISECT {}", line.join(" | "));
 }
+
+/// The six write-path rows (v2 h16 `Map` and `LookupMap` insert/update/remove) at `GAS_SIZES`
+/// (default 10k), with the same wasm's `ping` for the op-only figure. Used for the Oct 18
+/// flush-regression fix. `GAS_RES_DIR` selects the wasm directory as in `bisect_rows`.
+#[test]
+#[ignore = "flush-perf helper; run with --nocapture"]
+fn perf_rows() {
+    let v = V2H16;
+    let size = std::fs::metadata(
+        std::env::var("GAS_RES_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../res"))
+            .join("v2_h16.wasm"),
+    )
+    .map(|m| m.len())
+    .unwrap_or(0);
+    let mut sim = world(v);
+    let ping = cost(&call(&mut sim, "ping", json!({})));
+    println!("\nv2_h16.wasm {size} B; ping {} Tgas (load {})\n", t(ping.total), gg(ping.load));
+    println!("{HEADER}");
+    for n in std::env::var("GAS_SIZES").map(|_| sizes()).unwrap_or_else(|_| vec![10_000]) {
+        for which in ["map", "lookup"] {
+            for (op, cs) in ops(v, which, n) {
+                println!("{}", row(&v.label(which), n, op, &cs));
+                let mut c = cs.clone();
+                c.sort_by_key(|c| c.total);
+                let m = c[c.len() / 2];
+                println!("PERF {which} {op} n={n}: total {} op-only {} wasm {}", t(m.total), gg(m.total - ping.total), gg(m.wasm));
+            }
+        }
+    }
+}
