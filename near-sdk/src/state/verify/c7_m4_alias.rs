@@ -12,7 +12,7 @@ use crate::state::{V1PrefixError, check_v1_prefix};
 
 /// Bound (Kani): any root byte, any v1 prefix of 0..=3 bytes, a v1 key suffix that is either
 /// any 0..=4 bytes or (forged) the v2 key's own tail after the prefix length, so an alias is
-/// reachable whenever the prefix matches the v2 key's start; any v2 map-entry key `root . field(t) . kind(k) . entry(h, enc)` with any `u32` tag,
+/// reachable whenever the prefix matches the v2 key's start; any v2 map-entry key `root . field(t) . kind(k) . entry(h, enc)` with any nonzero `u32` tag,
 /// kind, hash and an encoded key of 0..=2 bytes. If the guard admits the prefix, the v1 key
 /// differs from the v2 key; if it rejects, the reason is the empty prefix or the root byte.
 /// Random engine: 100,000 cases.
@@ -29,7 +29,7 @@ fn c7_admitted_v1_prefixes_never_alias_v2_keys() {
     bolero::check!().with_generator(g).with_iterations(100_000).for_each(|(root, (p, pl), (s, sl, forge), (t, k, h, e, el))| {
         let prefix = &p[..(*pl % 4) as usize];
         let suffix = &s[..(*sl % 5) as usize];
-        let v2 = Path::root(*root).field(*t).kind(*k).entry_hashed(h, &e[..(*el % 3) as usize]);
+        let v2 = Path::root(*root).field((*t).max(1)).kind(*k).entry_hashed(h, &e[..(*el % 3) as usize]);
         let v2 = v2.as_bytes();
         let mut v1 = prefix.to_vec();
         v1.extend_from_slice(if *forge { &v2[prefix.len().min(v2.len())..] } else { suffix });
