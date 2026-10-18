@@ -27,3 +27,5 @@ pub mod g2_local;
 pub mod g6_layout;
 #[cfg(test)]
 pub mod c7_m4_alias;
+#[cfg(test)]
+pub mod c2_orphans;
