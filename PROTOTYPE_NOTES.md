@@ -1356,17 +1356,17 @@ The harnesses that did not finish under Kani in the Soundness round were not ret
 | # | Status | Action |
 |---|---|---|
 | 1 last-key remove skips the slot read | still true | `Map::remove` rustdoc fixed; spec open |
-| 2 blind remove in `LookupMap::discard` / `LookupSet::remove` | still true | rustdoc fixed (and for a record value: 2 removes, the flag key); spec open |
-| 3 blind remove in `Lazy::remove` | still true | rustdoc fixed; spec open |
-| 4 unfinished clear reads one more slot | still true | `remove_step` rustdoc fixed; spec's per-call line open |
+| 2 blind remove in `LookupMap::discard` / `LookupSet::remove` | still true | rustdoc fixed (and for a record value: 2 removes, the flag key); spec open. Round 5: a record value is now read first (1 read, 1 remove, 0 if absent); spec states it |
+| 3 blind remove in `Lazy::remove` | still true | rustdoc fixed; spec open. Round 5: still true for plain values; a record value is read first, then 0 removes if empty |
+| 4 unfinished clear reads one more slot | still true | `remove_step` rustdoc fixed; spec's per-call line open. Round 5: spec states it (bookkeeping bound and per-call table) |
 | 5 flag written only on the first unfinished call | resolved by round 2 | none |
 | 6 `at_mut` rustdoc stale | resolved by round 2 | none |
 | 7 `swap_remove` elides an identical rewrite | still true | rustdoc fixed; spec open |
 | 8 limit 0 returns `next = None` | still true | `Map::page` rustdoc fixed; spec open |
 | 9 measured sha256 per op | still true, counts unchanged | spec only (no state rustdoc states a count) |
 | 10 cursor paging can return keys twice | still true | `Map::page` rustdoc fixed; spec's Pagination names only the skip |
-| 11 Lazy values outside the budget | partly resolved (spec says Lazy does not count) | rustdoc fixed; spec open: "`n = 0` clears nothing and sets the flag" is false for a record holding only Lazy values or empty maps |
-| 12 `n = 0` never progresses | resolved by round 2 in the spec | rustdoc now says it too |
+| 11 Lazy values outside the budget | partly resolved (spec says Lazy does not count) | rustdoc fixed; spec open: "`n = 0` clears nothing and sets the flag" is false for a record holding only Lazy values or empty maps. Resolved by round 5: the budget counts host removes, `Lazy` included |
+| 12 `n = 0` never progresses | resolved by round 2 in the spec | rustdoc now says it too. Superseded by round 5: `n = 0` does not compile, 1 and 2 panic |
 
 Left for the orchestrator, design doc only: 1, 2, 3, 4, 7, 8, 9, 10, 11, plus the F1 cost note above. `verify/cost.rs` `DOC_DIFFS` keeps its indices and marks 4 and 5 (the list's items 5 and 6) as resolved.
 
@@ -1389,3 +1389,102 @@ Left for the orchestrator, design doc only: 1, 2, 3, 4, 7, 8, 9, 10, 11, plus th
 - **Untouched:** the near-contract-sim gas runs; `docs/storage-v2-spec.md` (the design-doc corrections are listed above for the orchestrator); the Claude Doc.
 - **No `rustfmt`:** the tree was not rustfmt-clean on either side before the merge, and reformatting would bury the diff.
 - **`quiet()`:** still swaps the global panic hook (unchanged, as noted in the Soundness round).
+
+## API round 5 (Oct 18, hazard fixes)
+
+Two settled design fixes for the Soundness round's hazards A3 and A5 (and C5 with it). Commits: `a3655a71` (A3), `b4c69bdb` (A5), then this notes/spec commit.
+
+### A3: removal fails closed on unknown collection tags
+
+**Rule.** Removing a record whose stored bytes carry a tag the record does not declare, and does not list in `reserved(n)`, holding a collection kind marker panics before anything is removed. The message names the tag (a tag path such as `2 > 2` when nested) and the collection type, and gives the two fixes: roll forward to a version that declares it, or list it in `#[near(storage, reserved(N))]`. Unknown scalar tags keep the old behaviour (dropped with the record). A `reserved(n)` tag is known and empty: listing a collection tag there is the developer's statement that the version owning that collection cleared it, so the SDK has nothing to check and nothing to clear.
+
+**Mechanism.**
+- `record::marker`: `0x81` Map, `0x82` LookupMap, `0x83` Set, `0x84` LookupSet, `0x85` Vector, `0x86` Lazy, `0x87` GroupedMap. All are at least `0x80`, so no `bool` or fieldless enum under 129 variants encodes as one.
+- `RecordWriter::new()` writes `varint(tag) 01 kind` for every non-inline field (`root::encode_field` calls `push_marker(tag, T::KIND)`); `RecordWriter::root()` writes none, since a root is never removed. Decoding skips markers; they are part of no key.
+- The derive generates `Value::__unknown_collection(body)`: per declared tag it recurses into that field's type (so a nested record's own unknown tags are found), reserved tags return `None`, and any other tag goes to `root::unknown_field_collection` (a 1-byte marker, or a value that parses as a canonical record holding a marker, searched recursively).
+- `collections::guard_removal::<V>` reads the stored bytes through `cache::stored_bytes` (no extra read if the call already read them) and panics on a hit. Called by `remove`, `discard`, `replace`, `remove_step`, `Map::clear` / `clear_budgeted` of record values, `Vector` `pop` / `swap_remove` / `clear` / `clear_children_some`, and `Lazy` `remove` / `clear_children` / `clear_children_some`.
+
+**Bytes and ops, before and after.**
+- `Account { nonce: u64, balances: Map }` record: 10 bytes to 13 (`01 08 <8> 02 01 81`). +3 staked bytes per collection or `Lazy` field per record: 30 NEAR per million records per field.
+- `discard` of a record (`LookupMap` / `Map`): 0 reads, 2 removes (record key and flag key, blind) to 1 read, 1 remove (5 removes instead of 6 in `flag_key_is_dropped_by_replace_remove_and_discard`).
+- Bulk clear of record values: per entry 1 read more, 1 remove fewer (3, was 4).
+- `Lazy::remove` of a record value: 1 read more.
+- `remove`, `replace`, `remove_step`: unchanged (they already read).
+
+**Tests.** The A3 pin `a3_rollback_removal_of_a_record_with_an_unknown_collection_tag_panics` now asserts the panic (remove, discard, remove_step, clear, `LookupMap` remove/discard/replace) and that the rolled-forward schema removes the record and its children with no keys left. New:
+- `a3_known_collections_and_unknown_scalars_still_remove`;
+- `a3_reserved_collection_tag_is_known_and_empty`;
+- `a3_nested_record_collections_are_checked_at_any_depth` (derive-level, two schemas each);
+- `record::tests::unknown_values_classified`;
+- `g6_kind_markers_written_preserved_and_checked_on_removal` (20,000).
+
+The model writes `REC_ITEMS -> [0x81]` in `RecM::bytes()`, so the differential harness checks marker bytes exactly. Sensitivity: disabling marker emission fails the differential harness and 2 of the A3 tests.
+
+### A5: the budget counts host removes
+
+**Rule.** `remove_step(&k, n: NonZeroU32)` makes at most `n` `storage_remove` calls of any kind per call. Exact bound plus bookkeeping, for a depth-1 record with `F` Map/Set/Vector fields and `L` Lazy fields: at most `n` removes, `n / 3 + F + 5` reads, `L` `storage_has_key`, 3 writes per call. Nesting adds per entry 1 read of the nested record and its header reads.
+
+**Mechanism.**
+- Whole units, taken only if they fit in what is left: map entry 3; `Lazy` 1 (after a `storage_has_key`, so a resumed call does not re-pay); `Vector` slot 1 (the last also takes its header); emptied header 1, or 0 if never stored; finish 1 (`LookupMap`) or 3 (`Map`: record, index, last key slot); move to the flag key 1, reserved up front so a `Pending` call stays within `n`.
+- `cache::delete_cost::<V>` and `cache::clearing_cost` compute the exact removes a pending delete adds, mirroring `flush_ops` (`Slot::remove_count`); a test-only `cache::pending_removes()` debug-asserts the two agree.
+- `MIN_REMOVE_STEP = 3`: a map entry and a `Map` finish cannot be split, so `n` of 1 or 2 panics ("must be at least 3"), and `n = 0` is a type error (`compile_fail,E0308` doctest).
+- `Map::clear()` is unchanged (unbounded).
+
+**Op counts, before and after.** For the A5 shape (4 x 64 KiB `Lazy`, 3 map entries), per call (removes, value bytes):
+- Before, at `n = 1`: 3 calls, (8, 262,166), (7, 6), (11, 26).
+- After, at `n = 3`: 7 calls, (3, 131,095), (2, 131,080), (3, 6), (3, 6), (3, 6), (1, 12), (3, 23), 18 removes total. Each call is at most `n` removes and `n` x 64 KiB.
+
+`a5_lazy_values_count_against_the_budget` (6 `Lazy`, `n` 3..=10, both maps) asserts 1 call if 6 + finish ≤ n, else ceil((6 + 1 + finish) / n) calls. `remove_step_budgets_across_calls`: `Map` at n = 7 removes [7, 6, 7] per call; `LookupMap` at n = 3 removes [1, 3, 2]. C5 now asserts exact per-call reads, writes and removes against a mirror of the rule, 1..=n removes per call, and the total of 3m + 1 + 3 + (1 if moved). The pinned `n = 0` test became `c5_budget_below_three_panics_and_three_progresses`. G7 and the model use the cost-based rule; C2 and diff generators draw `n` from 3 up.
+
+### Deviations from the brief
+
+- **The minimum is 3, not 1.** `NonZeroU32` alone would allow 1 and 2, which cannot remove a map entry (3 removes that cannot be split without breaking the clearing record's map iteration). `n` of 1 or 2 panics.
+- **The A5 pin asserts ceil((K + 1 + finish) / n) calls, not ceil(K / n).** The move to the flag key (1) and the finish (1 or 3) are removes too, and the rule counts every remove. When K + finish fits in `n` it is 1 call (no move).
+- **The bookkeeping bound is schema-dependent** (`F`, `L`, depth), not one constant.
+- **C3 weakened.** A mid-call flush changes which removes are still pending, so a later `remove_step` in the same call can make different progress. The harness allows divergence only when a `RecRemoveSome` follows the inserted flush in that call, and counts it (0 to 2 of 2,000 per run; 0 in the final run).
+- **The kind marker has a false positive.** A one-byte `u8`/`i8` with value `0x81`..`0x87` under an unknown tag fails closed, and so can an unknown scalar whose Borsh bytes parse as a canonical record holding a marker.
+
+### Deliberately not done
+
+- A blind `insert` of a record without collections, and `Lazy::set`, over bytes carrying an unknown collection tag: not checked (no read; adding one would cost every insert a read).
+- Records written before round 5 carry no markers until rewritten (`get_mut`, `entry`); `at_mut` does not rewrite. No migration pass.
+- The root carries no markers.
+- The reference model has no schema with an unknown collection tag; the derive tests cover it.
+- No prefix delete or generation component in paths (alternatives for A3); no budget for `Map::clear()`.
+- Kani not run (another agent's job); no cargo-mutants re-run.
+
+### Harness results (round 5 code, random engine, bounds as recorded)
+
+| Harness | Bound | Result |
+|---|---|---|
+| Part A `differential_against_reference_model` (+ fixed sequences) | 2,000 | pass |
+| G1 prefix-free / distinct paths / production = spec / long paths / nested get | 20,000 / 20,000 / 20,000 / 5,000 / 2,000 | pass |
+| C7 admitted v1 prefixes / production keys | 100,000 / 20,000 | pass |
+| G2 local | 3,000 | pass |
+| G3 counts / 10,000 ops | 5,000 / 3 x 10,000 | pass |
+| G4 one write / drop / cache flush | 2,000 / 2,000 / 20,000 | pass |
+| G5 page cost (+ aged map) | 5,000 | pass |
+| G6 identity / canonical / large / schema evolution | 20,000 / 50,000 / 20,000 / 20,000 | pass |
+| G6 `g6_kind_markers_written_preserved_and_checked_on_removal` (new) | 20,000 | pass |
+| G6/D2 derive (`state_v2_verify`) | 2,000 each; required 500 | pass |
+| G7 stated cost beside a 100 KiB neighbour (+ 3 pinned) | 20,000 | pass |
+| C1 spliced keys (+ baseline) | 5,000 | pass |
+| C2 no orphans / removed record / nested (`state_v2_verify`, n 3..=5) / refusal | 2,000 / 2,000 / 1,000 / fixed | pass |
+| C3 mid-call flush (+ fixed) | 2,000 | pass, 0 diverged |
+| C4 `storage_delta` (+ 2) | 500 | pass |
+| C5 `remove_step` isolates the record (+ below-three pin) | 3,000 | pass, exact per-call counts |
+| C6 paging under churn (+ 2 pinned) | 5,000 | pass |
+| F3 failed call leaves no trace | 2,000 | pass |
+| A3 pin + 3 tests, A5 pin + shape test (`state_v2_verify`) | fixed | fixed: A3 panics, A5 within budget |
+
+47 tests in `near-sdk/src/state/verify/` (was 46) and 16 in `state_v2_verify.rs` (was 13).
+
+### Test counts (end of round 5)
+
+- Lib: 639 passed, 1 ignored (same pre-existing ignore).
+- Doctests: 348 passed, 7 ignored, plus 6 standalone (the new `remove_step` `compile_fail` for `n = 0`).
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 9, `state_v2_verify` 16.
+- ft-v2 example: 16, plus 2 doctests.
+- near-sdk-macros: 49, plus 1 doctest.
+- `proto-wasm-check`: wasm32 check passes.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
