@@ -9,3 +9,9 @@
 pub mod fixture;
 #[cfg(test)]
 pub mod diff;
+#[cfg(test)]
+pub mod g1_addressable;
+#[cfg(test)]
+pub mod cost;
+#[cfg(test)]
+pub mod g7_stated_cost;

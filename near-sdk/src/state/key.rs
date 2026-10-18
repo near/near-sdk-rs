@@ -96,9 +96,17 @@ impl Path {
     /// Entry hop from already-serialized key bytes (used when a key slot is read back).
     #[track_caller]
     pub(crate) fn entry_raw(&self, enc: &[u8]) -> Path {
+        self.entry_hashed(&h16(enc), enc)
+    }
+
+    /// Entry hop with the placement hash supplied: `hash ++ enc`. Production passes
+    /// `h16(enc)`; the soundness harnesses pass free symbolic bytes, so the uniqueness
+    /// argument is checked without assuming anything about sha256.
+    #[track_caller]
+    pub(crate) fn entry_hashed(&self, hash: &[u8; ENTRY_HASH_LEN], enc: &[u8]) -> Path {
         let mut out = Vec::with_capacity(self.0.len() + ENTRY_HASH_LEN + enc.len());
         out.extend_from_slice(&self.0);
-        out.extend_from_slice(&h16(enc));
+        out.extend_from_slice(hash);
         out.extend_from_slice(enc);
         Path(out).checked()
     }
