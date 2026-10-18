@@ -14,11 +14,17 @@
 //!   uses `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
 //!   `Default` uses it too). `expr` must be a const expression (T6): the derive emits it as a
 //!   `const` item, so a call like `env::predecessor_account_id()` is a compile error, and the
-//!   value an old record decodes to cannot depend on who reads it or when. `AccountId` has no
-//!   const constructor, so a later-added `AccountId` field is `Option<AccountId>`. `#[key(n, required)]` makes it a decode error naming the tag; use
-//!   it only for fields present since the first write (a field added later uses `default = ..`,
-//!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
-//!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
+//!   value an old record decodes to cannot depend on who reads it or when.
+//! - `#[key(n, default_fn = path)]` is the escape hatch for a type with no const constructor
+//!   (`AccountId`, `Vec`, `String` with content): `path` names a `fn() -> T`. **It is called on
+//!   every decode where the tag is absent, until some other change rewrites the record; it
+//!   must be pure.** A function that reads the environment (`env::predecessor_account_id()`,
+//!   the block height, storage) gives the same old record a different value on every read.
+//!   (A `get_mut` or `entry` of the record writes the tag at the flush, since the re-encoding
+//!   then differs.) It must be a path, not a closure or call. `#[key(n, required)]` makes a
+//!   missing tag a decode error naming the tag; use it only for fields present since the first
+//!   write (a field added later uses `default = ..`, `default_fn = ..`, a `Default` type, or
+//!   `Option`; never forced `Option`). `required`, `default` and `default_fn` are exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
 //!   tag is not built in the prototype.
 //! - Field types (T7): every field type must implement [`Value`]. There is no blanket impl
 //!   for Borsh types: primitives, `String`, `AccountId`, `Vec`/`Option`/arrays/tuples of
@@ -60,6 +66,35 @@
 //!     #[key(2, default = true)] open: bool,
 //! }
 //! assert_eq!((Pool::default().fee_bps, Pool::default().open), (30, true));
+//! ```
+//!
+//! A non-const value goes through `default_fn`, a pure `fn() -> T`, called on every decode of a
+//! record that lacks the tag:
+//!
+//! ```
+//! use near_sdk::{near, AccountId};
+//! fn default_treasury() -> AccountId {
+//!     "treasury.near".parse().unwrap()
+//! }
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     #[key(2, default_fn = default_treasury)] treasury: AccountId,
+//! }
+//! assert_eq!(Pool::default().treasury.as_str(), "treasury.near");
+//! ```
+//!
+//! `default_fn` takes a path, so a closure (or anything that is not a `fn() -> T`) does not
+//! compile:
+//!
+//! ```compile_fail
+//! use near_sdk::{near, AccountId};
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     // error: `default_fn` takes a path to a `fn() -> T`, not an expression
+//!     #[key(2, default_fn = || "treasury.near".parse().unwrap())] treasury: AccountId,
+//! }
 //! ```
 //!
 //! # What the derive emits for a record `Name`

@@ -5,8 +5,8 @@
 //! - the struct itself with the `#[key]` attributes stripped;
 //! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
 //!   decode (missing tag -> `FieldDefault`, the const expression of
-//!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), or an error for
-//!   `#[key(n, required)]`),
+//!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), a call of the `fn() -> T` of
+//!   `#[key(n, default_fn = path)]` (API round 4), or an error for `#[key(n, required)]`),
 //!   bind / detach, and `MAX_SUBPATH` summed over fields;
 //! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
 //!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
@@ -50,6 +50,8 @@ struct KeyedField {
     required: bool,
     /// `#[key(n, default = expr)]`: evaluated when the tag is missing from a stored record.
     default: Option<syn::Expr>,
+    /// `#[key(n, default_fn = path)]`: a `fn() -> T` called when the tag is missing.
+    default_fn: Option<syn::Path>,
     /// `#[key(n, legacy)]` (T7): a v1 collection (or any opaque Borsh value) kept at the root,
     /// stored inline as its Borsh bytes without the `Value` trait. Root only; implies required.
     legacy: bool,
@@ -59,6 +61,7 @@ struct KeyAttr {
     tag: u32,
     required: bool,
     default: Option<syn::Expr>,
+    default_fn: Option<syn::Path>,
     legacy: bool,
 }
 
@@ -136,7 +139,8 @@ fn derives(item: &ItemStruct, names: &[&str]) -> bool {
 }
 
 fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
-    // `#[key(3)]` / `#[key(3, required)]` / `#[key(3, default = expr)]` / `#[key(3, legacy)]`
+    // `#[key(3)]` / `#[key(3, required)]` / `#[key(3, default = expr)]` /
+    // `#[key(3, default_fn = path)]` / `#[key(3, legacy)]`
     let args = attr.parse_args_with(
         syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
     )?;
@@ -152,6 +156,7 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
     };
     let mut required = false;
     let mut default = None;
+    let mut default_fn = None;
     let mut legacy = false;
     for e in it {
         match e {
@@ -162,22 +167,45 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
             {
                 default = Some((*a.right).clone());
             }
+            syn::Expr::Assign(a)
+                if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default_fn")) =>
+            {
+                match &*a.right {
+                    syn::Expr::Path(p) if p.qself.is_none() => default_fn = Some(p.path.clone()),
+                    other => {
+                        return Err(syn::Error::new(
+                            other.span(),
+                            "`default_fn` takes a path to a `fn() -> T`, not an expression: \
+                             write `default_fn = my_default` (for a const value use \
+                             `default = expr`)",
+                        ));
+                    }
+                }
+            }
             _ => {
                 return Err(syn::Error::new(
                     e.span(),
-                    "expected `required`, `legacy` or `default = expr`",
+                    "expected `required`, `legacy`, `default = expr` or `default_fn = path`",
                 ));
             }
         }
     }
-    if required && default.is_some() {
+    if default.is_some() && default_fn.is_some() {
+        return Err(syn::Error::new(
+            attr.span(),
+            "`default = ..` and `default_fn = ..` are exclusive: `default` is a const value, \
+             `default_fn` a function called on every decode where the tag is absent",
+        ));
+    }
+    let has_default = default.is_some() || default_fn.is_some();
+    if required && has_default {
         return Err(syn::Error::new(
             attr.span(),
             "`required` and `default = ..` are exclusive: `required` fails on a missing tag, \
              `default` fills it",
         ));
     }
-    if legacy && default.is_some() {
+    if legacy && has_default {
         return Err(syn::Error::new(
             attr.span(),
             "`legacy` and `default = ..` are exclusive: a legacy (v1) field is required",
@@ -186,7 +214,7 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
     if tag == 0 {
         return Err(syn::Error::new(attr.span(), "tag 0 is reserved; tags start at 1"));
     }
-    Ok(KeyAttr { tag, required, default, legacy })
+    Ok(KeyAttr { tag, required, default, default_fn, legacy })
 }
 
 pub fn expand(
@@ -224,7 +252,7 @@ pub fn expand(
             return Err(e);
         }
         let ident = f.ident.clone().expect("named");
-        let Some(KeyAttr { tag, required, default, legacy }) = found else {
+        let Some(KeyAttr { tag, required, default, default_fn, legacy }) = found else {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("field `{ident}` needs a `#[key(n)]` tag: the tags are the storage layout"),
@@ -281,6 +309,7 @@ pub fn expand(
             tag,
             required: required || legacy,
             default,
+            default_fn,
             legacy,
         });
     }
@@ -309,7 +338,7 @@ pub fn expand(
     let mut clear = Vec::new();
     let mut clear_some = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, tag, required, default, legacy } in &fields {
+    for KeyedField { ident, ty, vis: fvis, tag, required, default, default_fn, legacy } in &fields {
         let t = tag_lit(*tag);
         if *legacy {
             // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
@@ -335,6 +364,18 @@ pub fn expand(
             };
             dec.push(quote_spanned! {ty.span()=>
                 #ident: #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT })?,
+            });
+        } else if let Some(fp) = default_fn {
+            // `default_fn = path` (API round 4): the escape hatch from T6's const rule, for a
+            // type with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
+            // a closure, a method needing arguments or a wrong return type is an error at the
+            // path. Called on EVERY decode where the tag is absent, until some other change
+            // rewrites the record (the flush writes the tag then); it must be pure.
+            let c = quote_spanned! {fp.span()=>
+                let __key_default_fn: fn() -> #ty = #fp;
+            };
+            dec.push(quote_spanned! {ty.span()=>
+                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __key_default_fn() })?,
             });
         } else {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
