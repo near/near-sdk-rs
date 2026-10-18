@@ -379,7 +379,6 @@ impl Value for Pt {
 impl Leaf for Pt {}
 impl Removable for Pt {}
 
-
 /// Kills `Removal::is_done -> true / false` and `== -> !=`.
 #[test]
 fn gaps_rest_removal_is_done() {
@@ -419,4 +418,58 @@ fn gaps_rest_guard_removal_reads_the_flag_key_only_for_flaggable_entries() {
     let r = end_call();
     assert_eq!((r.rwd(), r.has_keys()), ((1, 0, 1), 0), "{r:?}");
     assert!(store().is_empty());
+}
+// ---------------------------------------------------------------------------------------
+// 5. Migrating: `NewLookupMap::target_try_insert`
+// ---------------------------------------------------------------------------------------
+
+/// A v1 map for the tests: `(k, v)` pairs, stored as Borsh, prefix `x`.
+impl LegacyMap for StdVec<(u8, u32)> {
+    type K = u8;
+    type V = u32;
+    fn legacy_get(&self, k: &u8) -> Option<u32> {
+        self.iter().find(|(x, _)| x == k).map(|(_, v)| *v)
+    }
+    fn legacy_remove(&mut self, k: &u8) {
+        self.retain(|(x, _)| x != k);
+    }
+    fn legacy_prefixes(&self) -> StdVec<StdVec<u8>> {
+        vec![b"x".to_vec()]
+    }
+}
+impl LegacyIterable for StdVec<(u8, u32)> {
+    fn legacy_take(&mut self, n: u32) -> StdVec<(u8, u32)> {
+        let n = (n as usize).min(self.len());
+        self.drain(..n).collect()
+    }
+    fn legacy_is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+/// Kills `<impl MigrationTarget for NewLookupMap>::target_try_insert -> true / false`: it
+/// inserts an absent key (`true`) and leaves a present one (`false`), so `migrate_batch` into
+/// a v2 `LookupMap` moves new keys and never overwrites a newer value. The `Migrating` is
+/// bound at the same path as the first map on purpose: key 1 is already on the new side.
+#[test]
+fn gaps_rest_lookup_map_target_try_insert() {
+    testing::use_mock();
+    let mut m: LookupMap<u8, u32> = at(1);
+    assert!(m.target_try_insert(1, 10));
+    assert!(!m.target_try_insert(1, 20));
+    assert_eq!(m.get(&1), Some(&10));
+    end_call();
+    assert_eq!(m.get(&1), Some(&10));
+
+    let mut mig: Migrating<StdVec<(u8, u32)>, LookupMap<u8, u32>> =
+        Migrating::new(vec![(2, 20), (3, 30), (1, 99)]);
+    Value::bind(&mut mig, &field(1));
+    assert_eq!(mig.migrate_batch(5), 3);
+    assert!(mig.old_is_empty());
+    assert_eq!(mig.new_side().get(&2), Some(&20));
+    assert_eq!(mig.new_side().get(&3), Some(&30));
+    assert_eq!(mig.new_side().get(&1), Some(&10), "the newer value stays");
+    end_call();
+    assert_eq!(mig.get(&2), Some(20));
+    assert_eq!(mig.get(&3), Some(30));
 }
