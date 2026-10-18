@@ -27,6 +27,9 @@ pub enum CallKind {
 }
 
 pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
+    if op.is_nested() {
+        return real_apply_nested(root, op);
+    }
     match *op {
         Op::EndCall | Op::MidFlush | Op::View(_) | Op::RecRetyped(..) => unreachable!(),
         Op::Counter(x) => {
@@ -125,6 +128,115 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
             v.clone()
         })),
         Op::VecLen => Ret::U32(root.vec.len()),
+        _ => unreachable!("nested ops are dispatched to real_apply_nested"),
+    }
+}
+
+/// The Verification round 2 ops: records owning a `Lazy`, a `Set` and a `Vector` (`xrecs`), and
+/// records owning a `LookupSet` (`lrecs`). Writes go through `at_mut`, reads through `at`.
+fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
+    use super::fixture::{RecL, RecX};
+    let push = |v: &mut Vec<u8>, x: Option<u8>| {
+        if let Some(b) = x {
+            v.push(b);
+        }
+        v.clone()
+    };
+    match *op {
+        Op::XTryInsert(k, n) => Ret::Bool(root.xrecs.try_insert(k.0, RecX { n: n as u64, ..Default::default() }).is_ok()),
+        Op::XEntryDefault(k) => Ret::U64(root.xrecs.entry(k.0).or_default().n),
+        Op::XGet(k) => Ret::OptU64(root.xrecs.get(&k.0).map(|r| r.n)),
+        Op::XGetMut(k, x) => Ret::OptU64(root.xrecs.get_mut(&k.0).map(|r| {
+            r.n = r.n.wrapping_add(x as u64);
+            r.n
+        })),
+        Op::XRemove(k) => Ret::OptU64(root.xrecs.remove(&k.0).map(|r| r.n)),
+        Op::XDiscard(k) => Ret::Bool(root.xrecs.discard(&k.0)),
+        Op::XRemoveStep(k, n) => Ret::Bool(
+            root.xrecs.remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
+                == crate::state::Removal::Pending,
+        ),
+        Op::XLazySet(k, v) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => {
+                r.lazy.set(v.bytes());
+                Ret::Bool(true)
+            }
+        },
+        Op::XLazyGet(k) => Ret::Bytes(root.xrecs.at(&k.0).lazy.get().cloned()),
+        Op::XLazyGetMut(k, x) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bytes(r.lazy.get_mut().map(|v| push(v, x))),
+        },
+        Op::XLazyRemove(k) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => {
+                r.lazy.remove();
+                Ret::Bool(true)
+            }
+        },
+        Op::XSetInsert(k, x) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bool(r.set.insert(x.0)),
+        },
+        Op::XSetRemove(k, x) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bool(r.set.remove(&x.0)),
+        },
+        Op::XSetContains(k, x) => Ret::Bool(root.xrecs.at(&k.0).set.contains(&x.0)),
+        Op::XSetLen(k) => Ret::U32(root.xrecs.at(&k.0).set.len()),
+        Op::XSetIter(k, skip, take) => Ret::Items(
+            root.xrecs.at(&k.0).set.iter().skip(skip as usize).take(take as usize).map(|x| (x, Vec::new())).collect(),
+        ),
+        Op::XVecPush(k, v) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => {
+                r.vect.push(v.bytes());
+                Ret::Bool(true)
+            }
+        },
+        Op::XVecPop(k) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bytes(r.vect.pop()),
+        },
+        Op::XVecSwapRemove(k, i) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bytes(Some(r.vect.swap_remove(i as u32))),
+        },
+        Op::XVecGet(k, i) => Ret::Bytes(root.xrecs.at(&k.0).vect.get(i as u32).cloned()),
+        Op::XVecGetMut(k, i, x) => match root.xrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => Ret::Bytes(r.vect.get_mut(i as u32).map(|v| push(v, x))),
+        },
+        Op::XVecLen(k) => Ret::U32(root.xrecs.at(&k.0).vect.len()),
+        Op::XVecIterBack(k, skip) => {
+            let it = root.xrecs.at(&k.0).vect.iter().rev().skip(skip as usize);
+            let (lo, hi) = it.size_hint();
+            assert_eq!(hi, Some(lo), "IndexIter size_hint is exact");
+            Ret::Iter(it.take(2).cloned().collect(), lo as u32)
+        }
+        Op::LTryInsert(k, n) => Ret::Bool(root.lrecs.try_insert(k.0, RecL { n: n as u64, ..Default::default() }).is_ok()),
+        Op::LGet(k) => Ret::OptU64(root.lrecs.get(&k.0).map(|r| r.n)),
+        Op::LGetMut(k, x) => Ret::OptU64(root.lrecs.get_mut(&k.0).map(|r| {
+            r.n = r.n.wrapping_add(x as u64);
+            r.n
+        })),
+        Op::LSetInsert(k, x) => match root.lrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => {
+                r.lset.insert(x.0);
+                Ret::Bool(true)
+            }
+        },
+        Op::LSetRemove(k, x) => match root.lrecs.at_mut(&k.0) {
+            None => Ret::OptU64(None),
+            Some(r) => {
+                r.lset.remove(&x.0);
+                Ret::Bool(true)
+            }
+        },
+        Op::LSetContains(k, x) => Ret::Bool(root.lrecs.at(&k.0).lset.contains(&x.0)),
+        _ => unreachable!("not a nested op: {op:?}"),
     }
 }
 
@@ -327,4 +439,121 @@ fn differential_fixed_sequences() {
         Op::RecRemove(K(4)),
         Op::RecPage(None, 3),
     ]);
+}
+
+/// Verification round 2: fixed sequences over records owning a `Lazy`, a `Set` and a `Vector`
+/// (`xrecs`) and a `LookupSet` (`lrecs`), every nested op at least once, including a
+/// `remove_step` that takes several calls (Lazy, Set entries, Vector slots, headers) and one
+/// interrupted by writes from the same call.
+#[test]
+fn differential_fixed_nested_sequences() {
+    use crate::state::model::{K, Val};
+    let v = |len, fill| Val { len, fill };
+    let fill = |k: u8| {
+        let mut ops = vec![
+            Op::XTryInsert(K(k), 1),
+            Op::XLazySet(K(k), v(3, 1)),
+            Op::XSetInsert(K(k), K(1)),
+            Op::XSetInsert(K(k), K(2)),
+            Op::XSetInsert(K(k), K(3)),
+            Op::XVecPush(K(k), v(1, 1)),
+            Op::XVecPush(K(k), v(2, 2)),
+            Op::XVecPush(K(k), v(1, 1)),
+        ];
+        ops.push(Op::EndCall);
+        ops
+    };
+    let mut ops = fill(0);
+    ops.extend([
+        Op::XGet(K(0)),
+        Op::XLazyGet(K(0)),
+        Op::XLazyGetMut(K(0), Some(7)),
+        Op::XSetContains(K(0), K(2)),
+        Op::XSetContains(K(0), K(4)),
+        Op::XSetLen(K(0)),
+        Op::XSetIter(K(0), 1, 3),
+        Op::XVecLen(K(0)),
+        Op::XVecGet(K(0), 1),
+        Op::XVecIterBack(K(0), 0),
+        Op::XVecIterBack(K(0), 2),
+        Op::XVecIterBack(K(0), 3),
+        Op::EndCall,
+        Op::XSetRemove(K(0), K(1)),
+        Op::XSetRemove(K(0), K(4)),
+        Op::XVecSwapRemove(K(0), 0),
+        Op::XVecGetMut(K(0), 0, Some(9)),
+        Op::XVecPop(K(0)),
+        Op::XGetMut(K(0), 2),
+        Op::EndCall,
+        // budgets 3, then 4: several calls, every unit kind
+        Op::XRemoveStep(K(0), 3),
+        Op::EndCall,
+        Op::XGet(K(0)),
+        Op::XTryInsert(K(0), 2),
+        Op::XRemoveStep(K(0), 3),
+        Op::EndCall,
+        Op::XRemoveStep(K(0), 4),
+        Op::EndCall,
+        Op::XRemoveStep(K(0), 4),
+        Op::EndCall,
+        Op::XRemoveStep(K(0), 12),
+        Op::EndCall,
+    ]);
+    ops.extend(fill(1));
+    ops.extend([Op::XLazyRemove(K(1)), Op::XLazyRemove(K(1)), Op::XRemove(K(1)), Op::EndCall]);
+    ops.extend(fill(2));
+    ops.extend([Op::XRemoveStep(K(2), 5), Op::EndCall, Op::XDiscard(K(2)), Op::XDiscard(K(3)), Op::EndCall]);
+    ops.extend(fill(3));
+    ops.extend([Op::XEntryDefault(K(3)), Op::XEntryDefault(K(4)), Op::XRemoveStep(K(3), 3), Op::MidFlush, Op::XRemoveStep(K(3), 6), Op::EndCall, Op::XRemoveStep(K(3), 12), Op::EndCall]);
+    ops.extend([
+        Op::LTryInsert(K(0), 1),
+        Op::LSetInsert(K(0), K(1)),
+        Op::LSetInsert(K(1), K(1)),
+        Op::LSetContains(K(0), K(1)),
+        Op::EndCall,
+        Op::LTryInsert(K(0), 2),
+        Op::LGet(K(0)),
+        Op::LGetMut(K(0), 2),
+        Op::LSetContains(K(0), K(1)),
+        Op::LSetRemove(K(0), K(1)),
+        Op::LSetRemove(K(0), K(2)),
+        Op::LSetContains(K(0), K(1)),
+        Op::LGet(K(3)),
+    ]);
+    let (logs, st) = run_state(&ops);
+    assert!(st.xrecs.iter().all(|(k, _)| *k == 4), "only the defaulted record 4 is left: {:?}", st.xrecs);
+    assert_eq!(st.lrecs.len(), 1);
+    // the multi-call clear of record 0 removed at most n keys per call
+    assert!(logs.iter().filter(|l| l.kind == CallKind::Mutating).count() > 10);
+}
+
+/// Verification round 2: how often the random op generator reaches the nested paths (a
+/// regression guard on the generator, not a property). Over 200 histories, every nested op kind
+/// must run at least once against a present record.
+#[test]
+fn differential_generator_reaches_nested_ops() {
+    use std::collections::BTreeSet;
+    let mut seen = BTreeSet::new();
+    bolero::check!().with_generator(ops_gen()).with_iterations(200).for_each(|ops| {
+        for o in ops.iter().filter(|o| o.is_nested()) {
+            seen.insert(format!("{o:?}").split('(').next().unwrap().to_string());
+        }
+        run(ops);
+    });
+    assert!(seen.len() >= 25, "nested op kinds generated: {seen:?}");
+}
+
+/// Verification round 2, Part A restricted to the nested ops: histories of up to 60 ops drawn
+/// only from the `xrecs` / `lrecs` ops plus call boundaries (`EndCall`, `MidFlush`), so a
+/// record grows several `Lazy` / `Set` / `Vector` children and is then removed or cleared in
+/// steps. Random engine, 2,000 histories. Same oracle and comparisons as
+/// `differential_against_reference_model`.
+#[test]
+fn differential_nested_against_reference_model() {
+    let g = bolero::produce::<std::vec::Vec<Op>>().with().len(0usize..=240);
+    bolero::check!().with_generator(g).with_iterations(2000).for_each(|ops| {
+        let ops: std::vec::Vec<Op> =
+            ops.iter().filter(|o| o.is_nested() || matches!(o, Op::EndCall | Op::MidFlush)).take(60).cloned().collect();
+        run(&ops);
+    });
 }

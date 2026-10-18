@@ -6,8 +6,10 @@
 //! 1. [`spec_key`]: the key grammar (root byte, LEB128 field tags, kind bytes,
 //!    `h16(borsh k) ++ borsh k` entries, little-endian `u32` slots), without `key::Path`.
 //! 2. [`MState`]: the abstract contract state (a counter, a key-vector map, a lookup map, a map
-//!    of records owning a map, a vector) and [`MState::concretize`], the bytes the spec says
-//!    that state occupies in storage.
+//!    of records owning a map, a vector; since Verification round 2 also a map of records each
+//!    owning a `Lazy`, a `Set` and a `Vector`, and a lookup map of records each owning a
+//!    `LookupSet`) and [`MState::concretize`], the bytes the spec says that state occupies in
+//!    storage.
 //! 3. [`CacheModel`]: the spec's per-call cache rule ("each key is read at most once per call,
 //!    written once at the end in key order with the root last; a value is rewritten only if its
 //!    encoding changed"), which turns each operation's abstract accesses into host calls.
@@ -176,6 +178,51 @@ pub fn vect() -> MapKeys {
     MapKeys(vec![Seg::Field(TAG_VEC)])
 }
 
+// Verification round 2: `xrecs: Map<u8, RecX>` (tag 6) and `lrecs: LookupMap<u8, RecL>` (tag 7).
+pub const TAG_XRECS: u32 = 6;
+pub const TAG_LRECS: u32 = 7;
+pub const RX_N: u32 = 1;
+pub const RX_LAZY: u32 = 2;
+pub const RX_SET: u32 = 3;
+pub const RX_VEC: u32 = 4;
+pub const RL_N: u32 = 1;
+pub const RL_LSET: u32 = 2;
+/// Spec, Records: kind bytes.
+pub const KIND_LOOKUP_SET: u8 = 0x84;
+pub const KIND_SET: u8 = 0x83;
+pub const KIND_VECTOR: u8 = 0x85;
+pub const KIND_LAZY: u8 = 0x86;
+
+pub fn xrecs() -> MapKeys {
+    MapKeys(vec![Seg::Field(TAG_XRECS)])
+}
+fn xfield(k: u8, tag: u32) -> Vec<Seg> {
+    let mut s = xrecs().entry_segs(k);
+    s.push(Seg::Field(tag));
+    s
+}
+/// `xrecs[k].lazy`: the `Lazy`'s own key, the record's path plus its tag.
+pub fn xlazy(k: u8) -> Vec<u8> {
+    spec_key::encode(&xfield(k, RX_LAZY))
+}
+pub fn xset(k: u8) -> MapKeys {
+    MapKeys(xfield(k, RX_SET))
+}
+pub fn xvec(k: u8) -> MapKeys {
+    MapKeys(xfield(k, RX_VEC))
+}
+pub fn xrec_flag(k: u8) -> Vec<u8> {
+    flag_of(&xrecs().entry(k))
+}
+pub fn lrecs() -> MapKeys {
+    MapKeys(vec![Seg::Field(TAG_LRECS)])
+}
+pub fn lset(k: u8) -> MapKeys {
+    let mut s = lrecs().entry_segs(k);
+    s.push(Seg::Field(RL_LSET));
+    MapKeys(s)
+}
+
 // ---------------------------------------------------------------------------------------
 // Value encodings (spec: leaves are Borsh, records are key/len/bytes in ascending tag order)
 // ---------------------------------------------------------------------------------------
@@ -259,6 +306,39 @@ impl RecM {
     }
 }
 
+/// A `RecX` (Verification round 2): `n`, a `Lazy<Vec<u8>>`, a `Set<u8>` in key-vector order
+/// with its revision, a `Vector<Vec<u8>>`, and whether `remove_step` is clearing it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RecXM {
+    pub n: u64,
+    pub lazy: Option<Vec<u8>>,
+    pub set: Vec<(u8, ())>,
+    pub set_rev: u64,
+    pub vect: Vec<Vec<u8>>,
+    pub clearing: bool,
+}
+impl RecXM {
+    /// Spec, Records: `n` as a scalar, then one kind marker per collection field.
+    pub fn bytes(&self) -> Vec<u8> {
+        enc_record(
+            &BTreeMap::from([(RX_N, self.n.to_le_bytes().to_vec())]),
+            &BTreeMap::from([(RX_LAZY, KIND_LAZY), (RX_SET, KIND_SET), (RX_VEC, KIND_VECTOR)]),
+        )
+    }
+}
+
+/// A `RecL` (Verification round 2): `n` and a `LookupSet<u8>`. Not `Removable`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RecLM {
+    pub n: u64,
+    pub lset: std::collections::BTreeSet<u8>,
+}
+impl RecLM {
+    pub fn bytes(&self) -> Vec<u8> {
+        enc_record(&BTreeMap::from([(RL_N, self.n.to_le_bytes().to_vec())]), &BTreeMap::from([(RL_LSET, KIND_LOOKUP_SET)]))
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MState {
     pub root_written: bool,
@@ -272,6 +352,9 @@ pub struct MState {
     pub recs: Vec<(u8, RecM)>,
     pub recs_rev: u64,
     pub vec: Vec<Vec<u8>>,
+    pub xrecs: Vec<(u8, RecXM)>,
+    pub xrecs_rev: u64,
+    pub lrecs: BTreeMap<u8, RecLM>,
 }
 
 fn pos<V>(v: &[(u8, V)], k: u8) -> Option<usize> {
@@ -279,8 +362,26 @@ fn pos<V>(v: &[(u8, V)], k: u8) -> Option<usize> {
 }
 
 fn concretize_map(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, Vec<u8>)], rev: u64) {
+    concretize_kv(out, mk, v, rev, |val| enc_bytes(val));
+}
+
+/// A `Set` is a `Map` with a unit value: its entries hold zero bytes.
+fn concretize_set(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, ())], rev: u64) {
+    concretize_kv(out, mk, v, rev, |_| Vec::new());
+}
+
+fn concretize_vec(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, vk: &MapKeys, v: &[Vec<u8>]) {
+    for (i, x) in v.iter().enumerate() {
+        out.insert(vk.vslot(i as u32), enc_bytes(x));
+    }
+    if !v.is_empty() {
+        out.insert(vk.header(), enc_u32(v.len() as u32));
+    }
+}
+
+fn concretize_kv<V>(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, V)], rev: u64, enc: impl Fn(&V) -> Vec<u8>) {
     for (i, (k, val)) in v.iter().enumerate() {
-        out.insert(mk.entry(*k), enc_bytes(val));
+        out.insert(mk.entry(*k), enc(val));
         out.insert(mk.index(*k), enc_u32(i as u32));
         out.insert(mk.slot(i as u32), vec![*k]);
     }
@@ -317,12 +418,27 @@ impl MState {
         if let Some(h) = header_stored(self.recs.len() as u32, self.recs_rev) {
             out.insert(r.header(), h);
         }
-        let vk = vect();
-        for (i, v) in self.vec.iter().enumerate() {
-            out.insert(vk.vslot(i as u32), enc_bytes(v));
+        concretize_vec(&mut out, &vect(), &self.vec);
+        let x = xrecs();
+        for (i, (k, rec)) in self.xrecs.iter().enumerate() {
+            let at = if rec.clearing { xrec_flag(*k) } else { x.entry(*k) };
+            out.insert(at, rec.bytes());
+            out.insert(x.index(*k), enc_u32(i as u32));
+            out.insert(x.slot(i as u32), vec![*k]);
+            if let Some(v) = &rec.lazy {
+                out.insert(xlazy(*k), enc_bytes(v));
+            }
+            concretize_set(&mut out, &xset(*k), &rec.set, rec.set_rev);
+            concretize_vec(&mut out, &xvec(*k), &rec.vect);
         }
-        if !self.vec.is_empty() {
-            out.insert(vk.header(), enc_u32(self.vec.len() as u32));
+        if let Some(h) = header_stored(self.xrecs.len() as u32, self.xrecs_rev) {
+            out.insert(x.header(), h);
+        }
+        for (k, rec) in &self.lrecs {
+            out.insert(lrecs().entry(*k), rec.bytes());
+            for e in &rec.lset {
+                out.insert(lset(*k).entry(*e), Vec::new());
+            }
         }
         out
     }
@@ -775,6 +891,57 @@ pub enum Op {
     VecGet(#[generator(0..5)] u8),
     VecGetMut(#[generator(0..5)] u8, Option<u8>),
     VecLen,
+    // Verification round 2: `xrecs: Map<u8, RecX>`, records owning a `Lazy`, a `Set` and a
+    // `Vector`. Nested ops go through `at_mut(&k)` (writes; `Ret::OptU64(None)` if the record
+    // is absent, `Ret::Bool(true)` for a done unit op) or `at(&k)` (reads, no record read).
+    XTryInsert(K, #[generator(0..3)] u8),
+    XEntryDefault(K),
+    XGet(K),
+    XGetMut(K, #[generator(0..3)] u8),
+    XRemove(K),
+    XDiscard(K),
+    /// `remove_step(k, n)`: `Ret::Bool(true)` for `Removal::Pending`.
+    XRemoveStep(K, #[generator(3..13)] u8),
+    XLazySet(K, Val),
+    XLazyGet(K),
+    XLazyGetMut(K, Option<u8>),
+    XLazyRemove(K),
+    XSetInsert(K, K),
+    XSetRemove(K, K),
+    XSetContains(K, K),
+    XSetLen(K),
+    XSetIter(K, #[generator(0..4)] u8, #[generator(0..4)] u8),
+    XVecPush(K, Val),
+    XVecPop(K),
+    XVecSwapRemove(K, #[generator(0..4)] u8),
+    XVecGet(K, #[generator(0..4)] u8),
+    XVecGetMut(K, #[generator(0..4)] u8, Option<u8>),
+    XVecLen(K),
+    /// `at(&k).vect.iter().rev().skip(s)`: its `size_hint`, then `take(2)` (exercises
+    /// `IndexIter::{next_back, nth_back, size_hint}`).
+    XVecIterBack(K, #[generator(0..4)] u8),
+    // `lrecs: LookupMap<u8, RecL>`, records owning a `LookupSet` (not `Removable`).
+    LTryInsert(K, #[generator(0..3)] u8),
+    LGet(K),
+    LGetMut(K, #[generator(0..3)] u8),
+    LSetInsert(K, K),
+    LSetRemove(K, K),
+    LSetContains(K, K),
+}
+
+impl Op {
+    /// The Verification round 2 ops over `xrecs` / `lrecs`.
+    pub fn is_nested(&self) -> bool {
+        matches!(
+            self,
+            Op::XTryInsert(..) | Op::XEntryDefault(_) | Op::XGet(_) | Op::XGetMut(..) | Op::XRemove(_) | Op::XDiscard(_)
+                | Op::XRemoveStep(..) | Op::XLazySet(..) | Op::XLazyGet(_) | Op::XLazyGetMut(..) | Op::XLazyRemove(_)
+                | Op::XSetInsert(..) | Op::XSetRemove(..) | Op::XSetContains(..) | Op::XSetLen(_) | Op::XSetIter(..)
+                | Op::XVecPush(..) | Op::XVecPop(_) | Op::XVecSwapRemove(..) | Op::XVecGet(..) | Op::XVecGetMut(..)
+                | Op::XVecLen(_) | Op::XVecIterBack(..) | Op::LTryInsert(..) | Op::LGet(_) | Op::LGetMut(..)
+                | Op::LSetInsert(..) | Op::LSetRemove(..) | Op::LSetContains(..)
+        )
+    }
 }
 
 /// What an operation returned, in a form both sides can produce.
@@ -791,6 +958,8 @@ pub enum Ret {
     KeyPage(Result<(Vec<u8>, Option<u8>, u64), ()>),
     RecPage(Result<(Vec<(u8, u64)>, Option<u8>, u64), ()>),
     Items(Vec<(u8, Vec<u8>)>),
+    /// `iter().rev().skip(s)`: up to 2 values, and the `size_hint` lower bound before `take`.
+    Iter(Vec<Vec<u8>>, u32),
     View(Option<Vec<u8>>, Option<Vec<u8>>, Option<u64>, u32),
 }
 
@@ -989,6 +1158,128 @@ impl KV<'_, Vec<u8>> {
     }
 }
 
+// `Vector` operations over any vector's keys (the root `vec` and every `RecX::vect`). The
+// header is a bare `u32`, removed at length 0 (no T4 revision).
+
+fn vlen(c: &mut CacheModel, vk: &MapKeys, v: &[Vec<u8>]) -> u32 {
+    let h = c.read(&vk.header());
+    let n = v.len() as u32;
+    agree("vector header", h, if n == 0 { None } else { Some(enc_u32(n)) });
+    n
+}
+
+fn vget(c: &mut CacheModel, vk: &MapKeys, v: &[Vec<u8>], i: u32) -> Option<Vec<u8>> {
+    let r = c.read(&vk.vslot(i));
+    let x = v.get(i as usize).cloned();
+    agree("vector slot", r, x.as_deref().map(enc_bytes));
+    x
+}
+
+fn vset_len(c: &mut CacheModel, vk: &MapKeys, n: u32) {
+    if n == 0 { c.delete(&vk.header()) } else { c.write(&vk.header(), enc_u32(n)) }
+}
+
+/// Header read, slot write, header write.
+fn vpush(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, x: Vec<u8>) {
+    let n = vlen(c, vk, v);
+    c.write(&vk.vslot(n), enc_bytes(&x));
+    vset_len(c, vk, n + 1);
+    v.push(x);
+}
+
+/// Header read, slot read (the returned value), slot remove, header write.
+fn vpop(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>) -> Option<Vec<u8>> {
+    let n = vlen(c, vk, v);
+    if n == 0 {
+        return None;
+    }
+    let x = vget(c, vk, v, n - 1).expect("dense");
+    c.delete(&vk.vslot(n - 1));
+    vset_len(c, vk, n - 1);
+    v.pop();
+    Some(x)
+}
+
+/// As pop, plus a read and a rewrite of the last slot into the gap (elided by the flush when
+/// the bytes are equal).
+fn vswap_remove(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, i: u32) -> Vec<u8> {
+    let n = vlen(c, vk, v);
+    assert!(i < n, "skipped by would_panic");
+    let x = vget(c, vk, v, i).expect("dense");
+    c.delete(&vk.vslot(i));
+    let last = n - 1;
+    if i != last {
+        let moved = vget(c, vk, v, last).expect("dense");
+        c.delete(&vk.vslot(last));
+        c.write(&vk.vslot(i), enc_bytes(&moved));
+    }
+    vset_len(c, vk, last);
+    v.swap_remove(i as usize);
+    x
+}
+
+fn vget_mut(c: &mut CacheModel, vk: &MapKeys, v: &mut [Vec<u8>], i: u32, push: Option<u8>) -> Option<Vec<u8>> {
+    let mut x = vget(c, vk, v, i)?;
+    if let Some(b) = push {
+        x.push(b);
+    }
+    c.write(&vk.vslot(i), enc_bytes(&x));
+    v[i as usize] = x.clone();
+    Some(x)
+}
+
+/// `Vector::clear` (the unbounded clear of a record being removed): header read, every slot
+/// removed blind (no read: leaf elements), header removed.
+fn vclear(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>) {
+    let n = vlen(c, vk, v);
+    for i in 0..n {
+        c.delete(&vk.vslot(i));
+    }
+    vset_len(c, vk, 0);
+    v.clear();
+}
+
+/// Bounded clear (spec, Bounded clearing): from the end, a slot is 1 remove, and the last slot
+/// also takes the header (2); a unit that does not fit stops the clear.
+fn vclear_budgeted(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, budget: &mut u32) -> bool {
+    loop {
+        let n = vlen(c, vk, v);
+        if n == 0 {
+            return true;
+        }
+        let slot = vk.vslot(n - 1);
+        let cost = c.delete_cost(&slot) + if n == 1 { c.delete_cost(&vk.header()) } else { 0 };
+        if cost > *budget {
+            return false;
+        }
+        *budget -= cost;
+        c.delete(&slot);
+        vset_len(c, vk, n - 1);
+        v.pop();
+    }
+}
+
+/// `Set` operations (a `Map` with a unit value: entries hold zero bytes).
+impl KV<'_, ()> {
+    /// Index read; a new key writes its (empty) entry, index, slot and header.
+    fn set_insert(&mut self, c: &mut CacheModel, k: u8) -> bool {
+        if self.index(c, k).is_some() {
+            return false;
+        }
+        c.write(&self.mk.entry(k), Vec::new());
+        self.push_key(c, k, ());
+        true
+    }
+    /// `discard`: index read, then the swap-remove tail; no entry read.
+    fn set_remove(&mut self, c: &mut CacheModel, k: u8) -> bool {
+        if self.index(c, k).is_none() {
+            return false;
+        }
+        self.unlink(c, k);
+        true
+    }
+}
+
 /// The model of one contract over the fixture schema.
 pub struct Model {
     pub committed: MState,
@@ -1011,6 +1302,17 @@ macro_rules! recs_kv {
     ($s:expr) => {
         KV { mk: recs(), v: &mut $s.cur.recs, rev: &mut $s.cur.recs_rev, records: true }
     };
+}
+macro_rules! xrecs_kv {
+    ($s:expr) => {
+        KV { mk: xrecs(), v: &mut $s.cur.xrecs, rev: &mut $s.cur.xrecs_rev, records: true }
+    };
+}
+macro_rules! xset_kv {
+    ($s:expr, $k:expr, $i:expr) => {{
+        let r = &mut $s.cur.xrecs[$i].1;
+        KV { mk: xset($k), v: &mut r.set, rev: &mut r.set_rev, records: false }
+    }};
 }
 macro_rules! items_kv {
     ($s:expr, $k:expr, $i:expr) => {{
@@ -1075,8 +1377,309 @@ impl Model {
             Op::RecEntryDefault(K(k)) | Op::RecGetMut(K(k), _) | Op::RecRetyped(K(k), _) => clearing(k),
             Op::RecAtMutInsert(K(k), ..) | Op::RecAtMutRemove(K(k), _) => clearing(k),
             Op::VecSwapRemove(i) => i as usize >= self.cur.vec.len(),
+            Op::XEntryDefault(K(k)) | Op::XGetMut(K(k), _) | Op::XLazySet(K(k), _) | Op::XLazyGetMut(K(k), _)
+            | Op::XLazyRemove(K(k)) | Op::XSetInsert(K(k), _) | Op::XSetRemove(K(k), _) | Op::XVecPush(K(k), _)
+            | Op::XVecPop(K(k)) | Op::XVecGetMut(K(k), ..) => self.x_clearing(k),
+            Op::XVecSwapRemove(K(k), i) => {
+                self.x_clearing(k) || pos(&self.cur.xrecs, k).is_some_and(|p| i as usize >= self.cur.xrecs[p].1.vect.len())
+            }
             _ => false,
         }
+    }
+
+    fn x_clearing(&self, k: u8) -> bool {
+        pos(&self.cur.xrecs, k).is_some_and(|i| self.cur.xrecs[i].1.clearing)
+    }
+
+    /// A `RecX` at `k` (1 read, 2 on a miss: the flag key), checked against the abstract state.
+    fn x_get(&mut self, k: u8) -> Option<usize> {
+        let r = self.cache.rec_read(&xrecs().entry(k));
+        let i = pos(&self.cur.xrecs, k);
+        let want = i.map(|i| (self.cur.xrecs[i].1.bytes(), self.cur.xrecs[i].1.clearing));
+        assert_eq!(r, want, "MODEL BUG: cache view and abstract state disagree on xrec {k}");
+        i
+    }
+
+    /// `at_mut`'s existence check on a `RecX`.
+    fn x_exists(&mut self, k: u8) -> Option<usize> {
+        let r = self.cache.rec_exists(&xrecs().entry(k));
+        let i = pos(&self.cur.xrecs, k);
+        assert_eq!(r, i.map(|i| self.cur.xrecs[i].1.clearing), "MODEL BUG: xrec {k} existence");
+        i
+    }
+
+    /// `RecX::clear_children`: the `Lazy` removed blind, the `Set` cleared whole (its header
+    /// goes), the `Vector` cleared.
+    fn x_clear_all(&mut self, k: u8, i: usize) {
+        self.cache.delete(&xlazy(k));
+        self.cur.xrecs[i].1.lazy = None;
+        xset_kv!(self, k, i).clear_owned(&mut self.cache);
+        vclear(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect);
+    }
+
+    /// `RecX::clear_children_some`, fields in tag order, budget in host removes: the `Lazy`
+    /// after a `storage_has_key` (1 remove if present), then the `Set` and the `Vector` in whole
+    /// units. `false` as soon as a unit does not fit.
+    fn x_clear_some(&mut self, k: u8, i: usize, budget: &mut u32) -> bool {
+        let lk = xlazy(k);
+        let e = self.cache.exists(&lk);
+        assert_eq!(e, self.cur.xrecs[i].1.lazy.is_some(), "MODEL BUG: xrec {k} lazy existence");
+        if e {
+            let cost = self.cache.delete_cost(&lk);
+            if cost > *budget {
+                return false;
+            }
+            *budget -= cost;
+            self.cache.delete(&lk);
+            self.cur.xrecs[i].1.lazy = None;
+        }
+        if !xset_kv!(self, k, i).clear_budgeted(&mut self.cache, budget) {
+            return false;
+        }
+        vclear_budgeted(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, budget)
+    }
+
+    /// A `RecL` (never cleared: not `Removable`).
+    fn l_get(&mut self, k: u8) -> bool {
+        let r = self.cache.rec_read(&lrecs().entry(k));
+        let want = self.cur.lrecs.get(&k).map(|x| (x.bytes(), false));
+        assert_eq!(r, want, "MODEL BUG: lrec {k}");
+        want.is_some()
+    }
+
+    fn l_exists(&mut self, k: u8) -> bool {
+        let r = self.cache.rec_exists(&lrecs().entry(k));
+        assert_eq!(r, self.cur.lrecs.get(&k).map(|_| false), "MODEL BUG: lrec {k} existence");
+        r.is_some()
+    }
+
+    /// The Verification round 2 ops (`Op::is_nested`).
+    fn apply_nested(&mut self, op: &Op) -> Ret {
+        match *op {
+            Op::XTryInsert(K(k), n) => {
+                let c = &mut self.cache;
+                let mut m = xrecs_kv!(self);
+                if m.index(c, k).is_some() {
+                    return Ret::Bool(false);
+                }
+                let rec = RecXM { n: n as u64, ..Default::default() };
+                c.rec_write(&xrecs().entry(k), rec.bytes());
+                m.push_key(c, k, rec);
+                Ret::Bool(true)
+            }
+            Op::XEntryDefault(K(k)) => match self.x_get(k) {
+                Some(i) => Ret::U64(self.cur.xrecs[i].1.n),
+                None => {
+                    let rec = RecXM::default();
+                    let c = &mut self.cache;
+                    c.rec_write(&xrecs().entry(k), rec.bytes());
+                    xrecs_kv!(self).push_key(c, k, rec);
+                    Ret::U64(0)
+                }
+            },
+            Op::XGet(K(k)) => {
+                let i = self.x_get(k);
+                Ret::OptU64(i.map(|i| self.cur.xrecs[i].1.n))
+            }
+            Op::XGetMut(K(k), x) => match self.x_get(k) {
+                None => Ret::OptU64(None),
+                Some(i) => {
+                    let r = &mut self.cur.xrecs[i].1;
+                    r.n = r.n.wrapping_add(x as u64);
+                    let (n, b) = (r.n, r.bytes());
+                    self.cache.rec_write(&xrecs().entry(k), b);
+                    Ret::OptU64(Some(n))
+                }
+            },
+            Op::XRemove(K(k)) => {
+                let Some(i) = self.x_get(k) else { return Ret::OptU64(None) };
+                let n = self.cur.xrecs[i].1.n;
+                self.x_clear_all(k, i);
+                xrecs_kv!(self).unlink(&mut self.cache, k);
+                Ret::OptU64(Some(n))
+            }
+            Op::XDiscard(K(k)) => {
+                // the index decides; a record value is then read (the unknown-collection check)
+                if xrecs_kv!(self).index(&mut self.cache, k).is_none() {
+                    return Ret::Bool(false);
+                }
+                let i = self.x_get(k).expect("indexed");
+                self.x_clear_all(k, i);
+                xrecs_kv!(self).unlink(&mut self.cache, k);
+                Ret::Bool(true)
+            }
+            Op::XRemoveStep(K(k), n) => {
+                let Some(i) = self.x_get(k) else { return Ret::Bool(false) };
+                let key = xrecs().entry(k);
+                let pend = self.cache.rec_clearing_cost(&key);
+                let mut budget = n as u32 - pend;
+                let done = self.x_clear_some(k, i, &mut budget)
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&xrecs().index(k)) + 1 <= budget + pend;
+                if done {
+                    self.x_clear_all(k, i);
+                    xrecs_kv!(self).unlink(&mut self.cache, k);
+                    Ret::Bool(false)
+                } else {
+                    let r = &mut self.cur.xrecs[i].1;
+                    r.clearing = true;
+                    let b = r.bytes();
+                    self.cache.rec_set_clearing(&key, b);
+                    Ret::Bool(true)
+                }
+            }
+            Op::XLazySet(K(k), v) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                self.cache.write(&xlazy(k), enc_bytes(&v.bytes()));
+                self.cur.xrecs[i].1.lazy = Some(v.bytes());
+                Ret::Bool(true)
+            }
+            Op::XLazyGet(K(k)) => {
+                let r = self.cache.read(&xlazy(k));
+                let v = pos(&self.cur.xrecs, k).and_then(|i| self.cur.xrecs[i].1.lazy.clone());
+                agree("lazy", r, v.as_deref().map(enc_bytes));
+                Ret::Bytes(v)
+            }
+            Op::XLazyGetMut(K(k), x) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                let r = self.cache.read(&xlazy(k));
+                agree("lazy", r, self.cur.xrecs[i].1.lazy.as_deref().map(enc_bytes));
+                match self.cur.xrecs[i].1.lazy.as_mut() {
+                    None => Ret::Bytes(None),
+                    Some(v) => {
+                        if let Some(b) = x {
+                            v.push(b);
+                        }
+                        let v = v.clone();
+                        self.cache.write(&xlazy(k), enc_bytes(&v));
+                        Ret::Bytes(Some(v))
+                    }
+                }
+            }
+            Op::XLazyRemove(K(k)) => {
+                // 1 remove, blind (issued even when the `Lazy` is empty)
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                self.cache.delete(&xlazy(k));
+                self.cur.xrecs[i].1.lazy = None;
+                Ret::Bool(true)
+            }
+            Op::XSetInsert(K(k), K(x)) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bool(xset_kv!(self, k, i).set_insert(&mut self.cache, x))
+            }
+            Op::XSetRemove(K(k), K(x)) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bool(xset_kv!(self, k, i).set_remove(&mut self.cache, x))
+            }
+            Op::XSetContains(K(k), K(x)) => {
+                let e = self.cache.exists(&xset(k).entry(x));
+                let want = pos(&self.cur.xrecs, k).is_some_and(|i| pos(&self.cur.xrecs[i].1.set, x).is_some());
+                assert_eq!(e, want, "MODEL BUG: set contains");
+                Ret::Bool(e)
+            }
+            Op::XSetLen(K(k)) => Ret::U32(self.with_xset(k, |c, m| m.len(c))),
+            Op::XSetIter(K(k), skip, take) => Ret::Items(self.with_xset(k, |c, m| {
+                let n = m.len(c);
+                ((skip as u32)..n.min(skip as u32 + take as u32)).map(|i| (m.slot_key(c, i), Vec::new())).collect()
+            })),
+            Op::XVecPush(K(k), v) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                vpush(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, v.bytes());
+                Ret::Bool(true)
+            }
+            Op::XVecPop(K(k)) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bytes(vpop(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect))
+            }
+            Op::XVecSwapRemove(K(k), j) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bytes(Some(vswap_remove(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, j as u32)))
+            }
+            Op::XVecGet(K(k), j) => {
+                let v = self.xvect(k);
+                Ret::Bytes(vget(&mut self.cache, &xvec(k), &v, j as u32))
+            }
+            Op::XVecGetMut(K(k), j, x) => {
+                let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bytes(vget_mut(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, j as u32, x))
+            }
+            Op::XVecLen(K(k)) => {
+                let v = self.xvect(k);
+                Ret::U32(vlen(&mut self.cache, &xvec(k), &v))
+            }
+            Op::XVecIterBack(K(k), skip) => {
+                // header read; `skip` from the back is free; then up to 2 slot reads
+                let v = self.xvect(k);
+                let n = vlen(&mut self.cache, &xvec(k), &v);
+                let left = n.saturating_sub(skip as u32);
+                let out = (0..left.min(2)).map(|j| vget(&mut self.cache, &xvec(k), &v, left - 1 - j).expect("dense")).collect();
+                Ret::Iter(out, left)
+            }
+            Op::LTryInsert(K(k), n) => {
+                // a value owning collections: 1 `storage_has_key`, 2 on a miss (flag key)
+                if self.l_exists(k) {
+                    return Ret::Bool(false);
+                }
+                let rec = RecLM { n: n as u64, ..Default::default() };
+                self.cache.rec_write(&lrecs().entry(k), rec.bytes());
+                self.cur.lrecs.insert(k, rec);
+                Ret::Bool(true)
+            }
+            Op::LGet(K(k)) => {
+                let present = self.l_get(k);
+                Ret::OptU64(present.then(|| self.cur.lrecs[&k].n))
+            }
+            Op::LGetMut(K(k), x) => {
+                if !self.l_get(k) {
+                    return Ret::OptU64(None);
+                }
+                let r = self.cur.lrecs.get_mut(&k).unwrap();
+                r.n = r.n.wrapping_add(x as u64);
+                let (n, b) = (r.n, r.bytes());
+                self.cache.rec_write(&lrecs().entry(k), b);
+                Ret::OptU64(Some(n))
+            }
+            Op::LSetInsert(K(k), K(x)) => {
+                if !self.l_exists(k) {
+                    return Ret::OptU64(None);
+                }
+                self.cache.write(&lset(k).entry(x), Vec::new());
+                self.cur.lrecs.get_mut(&k).unwrap().lset.insert(x);
+                Ret::Bool(true)
+            }
+            Op::LSetRemove(K(k), K(x)) => {
+                // 1 remove, blind
+                if !self.l_exists(k) {
+                    return Ret::OptU64(None);
+                }
+                self.cache.delete(&lset(k).entry(x));
+                self.cur.lrecs.get_mut(&k).unwrap().lset.remove(&x);
+                Ret::Bool(true)
+            }
+            Op::LSetContains(K(k), K(x)) => {
+                let e = self.cache.exists(&lset(k).entry(x));
+                assert_eq!(e, self.cur.lrecs.get(&k).is_some_and(|r| r.lset.contains(&x)), "MODEL BUG: lookup set");
+                Ret::Bool(e)
+            }
+            _ => unreachable!("not a nested op: {op:?}"),
+        }
+    }
+
+    /// `at(&k).vect` reads: the record's vector, or an empty one if the record is absent.
+    fn xvect(&self, k: u8) -> Vec<Vec<u8>> {
+        pos(&self.cur.xrecs, k).map(|i| self.cur.xrecs[i].1.vect.clone()).unwrap_or_default()
+    }
+
+    /// `at(&k).set` reads, over an empty set if the record is absent.
+    fn with_xset<R>(&mut self, k: u8, f: impl FnOnce(&mut CacheModel, &KV<'_, ()>) -> R) -> R {
+        let (mut empty, mut zero) = (Vec::new(), 0u64);
+        let (v, rev) = match pos(&self.cur.xrecs, k) {
+            Some(i) => {
+                let r = &mut self.cur.xrecs[i].1;
+                (&mut r.set, &mut r.set_rev)
+            }
+            None => (&mut empty, &mut zero),
+        };
+        f(&mut self.cache, &KV { mk: xset(k), v, rev, records: false })
     }
 
     /// The record at `k` (1 read, 2 on a miss: the flag key), checked against the abstract
@@ -1099,6 +1702,9 @@ impl Model {
 
     /// Applies `op` inside the current call. Call-boundary ops are handled by the driver.
     pub fn apply(&mut self, op: &Op) -> Ret {
+        if op.is_nested() {
+            return self.apply_nested(op);
+        }
         match *op {
             Op::EndCall | Op::MidFlush | Op::View(_) | Op::RecRetyped(..) => {
                 unreachable!("driver handles call boundaries")
@@ -1339,71 +1945,24 @@ impl Model {
                 Ret::RecPage(r)
             }
             Op::VecPush(v) => {
-                let n = self.vec_len();
-                let c = &mut self.cache;
-                c.write(&vect().vslot(n), enc_bytes(&v.bytes()));
-                c.write(&vect().header(), enc_u32(n + 1));
-                self.cur.vec.push(v.bytes());
+                vpush(&mut self.cache, &vect(), &mut self.cur.vec, v.bytes());
                 Ret::Unit
             }
-            Op::VecPop => {
-                let n = self.vec_len();
-                if n == 0 {
-                    return Ret::Bytes(None);
-                }
-                let v = self.vec_get(n - 1).expect("dense");
-                let c = &mut self.cache;
-                c.delete(&vect().vslot(n - 1));
-                // `Vector` keeps the bare `u32` header, removed at 0 (no T4 revision)
-                if n == 1 { c.delete(&vect().header()) } else { c.write(&vect().header(), enc_u32(n - 1)) }
-                self.cur.vec.pop();
-                Ret::Bytes(Some(v))
-            }
-            Op::VecSwapRemove(i) => {
-                let i = i as u32;
-                let n = self.vec_len();
-                assert!(i < n, "skipped by would_panic");
-                let v = self.vec_get(i).expect("dense");
-                self.cache.delete(&vect().vslot(i));
-                let last = n - 1;
-                if i != last {
-                    let moved = self.vec_get(last).expect("dense");
-                    self.cache.delete(&vect().vslot(last));
-                    self.cache.write(&vect().vslot(i), enc_bytes(&moved));
-                }
-                let c = &mut self.cache;
-                if last == 0 { c.delete(&vect().header()) } else { c.write(&vect().header(), enc_u32(last)) }
-                self.cur.vec.swap_remove(i as usize);
-                Ret::Bytes(Some(v))
-            }
+            Op::VecPop => Ret::Bytes(vpop(&mut self.cache, &vect(), &mut self.cur.vec)),
+            Op::VecSwapRemove(i) => Ret::Bytes(Some(vswap_remove(&mut self.cache, &vect(), &mut self.cur.vec, i as u32))),
             Op::VecGet(i) => Ret::Bytes(self.vec_get(i as u32)),
-            Op::VecGetMut(i, x) => match self.vec_get(i as u32) {
-                None => Ret::Bytes(None),
-                Some(mut v) => {
-                    if let Some(b) = x {
-                        v.push(b);
-                    }
-                    self.cache.write(&vect().vslot(i as u32), enc_bytes(&v));
-                    self.cur.vec[i as usize] = v.clone();
-                    Ret::Bytes(Some(v))
-                }
-            },
+            Op::VecGetMut(i, x) => Ret::Bytes(vget_mut(&mut self.cache, &vect(), &mut self.cur.vec, i as u32, x)),
             Op::VecLen => Ret::U32(self.vec_len()),
+            _ => unreachable!("nested ops are dispatched to apply_nested"),
         }
     }
 
     fn vec_len(&mut self) -> u32 {
-        let h = self.cache.read(&vect().header());
-        let n = self.cur.vec.len() as u32;
-        agree("vector header", h, if n == 0 { None } else { Some(enc_u32(n)) });
-        n
+        vlen(&mut self.cache, &vect(), &self.cur.vec)
     }
 
     fn vec_get(&mut self, i: u32) -> Option<Vec<u8>> {
-        let r = self.cache.read(&vect().vslot(i));
-        let v = self.cur.vec.get(i as usize).cloned();
-        agree("vector slot", r, v.as_deref().map(enc_bytes));
-        v
+        vget(&mut self.cache, &vect(), &self.cur.vec, i)
     }
 
     /// A view call over the current committed state (own call: begin, reads, no flush).

@@ -41,7 +41,7 @@ fn c3_a_mid_call_flush_anywhere_loses_no_write() {
             let rest = &with[at + 1..];
             let call = &rest[..rest.iter().position(|o| matches!(o, Op::EndCall)).unwrap_or(rest.len())];
             assert!(
-                call.iter().any(|o| matches!(o, Op::RecRemoveSome(..))),
+                call.iter().any(|o| matches!(o, Op::RecRemoveSome(..) | Op::XRemoveStep(..))),
                 "a mid-call flush changed the final state"
             );
             DIVERGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
