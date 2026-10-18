@@ -64,6 +64,41 @@ fn not_inline<T>() -> Result<T, RecordError> {
     Err(RecordError::Leaf("a collection has no inline encoding".into()))
 }
 
+/// A `Map`'s header (T4): its length and a revision counter that every removal bumps, so two
+/// pages read with no removal in between carry the same `revision`.
+///
+/// Encoded as the bare little-endian `u32` length while `revision` is 0 (the pre-T4 4-byte
+/// header, so a map that never had a removal is byte-identical), and as `len ++ revision`
+/// (12 bytes, Borsh `(u32, u64)`) afterwards. The header of a map that empties after a removal
+/// stays (`len` 0) so the revision never resets; it is removed only when the record owning the
+/// map is removed or cleared (`Removable::clear_children[_some]`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct MapHeader {
+    len: u32,
+    revision: u64,
+}
+
+impl Value for MapHeader {
+    fn encode_value(&self, _orig: Option<&[u8]>) -> std::vec::Vec<u8> {
+        let mut b = self.len.to_le_bytes().to_vec();
+        if self.revision != 0 {
+            b.extend_from_slice(&self.revision.to_le_bytes());
+        }
+        b
+    }
+    fn decode_value(bytes: &[u8], _path: &Path) -> Result<Self, RecordError> {
+        let u32_at = |b: &[u8]| u32::from_le_bytes(b[..4].try_into().unwrap());
+        match bytes.len() {
+            4 => Ok(MapHeader { len: u32_at(bytes), revision: 0 }),
+            12 => Ok(MapHeader {
+                len: u32_at(bytes),
+                revision: u64::from_le_bytes(bytes[4..].try_into().unwrap()),
+            }),
+            n => Err(RecordError::Leaf(format!("map header of {n} bytes (want 4 or 12)"))),
+        }
+    }
+}
+
 fn len_at(header: &Path) -> u32 {
     cache::get::<u32>(header).map(|p| unsafe { *r(p) }).unwrap_or(0)
 }
@@ -257,19 +292,26 @@ impl AsRef<str> for Occupied {
 impl std::error::Error for Occupied {}
 
 /// One page of a cursor-paginated collection.
+///
+/// `revision` is the map's removal counter when the page was read (T4): two pages with equal
+/// revisions had no removal between them, so together they are an exact walk. Different
+/// revisions mean a removal happened and a key may have been skipped (the last key moves into
+/// a removed key's slot); restart if that matters.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
 pub struct Page<K, V> {
     pub items: std::vec::Vec<(K, V)>,
     pub next: Option<K>,
+    pub revision: u64,
 }
 
-/// One page of keys.
+/// One page of keys. `revision` as on [`Page`].
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
 pub struct KeyPage<K> {
     pub keys: std::vec::Vec<K>,
     pub next: Option<K>,
+    pub revision: u64,
 }
 
 /// A collection handle reached through a view (or `GroupedMap::group`). Reads through it
@@ -629,7 +671,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Value for Map<K, V> {
 
 impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
     fn clear_children(path: &Path) {
-        Map::<K, V>::__bound_at(path.clone()).clear();
+        Map::<K, V>::__bound_at(path.clone()).clear_owned();
     }
     fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
         Map::<K, V>::__bound_at(path.clone()).clear_budgeted(budget)
@@ -657,12 +699,38 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         self.p().kind(kind::HEADER)
     }
 
+    fn head(&self) -> MapHeader {
+        cache::get::<MapHeader>(&self.header()).map(|p| unsafe { *r(p) }).unwrap_or_default()
+    }
+
+    /// Writes the header. An all-zero header (empty, never removed from) is no key at all.
+    fn set_head(&self, h: MapHeader) {
+        if h == MapHeader::default() {
+            cache::delete::<MapHeader>(&self.header());
+        } else {
+            cache::put(&self.header(), h);
+        }
+    }
+
+    /// One removal (or one batch of removals) that leaves `len` entries: bumps the revision.
+    fn set_len_after_removal(&self, len: u32) {
+        let h = self.head();
+        self.set_head(MapHeader { len, revision: h.revision.wrapping_add(1) });
+    }
+
     /// 1 read.
     pub fn len(&self) -> u32 {
-        len_at(&self.header())
+        self.head().len
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// The map's revision: a counter in its header that every removal bumps (T4). 1 read, the
+    /// header, which `len` and every page read anyway. Starts at 0 and never goes back, even
+    /// when the map empties; only removing the record that owns the map resets it.
+    pub fn revision(&self) -> u64 {
+        self.head().revision
     }
 
     /// 1 read.
@@ -688,10 +756,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     }
 
     fn push_key(&mut self, k: &K) {
-        let len = self.len();
-        cache::put(&self.index_path(k), len);
-        cache::put(&self.slot_path(len), k.clone());
-        set_len_at(&self.header(), len.checked_add(1).expect("Map is full"));
+        let h = self.head();
+        cache::put(&self.index_path(k), h.len);
+        cache::put(&self.slot_path(h.len), k.clone());
+        self.set_head(MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h });
     }
 
     /// Always overwrites. Returns `true` if the key was new (free: the index read says so).
@@ -770,13 +838,13 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             cache::put(&self.index_path(&moved), i);
         }
         cache::delete::<K>(&last_slot);
-        set_len_at(&self.header(), last);
+        self.set_len_after_removal(last);
         Some(value)
     }
 
     /// 1 entry read, 1 index read, 1 header read, 2 removes (entry, index), 1 read and 1
-    /// remove of the last slot, 2 writes for the moved key, 1 header write (a remove when
-    /// the map empties). If the key is last: no moved key.
+    /// remove of the last slot, 2 writes for the moved key, 1 header write (also when the map
+    /// empties: the header keeps the revision, T4). If the key is last: no moved key.
     ///
     /// A zero-sized `V` (such as `()`) skips the entry read: the index read already says
     /// whether the key exists, and the value carries no bytes. So `Map<K, ()>` and
@@ -834,8 +902,9 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// Cursor and offset paging both assume the map does not change between pages. A cursor
     /// whose key was removed fails loudly; offset paging (`iter().skip(from).take(n)`) does
     /// not fail but can SKIP a key: a removal behind the offset moves the last key into the
-    /// hole, ahead of where the next page starts. An on-chain batch job must not page a map
-    /// that changes between its calls.
+    /// hole, ahead of where the next page starts. Every page carries the map's `revision`
+    /// (T4, free: from the header read): a caller that needs an exact walk compares it across
+    /// pages, and equal revisions mean no removal happened in between.
     ///
     /// Needs `V: Clone`, which a record holding a collection never is: use [`Map::page_with`]
     /// and map each record to the type you return.
@@ -855,7 +924,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         mut f: impl FnMut(&K, &V) -> T,
     ) -> Result<Page<K, T>, CursorGone> {
         let start = self.cursor_start(after)?;
-        let len = self.len();
+        let MapHeader { len, revision } = self.head();
         let end = start.saturating_add(limit).min(len);
         let mut items = std::vec::Vec::with_capacity((end.saturating_sub(start)) as usize);
         for i in start..end {
@@ -864,18 +933,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             items.push((k, v));
         }
         let next = if end < len { items.last().map(|(k, _)| k.clone()) } else { None };
-        Ok(Page { items, next })
+        Ok(Page { items, next, revision })
     }
 
     /// Key-only cursor page: as `page`, 1 read per key; same `CursorGone` error.
     pub fn keys_page(&self, after: Option<&K>, limit: u32) -> Result<KeyPage<K>, CursorGone> {
         let start = self.cursor_start(after)?;
-        let len = self.len();
+        let MapHeader { len, revision } = self.head();
         let end = start.saturating_add(limit).min(len);
         let keys: std::vec::Vec<K> =
             (start..end).map(|i| self.key_at(i).expect("dense key vector")).collect();
         let next = if end < len { keys.last().cloned() } else { None };
-        Ok(KeyPage { keys, next })
+        Ok(KeyPage { keys, next, revision })
     }
 
     /// 2 reads per entry yielded, plus 1 for the length. Order is the key vector's: insertion
@@ -895,7 +964,8 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     }
 
     /// Removes everything: 1 header read, then per entry 1 slot read and 3 removes (entry,
-    /// index, slot), plus clearing each value's own collections; then 1 header remove.
+    /// index, slot), plus clearing each value's own collections; then 1 header write that keeps
+    /// the revision (T4; nothing if the map was already empty).
     pub fn clear(&mut self)
     where
         V: Removable,
@@ -903,13 +973,17 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         while self.clear_some(u32::MAX) {}
     }
 
-    /// Removes at most `n` entries from the end. Returns `true` if entries remain.
+    /// Removes at most `n` entries from the end. Returns `true` if entries remain. Bumps the
+    /// revision once per call that removes anything.
     pub fn clear_some(&mut self, n: u32) -> bool
     where
         V: Removable,
     {
         let len = self.len();
         let stop = len.saturating_sub(n);
+        if stop == len {
+            return false;
+        }
         for i in (stop..len).rev() {
             let slot = self.slot_path(i);
             let k: K = unsafe { r(cache::get::<K>(&slot).expect("dense key vector")) }.clone();
@@ -919,8 +993,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             cache::delete::<u32>(&self.index_path(&k));
             cache::delete::<K>(&slot);
         }
-        set_len_at(&self.header(), stop);
+        self.set_len_after_removal(stop);
         stop > 0
+    }
+
+    /// `clear` for a map whose owner is being removed: also removes the header, revision and
+    /// all, so a removed record leaves no key behind.
+    fn clear_owned(&mut self)
+    where
+        V: Removable,
+    {
+        self.clear();
+        cache::delete::<MapHeader>(&self.header());
     }
 
     /// Bounded clear from the end (D9), clearing each value's own collections first; see
@@ -932,6 +1016,8 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         loop {
             let len = self.len();
             if len == 0 {
+                // The owner is being removed: the header goes too (T4).
+                cache::delete::<MapHeader>(&self.header());
                 return true;
             }
             let i = len - 1;
@@ -945,7 +1031,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             cache::delete_entry::<V>(&path);
             cache::delete::<u32>(&self.index_path(&k));
             cache::delete::<K>(&slot);
-            set_len_at(&self.header(), i);
+            self.set_len_after_removal(i);
         }
     }
 
@@ -1022,6 +1108,9 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     }
     pub fn key_at(&self, i: u32) -> Option<K> {
         self.inner.key_at(i)
+    }
+    pub fn revision(&self) -> u64 {
+        self.inner.revision()
     }
     pub fn page(&self, after: Option<&K>, limit: u32) -> Result<Page<K, V>, CursorGone>
     where

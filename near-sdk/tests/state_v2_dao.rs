@@ -245,6 +245,23 @@ fn keys() -> std::collections::BTreeSet<Vec<u8>> {
     testing::store().into_keys().collect()
 }
 
+/// T4: keys present now and not in `before` must all be headers of maps that emptied after a
+/// removal: a header key (kind `03`) holding `len = 0` and a nonzero revision (12 bytes). The
+/// header keeps the revision so it never resets; it goes only with the record owning the map.
+fn assert_only_emptied_headers(before: &std::collections::BTreeSet<Vec<u8>>) -> usize {
+    let store = testing::store();
+    let new: Vec<_> = store.keys().filter(|k| !before.contains(*k)).collect();
+    for k in &new {
+        let v = &store[*k];
+        assert!(
+            k.last() == Some(&3) && v.len() == 12 && v[..4] == [0, 0, 0, 0],
+            "leaked a key that is not an emptied map's header: {k:?} = {v:?}"
+        );
+    }
+    assert!(before.iter().all(|k| store.contains_key(k)), "a pre-existing key was removed");
+    new.len()
+}
+
 // ---------------------------------------------------------------------------------------
 
 #[test]
@@ -321,9 +338,9 @@ fn finalize_counts_and_removes() {
     let (out, _) = call("council.near", |c| c.finalize(pid));
     assert_eq!(out, Outcome::Passed);
     assert!(view(|c| c.get_proposal(pid)).0.is_none());
-    // Everything the proposal created is gone, except the root (next_id changed).
-    let after = keys();
-    assert_eq!(after, before, "leaked: {:?}", after.difference(&before).collect::<Vec<_>>());
+    // Everything the proposal created is gone, except the root (next_id changed) and (T4) the
+    // headers of the maps it emptied: `proposals`, and a's and b's `votes`/`proposals` sets.
+    assert_eq!(assert_only_emptied_headers(&before), 4);
     assert_eq!(view(|c| c.member_open_proposals(id("a.near"))).0, 0);
 }
 
@@ -358,9 +375,9 @@ fn remove_member_cleans_up_proposals_and_votes() {
     call("a.near", |c| c.vote(pa, Vote::Yes));
     call("council.near", |c| c.finalize(pa));
     call("council.near", |c| c.add_member(id("b.near")));
-    // Back to the starting key set: nothing orphaned anywhere.
-    let after = keys();
-    assert_eq!(after, before, "leaked: {:?}", after.difference(&before).collect::<Vec<_>>());
+    // Back to the starting key set: nothing orphaned anywhere. T4: the maps that emptied keep
+    // their header (revision); b's record was removed, so b's sets left nothing behind.
+    assert_eq!(assert_only_emptied_headers(&before), 4);
 }
 
 #[test]

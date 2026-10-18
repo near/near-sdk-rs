@@ -255,7 +255,7 @@ fn itermap_remove_cost_is_independent_of_neighbor_value() {
             "entry read, index read, header read, last-slot read; moved slot write, moved index \
              write, header write; entry, index, last-slot removes"
         );
-        assert!(r.max_value_bytes() <= 8, "no host call moves the neighbor's value");
+        assert!(r.max_value_bytes() <= 12, "no host call moves the neighbor's value (12: the header)");
         results.push((r.rwd(), r.read_bytes(), r.written_and_replaced_bytes()));
         // the moved key is still reachable and the vector is dense
         assert_eq!(m.len(), 1);
@@ -272,7 +272,7 @@ fn itermap_remove_last_key_has_no_moved_key() {
     assert_eq!(r.rwd(), (3, 1, 3), "removing the last key skips the moved-key read and 2 writes");
     m.remove(&1);
     let r = end_call();
-    assert_eq!(r.rwd(), (3, 0, 4), "emptying the map removes the header instead of writing 0");
+    assert_eq!(r.rwd(), (3, 1, 3), "emptying the map writes the header (len 0, revision kept, T4)");
 }
 
 #[test]
@@ -1116,7 +1116,10 @@ fn bounded_clear() {
     end_call();
     assert!(!m.clear_some(4));
     end_call();
-    assert_eq!(store().len(), 0);
+    // T4: only the header is left, len 0 and the revision bumped once per `clear_some` call.
+    assert_eq!(store().len(), 1);
+    assert_eq!(m.len(), 0);
+    assert_eq!(m.revision(), 3);
 }
 
 #[test]
@@ -1132,7 +1135,7 @@ fn grouped_map_groups_are_independent_itermaps() {
     end_call();
     g.group_mut(&2).remove(&10);
     let r = end_call();
-    assert_eq!(r.rwd(), (3, 0, 4), "last entry of a group: header removed when the group empties");
+    assert_eq!(r.rwd(), (3, 1, 3), "last entry of a group: the header stays with len 0 (T4)");
     // group(&1) keys are under 04 00 h16(1) borsh(1) 00 ...
     let k = Path::root(DEFAULT_ROOT).field(4).kind(kind::ENTRIES).entry(&1u32).kind(kind::ENTRIES).entry(&10u64);
     assert!(store().contains_key(k.as_bytes()));
@@ -1387,4 +1390,72 @@ fn at_mut_on_an_absent_record_is_none() {
     assert_eq!(r.reads(), 0, "at_mut reads nothing");
     assert_eq!(r.has_keys(), 4, "per map: the record key, then (a miss) its D9 flag key");
     assert_eq!(r.keys_written().len(), 0, "nothing created");
+}
+
+/// T4: every page carries the map's revision, from the header it reads anyway. Two pages with
+/// no removal in between have equal revisions; a removal in between changes it, even one that
+/// empties the map before the cursor key comes back (the header keeps the revision at len 0).
+/// Removing the record that owns the map removes the header too.
+#[test]
+fn page_revision_changes_only_across_a_removal() {
+    testing::use_mock();
+    let mut m: Map<u32, u64> = at(31);
+    for i in 0..4 {
+        let _ = m.insert(i, i as u64);
+    }
+    end_call();
+    let p1 = m.page(None, 2).unwrap();
+    let r = end_call();
+    assert_eq!(r.rwd(), (1 + 4, 0, 0), "header + 2 slots + 2 entries: the revision is free");
+    assert_eq!(p1.revision, 0);
+    let _ = m.insert(9, 9);
+    end_call();
+    let p2 = m.page(p1.next.as_ref(), 2).unwrap();
+    assert_eq!(p2.revision, p1.revision, "an insert is not a removal");
+    assert_eq!(m.keys_page(None, 1).unwrap().revision, p1.revision);
+    end_call();
+
+    m.remove(&3);
+    let r = end_call();
+    assert_eq!(r.rwd(), (4, 3, 3), "a removal costs what it did: the header write carries it");
+    let p3 = m.page(p1.next.as_ref(), 2).unwrap();
+    assert_ne!(p3.revision, p1.revision, "a removal between pages changes the revision");
+    assert_eq!(p3.revision, 1);
+    end_call();
+
+    // Empty the map, then bring the cursor key back: still a different revision.
+    let p4 = m.page(None, 1).unwrap();
+    let cursor = p4.next.clone().unwrap();
+    end_call();
+    m.clear();
+    end_call();
+    assert_eq!(m.len(), 0);
+    let _ = m.insert(cursor, 7);
+    let _ = m.insert(100, 7);
+    end_call();
+    let p5 = m.page(Some(&cursor), 2).unwrap();
+    assert_ne!(p5.revision, p4.revision, "emptied and refilled: the revision did not reset");
+    end_call();
+    let hdr = Path::root(DEFAULT_ROOT).field(31).kind(kind::HEADER);
+    assert_eq!(store()[hdr.as_bytes()].len(), 12, "len ++ revision once a removal happened");
+
+    // A map that never had a removal keeps the 4-byte header.
+    let mut fresh: Map<u32, u64> = at(32);
+    let _ = fresh.insert(1, 1);
+    end_call();
+    let hdr = Path::root(DEFAULT_ROOT).field(32).kind(kind::HEADER);
+    assert_eq!(store()[hdr.as_bytes()], 1u32.to_le_bytes().to_vec());
+
+    // The owner's removal removes the header, revision and all.
+    let mut owners: Map<u32, Account> = at(33);
+    let a = owners.try_insert(1, Account::default()).unwrap();
+    let _ = a.balances.insert("x".into(), 1);
+    end_call();
+    let _ = owners.get_mut(&1).unwrap().balances.remove(&"x".to_string());
+    end_call();
+    let below = Path::root(DEFAULT_ROOT).field(33).kind(kind::ENTRIES).entry(&1u32).field(2);
+    assert!(store().keys().any(|k| k.starts_with(below.as_bytes())), "the emptied balances header");
+    owners.remove(&1);
+    end_call();
+    assert!(!store().keys().any(|k| k.starts_with(below.as_bytes())), "nothing left below the record");
 }

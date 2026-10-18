@@ -242,6 +242,23 @@ fn keys() -> BTreeSet<Vec<u8>> {
     testing::store().into_keys().collect()
 }
 
+/// T4: keys present now and not in `before` must all be headers of maps that emptied after a
+/// removal: a header key (kind `03`) holding `len = 0` and a nonzero revision (12 bytes). The
+/// header keeps the revision so it never resets; it goes only with the record owning the map.
+fn assert_only_emptied_headers(before: &std::collections::BTreeSet<Vec<u8>>) -> usize {
+    let store = testing::store();
+    let new: Vec<_> = store.keys().filter(|k| !before.contains(*k)).collect();
+    for k in &new {
+        let v = &store[*k];
+        assert!(
+            k.last() == Some(&3) && v.len() == 12 && v[..4] == [0, 0, 0, 0],
+            "leaked a key that is not an emptied map's header: {k:?} = {v:?}"
+        );
+    }
+    assert!(before.iter().all(|k| store.contains_key(k)), "a pre-existing key was removed");
+    new.len()
+}
+
 // ---------------------------------------------------------------------------------------
 
 #[test]
@@ -353,7 +370,9 @@ fn burning_the_last_token_empties_the_owner_group() {
     mint("t1", "alice.near");
     call("alice.near", |c| c.nft_approve("t1".into(), id("m.near")));
     call("alice.near", |c| c.nft_burn("t1".into()));
-    assert_eq!(keys(), before);
+    // T4: the emptied `tokens` map and alice's emptied owner group keep their headers (the
+    // revision); the token record, its approvals and the group's entries are gone.
+    assert_eq!(assert_only_emptied_headers(&before), 2);
 }
 
 #[test]
