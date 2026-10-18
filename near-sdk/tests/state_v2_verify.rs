@@ -506,10 +506,14 @@ mod a3 {
             vec![(1, &1u64.to_le_bytes()[..]), (2, &[record::marker::MAP][..])],
             "B's record carries the kids marker"
         );
-        let nz = 3;
+        let nz = std::num::NonZeroU32::new(3).unwrap();
         assert_refused("remove", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove(&1)));
-        assert_refused("discard", "2", || drop(Map::<u32, RecA>::__bound_at(root()).discard(&1)));
-        assert_refused("remove_step", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove_step(&1, nz)));
+        assert_refused("discard", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
+        });
+        assert_refused("remove_step", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).remove_step(&1, nz);
+        });
         assert_refused("clear", "2", || Map::<u32, RecA>::__bound_at(root()).clear());
         // the same record bytes under a LookupMap of A at another path
         let lroot = Path::root(0xF0).field(10);
@@ -559,7 +563,7 @@ mod a3 {
             match how {
                 0 => assert_eq!(a.remove(&3).map(|r| r.n), Some(3)),
                 1 => assert!(a.discard(&3)),
-                _ => assert_eq!(a.remove_step(&3, 3), near_sdk::state::Removal::Done),
+                _ => assert_eq!(a.remove_step(&3, std::num::NonZeroU32::new(3).unwrap()), near_sdk::state::Removal::Done),
             }
             testing::flush();
             assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).entry(&3u32).as_bytes())), "how={how}");
@@ -598,7 +602,7 @@ mod a3 {
                 if which == 0 {
                     drop(Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&1));
                 } else {
-                    drop(Map::<u32, OuterA>::__bound_at(root()).discard(&1));
+                    let _ = Map::<u32, OuterA>::__bound_at(root()).discard(&1);
                 }
             })
             .expect_err("nested removal accepted");
@@ -615,13 +619,14 @@ mod a3 {
 }
 
 // ---------------------------------------------------------------------------------------
-// A5: bounded clearing liveness: Lazy values consume no budget (hazard, pinned)
+// A5: bounded clearing liveness. API round 5: the budget counts host removes.
 // ---------------------------------------------------------------------------------------
 
 mod a5 {
     use near_sdk::near;
     use near_sdk::state::testing::{self, OpKind};
-    use near_sdk::state::{Lazy, Map, Path};
+    use near_sdk::state::{Lazy, LookupMap, Map, Path, Removal};
+    use std::num::NonZeroU32;
 
     const BIG: usize = 64 * 1024;
 
@@ -640,28 +645,111 @@ mod a5 {
         items: Map<u8, u8>,
     }
 
+    /// K = 6 large `Lazy` fields and nothing else.
     #[near(storage)]
     #[derive(Default)]
-    pub struct LazyOnly {
+    pub struct LazySix {
         #[key(1)]
         a: Lazy<Vec<u8>>,
         #[key(2)]
         b: Lazy<Vec<u8>>,
+        #[key(3)]
+        c: Lazy<Vec<u8>>,
+        #[key(4)]
+        d: Lazy<Vec<u8>>,
+        #[key(5)]
+        e: Lazy<Vec<u8>>,
+        #[key(6)]
+        f: Lazy<Vec<u8>>,
     }
+    const K: u32 = 6;
 
     fn removed(r: &testing::Receipt) -> (usize, usize) {
         let rm: Vec<_> = r.ops.iter().filter(|o| o.kind == OpKind::Remove).collect();
         (rm.len(), rm.iter().map(|o| o.value_len).sum())
     }
 
-    /// HAZARD (A5), pinned with byte counts. A record with 4 Lazy values of 64 KiB and a map
-    /// of 3 entries, cleared with `remove_step(k, 1)`: the FIRST attempt removes all 4 Lazy
-    /// values (256 KiB, 4 removes) plus 1 map entry, because a Lazy value's own deletion is
-    /// not counted against `n`. Per-attempt work is bounded by n only for map entries, not
-    /// for Lazy bytes (storage_remove gas scales with the removed value), so "bounded
-    /// clearing" is bounded in entries, not in gas.
+    fn fill(s: &mut LazySix) {
+        for l in [&mut s.a, &mut s.b, &mut s.c, &mut s.d, &mut s.e, &mut s.f] {
+            l.set(vec![7; BIG]);
+        }
+    }
+
+    /// Calls a record of K one-remove units (the `Lazy` values) needs when finishing costs
+    /// `fin` removes: one if everything fits, else the move to the flag key (1) is paid once
+    /// and the units pack whole: ceil((K + 1 + fin) / n). For large K that is ceil(K / n).
+    fn want_calls(n: u32, fin: u32) -> u32 {
+        if K + fin <= n { 1 } else { (K + 1 + fin).div_ceil(n) }
+    }
+
+    /// The A5 pin, flipped. A `Lazy` value's remove now counts against the budget like any
+    /// other host remove. A record of K = 6 `Lazy` values of 64 KiB, removed with
+    /// `remove_step(k, n)` for every n in 3..=10, through a `LookupMap` (finishing is 1 remove,
+    /// the record) and a `Map` (3: record, index, key slot): every call issues at most n
+    /// removes and so at most n x 64 KiB of value bytes, and the clear takes exactly
+    /// `want_calls(n, fin)` calls, ceil(K / n) plus the move and the finish. (Before round 5
+    /// the first call removed every `Lazy` value whatever n, and with n = 0 it finished.)
     #[test]
-    fn hazard_lazy_values_consume_no_clearing_budget() {
+    fn a5_lazy_values_count_against_the_budget() {
+        for n in 3..=10u32 {
+            for via_map in [false, true] {
+                testing::use_mock();
+                let root = Path::root(0xF0).field(9);
+                if via_map {
+                    let mut m: Map<u32, LazySix> = Map::__bound_at(root.clone());
+                    m.try_insert(1, LazySix::default()).unwrap();
+                    fill(m.get_mut(&1).unwrap());
+                } else {
+                    let mut m: LookupMap<u32, LazySix> = LookupMap::__bound_at(root.clone());
+                    m.try_insert(1, LazySix::default()).unwrap();
+                    fill(m.get_mut(&1).unwrap());
+                }
+                testing::flush();
+                let mut per_call = Vec::new();
+                loop {
+                    testing::begin_call();
+                    let nz = NonZeroU32::new(n).unwrap();
+                    let more = if via_map {
+                        Map::<u32, LazySix>::__bound_at(root.clone()).remove_step(&1, nz)
+                    } else {
+                        LookupMap::<u32, LazySix>::__bound_at(root.clone()).remove_step(&1, nz)
+                    } == Removal::Pending;
+                    testing::flush();
+                    let rc = testing::receipt();
+                    // the stated bookkeeping bound, F = 0 collections, L = 6 Lazy fields
+                    assert!(rc.reads() <= (n / 3 + 5) as usize && rc.has_keys() <= 6 && rc.writes() <= 3, "n={n}: {:?}", rc.rwd());
+                    per_call.push(removed(&rc));
+                    if !more {
+                        break;
+                    }
+                    assert!(per_call.len() < 20);
+                }
+                let fin = if via_map { 3 } else { 1 };
+                assert_eq!(per_call.len() as u32, want_calls(n, fin), "n={n} map={via_map}: {per_call:?}");
+                for (rm, bytes) in &per_call {
+                    assert!(*rm as u32 <= n, "n={n} map={via_map}: {per_call:?}");
+                    assert!(*bytes <= n as usize * BIG + 64, "n={n}: {bytes} value bytes in one call");
+                }
+                let total: usize = per_call.iter().map(|(r, _)| r).sum();
+                let moved = usize::from(per_call.len() > 1);
+                assert_eq!(total as u32, K + fin + moved as u32, "n={n} map={via_map}");
+                // nothing under the record; a `Map` keeps its emptied header (T4), nothing else
+                let rec = root.kind(0).entry(&1u32);
+                let header = root.kind(3);
+                assert!(
+                    testing::store().keys().all(|k| !k.starts_with(root.as_bytes()) || (via_map && k == header.as_bytes())),
+                    "n={n}: keys left under {rec:?}"
+                );
+            }
+        }
+    }
+
+    /// The original A5 shape (4 x 64 KiB `Lazy` fields and a map of 3 entries) at n = 3: (removes,
+    /// value bytes) per call is [(1, 0), (3, 3 x 64 KiB), (1, 64 KiB), ...]: never more than 3
+    /// removes or 3 x 64 KiB in one call. Before round 5 at n = 1 it was
+    /// [(8, 262166), (7, 6), (11, 26)]: all 256 KiB in the first call.
+    #[test]
+    fn a5_original_shape_per_call_bytes() {
         testing::use_mock();
         let root = Path::root(0xF0).field(9);
         let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
@@ -676,37 +764,24 @@ mod a5 {
             }
         }
         testing::flush();
-        let mut per_attempt = Vec::new();
+        let mut per_call = Vec::new();
         loop {
             testing::begin_call();
             let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
-            let again = m.remove_step(&1, 1) == near_sdk::state::Removal::Pending;
+            let again = m.remove_step(&1, NonZeroU32::new(3).unwrap()) == Removal::Pending;
             testing::flush();
-            per_attempt.push(removed(&testing::receipt()));
+            per_call.push(removed(&testing::receipt()));
             if !again {
                 break;
             }
         }
-        println!("removes and value bytes per attempt: {per_attempt:?}");
-        assert!(per_attempt[0].1 >= 4 * BIG, "first attempt removed {} bytes", per_attempt[0].1);
-        assert!(per_attempt[1..].iter().all(|(_, bytes)| *bytes < BIG));
-    }
-
-    /// The extreme: a record of only Lazy values is removed whole by `remove_step(k, 0)`.
-    #[test]
-    fn hazard_lazy_only_record_cleared_with_budget_zero() {
-        testing::use_mock();
-        let root = Path::root(0xF0).field(9);
-        let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
-        m.try_insert(1, LazyOnly::default()).unwrap();
-        m.get_mut(&1).unwrap().a.set(vec![1; BIG]);
-        m.get_mut(&1).unwrap().b.set(vec![1; BIG]);
-        testing::flush();
-        testing::begin_call();
-        let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
-        assert_eq!(m.remove_step(&1, 0), near_sdk::state::Removal::Done, "finished in one attempt with n = 0");
-        testing::flush();
-        assert!(removed(&testing::receipt()).1 >= 2 * BIG);
+        println!("removes and value bytes per call at n = 3: {per_call:?}");
+        assert!(per_call.iter().all(|(rm, bytes)| *rm <= 3 && *bytes <= 3 * BIG + 64), "{per_call:?}");
+        // move (1); a, b (2, and c would be a 3rd: it fits, 3 values); d; items one per call;
+        // the items header; the record, index and key slot
+        let total: usize = per_call.iter().map(|(r, _)| r).sum();
+        assert_eq!(total, 1 + 4 + 3 * 3 + 1 + 3);
+        assert_eq!(per_call.len(), 7, "{per_call:?}");
     }
 }
 
@@ -736,11 +811,11 @@ mod c2_nested {
 
     /// Random engine, 1,000 cases: records 0 (neighbour) and 1 each hold a Vector, a Set, a
     /// Lazy and a Map with 0..=5 entries; record 1 is removed by `remove`, `discard` or
-    /// `remove_step(n)` (n = 1..=3, repeated until done). No stored key starts with record 1's
+    /// `remove_step(n)` (n = 3..=5 host removes, API round 5; repeated until done). No stored key starts with record 1's
     /// path afterwards, and record 0's collections are intact.
     #[test]
     fn c2_every_nested_collection_type_is_cleared_with_its_record() {
-        let g = (bolero::produce::<[u8; 4]>(), 0u8..3, 1u32..=3);
+        let g = (bolero::produce::<[u8; 4]>(), 0u8..3, 3u32..=5);
         bolero::check!().with_generator(g).with_iterations(1_000).for_each(|(sizes, how, n)| {
             testing::use_mock();
             let root = Path::root(0xF0).field(9);
@@ -769,13 +844,26 @@ mod c2_nested {
                 let again = match how {
                     0 => m.remove(&1).is_some() && false,
                     1 => m.discard(&1) && false,
-                    _ => m.remove_step(&1, *n) == near_sdk::state::Removal::Pending,
+                    _ => m.remove_step(&1, std::num::NonZeroU32::new(*n).unwrap()) == near_sdk::state::Removal::Pending,
                 };
                 testing::flush();
+                if *how == 2 {
+                    // API round 5: at most n removes; the stated bookkeeping bound with F = 3
+                    // (Vector, Set, Map) and L = 1
+                    let rc = testing::receipt();
+                    assert!(rc.removes() <= *n as usize, "n={n}: {} removes", rc.removes());
+                    assert!(
+                        rc.reads() <= (*n / 3 + 3 + 5) as usize && rc.has_keys() <= 1 && rc.writes() <= 3,
+                        "n={n}: reads, writes, removes {:?}, has_keys {}",
+                        rc.rwd(),
+                        rc.has_keys()
+                    );
+                }
                 if !again {
                     break;
                 }
-                assert!(round < 20, "remove_step did not finish");
+                // at most 43 removes at 1..=n per call
+                assert!(round < 45, "remove_step did not finish");
             }
             let gone = root.kind(0).entry(&1u32);
             let left: Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(gone.as_bytes())).collect();

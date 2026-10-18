@@ -10,7 +10,13 @@ use super::testing::{self, end_call, receipt, seed, store};
 use super::*;
 use crate::AccountId;
 use core::marker::PhantomData;
+use core::num::NonZeroU32;
 use std::vec::Vec as StdVec;
+
+/// A `remove_step` budget (API round 5: host removes, at least 3).
+fn nz(n: u32) -> NonZeroU32 {
+    NonZeroU32::new(n).unwrap()
+}
 
 // ---------------------------------------------------------------------------------------
 // Hand-expanded #[near(storage)] struct Account { #[key(1)] nonce: u64,
@@ -1279,9 +1285,11 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
 
-/// D9: `remove_step` budgets entries across nested maps: a record whose `balances` holds 5
-/// entries takes 3 calls at n = 2, the record sits at its flag key (record key absent) until
-/// the last, and the outer map's key vector drops the key only then.
+/// D9, API round 5: `remove_step` budgets host removes across nested maps. A record whose
+/// `balances` holds 5 entries (3 removes each) takes 3 calls at n = 7: 2 entries plus the move
+/// to the flag key (7), 2 entries (6), then the last entry, the balances header and the record
+/// with its index and key slot (3 + 1 + 3 = 7). The record sits at its flag key (record key
+/// absent) until the last call, and the outer map's key vector drops the key only then.
 #[test]
 fn remove_step_budgets_across_calls() {
     testing::use_mock();
@@ -1295,29 +1303,54 @@ fn remove_step_budgets_across_calls() {
     let rec = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
     let flag = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).flag();
     let before = store()[&rec].clone();
-    assert_eq!(m.remove_step(&1, 2), Removal::Pending);
-    end_call();
+    assert_eq!(m.remove_step(&1, nz(7)), Removal::Pending);
+    assert_eq!(end_call().removes(), 7, "2 entries and the record key");
     assert!(!store().contains_key(&rec), "the record key is absent while clearing");
     assert_eq!(store()[flag.as_bytes()], before, "the record's bytes, unchanged, at the flag key");
     assert_eq!(m.len(), 2, "still indexed while clearing");
     assert!(m.contains_key(&1) && m.get(&1).is_some(), "a record being cleared still reads");
     end_call();
-    assert_eq!(m.remove_step(&1, 2), Removal::Pending);
-    end_call();
-    assert_eq!(m.remove_step(&1, 2), Removal::Done, "last entry, then the record");
-    end_call();
+    assert_eq!(m.remove_step(&1, nz(7)), Removal::Pending);
+    assert_eq!(end_call().removes(), 6, "2 entries; a third would need 9");
+    assert_eq!(m.remove_step(&1, nz(7)), Removal::Done, "last entry, then the record");
+    assert_eq!(end_call().removes(), 7, "entry, header, record (flag key), index, key slot");
     assert!(!store().contains_key(&rec));
     assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
     assert_eq!(m.len(), 1);
     assert_eq!(m.key_at(0), Some(2));
+    // The minimum, n = 3, on a LookupMap record with one entry: the first call can only move
+    // the record (2 left, an entry needs 3), the second removes the entry (3; the header would
+    // be a 4th), the third the header and the record.
     let mut lm: LookupMap<u32, Account> = at(16);
     let _ = lm.entry(1).or_default().balances.insert("a".into(), 1);
     end_call();
-    assert_eq!(lm.remove_step(&1, 0), Removal::Pending, "n = 0 clears nothing");
-    end_call();
-    assert_eq!(lm.remove_step(&1, 1), Removal::Done);
-    end_call();
+    let mut per_call = StdVec::new();
+    loop {
+        let more = lm.remove_step(&1, nz(3)) == Removal::Pending;
+        per_call.push(end_call().removes());
+        if !more {
+            break;
+        }
+    }
+    assert_eq!(per_call, [1, 3, 2]);
     assert!(lm.get(&1).is_none());
+}
+
+/// API round 5: `n` is a `NonZeroU32` (0 does not compile), and 1 or 2 panic: one map entry is
+/// 3 host removes that cannot be split, so a smaller budget could never progress.
+#[test]
+fn remove_step_below_the_minimum_panics() {
+    testing::use_mock();
+    let mut lm: LookupMap<u32, Account> = at(17);
+    let _ = lm.entry(1).or_default().balances.insert("a".into(), 1);
+    end_call();
+    for n in [1, 2] {
+        let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lm.remove_step(&1, nz(n))))
+            .expect_err("budget below the minimum");
+        assert!(e.downcast_ref::<String>().is_some_and(|m| m.contains("must be at least 3")));
+        testing::begin_call();
+    }
+    assert_eq!(MIN_REMOVE_STEP, 3);
 }
 
 /// D9 flag key: every path that ends a clear early (`replace`, `remove`, `discard`) removes
@@ -1332,7 +1365,8 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
         let _ = a.balances.insert("a".into(), 1);
         let _ = a.balances.insert("b".into(), 1);
         end_call();
-        assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
+        // 4: the move to the flag key and one entry
+        assert_eq!(lm.remove_step(&1, nz(4)), Removal::Pending);
         end_call();
         let rec = Path::root(DEFAULT_ROOT).field(tag).kind(kind::ENTRIES).entry(&1u32);
         let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
@@ -1392,7 +1426,7 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
     let _ = a.balances.insert("a".into(), 1);
     let _ = a.balances.insert("b".into(), 1);
     end_call();
-    assert_eq!(m.remove_step(&1, 1), Removal::Pending);
+    assert_eq!(m.remove_step(&1, nz(4)), Removal::Pending);
     end_call();
     assert_eq!(m.iter().map(|(k, v)| (k, v.nonce)).collect::<StdVec<_>>(), vec![(1, 5)]);
     end_call();
@@ -1493,7 +1527,8 @@ fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
         let _ = a.balances.insert("a".into(), 1);
         let _ = a.balances.insert("b".into(), 1);
         end_call();
-        assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
+        // 4: the move to the flag key and one entry
+        assert_eq!(lm.remove_step(&1, nz(4)), Removal::Pending);
         end_call();
         let rec = Path::root(DEFAULT_ROOT).field(tag).kind(kind::ENTRIES).entry(&1u32);
         let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
@@ -1503,7 +1538,8 @@ fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
     testing::use_mock();
     for (tag, via_entry) in [(40, false), (41, true)] {
         let (mut lm, rec, flag) = flagged(tag);
-        // receipt 2: blind discard (no read), then a new record at the same key
+        // receipt 2: discard (since API round 5 it reads the record, the unknown-collection
+        // check, so it finds it at the flag key), then a new record at the same key
         lm.discard(&1);
         if via_entry {
             lm.entry(1).or_default().nonce = 7;
@@ -1523,14 +1559,14 @@ fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
         end_call();
     }
 
-    // The same through `Map`: `discard` reads the index, not the record, so the entry's
-    // delete is blind too.
+    // The same through `Map` (whose `discard` also reads the record since API round 5). The
+    // F1 rule stays reachable through `try_insert`, which writes a record blind.
     let mut m: Map<u32, Account> = at(42);
     let a = m.entry(1).or_default();
     let _ = a.balances.insert("a".into(), 1);
     let _ = a.balances.insert("b".into(), 1);
     end_call();
-    assert_eq!(m.remove_step(&1, 1), Removal::Pending);
+    assert_eq!(m.remove_step(&1, nz(4)), Removal::Pending);
     end_call();
     let rec = Path::root(DEFAULT_ROOT).field(42).kind(kind::ENTRIES).entry(&1u32);
     let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
@@ -1580,10 +1616,11 @@ fn replaced_then_flagged_record_relocates_the_new_value() {
     let _ = a.balances.insert("a".into(), 1);
     let _ = a.balances.insert("b".into(), 1);
     end_call();
-    assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
+    assert_eq!(lm.remove_step(&1, nz(4)), Removal::Pending);
     let _ = lm.replace(1, Account { nonce: 9, ..Default::default() });
     let _ = lm.at_mut(&1).unwrap().balances.insert("c".into(), 1);
-    assert_eq!(lm.remove_step(&1, 0), Removal::Pending);
+    // 3: the move (1) and the new entry "c" (2: its index was never stored), not its header
+    assert_eq!(lm.remove_step(&1, nz(3)), Removal::Pending);
     end_call();
     let flag = Path::root(DEFAULT_ROOT).field(44).kind(kind::ENTRIES).entry(&1u32).flag();
     let stored = store()[flag.as_bytes()].clone();
@@ -1601,7 +1638,7 @@ fn clearing_an_empty_map_without_a_header_writes_nothing_for_it() {
     lm.try_insert(1, Account::default()).unwrap();
     lm.try_insert(2, Account::default()).unwrap();
     end_call();
-    assert_eq!(lm.remove_step(&1, 1), Removal::Done);
+    assert_eq!(lm.remove_step(&1, nz(3)), Removal::Done);
     let r = end_call();
     assert_eq!(r.rwd(), (2, 0, 1), "record read + balances header read; record remove");
     assert!(lm.remove(&2).is_some());
@@ -1809,7 +1846,8 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
     assert_eq!((b.len(), b.get(&"z".into())), (0, None), "the new record inherits nothing");
 }
 
-/// A2 hole 3, fixed in API round 4: after `remove_step(&alice, 0)` flags the record, `at_mut` /
+/// A2 hole 3, fixed in API round 4: after `remove_step(&alice, 3)` flags the record (3 host
+/// removes: the move to the flag key, then 2 left, too few for an entry), `at_mut` /
 /// `get_mut` / `entry` on it panic (pinned by `writes_below_a_clearing_record_panic_in_the_same_call`
 /// in state_v2_exchange), and now so does the escaped handle: `set_clearing` bumps the epoch
 /// like a removal. The later `remove_step` calls clear everything and leave nothing below.
@@ -1817,7 +1855,7 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
 fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
     let mut ex = audit_a2_setup(true);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
-    assert_eq!(ex.accounts.remove_step(&alice(), 0), Removal::Pending, "flagged, nothing cleared");
+    assert_eq!(ex.accounts.remove_step(&alice(), nz(3)), Removal::Pending, "flagged, nothing cleared");
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = taken.insert("late".into(), 5);
     }))
@@ -1834,14 +1872,14 @@ fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
     loop {
         testing::begin_call();
         let mut ex: Ex = load_root();
-        let more = ex.accounts.remove_step(&alice(), 2) == Removal::Pending;
+        let more = ex.accounts.remove_step(&alice(), nz(8)) == Removal::Pending;
         flush_root(&ex);
         calls += 1;
         if !more {
             break;
         }
     }
-    assert_eq!(calls, 1, "two entries, budget two");
+    assert_eq!(calls, 1, "two entries (6), the header and the record (flag key): budget 8");
     assert!(!store().contains_key(&rec));
     assert_eq!(audit_keys_below(&rec), 0, "nothing left below");
 }
@@ -1858,7 +1896,7 @@ fn audit_a2_remove_then_reinsert_then_write_below_in_one_call() {
     ex.accounts.get_mut(&alice()).unwrap().balances.insert("m".into(), 8);
     ex.accounts.at_mut(&alice()).unwrap().balances.insert("o".into(), 9);
     // And after `remove_step` finishing in the same call, through `entry().or_default()`.
-    assert_eq!(ex.accounts.remove_step(&alice(), 10), Removal::Done);
+    assert_eq!(ex.accounts.remove_step(&alice(), nz(10)), Removal::Done);
     ex.accounts.entry(alice()).or_default().balances.insert("p".into(), 10);
     flush_root(&ex);
     testing::begin_call();

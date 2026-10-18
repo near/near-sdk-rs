@@ -134,7 +134,8 @@ pub enum CostOp {
     RecAtMutInsert(K, K),
     RecAtLen(K),
     RecRemove(K),
-    RecRemoveSome(K, #[generator(0..6)] u8),
+    /// API round 5: `n` is a host-remove budget, at least 3.
+    RecRemoveSome(K, #[generator(3..12)] u8),
 }
 
 impl super::cost::Facts for Setup {
@@ -289,18 +290,31 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
             if !rec_present(k) {
                 return Some(c(2, 0, 0, 0));
             }
+            // API round 5 (A5): `n` counts host removes. The FIRST call that does not finish
+            // moves the record (1 remove of the record key, then 1 write of the flag key), and
+            // that remove is reserved up front. An item is 3 removes, taken whole; the items
+            // header (when stored) is 1 once the map is empty; finishing is 3 (record, index,
+            // last key slot).
             let m = f.items(k).len();
-            let n = n as usize;
-            if n >= m {
-                let hdr = f.items_header(k) as usize;
+            let hdr = f.items_header(k) as usize;
+            let first = !f.clearing(k) as usize;
+            let budget = n as usize - first;
+            let r = m.min(budget / 3);
+            let left = budget - 3 * r;
+            let hdr_gone = r == m && hdr <= left;
+            if hdr_gone && 3 <= left - hdr + first {
                 add(c(rec_lookups(k) + 1 + m, 0, 3 * m + hdr, 0), map_unlink(at_of(&recs, k)))
             } else {
-                // DOC_DIFFS[3]: one extra slot read. A call that leaves entries writes the
-                // items header (revision + 1) if it removed any. Only the FIRST such call
-                // moves the record: 1 remove (record key) then 1 write (flag key); later ones
-                // find it at the flag key with the same bytes and write nothing (DOC_DIFFS[4]).
-                let first = !f.clearing(k) as usize;
-                c(rec_lookups(k) + 1 + n + 1, (n > 0) as usize + first, 3 * n + first, 0)
+                // DOC_DIFFS[3]: with items left, one extra slot read (the next item, read
+                // before its cost is known). A call that removed items but kept the header
+                // writes it (revision + 1). Later unfinished calls find the record at the
+                // flag key with the same bytes and write nothing (DOC_DIFFS[4]).
+                c(
+                    rec_lookups(k) + 1 + r + (r < m) as usize,
+                    (r > 0 && !hdr_gone) as usize + first,
+                    3 * r + if hdr_gone { hdr } else { 0 } + first,
+                    0,
+                )
             }
         }
     })
@@ -352,7 +366,7 @@ pub fn run_op(op: CostOp) -> Receipt {
         }
         CostOp::RecAtLen(k) => drop(recs().at(&k.0).items.len()),
         CostOp::RecRemove(k) => drop(recs().remove(&k.0).map(|r| r.n)),
-        CostOp::RecRemoveSome(k, n) => drop(recs().remove_step(&k.0, n as u32)),
+        CostOp::RecRemoveSome(k, n) => drop(recs().remove_step(&k.0, core::num::NonZeroU32::new(n as u32).unwrap())),
     }
     testing::end_call()
 }

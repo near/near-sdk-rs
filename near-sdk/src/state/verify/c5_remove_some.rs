@@ -10,6 +10,14 @@
 //! removes the record (from its flag key) and leaves nothing under it; a neighbour record is
 //! untouched. Real panics, caught with `catch_unwind` (random engine only: Kani cannot compile
 //! `catch_unwind`, see `g4_one_write`).
+//!
+//! API round 5 (hazard A5) changed the unit: `n` is a `NonZeroU32` budget of `storage_remove`
+//! host calls of any kind, at least 3. Each call's progress is now checked against a mirror of
+//! that rule (an item is 3 removes taken whole, the items header 1, the move to the flag key 1
+//! and reserved up front, finishing 3), every call issues at most `n` removes and at least 1,
+//! and the removes over the whole clear add up to exactly `3m + 1 + 3` plus the move. Before
+//! every flush the cache's predicted remove count (`cache::pending_removes`, which also asserts
+//! it equals `flush_ops`) must equal the receipt's.
 
 use super::c2_orphans::assert_no_orphans;
 use super::fixture::{MRoot, Rec};
@@ -65,12 +73,12 @@ fn quiet<R>(f: impl FnOnce() -> R) -> std::thread::Result<R> {
 }
 
 /// Random engine, 3,000 cases: target record 3 with 1..=8 items and a neighbour record 0
-/// with 2 items; up to 12 clearing calls with budgets 0..=3, each followed (and, in the same
-/// call, preceded by nothing else) by up to 2 write attempts in their own calls plus 1 in the
-/// clearing call itself after `remove_some` returned true.
+/// with 2 items; up to 12 clearing calls with budgets 3..=8 host removes, each followed (and,
+/// in the same call, preceded by nothing else) by up to 2 write attempts in their own calls plus
+/// 1 in the clearing call itself after `remove_step` returned `Pending`.
 #[test]
 fn c5_remove_some_isolates_the_record_until_it_is_gone() {
-    let g = (1usize..=8, bolero::produce::<[(u8, Option<Attempt>, Option<Attempt>); 12]>());
+    let g = (1usize..=8, bolero::produce::<[(u8, Option<Attempt>, Option<Attempt>); 20]>());
     bolero::check!().with_generator(g).with_iterations(3_000).for_each(|(m, steps)| {
         testing::use_mock();
         let mut root = load_root::<MRoot>();
@@ -86,23 +94,29 @@ fn c5_remove_some_isolates_the_record_until_it_is_gone() {
         let rec_key = model::recs().entry(3);
         let flag_key = model::rec_flag(3);
         let mut remaining = *m as u32;
+        let mut header = true;
         let mut unfinished_calls = 0;
         let mut finished = false;
-        let mut positive_calls = 0u32;
-        let mut min_n = u32::MAX;
+        let mut total_removes = 0usize;
         for (n, a1, a2) in steps.iter() {
-            let n = (*n % 4) as u32;
+            let n = 3 + (*n % 6) as u32;
+            let nz = core::num::NonZeroU32::new(n).unwrap();
+            // the mirror of the budget rule
+            let first = u32::from(unfinished_calls == 0);
+            let budget = n - first;
+            let removed = remaining.min(budget / 3);
+            let left = budget - 3 * removed;
+            let hdr = u32::from(header);
+            let hdr_gone = removed == remaining && hdr <= left;
+            let done = hdr_gone && 3 <= left - hdr + first;
+            let want_removes = if done { 3 * removed + hdr + 3 } else { 3 * removed + if hdr_gone { hdr } else { 0 } + first };
             testing::begin_call();
             let mut root = load_root::<MRoot>();
             let mut escaped = matches!(a1, Some(Attempt::Escaped(_))).then(items3);
-            let again = root.recs.remove_step(&3, n) == crate::state::Removal::Pending;
-            let removed = n.min(remaining);
-            if n > 0 {
-                positive_calls += 1;
-                min_n = min_n.min(n);
-            }
+            let again = root.recs.remove_step(&3, nz) == crate::state::Removal::Pending;
+            assert_eq!(again, !done, "n={n} remaining={remaining} header={header} first={first}: finished when the mirror says");
             if again {
-                assert_eq!(root.recs.at(&3).items.len(), remaining - removed, "progress is exactly min(n, remaining)");
+                assert_eq!(root.recs.at(&3).items.len(), remaining - removed, "progress is exactly what the budget allows");
                 assert_eq!(root.recs.get(&3).map(|r| r.n), Some(9), "get still reads a clearing record");
             }
             // a write in the same call, after remove_some said "call again"
@@ -122,19 +136,41 @@ fn c5_remove_some_isolates_the_record_until_it_is_gone() {
                 assert_eq!(testing::store(), before);
                 // the panicking call is aborted; redo the clearing call alone
                 let mut root = load_root::<MRoot>();
-                assert_eq!(root.recs.remove_step(&3, n) == crate::state::Removal::Pending, again);
+                assert_eq!(root.recs.remove_step(&3, nz) == crate::state::Removal::Pending, again);
+                let predicted = crate::state::cache::pending_removes();
                 flush_root(&root);
+                assert_eq!(predicted as usize, testing::receipt().removes(), "remove_count disagrees with the flush");
             } else {
                 drop(escaped);
+                let predicted = crate::state::cache::pending_removes();
                 flush_root(&root);
                 drop(root);
+                assert_eq!(predicted as usize, testing::receipt().removes(), "remove_count disagrees with the flush");
             }
             let rc = testing::receipt();
+            assert_eq!(rc.removes(), want_removes as usize, "n={n}: removes in this call");
+            assert!(rc.removes() <= n as usize && rc.removes() >= 1, "n={n}: a call issues 1..=n removes, got {}", rc.removes());
+            // Bookkeeping, exact: the root read; the record (1 read, 2 once flagged: key miss,
+            // flag key); the items header; one key slot per item removed, plus the next one
+            // when items remain (read before its cost is known); when finishing, the record's
+            // index and the record map's header (record 3 is last: no moved key). Writes: the
+            // items header if items went but it stayed, the flag key on the first unfinished
+            // call; when finishing, the record map's header.
+            let lookups = 2 - first;
+            let want_reads = 1 + lookups + 1 + removed + if done { 2 } else { u32::from(removed < remaining) };
+            let want_writes = if done { 1 } else { u32::from(removed > 0 && !hdr_gone) + first };
+            assert_eq!(
+                (rc.reads(), rc.writes(), rc.has_keys()),
+                (want_reads as usize, want_writes as usize, 0),
+                "n={n} remaining={remaining} first={first} done={done}: reads, writes, has_keys"
+            );
+            total_removes += rc.removes();
             let pos = |kind: OpKind, key: &[u8]| rc.ops.iter().position(|o| o.kind == kind && o.key == key);
             let count = |kind: OpKind, key: &[u8]| rc.ops.iter().filter(|o| o.kind == kind && o.key == key).count();
             let flag_writes = count(OpKind::Write, &flag_key);
             if again {
                 remaining -= removed;
+                header &= !hdr_gone;
                 unfinished_calls += 1;
                 let first = unfinished_calls == 1;
                 assert_eq!(flag_writes, usize::from(first), "flag written only by the first unfinished call");
@@ -169,9 +205,9 @@ fn c5_remove_some_isolates_the_record_until_it_is_gone() {
         }
         if finished {
             assert!(testing::store().keys().all(|k| !k.starts_with(&rec_key)), "keys left under the cleared record");
-            if min_n != u32::MAX {
-                assert!(positive_calls <= (*m as u32).div_ceil(min_n) + 1, "clearing took {positive_calls} positive-budget calls for {m} items");
-            }
+            // items, the items header, the record with its index and key slot, and the move
+            let moved = usize::from(unfinished_calls > 0);
+            assert_eq!(total_removes, 3 * *m + 1 + 3 + moved, "removes over the whole clear");
         }
         assert_no_orphans();
         testing::begin_call();
@@ -181,26 +217,44 @@ fn c5_remove_some_isolates_the_record_until_it_is_gone() {
     });
 }
 
-/// Pinned liveness edge: `remove_step(k, 0)` on a record with entries makes no progress and
-/// returns `Pending`, so a caller looping with n = 0 never finishes. The first such call moves
-/// the record to its flag key (1 remove + 1 write, API round 2); every later one costs 2 reads
-/// (record key miss, flag key) plus the items header and 1 slot, and writes nothing.
+/// The C5 "n = 0 never progresses" pin, resolved by API round 5: `n` is a `NonZeroU32`, so
+/// `remove_step(k, 0)` does not compile (a `compile_fail` doctest on `Map::remove_step`), and
+/// `n` of 1 or 2, which could never fit a 3-remove map entry, panics before anything changes.
+/// n = 3, the minimum, always progresses: the first call moves the record (1 remove), every
+/// later call removes at least one item (3).
 #[test]
-fn c5_pinned_budget_zero_makes_no_progress() {
+fn c5_budget_below_three_panics_and_three_progresses() {
     testing::use_mock();
     let mut root = load_root::<MRoot>();
     root.recs.try_insert(3, Rec::default()).unwrap();
     root.recs.at_mut(&3).unwrap().items.insert(1, vec![1]);
+    root.recs.at_mut(&3).unwrap().items.insert(2, vec![2]);
     flush_root(&root);
     drop(root);
-    for call in 0..3 {
+    for n in [1u32, 2] {
+        testing::begin_call();
+        let before = testing::store();
+        let r = quiet(|| {
+            let mut root = load_root::<MRoot>();
+            let _ = root.recs.remove_step(&3, core::num::NonZeroU32::new(n).unwrap());
+            flush_root(&root);
+        });
+        assert!(r.is_err(), "n = {n} accepted");
+        testing::begin_call();
+        assert_eq!(testing::store(), before);
+    }
+    let mut per_call = std::vec::Vec::new();
+    loop {
         testing::begin_call();
         let mut root = load_root::<MRoot>();
-        assert_eq!(root.recs.remove_step(&3, 0), crate::state::Removal::Pending);
-        assert_eq!(root.recs.at(&3).items.len(), 1);
+        let more = root.recs.remove_step(&3, core::num::NonZeroU32::new(3).unwrap()) == crate::state::Removal::Pending;
         flush_root(&root);
         drop(root);
-        let rc = testing::receipt();
-        assert_eq!(rc.writes() + rc.removes(), if call == 0 { 2 } else { 0 });
+        per_call.push(testing::receipt().removes());
+        if !more {
+            break;
+        }
     }
+    // move; item; item; header (the record's 3 would make 4); record, index, key slot
+    assert_eq!(per_call, [1, 3, 3, 1, 3]);
 }

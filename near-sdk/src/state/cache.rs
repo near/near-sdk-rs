@@ -228,6 +228,43 @@ impl Slot {
         ops
     }
 
+    /// How many `storage_remove` calls [`Slot::flush_ops`] emits for this slot, computed from
+    /// the same state without encoding the value. `flush_ops` is the source of truth;
+    /// [`pending_removes`] asserts the two agree, and the C5 harness calls it before every
+    /// flush.
+    fn remove_count(&self) -> u32 {
+        self.remove_count_as(self.mode, self.clearing)
+    }
+
+    /// [`Slot::remove_count`] if the slot had `mode` and `clearing`.
+    fn remove_count_as(&self, mode: Mode, clearing: Clearing) -> u32 {
+        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
+        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
+        if self.blind_delete && self.orig == Orig::Unknown {
+            (at_key, at_flag) = (true, true);
+        }
+        let is_clearing = match clearing {
+            Clearing::Set => true,
+            Clearing::Cleared => false,
+            Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
+        };
+        match mode {
+            Mode::Clean => 0,
+            Mode::Touched | Mode::Dirty => {
+                if is_clearing {
+                    u32::from(at_key)
+                } else {
+                    u32::from(at_flag)
+                }
+            }
+            Mode::Deleted => match self.orig {
+                Orig::Absent => 0,
+                Orig::Unknown => 1 + u32::from(self.flaggable),
+                _ => 1,
+            },
+        }
+    }
+
     fn drop_value(&mut self) {
         if let Some(p) = self.value.take() {
             // SAFETY: invariant 4; only the flush frees a slot, with no reference alive.
@@ -593,6 +630,62 @@ pub(crate) fn stored_bytes(path: &Path, flaggable: bool) -> Option<Vec<u8>> {
             Mode::Dirty if !s.merge => None,
             _ => s.orig.bytes().map(<[u8]>::to_vec),
         }
+    })
+}
+
+/// API round 5 (A5): how many more `storage_remove` calls the flush would make if the value
+/// at `path` were deleted now (`entry`: as [`delete_entry`], else [`delete`]). 0 for a key
+/// known absent or already deleted in this call, 2 for a blind delete of a record that owns
+/// storage (record key and flag key), else 1. Reads nothing. `remove_step` charges its budget
+/// with this before each delete, so the budget counts host removes exactly.
+pub(crate) fn delete_cost<V: Value>(path: &Path, entry: bool) -> u32 {
+    let flaggable = entry && V::MAX_SUBPATH > 0;
+    with(|c| match c.slots.get(path.as_bytes()) {
+        None => 1 + u32::from(flaggable),
+        Some(sp) => {
+            // SAFETY: invariant 1.
+            let s = unsafe { sp.as_ref() };
+            let mut after = s.remove_count_as(Mode::Deleted, Clearing::Cleared);
+            if flaggable && !s.flaggable && s.orig == Orig::Unknown {
+                after += 1;
+            }
+            after.saturating_sub(s.remove_count())
+        }
+    })
+}
+
+/// API round 5 (A5): how many more `storage_remove` calls the flush would make if the (read)
+/// record at `path` were marked as being cleared now ([`set_clearing`]): 1 when it is stored at
+/// its record key (the move to the flag key removes it), else 0. Reads nothing.
+pub(crate) fn clearing_cost(path: &Path) -> u32 {
+    with(|c| match c.slots.get(path.as_bytes()) {
+        None => 0,
+        Some(sp) => {
+            // SAFETY: invariant 1.
+            let s = unsafe { sp.as_ref() };
+            let mode = if s.mode == Mode::Clean { Mode::Touched } else { s.mode };
+            s.remove_count_as(mode, Clearing::Set).saturating_sub(s.remove_count())
+        }
+    })
+}
+
+/// Total `storage_remove` calls the next flush would make, for tests of the budget.
+#[cfg(test)]
+pub(crate) fn pending_removes() -> u32 {
+    with(|c| {
+        c.slots
+            .iter()
+            .map(|(k, s)| {
+                // SAFETY: invariant 1.
+                let s = unsafe { s.as_ref() };
+                let n = s.remove_count();
+                debug_assert_eq!(
+                    n as usize,
+                    s.flush_ops(k).iter().filter(|o| matches!(o, FlushOp::Remove(_))).count()
+                );
+                n
+            })
+            .sum()
     })
 }
 

@@ -149,9 +149,11 @@ impl Exchange {
         o.qty.into()
     }
 
-    /// D9/T3: removes a market in bounded steps, at most `n` orders per call. `true` while
-    /// orders remain (`Removal::Pending`); meanwhile the market refuses new orders.
+    /// D9/T3: removes a market in bounded steps, at most `n` storage removes per call (API
+    /// round 5: an order is 3, the market record 3; `n` at least 3). `true` while orders
+    /// remain (`Removal::Pending`); meanwhile the market refuses new orders.
     pub fn close_market(&mut self, market: MarketId, n: u32) -> bool {
+        let n = std::num::NonZeroU32::new(n).expect("n > 0");
         self.markets.remove_step(&market, n) == Removal::Pending
     }
 
@@ -356,7 +358,7 @@ fn clearing_moves_the_original_bytes_to_the_flag_key() {
     let old = w.finish(None, |_| true);
     testing::seed(&key, &old);
 
-    let (more, _) = call("owner.near", |c| c.close_market(7, 1));
+    let (more, _) = call("owner.near", |c| c.close_market(7, 3));
     assert!(more);
     let flagged = testing::store()[&market_flag_key(7)].clone();
     assert_eq!(flagged, old, "the stored bytes moved verbatim: no `04 01 01`");
@@ -370,7 +372,7 @@ fn clearing_moves_the_original_bytes_to_the_flag_key() {
 fn partial_clear_flushes_in_key_order() {
     market_with_orders(4);
     let (key, flag) = (market_key(7), market_flag_key(7));
-    let (more, r) = call("owner.near", |c| c.close_market(7, 2));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 4));
     assert!(more);
     let flushed: Vec<&Vec<u8>> = r
         .ops
@@ -435,8 +437,8 @@ fn market_with_orders(n: u64) {
     });
 }
 
-/// D9: a two-call clear with an interleaved insert. Call 1 clears 2 of 4 orders and moves the
-/// market record to its clearing flag key (record key + `00`). Between the two clear calls,
+/// D9: a two-call clear with an interleaved insert. Call 1 (n = 7 host removes) clears 2 of 4
+/// orders (6) and moves the market record to its clearing flag key (record key + `00`, 1). Between the two clear calls,
 /// every write path into the market panics (`get_mut` via `place`, `at_mut` via `cancel`,
 /// `entry`), while `get` still reads it. Call 2 finishes: the market and all its keys are gone,
 /// and a new market at the same id starts clean.
@@ -449,8 +451,9 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
     let before = testing::store()[&key].clone();
     assert!(!testing::store().contains_key(&flag));
 
-    let (more, r) = call("owner.near", |c| c.close_market(7, 2));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 7));
     assert!(more, "2 orders remain");
+    assert_eq!(r.removes(), 7, "2 orders and the record key");
     assert!(!testing::store().contains_key(&key), "the record key is absent while clearing");
     let flagged = testing::store()[&flag].clone();
     assert_eq!(flagged, before, "the record's bytes, unchanged, now at the flag key");
@@ -478,8 +481,9 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
     assert_eq!(testing::store()[&flag], flagged);
     assert!(!testing::store().contains_key(&key));
 
-    let (more, _) = call("owner.near", |c| c.close_market(7, 2));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 10));
     assert!(!more, "finished");
+    assert_eq!(r.removes(), 10, "2 orders, the orders header, the market (flag key), its index and key slot");
     assert_eq!(keys_under(&key), 0, "market record, flag key and every order key removed");
     assert_eq!(view(|c| c.markets.len()).0, 0);
 
@@ -489,12 +493,15 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
 }
 
 /// D9: a clear that fits in one call writes no flag; an absent record is `false` at once.
+/// Fitting means 3 orders (9 removes), the orders header (1) and the market with its index and
+/// key slot (3): n = 13 (API round 5); 12 would leave it `Pending`.
 #[test]
 fn clear_that_fits_in_one_call_writes_no_flag() {
     market_with_orders(3);
     let key = market_key(7);
     let flag = market_flag_key(7);
-    let (more, r) = call("owner.near", |c| c.close_market(7, 3));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 13));
+    assert_eq!(r.removes(), 13);
     assert!(!more);
     assert_eq!(keys_under(&key), 0);
     assert!(r.ops.iter().all(|o| o.key != flag), "the flag key is never touched");
@@ -509,7 +516,7 @@ fn clear_that_fits_in_one_call_writes_no_flag() {
 fn writes_below_a_clearing_record_panic_in_the_same_call() {
     market_with_orders(4);
     call("owner.near", |c| {
-        assert!(c.close_market(7, 1));
+        assert!(c.close_market(7, 3));
         c.place(7, Order { price: 1, qty: 1 });
     });
 }

@@ -74,7 +74,8 @@ fn c2_no_orphans_after_random_histories() {
 pub enum How {
     Remove,
     Discard,
-    RemoveSome(#[generator(1..=3)] u8),
+    /// API round 5: a host-remove budget, at least 3.
+    RemoveSome(#[generator(3..=6)] u8),
 }
 
 /// Random engine, 2,000 cases: neighbour records 0..=2 and target record 3 with 0..=7 items
@@ -112,7 +113,7 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
             let again = match how {
                 How::Remove => root.recs.remove(&3).map(|r| r.n) != Some(9),
                 How::Discard => !root.recs.discard(&3),
-                How::RemoveSome(n) => root.recs.remove_step(&3, *n as u32) == crate::state::Removal::Pending,
+                How::RemoveSome(n) => root.recs.remove_step(&3, core::num::NonZeroU32::new(*n as u32).unwrap()) == crate::state::Removal::Pending,
             };
             flush_root(&root);
             drop(root);
@@ -120,7 +121,8 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
             if !again {
                 break;
             }
-            assert!(matches!(how, How::RemoveSome(_)) && rounds <= 8, "{how:?} did not finish");
+            // worst case n = 3 and 7 items: the move, one item per call, the header, the record
+            assert!(matches!(how, How::RemoveSome(_)) && rounds <= 10, "{how:?} did not finish");
         }
         let gone = model::recs().entry(3);
         let left: std::vec::Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(&gone)).collect();

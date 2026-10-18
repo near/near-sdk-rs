@@ -5,7 +5,13 @@
 //!
 //! - metamorphic (independent of the model): inserting a mid-call flush at ANY position of a
 //!   history leaves the final store byte-identical (no write lost or duplicated across the
-//!   eviction), while the model still agrees at every step (the driver checks it);
+//!   eviction), while the model still agrees at every step (the driver checks it). One
+//!   exception since API round 5: `remove_step`'s budget counts the host removes actually
+//!   issued, and a flush changes which keys the cache knows to be stored (a record inserted
+//!   earlier in the call costs different removes before and after it is flushed), so a
+//!   `remove_step` after the flush in the same call may progress differently and the histories
+//!   then diverge legitimately. Such cases are counted, not failed; both runs still agree with
+//!   the model at every step;
 //! - fixed shapes: write / flush / read-back / write again in one call; `get_mut` and
 //!   `at_mut` on the same record in one call; a later call (re-entry) sees every write;
 //! - pinned hazard: two roots alive in one call (`state_read()` twice, not type-enforced; the
@@ -27,11 +33,27 @@ fn c3_a_mid_call_flush_anywhere_loses_no_write() {
         run_state(&base);
         let want = testing::store();
         let mut with = base.clone();
-        with.insert(*p as usize % (base.len() + 1), Op::MidFlush);
+        let at = *p as usize % (base.len() + 1);
+        with.insert(at, Op::MidFlush);
         run_state(&with);
-        assert_eq!(testing::store(), want, "a mid-call flush changed the final state");
+        if testing::store() != want {
+            // API round 5: only a budgeted clear after the flush, in the same call, may differ
+            let rest = &with[at + 1..];
+            let call = &rest[..rest.iter().position(|o| matches!(o, Op::EndCall)).unwrap_or(rest.len())];
+            assert!(
+                call.iter().any(|o| matches!(o, Op::RecRemoveSome(..))),
+                "a mid-call flush changed the final state"
+            );
+            DIVERGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
     });
+    println!(
+        "c3: {} of 2,000 histories diverged through remove_step progress after the flush",
+        DIVERGED.load(std::sync::atomic::Ordering::Relaxed)
+    );
 }
+
+static DIVERGED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Fixed shapes, in one call: write, flush (frees every slot), read back from storage, write
 /// again, flush: both writes land, the second wins, and a later call sees it; `get_mut` then

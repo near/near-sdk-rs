@@ -261,10 +261,13 @@ impl<T: BorshLeaf> Leaf for T {}
 pub trait Removable: Value {
     fn clear_children(_path: &Path) {}
 
-    /// Bounded `clear_children` (D9): removes at most `*budget` collection entries below
-    /// `path`, from the end, decrementing `budget` per entry removed. Returns `true` once
-    /// nothing remains. Resumable across calls: each collection's header length says where it
-    /// stopped. The default (a value owning nothing) is done at once.
+    /// Bounded `clear_children` (D9): removes keys below `path` costing at most `*budget`
+    /// `storage_remove` host calls (API round 5; before, `budget` counted map entries and
+    /// `Lazy` values were free), from the end, in whole units (a map entry is 3), decrementing
+    /// `budget` by each unit's removes. Returns `true` once nothing remains. Resumable across
+    /// calls: each collection's header length says where it stopped, and a `Lazy` is checked
+    /// for existence before its remove is charged. The default (a value owning nothing) is
+    /// done at once.
     fn clear_children_some(path: &Path, _budget: &mut u32) -> bool {
         Self::clear_children(path);
         true

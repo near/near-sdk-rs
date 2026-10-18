@@ -579,6 +579,43 @@ impl CacheModel {
         self.slot(key).pending = Some(None);
     }
 
+    /// API round 5 (A5): the host removes a `delete(key)` now would add to the flush (spec:
+    /// the `remove_step` budget counts host removes). From the flush rule: a deleted key is
+    /// removed unless known absent; already deleted adds nothing.
+    pub fn delete_cost(&self, key: &[u8]) -> u32 {
+        let (orig, pending) = match self.slots.get(key) {
+            None => (Orig::Unknown, None),
+            Some(s) => (s.orig.clone(), s.pending.clone()),
+        };
+        let after = u32::from(orig != Orig::Absent);
+        let before = u32::from(pending == Some(None) && orig != Orig::Absent);
+        after - before
+    }
+
+    fn rslot_removes(r: &RSlot, key: &[u8]) -> u32 {
+        r.flush_ops(key).iter().filter(|(_, b)| b.is_none()).count() as u32
+    }
+
+    /// The host removes `rec_delete(key)` now would add.
+    pub fn rec_delete_cost(&self, key: &[u8]) -> u32 {
+        let now = self.rslots.get(key).cloned().unwrap_or(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false });
+        let mut then = now.clone();
+        if then.orig == ROrig::Unknown {
+            then.blind_delete = true;
+        }
+        then.pending = Some(None);
+        Self::rslot_removes(&then, key) - Self::rslot_removes(&now, key)
+    }
+
+    /// The host removes `rec_set_clearing(key, _)` now would add: the move to the flag key
+    /// removes the record key when the record is stored there.
+    pub fn rec_clearing_cost(&self, key: &[u8]) -> u32 {
+        let now = self.rslots.get(key).cloned().unwrap_or(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false });
+        let mut then = now.clone();
+        then.pending = Some(Some((Vec::new(), true)));
+        Self::rslot_removes(&then, key).saturating_sub(Self::rslot_removes(&now, key))
+    }
+
     fn host_write(&mut self, key: &[u8], b: Vec<u8>) {
         let old = self.host.insert(key.to_vec(), b.clone());
         self.predicted.mutations.push((OpKind::Write, key.to_vec(), b.len(), old.map(|o| o.len())));
@@ -717,8 +754,9 @@ pub enum Op {
     RecAtMutRemove(K, K),
     RecAtLen(K),
     RecRemove(K),
-    /// `remove_step(k, n)`: `Ret::Bool(true)` for `Removal::Pending`.
-    RecRemoveSome(K, #[generator(0..4)] u8),
+    /// `remove_step(k, n)`: `Ret::Bool(true)` for `Removal::Pending`. API round 5: `n` is a
+    /// host-remove budget of at least 3 (`NonZeroU32`; 1 and 2 panic).
+    RecRemoveSome(K, #[generator(3..13)] u8),
     RecPage(Option<K>, #[generator(0..4)] u8),
     /// In a call of its own: the record map read as `Map<u8, RecV2>` (tag 1 removed, tag 3
     /// added with `default = 7`), `get_mut(k).note += x`.
@@ -845,22 +883,33 @@ impl<V: Clone> KV<'_, V> {
         self.v.clear();
         *self.rev = 0;
     }
+    fn entry_delete_cost(&self, c: &CacheModel, k: u8) -> u32 {
+        if self.records { c.rec_delete_cost(&self.mk.entry(k)) } else { c.delete_cost(&self.mk.entry(k)) }
+    }
     /// Bounded clear from the end (D9) for a map whose owner is being removed. Returns whether
-    /// the map is now empty, in which case its header is gone. When the budget runs out with
-    /// entries left, the next slot has already been read. One revision bump per entry.
+    /// the map is now empty, in which case its header is gone. API round 5 (A5): `budget` is
+    /// host removes; an entry's three (entry, index, key slot) go together or not at all, and
+    /// the header (when stored) is one more. When the budget runs out with entries left, the
+    /// next slot has already been read. One revision bump per entry.
     fn clear_budgeted(&mut self, c: &mut CacheModel, budget: &mut u32) -> bool {
         loop {
             let n = self.len(c);
             if n == 0 {
+                let cost = c.delete_cost(&self.mk.header());
+                if cost > *budget {
+                    return false;
+                }
+                *budget -= cost;
                 c.delete(&self.mk.header());
                 *self.rev = 0;
                 return true;
             }
             let k = self.slot_key(c, n - 1);
-            if *budget == 0 {
+            let cost = self.entry_delete_cost(c, k) + c.delete_cost(&self.mk.index(k)) + c.delete_cost(&self.mk.slot(n - 1));
+            if cost > *budget {
                 return false;
             }
-            *budget -= 1;
+            *budget -= cost;
             self.delete_entry(c, k);
             c.delete(&self.mk.index(k));
             c.delete(&self.mk.slot(n - 1));
@@ -1241,8 +1290,14 @@ impl Model {
             }
             Op::RecRemoveSome(K(k), n) => {
                 let Some(i) = self.rec_get(k) else { return Ret::Bool(false) };
-                let mut budget = n as u32;
-                let done = items_kv!(self, k, i).clear_budgeted(&mut self.cache, &mut budget);
+                // API round 5 (A5), spec "the budget counts host removes": reserve the move to
+                // the flag key (1 on the first call that does not finish), then clear; finish
+                // only if the record, its index and the last key slot (counted as 1) fit.
+                let key = recs().entry(k);
+                let pend = self.cache.rec_clearing_cost(&key);
+                let mut budget = n as u32 - pend;
+                let done = items_kv!(self, k, i).clear_budgeted(&mut self.cache, &mut budget)
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&recs().index(k)) + 1 <= budget + pend;
                 if done {
                     // `remove_inner(k, false)`: clear_children again (the header, already
                     // gone), then unlink.

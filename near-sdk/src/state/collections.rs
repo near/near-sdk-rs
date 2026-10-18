@@ -8,6 +8,7 @@ use super::key::{ENTRY_HASH_LEN, Path, StorageKey, kind};
 use super::record::RecordError;
 use super::value::{Leaf, Record, Removable, Value, ViewField, ViewFieldMut};
 use core::marker::PhantomData;
+use core::num::NonZeroU32;
 use core::ptr::NonNull;
 
 /// SAFETY: see the invariant in `cache.rs`. The returned lifetime is tied by the caller to a
@@ -224,6 +225,37 @@ fn assert_insert_new<V: Value>(path: &Path) {
     if V::MAX_SUBPATH > 0 && cache::exists(path) {
         panic!("state: record exists; use get_mut, or remove it first");
     }
+}
+
+/// Runs `f` (some deletes whose host removes are `cost`) if `cost` fits in `budget`, and
+/// charges it. `false`, with nothing done, when it does not fit (API round 5).
+fn spend(budget: &mut u32, cost: u32, f: impl FnOnce()) -> bool {
+    if cost > *budget {
+        return false;
+    }
+    *budget -= cost;
+    f();
+    true
+}
+
+/// The smallest budget `remove_step` accepts: a `Map` entry is 3 host removes (entry, index,
+/// key slot) that cannot be split, since a clearing record stays readable and a half-removed
+/// entry would break its map's iteration; finishing a record held in a `Map` is likewise 3 on
+/// the parent map (record, index, key slot). With `n >= 3` every call makes progress. A smaller
+/// `n` panics instead of returning `Pending` forever.
+pub const MIN_REMOVE_STEP: u32 = 3;
+
+#[track_caller]
+fn check_step(n: core::num::NonZeroU32) -> u32 {
+    let n = n.get();
+    if n < MIN_REMOVE_STEP {
+        panic!(
+            "state: `remove_step(k, {n})`: the budget counts host removes and must be at least \
+             {MIN_REMOVE_STEP}, since one map entry is {MIN_REMOVE_STEP} removes (entry, index, \
+             key slot) that cannot be split; with less, clearing could never progress"
+        );
+    }
+    n
 }
 
 /// What one [`Map::remove_step`] / [`LookupMap::remove_step`] call left behind.
@@ -622,38 +654,89 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         cache::delete_entry::<V>(&path);
     }
 
-    /// Removes the record at `k` in bounded steps (D9): each call removes at most `n` entries
-    /// of the collections it owns, then the record itself once they are empty. Returns
-    /// `Removal::Pending` while entries remain (call again in a later call), `Removal::Done`
-    /// once the record is gone (or was absent).
+    /// Removes the record at `k` in bounded steps (D9): each call issues at most `n`
+    /// `storage_remove` host calls, then returns. `Removal::Pending` while anything remains
+    /// (call again in a later call), `Removal::Done` once the record is gone (or was absent).
     ///
-    /// While entries remain the record is stored at its clearing flag key ([`Path::flag`], its
+    /// While it is pending the record is stored at its clearing flag key ([`Path::flag`], its
     /// key plus `00`) and its own key is absent, so `get_mut`, `entry` and `at_mut` on it panic
     /// in every later call until clearing completes: nothing can be added below a record
-    /// faster than it is cleared. `get` / `at` still read it. Cost per call: 1 read of the
-    /// record (2 once it is flagged: the record key misses, then the flag key), then what
-    /// clearing `n` entries costs; the first call that does not finish adds 1 remove (record
-    /// key) and 1 write (flag key), and the call that finishes removes the flag key. A call that
-    /// does not finish also reads one key slot more than it removes (the loop reads the next
-    /// slot before it sees the budget is spent), plus each map's header.
+    /// faster than it is cleared. `get` / `at` still read it.
     ///
-    /// `n` counts map entries at any depth. `Lazy` values below the record are not counted:
-    /// they all go in the first call, so per-call work is bounded in entries, not in bytes, and
-    /// a record holding only `Lazy` values (or only empty maps) finishes even with `n = 0`. On a
-    /// record whose maps hold entries, `n = 0` removes nothing and returns `Pending` forever.
+    /// # The bound (API round 5, hazard A5)
+    ///
+    /// `n` counts `storage_remove` host calls of ANY kind: map entries, index and key-slot
+    /// records, headers, `Lazy` values, `Vector` slots, nested records, the record itself and
+    /// its flag key. One call issues at most `n` of them. Work is taken in whole units, each
+    /// only if it fits in what is left: a map entry is 3 (entry, index, key slot), a `Lazy`
+    /// value or a `Vector` slot 1, an emptied collection's header 1 (0 if it was never stored),
+    /// the record itself 1 here (3 in a [`Map`]: record, index, key slot), and the move to the
+    /// flag key on the first call that does not finish 1, reserved before clearing starts. So
+    /// `n` must be at least [`MIN_REMOVE_STEP`] (3): `n` is a `NonZeroU32`, so 0 does not
+    /// compile, and 1 or 2 panic. With `n >= 3` every call removes at least one key.
+    ///
+    /// On top of the `n` removes a call does bookkeeping that depends on the schema, not on how
+    /// much the record holds. For a record whose collections hold plain values (one level of
+    /// nesting, like `Account { balances: Map<..> }`), with `F` its `Map`/`Set`/`Vector` fields
+    /// and `L` its `Lazy` fields, one call makes at most `n / 3 + F + 5` reads (the record, 2
+    /// once flagged; each collection's header; one key slot per map entry removed, plus the
+    /// next one when entries remain; finishing in a `Map`: the index, the header and the last
+    /// slot), `L` `storage_has_key` (each `Lazy` is checked before its remove is charged, so a
+    /// resumed call does not re-pay values already gone), and at most 3 writes (a partly
+    /// cleared header and the flag key, or, finishing in a `Map`, the moved key's slot and
+    /// index and the header). Each further level of nesting adds, per entry, 1 read of the
+    /// nested record (the unknown-collection check of [`Removable`]) and its own header reads,
+    /// and on the path where the call stops at most 1 lookahead read and 1 header write.
+    ///
+    /// `n = 0` does not compile:
+    ///
+    /// ```compile_fail,E0308
+    /// # use near_sdk::near;
+    /// # use near_sdk::state::{LookupMap, Map};
+    /// # #[near(storage)]
+    /// # pub struct Market {
+    /// #     #[key(1)] orders: Map<u64, u128>,
+    /// # }
+    /// fn close(markets: &mut LookupMap<u32, Market>) {
+    ///     let _ = markets.remove_step(&7, 0); // error[E0308]: expected `NonZero<u32>`
+    /// }
+    /// ```
+    ///
+    /// A budget is a constant:
+    ///
+    /// ```
+    /// # use near_sdk::near;
+    /// # use near_sdk::state::{LookupMap, Map, Removal};
+    /// # #[near(storage)]
+    /// # pub struct Market {
+    /// #     #[key(1)] orders: Map<u64, u128>,
+    /// # }
+    /// use core::num::NonZeroU32;
+    /// /// About 100 orders per call (3 removes each).
+    /// const STEP: NonZeroU32 = NonZeroU32::new(300).unwrap();
+    /// fn close(markets: &mut LookupMap<u32, Market>) -> bool {
+    ///     markets.remove_step(&7, STEP) == Removal::Pending
+    /// }
+    /// ```
     #[track_caller]
-    pub fn remove_step(&mut self, k: &K, n: u32) -> Removal
+    pub fn remove_step(&mut self, k: &K, n: NonZeroU32) -> Removal
     where
         V: Record + Removable,
     {
         self.path.live();
+        let n = check_step(n);
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
         }
         guard_removal::<V>(&path, true);
-        let mut budget = n;
-        if V::clear_children_some(&path, &mut budget) {
+        // Reserve the move to the flag key (1 remove of the record key on the first call that
+        // does not finish), so a `Pending` call also stays within `n`.
+        let pend = cache::clearing_cost(&path);
+        let mut budget = n - pend;
+        if V::clear_children_some(&path, &mut budget)
+            && cache::delete_cost::<V>(&path, true) <= budget + pend
+        {
             self.discard(k);
             Removal::Done
         } else {
@@ -697,7 +780,7 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
     read_only! {
         insert(K, V);
         try_insert(K, V);
-        remove_step(&K, u32);
+        remove_step(&K, NonZeroU32);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -1139,7 +1222,9 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     }
 
     /// Bounded clear from the end (D9), clearing each value's own collections first; see
-    /// [`Removable::clear_children_some`].
+    /// [`Removable::clear_children_some`]. Since API round 5 `budget` is host removes: an entry
+    /// is its entry, index and key-slot removes (3), taken whole or not at all, and the header
+    /// (1, when it exists) goes once the map is empty.
     fn clear_budgeted(&mut self, budget: &mut u32) -> bool
     where
         V: Removable,
@@ -1148,41 +1233,58 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             let len = self.len();
             if len == 0 {
                 // The owner is being removed: the header goes too (T4).
-                cache::delete::<MapHeader>(&self.header());
-                return true;
+                return spend(budget, cache::delete_cost::<MapHeader>(&self.header(), false), || {
+                    cache::delete::<MapHeader>(&self.header())
+                });
             }
             let i = len - 1;
             let slot = self.slot_path(i);
             let k: K = unsafe { r(cache::get::<K>(&slot).expect("dense key vector")) }.clone();
             let path = self.entry_path(&k);
+            let idx = self.index_path(&k);
             guard_removal::<V>(&path, true);
-            if !V::clear_children_some(&path, budget) || *budget == 0 {
+            if !V::clear_children_some(&path, budget) {
                 return false;
             }
-            *budget -= 1;
-            cache::delete_entry::<V>(&path);
-            cache::delete::<u32>(&self.index_path(&k));
-            cache::delete::<K>(&slot);
+            let cost = cache::delete_cost::<V>(&path, true)
+                + cache::delete_cost::<u32>(&idx, false)
+                + cache::delete_cost::<K>(&slot, false);
+            if !spend(budget, cost, || {
+                cache::delete_entry::<V>(&path);
+                cache::delete::<u32>(&idx);
+                cache::delete::<K>(&slot);
+            }) {
+                return false;
+            }
             self.set_len_after_removal(i);
         }
     }
 
-    /// Removes the record at `k` in bounded steps (D9): as [`LookupMap::remove_step`], and
-    /// the key leaves the key vector in the call that finishes. `Removal::Pending` while
-    /// entries remain, `Removal::Done` once the record is gone (or was absent).
+    /// Removes the record at `k` in bounded steps (D9): as [`LookupMap::remove_step`], at most
+    /// `n` `storage_remove` host calls per call (`n >= 3`), and the key leaves the key vector in
+    /// the call that finishes, whose 3 removes (record, index, last key slot) must fit in what
+    /// the call has left. `Removal::Pending` while anything remains, `Removal::Done` once the
+    /// record is gone (or was absent).
     #[track_caller]
-    pub fn remove_step(&mut self, k: &K, n: u32) -> Removal
+    pub fn remove_step(&mut self, k: &K, n: NonZeroU32) -> Removal
     where
         V: Record + Removable,
     {
         self.path.live();
+        let n = check_step(n);
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
         }
         guard_removal::<V>(&path, true);
-        let mut budget = n;
-        if V::clear_children_some(&path, &mut budget) {
+        let pend = cache::clearing_cost(&path);
+        let mut budget = n - pend;
+        // Finishing removes the record, its index and the last key slot (counted as 1 without
+        // reading the header to find it: every live map has its last slot stored).
+        if V::clear_children_some(&path, &mut budget)
+            && cache::delete_cost::<V>(&path, true) + cache::delete_cost::<u32>(&self.index_path(k), false) + 1
+                <= budget + pend
+        {
             self.remove_inner(k, false);
             Removal::Done
         } else {
@@ -1219,7 +1321,7 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     read_only! {
         insert(K, V);
         try_insert(K, V);
-        remove_step(&K, u32);
+        remove_step(&K, NonZeroU32);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -1345,6 +1447,8 @@ impl<T: Removable> Removable for Vector<T> {
     fn clear_children(path: &Path) {
         Vector::<T>::__bound_at(path.clone()).clear();
     }
+    /// Budget in host removes (API round 5): a slot is 1, and the last slot also takes the
+    /// header with it (2).
     fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
         let v = Vector::<T>::__bound_at(path.clone());
         loop {
@@ -1354,12 +1458,16 @@ impl<T: Removable> Removable for Vector<T> {
             }
             let slot = v.slot(len - 1);
             guard_removal::<T>(&slot, false);
-            if !T::clear_children_some(&slot, budget) || *budget == 0 {
+            if !T::clear_children_some(&slot, budget) {
                 return false;
             }
-            *budget -= 1;
-            cache::delete::<T>(&slot);
-            set_len_at(&v.header(), len - 1);
+            let header = if len == 1 { cache::delete_cost::<u32>(&v.header(), false) } else { 0 };
+            if !spend(budget, cache::delete_cost::<T>(&slot, false) + header, || {
+                cache::delete::<T>(&slot);
+                set_len_at(&v.header(), len - 1);
+            }) {
+                return false;
+            }
         }
     }
 }
@@ -1592,14 +1700,21 @@ impl<T: Removable> Removable for Lazy<T> {
         T::clear_children(path);
         cache::delete::<T>(path);
     }
-    /// The `Lazy` value's own collections count against the budget; the value is not.
+    /// The value's own collections, then the value: its remove counts against the budget like
+    /// any other (API round 5, hazard A5; before, a `Lazy` value was removed outside the budget).
+    /// Unlike the unbounded clear, the remove is not blind: 1 `storage_has_key` first (answered
+    /// from the cache when this call already read the value), and an absent value costs no
+    /// remove. Without the check a resumed clear would re-pay a blind remove for every `Lazy` an
+    /// earlier call already removed, and could never get past them.
     fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
         guard_removal::<T>(path, false);
         if !T::clear_children_some(path, budget) {
             return false;
         }
-        cache::delete::<T>(path);
-        true
+        if !cache::exists(path) {
+            return true;
+        }
+        spend(budget, cache::delete_cost::<T>(path, false), || cache::delete::<T>(path))
     }
 }
 

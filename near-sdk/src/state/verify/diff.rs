@@ -101,7 +101,10 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
         },
         Op::RecAtLen(k) => Ret::U32(root.recs.at(&k.0).items.len()),
         Op::RecRemove(k) => Ret::OptU64(root.recs.remove(&k.0).map(|r| r.n)),
-        Op::RecRemoveSome(k, n) => Ret::Bool(root.recs.remove_step(&k.0, n as u32) == crate::state::Removal::Pending),
+        Op::RecRemoveSome(k, n) => Ret::Bool(
+            root.recs.remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
+                == crate::state::Removal::Pending,
+        ),
         Op::RecPage(after, limit) => Ret::RecPage(
             root.recs
                 .page_with(after.map(|k| k.0).as_ref(), limit as u32, |_, r| r.n)
@@ -298,13 +301,13 @@ fn differential_fixed_sequences() {
         Op::RecAtMutInsert(K(0), K(2), v(2, 1)),
         Op::RecAtMutInsert(K(0), K(3), v(2, 1)),
         Op::EndCall,
-        Op::RecRemoveSome(K(0), 1),
+        Op::RecRemoveSome(K(0), 4),
         Op::EndCall,
         Op::RecGet(K(0)),
-        Op::RecRemoveSome(K(0), 1),
+        Op::RecRemoveSome(K(0), 4),
         Op::EndCall,
         Op::RecRetyped(K(0), 1),
-        Op::RecRemoveSome(K(0), 5),
+        Op::RecRemoveSome(K(0), 9),
         Op::RecEntryDefault(K(4)),
         Op::RecRetyped(K(4), 0),
         Op::RecGetMut(K(4), 1),
