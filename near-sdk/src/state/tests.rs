@@ -768,8 +768,9 @@ fn scalar_to_collection_swap_is_silent() {
 fn max_subpath_is_summed_along_the_schema() {
     // Ex: tag 3 (1) + kind (1) + h16 (16) + AccountId (68) + Account subpath
     // Account: tag 2 (1) + kind (1) + h16 (16) + String (516) + 0
-    assert_eq!(<Account as Value>::MAX_SUBPATH, 1 + 1 + 16 + 516);
-    assert_eq!(<Ex as Root>::MAX_SUBPATH, 1 + 1 + 16 + 68 + 534);
+    let h = crate::state::key::ENTRY_HASH_LEN;
+    assert_eq!(<Account as Value>::MAX_SUBPATH, 1 + 1 + h + 516);
+    assert_eq!(<Ex as Root>::MAX_SUBPATH, 1 + 1 + h + 68 + 2 + h + 516);
 }
 
 // ---------------------------------------------------------------------------------------

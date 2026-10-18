@@ -1,0 +1,31 @@
+# Gas-measurement contract for the storage v2 prototype. One source, three wasms:
+#   --features v2        storage v2 (`near_sdk::state`), 16-byte entry hash
+#   --features v2,h8     storage v2 with the 8-byte entry hash
+#   --features v1        v1 `near_sdk::store` collections under a Borsh STATE root
+# Built by ../build.sh; measured by ../sim.
+[package]
+name = "proto-gas-contract"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+v1 = []
+v2 = ["near-sdk/unstable"]
+h8 = ["v2", "near-sdk/unstable-state-hash8"]
+
+[dependencies]
+near-sdk = { path = "../../near-sdk" }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]

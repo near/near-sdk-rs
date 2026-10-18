@@ -119,6 +119,8 @@ expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 digest = ["dep:near-digest"]
 unstable = ["dep:near-digest"]
+# Prototype only: build `state` with an 8-byte entry hash instead of 16, to measure the width.
+unstable-state-hash8 = ["unstable"]
 legacy = []
 global-contracts = []
 abi = [
