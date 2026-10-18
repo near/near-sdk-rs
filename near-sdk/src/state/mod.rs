@@ -280,6 +280,10 @@ mod tests_gaps;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests_gaps_cache;
+/// Tests closing the verification-round-2 cargo-mutants gaps outside `cache.rs`.
+#[cfg(feature = "unstable")]
+#[cfg(test)]
+mod tests_gaps_rest;
 /// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
 /// the oracle the `verify` harnesses compare the implementation against.
 #[cfg(feature = "unstable")]
