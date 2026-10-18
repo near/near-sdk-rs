@@ -1524,3 +1524,27 @@ fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
     assert!(m.get(&1).is_none());
     assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
 }
+
+/// Review F2, pinned as a hazard: a record written by a pre-flag-key prototype build carries
+/// the old leading `00 00` clearing flag in its bytes and sits at its record key. `get` and
+/// `get_mut` reject it (`TagZero`), but `at_mut` only checks that the record key exists, so it
+/// permits writes below a record that build was halfway through clearing. Storage written by
+/// earlier prototype builds must be reset; nothing detects it cheaply.
+#[test]
+fn hazard_old_in_record_flag_passes_at_mut_but_fails_get() {
+    testing::use_mock();
+    let rec = Path::root(DEFAULT_ROOT).field(43).kind(kind::ENTRIES).entry(&1u32);
+    let mut w = record::RecordWriter::new();
+    w.push(1, borsh::to_vec(&4u64).unwrap());
+    let mut old = vec![0u8, 0];
+    old.extend(w.finish(None, |_| true));
+    seed(rec.as_bytes(), &old);
+    let mut lm: LookupMap<u32, Account> = at(43);
+    let _ = lm.at_mut(&1).expect("the record key exists").balances.insert("x".into(), 1);
+    end_call();
+    assert_eq!(lm.at(&1).balances.get(&"x".to_string()), Some(&1), "written below it");
+    end_call();
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lm.get(&1).map(|a| a.nonce)));
+    let msg = r.expect_err("get fails closed on the old prefix");
+    assert!(msg.downcast_ref::<String>().is_some_and(|m| m.contains("TagZero")));
+}

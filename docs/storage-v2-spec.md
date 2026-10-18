@@ -225,7 +225,7 @@ Which type to reach for:
 
 Tests: `clear_across_two_calls_refuses_an_interleaved_insert`, `writes_below_a_clearing_record_panic_in_the_same_call`, `clear_that_fits_in_one_call_writes_no_flag`, `remove_step_budgets_across_calls`, `flag_key_is_dropped_by_replace_remove_and_discard`, `flag_key_is_the_record_key_plus_a_zero_byte`, `tag_zero_is_rejected_even_leading_and_empty`.
 
-**`at_mut` is one existence check.** The first prototype put the flag in the record's bytes as a leading `00 00`, which `storage_has_key` cannot see, so `at_mut` had to read the record. With the flag key, a present record key already says the record is not being cleared, and `at_mut` is back to one existence check with no read and no decode. Measured in the prototype, in reads, writes, removes:
+**`at_mut` is one existence check.** The first prototype put the flag in the record's bytes as a leading `00 00`, which `storage_has_key` cannot see, so `at_mut` had to read the record. Storage written by those builds must be reset: such a record fails to decode (`TagZero`) on `get`, `get_mut` and `entry`, but `at_mut` sees only that its key exists and allows writes below it. With the flag key, a present record key already says the record is not being cleared, and `at_mut` is back to one existence check with no read and no decode. Measured in the prototype, in reads, writes, removes:
 
 | Method | Flag in the record | Flag key (now) |
 | --- | --- | --- |
