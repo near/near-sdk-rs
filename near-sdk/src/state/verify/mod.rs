@@ -21,3 +21,5 @@ pub mod g3_no_debt;
 pub mod g4_one_write;
 #[cfg(test)]
 pub mod g5_linear_iteration;
+#[cfg(test)]
+pub mod g2_local;
