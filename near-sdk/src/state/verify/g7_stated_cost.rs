@@ -160,6 +160,9 @@ impl super::cost::Facts for Setup {
     fn vec_len(&self) -> u32 {
         self.order().len() as u32
     }
+    fn vec_at(&self, i: u32) -> Option<StdVec<u8>> {
+        self.order().get(i as usize).map(|k| if *k == NB { vec![0xBB] } else { vec![*k; 3] })
+    }
     fn set(&self) -> StdVec<u8> {
         self.order()
     }
@@ -235,8 +238,9 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
             match (i == vlen - 1, vlen) {
                 (true, 1) => c(2, 0, 2, 0),
                 (true, _) => c(2, 1, 1, 0),
-                // plus 1 read and 1 write of the last slot
-                (false, _) => c(3, 2, 1, 0),
+                // plus 1 read and 1 write of the last slot (DOC_DIFFS: the write is elided
+                // when the moved element's bytes equal the removed one's)
+                (false, _) => c(3, 1 + (f.vec_at(i) != f.vec_at(vlen - 1)) as usize, 1, 0),
             }
         }
         CostOp::SetInsert(K(k)) => if f.set().contains(&k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },

@@ -73,6 +73,7 @@ pub const DOC_DIFFS: &[&str] = &[
     "remove_some on a call that does not finish reads ONE MORE key slot than it removes (the loop reads the next slot before it sees the budget is spent): 2 + n + 1 reads, not 1 + n.",
     "remove_some writes the record (the clearing flag) only on the FIRST unfinished call; later unfinished calls leave identical bytes and write nothing. The spec says '1 record write for the flag on a call that does not finish'.",
     "at_mut is 1 read of the record (no decode) and no storage_has_key, as the spec now says; the rustdoc on Map::at_mut / LookupMap::at_mut still says '1 storage_has_key (no bytes)'.",
+    "Vector::swap_remove(i) of a non-last element writes slot i only if the moved last element's bytes differ from the removed one's (the cache read slot i, so an identical rewrite is elided): 1 write instead of 2 then. Correct, but the spec's 'plus 1 read and 1 write of the last slot' does not say so.",
     "Map page / keys_page with limit 0 return next = None even when entries remain (a client that pages with limit 0 sees the end).",
     "sha256 per operation (spec: one per map hop): Map insert new 3, insert existing 2, remove/discard of an inner key 3 (own key twice, moved key once), at_mut + insert new below a record 4, record remove owning 2 items 7.",
 ];
@@ -89,6 +90,8 @@ pub trait Facts {
     fn items(&self, k: u8) -> std::vec::Vec<u8>;
     fn clearing(&self, k: u8) -> bool;
     fn vec_len(&self) -> u32;
+    /// Element `i` of the vector, when its bytes matter (an identical rewrite is elided).
+    fn vec_at(&self, i: u32) -> Option<std::vec::Vec<u8>>;
     fn set(&self) -> std::vec::Vec<u8>;
 }
 
@@ -119,6 +122,9 @@ impl Facts for crate::state::model::MState {
     }
     fn vec_len(&self) -> u32 {
         self.vec.len() as u32
+    }
+    fn vec_at(&self, i: u32) -> Option<std::vec::Vec<u8>> {
+        self.vec.get(i as usize).cloned()
     }
     fn set(&self) -> std::vec::Vec<u8> {
         vec![]
