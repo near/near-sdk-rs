@@ -31,12 +31,12 @@ pub trait LegacyMap {
     fn legacy_get(&self, k: &Self::K) -> Option<Self::V>;
     /// Removes `k` if present, without returning the value where the type allows it.
     fn legacy_remove(&mut self, k: &Self::K);
-    /// The prefix every storage key of this v1 map starts with, if its keys are
-    /// `prefix ++ borsh(key)`. `None`: hashed keys (a 32-byte digest equals a v2 key only by a
-    /// preimage), or a composite v1 type whose prefix is not exposed (not checked; see
-    /// [`check_v1_prefix`]).
-    fn legacy_prefix(&self) -> Option<&[u8]> {
-        None
+    /// Every prefix this v1 map's raw storage keys start with (`prefix ++ ..`), checked by
+    /// [`check_v1_prefix`]. Hashed keys are not listed (a 32-byte digest equals a v2 key only
+    /// by a preimage). The default, empty, means unchecked; every v1 map in this crate
+    /// overrides it.
+    fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+        std::vec::Vec::new()
     }
 }
 
@@ -64,8 +64,8 @@ pub fn check_v1_prefix(prefix: &[u8], root: u8) -> Result<(), V1PrefixError> {
 }
 
 fn guard_v1_prefix<V1: LegacyMap>(old: &V1, path: &Path) {
-    if let Some(p) = old.legacy_prefix() {
-        if let Err(e) = check_v1_prefix(p, path.as_bytes()[0]) {
+    for p in old.legacy_prefixes() {
+        if let Err(e) = check_v1_prefix(&p, path.as_bytes()[0]) {
             crate::env::panic_str(&v1_prefix_error(e));
         }
     }
@@ -155,8 +155,8 @@ where
 
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let old: V1 = borsh::from_slice(bytes).map_err(|e| RecordError::Leaf(e.to_string()))?;
-        if let Some(p) = old.legacy_prefix() {
-            check_v1_prefix(p, path.as_bytes()[0]).map_err(|e| RecordError::Leaf(v1_prefix_error(e)))?;
+        for p in old.legacy_prefixes() {
+            check_v1_prefix(&p, path.as_bytes()[0]).map_err(|e| RecordError::Leaf(v1_prefix_error(e)))?;
         }
         let mut new = V2::default();
         new.bind(path);
@@ -275,8 +275,8 @@ mod legacy_collections {
         fn legacy_remove(&mut self, k: &K) {
             self.remove_raw(&borsh::to_vec(k).expect("borsh"));
         }
-        fn legacy_prefix(&self) -> Option<&[u8]> {
-            Some(self.key_prefix())
+        fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+            vec![self.key_prefix().to_vec()]
         }
     }
 
@@ -292,6 +292,9 @@ mod legacy_collections {
         }
         fn legacy_remove(&mut self, k: &K) {
             self.remove(k);
+        }
+        fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+            self.raw_prefixes()
         }
     }
 
@@ -321,6 +324,9 @@ mod legacy_collections {
         }
         fn legacy_remove(&mut self, k: &K) {
             self.remove(k);
+        }
+        fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+            self.raw_prefixes()
         }
     }
 
@@ -360,8 +366,8 @@ mod store_collections {
         fn legacy_remove(&mut self, k: &K) {
             self.set(k.clone(), None);
         }
-        fn legacy_prefix(&self) -> Option<&[u8]> {
-            self.raw_prefix()
+        fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+            self.raw_prefix().map(<[u8]>::to_vec).into_iter().collect()
         }
     }
 
@@ -378,6 +384,9 @@ mod store_collections {
         }
         fn legacy_remove(&mut self, k: &K) {
             self.remove(k);
+        }
+        fn legacy_prefixes(&self) -> std::vec::Vec<std::vec::Vec<u8>> {
+            self.raw_prefixes()
         }
     }
 

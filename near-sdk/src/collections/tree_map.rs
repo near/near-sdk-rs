@@ -59,6 +59,11 @@ where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
+    /// Every prefix the map's storage keys start with (storage v2's migrate-time guard).
+    pub(crate) fn raw_prefixes(&self) -> Vec<Vec<u8>> {
+        vec![self.val.key_prefix().to_vec(), self.tree.key_prefix().to_vec()]
+    }
+
     /// Makes a new, empty TreeMap
     ///
     /// # Examples

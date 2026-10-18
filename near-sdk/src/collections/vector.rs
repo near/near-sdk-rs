@@ -30,6 +30,11 @@ pub struct Vector<T> {
 }
 
 impl<T> Vector<T> {
+    /// The prefix every storage key of this vector starts with.
+    pub(crate) fn key_prefix(&self) -> &[u8] {
+        &self.prefix
+    }
+
     /// Returns the number of elements in the vector, also referred to as its size.
     pub fn len(&self) -> u64 {
         self.len

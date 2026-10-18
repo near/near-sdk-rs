@@ -206,7 +206,7 @@ fn g6_derive_reserved_tag_dropped_on_rewrite_only() {
 
 mod m4 {
     use near_sdk::state::testing;
-    use near_sdk::state::{ContractState, Map, Migrating, StateRead, StateWrite};
+    use near_sdk::state::{ContractState, Map, Migrating};
     use near_sdk::store::LookupMap as V1LookupMap;
     use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::{env, near, testing_env};
@@ -281,5 +281,44 @@ mod m4 {
         assert_eq!(env::storage_read(&[0xF0]).unwrap(), vec![0], "HAZARD: the v2 root was overwritten by a v1 entry");
         testing::begin_call();
         assert!(std::panic::catch_unwind(|| C::state_read().map(|c| c.n)).is_err(), "the contract no longer loads");
+    }
+
+    mod composite {
+        use super::*;
+        use near_sdk::collections::{TreeMap, UnorderedMap};
+        use near_sdk::store::IterableMap;
+        use near_sdk::store::key::Identity;
+
+        #[near(contract_state(layout = v2))]
+        pub struct T {
+            #[key(1, required)]
+            pub a: Migrating<TreeMap<u8, u8>, Map<u8, u8>>,
+            #[key(2, required)]
+            pub b: Migrating<UnorderedMap<u8, u8>, Map<u8, u8>>,
+            #[key(3, required)]
+            pub c: Migrating<IterableMap<u8, u8, Identity>, Map<u8, u8>>,
+        }
+
+        fn build(pa: &[u8], pb: &[u8], pc: &[u8]) -> T {
+            T { a: Migrating::new(TreeMap::new(pa.to_vec())), b: Migrating::new(UnorderedMap::new(pb.to_vec())), c: Migrating::new(IterableMap::with_hasher(pc.to_vec())) }
+        }
+
+        /// The guard covers the iterable v1 maps (every derived prefix: `i`/`k`/`v`, `v`/`n`,
+        /// `v`/`m`): a root-byte prefix on any one of them is rejected without a write; an
+        /// EMPTY user prefix is accepted, correctly, because each derived prefix then starts
+        /// with an ASCII letter, not the root byte.
+        #[test]
+        fn c7_guard_covers_tree_unordered_and_iterable_maps() {
+            for (i, (pa, pb, pc)) in [(&[0xF0][..], &b"b"[..], &b"c"[..]), (b"a", &[0xF0], b"c"), (b"a", b"b", &[0xF0])].into_iter().enumerate() {
+                fresh();
+                let r = std::panic::catch_unwind(|| build(pa, pb, pc).state_write());
+                assert!(msg(r.expect_err("accepted")).contains("can alias v2 keys"), "case {i}");
+                assert!(!env::storage_has_key(&[0xF0]));
+            }
+            fresh();
+            build(&[], &[], &[]).state_write();
+            testing::begin_call();
+            assert!(T::state_read().is_some());
+        }
     }
 }
