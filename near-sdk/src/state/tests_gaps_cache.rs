@@ -8,7 +8,9 @@ use super::key::{DEFAULT_ROOT, Path, kind};
 use super::root::__private as p;
 use super::testing::{self, end_call, seed, store};
 use super::tests::Account;
+use super::value::BorshLeaf;
 use super::*;
+use core::cell::Cell;
 use std::vec::Vec as StdVec;
 
 fn at<C: Default + Value>(tag: u32) -> C {
@@ -187,4 +189,103 @@ fn gaps_cache_second_discard_after_delete_skips_the_old_bytes() {
     m.discard(&1);
     m.discard(&1);
     assert_eq!(end_call().rwd(), (1, 0, 1));
+}
+
+// ---------------------------------------------------------------------------------------
+// 3. `take_entry` / `delete_entry` / `delete_impl` / `bury`
+// ---------------------------------------------------------------------------------------
+
+/// `take_entry` and `delete_entry` of an unread map entry that owns storage are blind: the
+/// flush removes its record key and its flag key. Kills `> -> <` in `take_entry` (line 741)
+/// and in `delete_entry` (line 757): not flaggable, the flag key is left behind.
+#[test]
+fn gaps_cache_blind_take_and_delete_entry_remove_the_flag_key() {
+    testing::use_mock();
+    let (p1, p2) = (entry_path(1), entry_path(2));
+    for p in [&p1, &p2] {
+        seed(p.flag().as_bytes(), &Account::default().encode_value(None));
+    }
+    testing::begin_call();
+    assert!(cache::take_entry::<Account>(&p1).is_none());
+    cache::delete_entry::<Account>(&p2);
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 0, 4));
+    let removed: StdVec<_> = r.ops.iter().map(|o| o.key.clone()).collect();
+    for p in [&p1, &p2] {
+        assert!(removed.contains(&p.as_bytes().to_vec()));
+        assert!(removed.contains(&p.flag().as_bytes().to_vec()));
+    }
+    assert!(store().is_empty(), "no half-cleared record left at a flag key");
+}
+
+/// Only removals of values that own storage bump the removal epoch (audit A2); a leaf removal
+/// leaves every handle on `check_live`'s one-compare fast path and logs nothing. Kills
+/// `> -> >=` in `delete_impl` (line 770).
+#[test]
+fn gaps_cache_leaf_removal_does_not_bump_the_epoch() {
+    testing::use_mock();
+    let e = cache::epoch();
+    cache::delete::<u64>(&entry_path(1));
+    cache::delete_entry::<u64>(&entry_path(2));
+    let _ = cache::take::<u64>(&entry_path(3));
+    let _ = cache::take_entry::<u64>(&entry_path(4));
+    assert_eq!(cache::epoch(), e, "leaf removals");
+    cache::delete::<Account>(&entry_path(5));
+    assert_eq!(cache::epoch(), e + 1, "a record that owns storage");
+    end_call();
+}
+
+std::thread_local! {
+    static DROPS: Cell<usize> = const { Cell::new(0) };
+}
+fn drops() -> usize {
+    DROPS.with(Cell::get)
+}
+
+/// A leaf whose `Drop` is counted, standing in for a value whose drop is observable (a v1
+/// collection's write-on-drop, invariant 4).
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct Dropper(u8);
+impl BorshLeaf for Dropper {}
+impl Drop for Dropper {
+    fn drop(&mut self) {
+        DROPS.with(|d| d.set(d.get() + 1));
+    }
+}
+
+/// The flush drops every slot's value: the one written, then the one decoded by a read. Kills
+/// `Slot::drop_value -> ()` and `free_slots -> ()`.
+#[test]
+fn gaps_cache_flush_drops_slot_values() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Dropper> = at(1);
+    let before = drops();
+    m.insert(1, Dropper(1));
+    assert_eq!(drops(), before, "held by the cache until the flush");
+    end_call();
+    assert_eq!(drops(), before + 1, "written value dropped at the flush");
+    assert_eq!(m.get(&1).map(|d| d.0), Some(1));
+    assert_eq!(drops(), before + 1);
+    end_call();
+    assert_eq!(drops(), before + 2, "decoded value dropped at the flush");
+}
+
+/// A deleted value is buried (an escaped handle may still hold a `&V`, invariant 2) and
+/// dropped at the flush, not leaked. Kills `bury -> ()` (and `free_slots -> ()`).
+#[test]
+fn gaps_cache_buried_value_is_dropped_at_the_flush() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Dropper> = at(1);
+    let mut l: Lazy<Dropper> = at(2);
+    m.insert(1, Dropper(1));
+    l.set(Dropper(2));
+    end_call();
+    let before = drops();
+    assert_eq!(m.get(&1).map(|d| d.0), Some(1));
+    assert_eq!(l.get().map(|d| d.0), Some(2));
+    m.discard(&1); // `delete_entry`
+    l.remove(); // `delete`
+    assert_eq!(drops(), before, "buried, not freed, until the flush");
+    assert_eq!(end_call().rwd(), (2, 0, 2), "the two reads above, then the two removes");
+    assert_eq!(drops(), before + 2, "both buried values dropped at the flush");
 }
