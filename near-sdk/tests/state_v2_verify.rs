@@ -322,3 +322,165 @@ mod m4 {
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------
+// A3: rollback subtree ownership (hazard, pinned)
+// ---------------------------------------------------------------------------------------
+
+mod a3 {
+    use near_sdk::near;
+    use near_sdk::state::testing;
+    use near_sdk::state::{Map, Path};
+
+    /// Version B: the record owns a child map at tag 2.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct RecB {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        kids: Map<u8, u64>,
+    }
+
+    /// Version A (the rollback target): no child map; tag 2 is unknown to it.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct RecA {
+        #[key(1)]
+        n: u64,
+    }
+
+    fn root() -> Path {
+        Path::root(0xF0).field(9)
+    }
+
+    /// HAZARD (A3), pinned. Version B adds a child map under record 1; the contract is
+    /// rolled back to version A, which removes record 1 and creates a NEW record 1; version B
+    /// is redeployed and the new record sees the OLD record's children. A's `remove` cannot
+    /// clear a subtree it has no type for, and nothing in the path distinguishes the new
+    /// record from the old one. Missing invariant: a record's subtree is owned by the record
+    /// INSTANCE, not its key; removal must clear every key under the record's path whatever
+    /// the current schema (a prefix delete), or record paths need an instance/generation
+    /// component. Not fixed here (design decision).
+    #[test]
+    fn hazard_rollback_new_record_inherits_old_children() {
+        testing::use_mock();
+        // version B
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        b.insert_new(1, RecB { n: 1, ..Default::default() });
+        b.at_mut(&1).unwrap().kids.insert(5, 50);
+        testing::flush();
+        drop(b);
+        // roll back to version A: remove record 1 and create a fresh one
+        testing::begin_call();
+        let mut a: Map<u32, RecA> = Map::__bound_at(root());
+        assert!(a.remove(&1).is_some());
+        a.insert_new(1, RecA { n: 2 });
+        testing::flush();
+        drop(a);
+        let kid_key = root().kind(0).entry(&1u32).field(2).kind(0).entry(&5u8);
+        assert!(testing::store().contains_key(kid_key.as_bytes()), "A's remove left B's child entry behind");
+        // redeploy B
+        testing::begin_call();
+        let b: Map<u32, RecB> = Map::__bound_at(root());
+        assert_eq!(b.get(&1).map(|r| r.n), Some(2), "this is the new record");
+        assert_eq!(b.at(&1).kids.get(&5), Some(&50), "HAZARD: the new record sees the old record's child");
+        assert_eq!(b.at(&1).kids.len(), 1);
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// A5: bounded clearing liveness: Lazy values consume no budget (hazard, pinned)
+// ---------------------------------------------------------------------------------------
+
+mod a5 {
+    use near_sdk::near;
+    use near_sdk::state::testing::{self, OpKind};
+    use near_sdk::state::{Lazy, Map, Path};
+
+    const BIG: usize = 64 * 1024;
+
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Heavy {
+        #[key(1)]
+        a: Lazy<Vec<u8>>,
+        #[key(2)]
+        b: Lazy<Vec<u8>>,
+        #[key(3)]
+        c: Lazy<Vec<u8>>,
+        #[key(4)]
+        d: Lazy<Vec<u8>>,
+        #[key(5)]
+        items: Map<u8, u8>,
+    }
+
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct LazyOnly {
+        #[key(1)]
+        a: Lazy<Vec<u8>>,
+        #[key(2)]
+        b: Lazy<Vec<u8>>,
+    }
+
+    fn removed(r: &testing::Receipt) -> (usize, usize) {
+        let rm: Vec<_> = r.ops.iter().filter(|o| o.kind == OpKind::Remove).collect();
+        (rm.len(), rm.iter().map(|o| o.value_len).sum())
+    }
+
+    /// HAZARD (A5), pinned with byte counts. A record with 4 Lazy values of 64 KiB and a map
+    /// of 3 entries, cleared with `remove_some(k, 1)`: the FIRST attempt removes all 4 Lazy
+    /// values (256 KiB, 4 removes) plus 1 map entry, because a Lazy value's own deletion is
+    /// not counted against `n`. Per-attempt work is bounded by n only for map entries, not
+    /// for Lazy bytes (storage_remove gas scales with the removed value), so "bounded
+    /// clearing" is bounded in entries, not in gas.
+    #[test]
+    fn hazard_lazy_values_consume_no_clearing_budget() {
+        testing::use_mock();
+        let root = Path::root(0xF0).field(9);
+        let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
+        m.insert_new(1, Heavy::default());
+        {
+            let h = m.get_mut(&1).unwrap();
+            for l in [&mut h.a, &mut h.b, &mut h.c, &mut h.d] {
+                l.set(vec![7; BIG]);
+            }
+            for i in 0..3 {
+                h.items.insert(i, i);
+            }
+        }
+        testing::flush();
+        let mut per_attempt = Vec::new();
+        loop {
+            testing::begin_call();
+            let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
+            let again = m.remove_some(&1, 1);
+            testing::flush();
+            per_attempt.push(removed(&testing::receipt()));
+            if !again {
+                break;
+            }
+        }
+        println!("removes and value bytes per attempt: {per_attempt:?}");
+        assert!(per_attempt[0].1 >= 4 * BIG, "first attempt removed {} bytes", per_attempt[0].1);
+        assert!(per_attempt[1..].iter().all(|(_, bytes)| *bytes < BIG));
+    }
+
+    /// The extreme: a record of only Lazy values is removed whole by `remove_some(k, 0)`.
+    #[test]
+    fn hazard_lazy_only_record_cleared_with_budget_zero() {
+        testing::use_mock();
+        let root = Path::root(0xF0).field(9);
+        let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
+        m.insert_new(1, LazyOnly::default());
+        m.get_mut(&1).unwrap().a.set(vec![1; BIG]);
+        m.get_mut(&1).unwrap().b.set(vec![1; BIG]);
+        testing::flush();
+        testing::begin_call();
+        let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
+        assert!(!m.remove_some(&1, 0), "finished in one attempt with n = 0");
+        testing::flush();
+        assert!(removed(&testing::receipt()).1 >= 2 * BIG);
+    }
+}
