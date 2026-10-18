@@ -504,3 +504,107 @@ fn contains_key_sees_both_sides_and_misses_absent_keys() {
     });
     assert_eq!(v, (true, true, false, true, false), "moved, old side only, neither");
 }
+
+/// `Migrating<collections::LookupMap, state::LookupMap>`: the ft-v2 shape (a v1 `LookupMap`,
+/// lazy path only) into a v2 `LookupMap` target.
+mod v1_lookup_to_v2_lookup {
+    use super::*;
+    use near_sdk::collections::LookupMap as V1LookupMap;
+    use near_sdk::state::LookupMap;
+
+    #[derive(BorshStorageKey)]
+    #[near]
+    enum K {
+        Balances,
+    }
+
+    #[near(contract_state)]
+    pub struct V1 {
+        balances: V1LookupMap<String, u64>,
+    }
+
+    pub type Balances = Migrating<V1LookupMap<String, u64>, LookupMap<String, u64>>;
+
+    mod v2m {
+        use super::*;
+        #[near(contract_state(layout = v2))]
+        pub struct V2 {
+            #[key(1, required)]
+            pub balances: Balances,
+        }
+    }
+    use v2m::V2;
+
+    fn s(k: &str) -> String {
+        k.to_string()
+    }
+    /// The v1 key: prefix borsh(K::Balances) = [0], then borsh(k).
+    fn v1_key(k: &str) -> Vec<u8> {
+        [vec![0u8], near_sdk::borsh::to_vec(&s(k)).unwrap()].concat()
+    }
+    /// The v2 entry key under tag 1.
+    fn v2_key(k: &str) -> Vec<u8> {
+        near_sdk::state::Path::root(ROOT).field(1).kind(0).entry(&s(k)).as_bytes().to_vec()
+    }
+
+    fn setup() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        let mut c = V1 { balances: V1LookupMap::new(K::Balances) };
+        c.balances.insert(&s("alice"), &7);
+        c.balances.insert(&s("bob"), &5);
+        env::state_write(&c);
+        drop(c);
+        init(|| {
+            let old: V1 = env::state_read().unwrap();
+            env::storage_remove(b"STATE");
+            V2 { balances: Migrating::new(old.balances) }
+        });
+        let store = testing::env_store();
+        assert!(store.contains_key(&v1_key("alice")) && store.contains_key(&v1_key("bob")));
+    }
+
+    /// Reads fall back to the v1 map; `insert` moves the key (v1 entry deleted in the call, v2
+    /// entry written at the flush); the new value then reads from the v2 side; `remove` deletes
+    /// a moved key from the v2 side and an unmoved key from the v1 side.
+    #[test]
+    fn lookup_map_to_lookup_map_get_insert_remove_move_keys_between_sides() {
+        setup();
+        let (v, _) = call::<V2, _>(|c| (c.balances.get(&s("alice")), c.balances.get(&s("carol"))));
+        assert_eq!(v, (Some(7), None), "fallback read of the v1 map");
+
+        call::<V2, _>(|c| c.balances.insert(s("alice"), 8));
+        let store = testing::env_store();
+        assert!(!store.contains_key(&v1_key("alice")), "the v1 entry is deleted");
+        assert_eq!(store.get(&v2_key("alice")), Some(&8u64.to_le_bytes().to_vec()), "the v2 entry is written");
+
+        let (v, _) = call::<V2, _>(|c| {
+            (c.balances.get(&s("alice")), c.balances.new_side().get(&s("alice")).copied(), c.balances.old_side().get(&s("alice")))
+        });
+        assert_eq!(v, (Some(8), Some(8), None), "alice is on the new side only");
+
+        let (v, _) = call::<V2, _>(|c| c.balances.remove(&s("alice")));
+        assert_eq!(v, Some(8));
+        assert!(!testing::env_store().contains_key(&v2_key("alice")), "the v2 entry is deleted");
+        let (v, _) = call::<V2, _>(|c| c.balances.get(&s("alice")));
+        assert_eq!(v, None);
+
+        let (v, _) = call::<V2, _>(|c| c.balances.remove(&s("bob")));
+        assert_eq!(v, Some(5), "an unmoved key comes back from the v1 side");
+        let store = testing::env_store();
+        assert!(!store.contains_key(&v1_key("bob")) && !store.contains_key(&v2_key("bob")));
+        let (v, _) = call::<V2, _>(|c| (c.balances.get(&s("bob")), c.balances.remove(&s("bob"))));
+        assert_eq!(v, (None, None));
+    }
+
+    /// M4 on a v1 `LookupMap`: its prefix is checked, so one starting with the v2 root byte is
+    /// refused (at the flush of the `migrate` body, which binds nothing).
+    #[test]
+    #[should_panic(expected = "can alias v2 keys (RootByte(240))")]
+    fn lookup_map_prefix_starting_with_the_root_byte_is_refused() {
+        ctx();
+        testing::use_env_host();
+        init(|| V2 { balances: Migrating::new(V1LookupMap::new(vec![ROOT, 1])) });
+    }
+}
