@@ -24,9 +24,16 @@ pub fn gen_id(i: u32) -> near_sdk::AccountId {
 #[cfg(feature = "v2")]
 mod v2 {
     use near_sdk::json_types::U128;
+    #[cfg(feature = "ext")]
+    use core::num::NonZeroU32;
+    #[cfg(feature = "ext")]
+    use near_sdk::json_types::U64;
     use near_sdk::state::{LookupMap, Map};
+    #[cfg(feature = "ext")]
+    use near_sdk::state::Page;
     use near_sdk::{AccountId, env, near};
 
+    #[cfg(not(feature = "ext"))]
     #[near(contract_state(layout = v2))]
     pub struct Bench {
         #[key(1)] owner: Option<AccountId>,
@@ -35,6 +42,20 @@ mod v2 {
         #[key(4)] lookup: LookupMap<AccountId, u128>,
         #[key(5)] blobs: Map<AccountId, Vec<u8>>,
         #[key(6)] accounts: Map<AccountId, Account>,
+    }
+
+    /// The `ext` build: the same root plus a `LookupMap` of collection-owning records, for the
+    /// `LookupMap::try_insert` row (D9 flag-key existence check on a miss).
+    #[cfg(feature = "ext")]
+    #[near(contract_state(layout = v2))]
+    pub struct Bench {
+        #[key(1)] owner: Option<AccountId>,
+        #[key(2)] fee_bps: u16,
+        #[key(3)] map: Map<AccountId, u128>,
+        #[key(4)] lookup: LookupMap<AccountId, u128>,
+        #[key(5)] blobs: Map<AccountId, Vec<u8>>,
+        #[key(6)] accounts: Map<AccountId, Account>,
+        #[key(7)] laccounts: LookupMap<AccountId, Account>,
     }
 
     #[near(storage)]
@@ -85,6 +106,10 @@ mod v2 {
                         self.map.insert(id, i as u128);
                     }
                     "lookup" => self.lookup.insert(id, i as u128),
+                    #[cfg(feature = "ext")]
+                    "accounts" => {
+                        let _ = self.accounts.try_insert(id, Account { nonce: i as u64, ..Default::default() });
+                    }
                     _ => env::panic_str("which"),
                 }
             }
@@ -107,6 +132,48 @@ mod v2 {
         }
         pub fn balance_of(&self, id: AccountId, token: String) -> U128 {
             self.accounts.at(&id).balances.get(&token).copied().unwrap_or(0).into()
+        }
+    }
+
+    /// Methods for the rows added on Oct 18 (`ext` build only, so the Oct 17 rows run on a wasm
+    /// with the Oct 17 method set).
+    #[cfg(feature = "ext")]
+    #[near]
+    impl Bench {
+        /// Cursor page of `map` (API round 3: `page` carries `revision`). `page_with` maps the
+        /// `u128` values to JSON strings; same reads as `page`.
+        pub fn map_page(&self, after: Option<AccountId>, limit: u32) -> Page<AccountId, U128> {
+            self.map.page_with(after.as_ref(), limit, |_, v| U128(*v)).expect("cursor gone")
+        }
+
+        // Collection-owning records (`Account` holds a `Map`).
+        /// `LookupMap::try_insert` of a collection-owning record: 2 existence checks (record
+        /// key, then its flag key) + 1 write.
+        pub fn laccount_try_insert(&mut self, id: AccountId, nonce: u64) {
+            self.laccounts.try_insert(id, Account { nonce, ..Default::default() }).expect("account exists");
+        }
+        /// `Map::try_insert` of a new record that owns a collection (API round 3, was
+        /// `insert_new`): the index read decides, no flag-key check.
+        pub fn account_try_insert(&mut self, id: AccountId, nonce: u64) {
+            self.accounts.try_insert(id, Account { nonce, ..Default::default() }).expect("account exists");
+        }
+        /// Creates (or opens) `id` and writes `n` balances `t0..t{n-1}`.
+        pub fn account_fill(&mut self, id: AccountId, n: u32) {
+            let a = self.accounts.entry(id).or_default();
+            for i in 0..n {
+                let _ = a.balances.insert(format!("t{i}"), i as u128 + 1);
+            }
+        }
+        /// One bounded removal step (API round 3/5: `remove_step`, budget counts host removes,
+        /// minimum 3). Returns `true` once the record is gone.
+        pub fn account_remove_step(&mut self, id: AccountId, n: u32) -> bool {
+            self.accounts.remove_step(&id, NonZeroU32::new(n).expect("n > 0")).is_done()
+        }
+        pub fn accounts_len(&self) -> u32 {
+            self.accounts.len()
+        }
+        pub fn account_nonce(&self, id: AccountId) -> Option<U64> {
+            self.accounts.get(&id).map(|a| U64(a.nonce))
         }
     }
 }
