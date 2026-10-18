@@ -1597,8 +1597,9 @@ fn clearing_an_empty_map_without_a_header_writes_nothing_for_it() {
 // Audit round (Oct 17, Codex claims). A1: `cache::get` retags `&mut V` on a shared lookup.
 //
 // The traces below compile in safe code: `Map::get(&self) -> Option<&V>`, so two shared
-// lookups may overlap. Plain `cargo test` cannot judge them (nothing is written through the
-// `&mut`), so they run only under Miri:
+// lookups may overlap. API round 4 fixed `cache::get` (a shared type check and a pointer cast,
+// no `&mut`), so they now run in plain `cargo test` too, where they only check values; the
+// aliasing verdict needs Miri, under both models:
 //
 //   NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS=-Zmiri-ignore-leaks \
 //     cargo +nightly miri test -p near-sdk --lib --features unstable,unit-testing -- state::tests::audit_
@@ -1618,7 +1619,6 @@ fn audit_a1_fixture(tag: u32, n: u32) -> Map<u32, u128> {
 
 /// A1, same key: `&V` from `get(k)` held across a second `get(k)`, then used.
 #[test]
-#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
 fn audit_a1_shared_ref_held_across_second_get_of_same_key() {
     let m = audit_a1_fixture(40, 1);
     let first: &u128 = m.get(&0).unwrap();
@@ -1631,7 +1631,6 @@ fn audit_a1_shared_ref_held_across_second_get_of_same_key() {
 /// A1, other keys: `&V` held across 200 `get`s of other keys (new slots, BTreeMap node splits),
 /// then used. Slots and values are separate boxes, so this exercises "could reallocate".
 #[test]
-#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
 fn audit_a1_shared_ref_held_across_gets_of_other_keys() {
     let m = audit_a1_fixture(41, 200);
     let first: &u128 = m.get(&0).unwrap();
@@ -1647,7 +1646,6 @@ fn audit_a1_shared_ref_held_across_gets_of_other_keys() {
 /// A1, realistic surface: references collected from `iter()`, then a lookup of one of those
 /// keys, then a use of the collected reference.
 #[test]
-#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
 fn audit_a1_iter_refs_then_get_of_same_key() {
     let m = audit_a1_fixture(42, 3);
     let all: StdVec<(u32, &u128)> = m.iter().collect();

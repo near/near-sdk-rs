@@ -11,7 +11,9 @@
 //!
 //! 1. Every slot and every decoded value is a separate heap allocation reached through a raw
 //!    pointer. LookupMap rebalancing never moves them, and the cache never forms a `&mut` over a
-//!    value while a collection operation is not running.
+//!    value while a collection operation is not running. The read path (`get`) forms no `&mut`
+//!    at all: it type-checks through a shared borrow and returns a pointer cast, so a `&V`
+//!    handed out earlier stays valid under Stacked and Tree Borrows (audit A1).
 //! 2. Within a call, a value is dropped or overwritten only by an operation that takes
 //!    `&mut` on the collection handle that owns the key (`insert`, `remove`, `discard`,
 //!    `clear`). Borrowck then guarantees no reference from *that handle* is alive.
@@ -59,14 +61,16 @@ impl Host for EnvHost {
 
 trait Erased: Any {
     fn encode(&self, orig: Option<&[u8]>) -> Vec<u8>;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// A shared view for the type check. Never `&mut`: a `&mut` retag of a value on the read
+    /// path would invalidate every `&V` already handed out for it (audit A1, Stacked Borrows).
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl<V: Value> Erased for V {
     fn encode(&self, orig: Option<&[u8]>) -> Vec<u8> {
         self.encode_value(orig)
     }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
@@ -400,15 +404,20 @@ fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
         s.value = Some(NonNull::from(Box::leak(b)));
     }
     let p = s.value?;
-    // SAFETY: invariant 1; a value is only ever reached through its own slot.
-    let any = unsafe { (*p.as_ptr()).as_any_mut() };
-    match any.downcast_mut::<V>() {
-        Some(v) => Some(NonNull::from(v)),
-        None => panic!(
-            "state: key {path:?} accessed as two different types: {}",
-            core::any::type_name::<V>()
-        ),
+    Some(typed::<V>(p, path))
+}
+
+/// `p` as a `NonNull<V>`, after checking through a shared borrow that it holds a `V`. The
+/// pointer keeps the provenance of the box (no `&mut` is formed), so a read never invalidates
+/// a `&V` handed out earlier for the same value (audit A1).
+#[track_caller]
+fn typed<V: Value>(p: NonNull<dyn Erased>, path: &Path) -> NonNull<V> {
+    // SAFETY: invariant 1; a shared borrow of a live value, dropped before returning.
+    let is_v = unsafe { p.as_ref() }.as_any().is::<V>();
+    if !is_v {
+        panic!("state: key {path:?} accessed as two different types: {}", core::any::type_name::<V>());
     }
+    p.cast::<V>()
 }
 
 /// Whether a value exists at `path`: answered from the cache, else one `storage_has_key`
@@ -514,9 +523,8 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     s.merge = false;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
-    // SAFETY: just allocated as a `V`.
-    let any = unsafe { (*p.as_ptr()).as_any_mut() };
-    NonNull::from(any.downcast_mut::<V>().expect("just stored"))
+    // Just allocated as a `V`; `cast` keeps the box's provenance.
+    p.cast::<V>()
 }
 
 /// Removes the value at `path`, returning it if it was decoded. No host read.
