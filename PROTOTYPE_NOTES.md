@@ -770,6 +770,7 @@ The rejected alternative keeps the record at its key and checks the flag key on 
 | lib first `deposit` into a `LookupMap` record | (4,6,0) | (4,6,0) | **(5,6,0)** |
 | `LookupMap::insert_new` of a record | 1 check + 1 write | same | **2 checks** + 1 write |
 | `at_mut` on an absent record | 1 check | 1 read | **2 checks** |
+| bulk `clear` / `clear_some` / `discard` of a map whose values own collections | 3 removes per entry | same | **4 removes per entry**: the flag key, blind |
 | repeat `deposit`, `open_market`, `place`, FT, NFT, DAO finalize and remove_member | unchanged | unchanged | unchanged |
 
 The DAO finalize (33,0,44), remove_member (29,3,40), nft_transfer (8,8,3) and nft_burn (10,2,17) counts printed by the suites are identical at 77f63c76 and now. Every op-log assertion above is exact in the test suites: `state_v2_exchange`, `state_v2_dao` and the lib `state::tests`.
