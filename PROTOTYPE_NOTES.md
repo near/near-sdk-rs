@@ -1108,18 +1108,18 @@ It also asserts that no write happens before the flush. The oracle was validated
 
 Measured, and pinned by `verify/cost.rs` `DOC_DIFFS` and `g7_stated_cost`, unless noted:
 
-1. Map/Set remove of the LAST key also skips the last-slot read: 3 reads for remove, 2 for discard, not 4.
-2. `LookupMap::discard` / `LookupSet::remove` of an absent key still issue one blind `storage_remove`.
-3. `Lazy::remove` issues one blind `storage_remove` even when the Lazy is empty.
-4. An unfinished `remove_some` call reads one more key slot than it removes: 2 + n + 1 reads.
-5. `remove_some` writes the clearing flag only on the FIRST unfinished call; later unfinished calls write nothing. The spec says every such call writes it.
-6. `at_mut` is 1 record read, with no decode and no `storage_has_key`. The rustdoc on `Map::at_mut` / `LookupMap::at_mut` still says "1 storage_has_key" (stale).
-7. `Vector::swap_remove` elides the rewrite of slot i when the moved element's bytes are identical to the removed one's.
-8. `page` / `keys_page` with limit 0 return `next = None` even when entries remain.
-9. sha256 per operation, measured: Map insert new 3, insert existing 2, inner remove/discard 3, at_mut + insert below a record 4, record remove owning 2 items 7.
-10. (C6) Cursor paging can return keys twice when a swap-remove moves the cursor key toward the front. The `Map::page` rustdoc names only the skip.
-11. (A5) "each call removes at most n entries" holds for map entries only. Lazy values below the record are removed in the first attempt, and a Lazy-only record goes with n = 0.
-12. (C5) `remove_some(k, 0)` on a record that still has entries never makes progress.
+1. Map/Set remove of the LAST key also skips the last-slot read: 3 reads for remove, 2 for discard, not 4. **[Oct 18: still true. `Map::remove` rustdoc fixed; spec open.]**
+2. `LookupMap::discard` / `LookupSet::remove` of an absent key still issue one blind `storage_remove`. **[Oct 18: still true. Rustdoc fixed; spec open.]**
+3. `Lazy::remove` issues one blind `storage_remove` even when the Lazy is empty. **[Oct 18: still true. Rustdoc fixed; spec open.]**
+4. An unfinished `remove_some` call reads one more key slot than it removes: 2 + n + 1 reads. **[Oct 18: still true for `remove_step` (now record lookups + 1 + n + 1: 1 or 2 record reads, the header, n + 1 slots). Rustdoc fixed; spec open.]**
+5. `remove_some` writes the clearing flag only on the FIRST unfinished call; later unfinished calls write nothing. The spec says every such call writes it. **[Oct 18: resolved by round 2: the spec now says the first call that does not finish removes the record key and writes the flag key.]**
+6. `at_mut` is 1 record read, with no decode and no `storage_has_key`. The rustdoc on `Map::at_mut` / `LookupMap::at_mut` still says "1 storage_has_key" (stale). **[Oct 18: resolved by round 2: `at_mut` is again 1 `storage_has_key` (2 on a miss), which the rustdoc says.]**
+7. `Vector::swap_remove` elides the rewrite of slot i when the moved element's bytes are identical to the removed one's. **[Oct 18: still true. Rustdoc fixed; spec open.]**
+8. `page` / `keys_page` with limit 0 return `next = None` even when entries remain. **[Oct 18: still true. `Map::page` rustdoc fixed; spec open.]**
+9. sha256 per operation, measured: Map insert new 3, insert existing 2, inner remove/discard 3, at_mut + insert below a record 4, record remove owning 2 items 7. **[Oct 18: still true, counts unchanged after the merge. Spec only; no state rustdoc states a count.]**
+10. (C6) Cursor paging can return keys twice when a swap-remove moves the cursor key toward the front. The `Map::page` rustdoc names only the skip. **[Oct 18: still true; T4's `revision` makes it detectable. `Map::page` rustdoc fixed; the spec's Pagination paragraph names only the skip.]**
+11. (A5) "each call removes at most n entries" holds for map entries only. Lazy values below the record are removed in the first attempt, and a Lazy-only record goes with n = 0. **[Oct 18: partly resolved: the spec now says Lazy values do not count. Still open in the spec: "`n = 0` clears nothing and sets the flag" is false for a record with only Lazy values or empty maps (it finishes). Rustdoc fixed.]**
+12. (C5) `remove_some(k, 0)` on a record that still has entries never makes progress. **[Oct 18: resolved by round 2 in the spec ("`n = 0` clears nothing and sets the flag"); rustdoc now also says it returns `Pending` forever.]**
 
 The `set_balance` comment in the Exchange example is known-stale and was left alone, as instructed.
 
@@ -1233,3 +1233,159 @@ Breakdown of the 75 missed:
 
 `abi_tests` and `deny_unknown_arguments_tests` still fail for the environment reasons noted above.
 
+
+## Merge and re-verify (Oct 18)
+
+`proto/storage-v2-d9` (7c701af7: API rounds 2 to 4 plus the audit branch) merged into `proto/storage-v2` (c822d587: Soundness round), merge base 1661f6b5. Then the reference model and every harness were ported to the merged API and re-run at the Soundness round bounds.
+
+### The merge (56acbd9b)
+
+- **One textual conflict, `PROTOTYPE_NOTES.md`.** Both sides had appended after "API round (Oct 17)". All sections are kept, in the order they were written: API round 2, API round 3, Audit round, API round 4 (d9 commits 18:31 to 19:47), then Soundness round (23:26).
+- **`docs/storage-v2-spec.md`:** only d9 had changed it, so it was taken whole.
+- **Auto-merged, checked by hand:**
+  - `migrating.rs`: the M4 `check_v1_prefix` guard (in `bind`, `decode_value` and `__write_pending`) sits beside d9's read-only `new_side`/`old_side`, the `*_mut_unchecked` accessors, `target_try_insert`, and the two-sided `remove`. They do not interact.
+  - `key.rs` and `state/mod.rs`.
+  - The deletion of ft-v2 `tests/nested_trap.rs` (T7).
+- No production code changed in the merge, or after it except rustdoc.
+
+### Expectations changed, and why
+
+Every harness keeps its named property. Only expected numbers and API spelling changed. Harness function names are kept (e.g. `c5_remove_some_*`), so the Soundness round table still maps one to one. Two names are the exception, because they asserted behaviour that is now false: `c2_insert_new_on_an_existing_record_panics` became `c2_try_insert_on_an_existing_record_is_refused`, and `g7_at_mut_reads_the_record_current_shape` became `g7_at_mut_is_one_existence_check_current_shape`.
+
+**Reference model (`model.rs`), from the spec's rules:**
+
+- **Record slot (`RSlot`).** A record of a map whose value owns storage lives at its record key, or, while `remove_step` is clearing it, at its flag key `record_key ++ 00`, never both. The flush follows the spec:
+  - a clearing record removes its record key, then writes the flag key (key order, F4);
+  - a record no longer clearing writes its record key, then removes the flag key;
+  - a delete removes whichever key holds it, and both if it was never read;
+  - F1: a delete while the location is unknown makes a later write also remove the other key.
+  - Record bytes no longer carry a `00 00` flag; `CLEARING_FLAG` is gone.
+- **Flag probe on a miss.** A miss at the record key is followed by a read of the flag key for `get`, `get_mut`, `entry`, `remove`, `remove_step`, the retyped `get_mut`, record pages and views, and by a `storage_has_key` of the flag key for `contains_key` and `at_mut`.
+- **`at_mut`** is an existence check: no read, `None` on a miss after the 2nd check, a panic if clearing.
+- **Map headers (T4).** A `Map` header (`flat`, `recs`, each `items`) carries a revision. It is a bare `u32` while the revision is 0 and 12 bytes after. Every removal bumps it: `remove`, `discard`, the bounded clear once per entry, and `clear` once. An emptied map writes its header (len 0) instead of removing it. The header goes, revision and all, only with the record that owns the map, including when `remove_step` finishes. `Vector` is unchanged: a bare header, removed at 0.
+- **`revision` in pages.** It is part of the compared `Ret::Page`, `Ret::KeyPage` and `Ret::RecPage`.
+- **`try_insert` (T1).** New ops `FlatTryInsert` and `LookTryInsert`, and `RecTryInsert` (replaces `RecInsertNew`). An existing key is `Occupied` after the index read (`Map`) or 1 `storage_has_key` (`LookupMap` leaf), with nothing written. A record being cleared is `Occupied` on `Map`, since its index is there. `would_panic` no longer lists it.
+- **`remove_step` (T3).** `Ret::Bool(true)` means `Removal::Pending`.
+- **Generation stamps (A2).** No model case is needed: every op takes a fresh handle from the root, so none is ever stale. The model docs point to C5's `Escaped` attempt.
+
+**Cost formulas (`cost.rs`, `g7_stated_cost::formula`, used by G3 and G7):**
+
+| Row | Before | Now | Why |
+|---|---|---|---|
+| `RecGet`, absent or clearing | 1 read | 2 reads | flag-key read on a miss |
+| `RecContains`, absent or clearing | 1 has_key | 2 has_keys | flag-key check on a miss |
+| `RecEntryDefault`, new | (2, 4, 0, 0) | (3, 4, 0, 0) | record key, flag key, header |
+| `RecGetMut`, absent | (1, 0, 0, 0) | (2, 0, 0, 0) | flag key |
+| `RecTryInsert`, existing | panic (not a row) | (1, 0, 0, 0) | T1: `Occupied` after the index read |
+| `RecAtMutInsert`, absent | (1, 0, 0, 0) | (0, 0, 0, 2) | existence checks, no read |
+| `RecAtMutInsert`, present, item exists / new | (2, 1, 0, 0) / (3, 4, 0, 0) | (1, 1, 0, 1) / (2, 4, 0, 1) | 1 has_key instead of the record read |
+| `RecRemove` | reads 2 + m; header removed iff m > 0 | reads lookups + 1 + m; header removed iff it exists (m > 0 or revision > 0) | flag probe; T4 header |
+| `RecRemove` / `RecRemoveSome`, absent | 1 read | 2 reads | flag key |
+| `RecRemoveSome`, unfinished | (2 + n + 1, (n > 0) + first, 3n, 0) | (lookups + 1 + n + 1, (n > 0) + first, 3n + first, 0) | the first unfinished call removes the record key and writes the flag key; lookups = 2 once flagged |
+| `map_unlink(Only)` | (2, 0, 4, 0) | (2, 1, 3, 0) | T4: the header is written, not removed |
+| G3 bytes, flat map | header 4 | header 0, 4 or 12; a removal writes 12 + the replaced header; Last = Only | T4 |
+
+Here "lookups" is 1 for a live record and 2 for a record being cleared. "first" is 1 on the first unfinished call, else 0.
+
+**Other harnesses:**
+
+- **`g7_at_mut_is_one_existence_check_current_shape`:** (3, 4, 0, 0) with a read of the record became (2, 4, 0, 1). It now asserts no read of the record key, a `storage_has_key` on it, and, for an absent record, exactly [has_key(record), has_key(flag)].
+- **C2 (`assert_no_orphans`):** accepts a live record's flag key and emptied headers, and asserts that each live record is stored at exactly one of its two keys.
+- **C2 refusal test (renamed):** `Err(Occupied)` instead of a panic, for `Map` and `LookupMap` of records, in the same call and a later call. It newly asserts the record keeps its child and storage is unchanged.
+- **C5:**
+  - flag writes are counted at `record ++ 00`;
+  - the first unfinished call removes the record key exactly once, before the flag write;
+  - later unfinished calls touch neither key, and no clearing call writes the record key;
+  - the finishing call removes the flag key, or the record key if it never went pending;
+  - new attempt `Escaped(j)`: a handle to the record's map made before `remove_step` in the clearing call must panic through the generation check after `Pending`;
+  - `c5_pinned_budget_zero_makes_no_progress`: the first call's writes + removes went from 1 to 2.
+- **G6 canonical:** the `is_clearing` prefix skip is gone, because records carry no flag. The claim is stricter now.
+- **M4 hazard (`hazard_an_unwrapped_empty_prefix_v1_map_overwrites_the_v2_root`):** the unwrapped v1 map is now a `#[key(1, legacy)]` root field (T7: a bare v1 type at the root is a derive error). The hazard reproduces: `legacy` stores Borsh bytes and nothing checks the prefix.
+- **A3, A5, C1, C3, G2, G4, C6, C4, F3:** API renames only, or no change. A5's printed bytes per attempt went from `[(7, 262166), (7, 6), (12, 24)]` to `[(8, 262166), (7, 6), (11, 26)]`:
+  - attempt 1: +1 remove, the record key when the record moves;
+  - attempt 3: −1 remove, the emptied outer map's header now stays (−4 B); +8 B, the 12-byte items header; −2 B, the record no longer carries `00 00`.
+
+  The hazard's assertions hold unchanged. The generation stamp touches neither A5 test.
+
+### Findings
+
+- **No regression.** Every named property holds on the merged code, and nothing was pinned as a regression.
+- **New, a cost note (not a bug).** F1's rule ("a delete with the original state unknown") also fires without any `discard`. `try_insert` writes a record blind (`Map` decides on the index), so `try_insert` then `remove`/`remove_step` then `try_insert` of the same key in one call makes the second insert also issue a `storage_remove` of a flag key that never existed (value 0, replaced none). It is correct, 1 extra host call. The spec's F1 sentence names only a blind `discard`. The differential harness found it on its first failing trace, and the model now encodes the rule as the spec states it.
+- **Sensitivity.** Two hand mutations of `cache.rs`, reverted:
+  - `check_live` disabled: C5 fails on `Escaped(0)`.
+  - F4's order reverted (flag write before the record-key remove): Part A (fixed and random), C5 and G4 (2 harnesses) fail.
+
+### Harness results (merged code, random engine, Soundness round bounds)
+
+| Harness | Bound | Result |
+|---|---|---|
+| Part A `differential_against_reference_model` (+ fixed sequences) | 2,000 histories of up to 60 ops | pass |
+| G1 `g1_field_tags_are_prefix_free_over_u32` | 20,000 | pass |
+| G1 `g1_addressable_distinct_paths_distinct_keys` | 20,000 | pass |
+| G1 `g1_production_keys_equal_spec_keys` / `g1_long_paths...` / `g1_nested_get...` | 20,000 / 5,000 / 2,000; fixed cases | pass |
+| C7 `c7_admitted_v1_prefixes_never_alias_v2_keys` | 100,000 | pass |
+| C7 `c7_production_v1_keys_vs_production_v2_keys` + `m4::*` derive tests | 20,000; fixed | pass |
+| G2 `g2_local_op_touches_only_its_own_path_and_bookkeeping` | 3,000 | pass |
+| G3 `g3_no_debt_counts_depend_only_on_the_ops_own_key` | 5,000 | pass |
+| G3 `g3_no_debt_after_10000_random_operations` | 3 histories x 10,000 ops | pass |
+| G4 `one_write_per_key...` / `nothing_happens_in_drop` / `cache_flush...` | 2,000 / 2,000 / 20,000 | pass |
+| G5 `g5_page_costs_two_reads_plus_two_per_entry`, `g5_page_of_64_on_an_aged_map` | 5,000; fixed | pass |
+| G6 identity / canonical / large / schema evolution | 20,000 / 50,000 / 20,000 / 20,000 | pass |
+| G6/D2 derive (`state_v2_verify`) | 2,000 each; required 500 | pass |
+| G7 `g7_stated_cost_beside_a_100kib_neighbour` (+ 3 pinned) | 20,000 | pass |
+| C1 `c1_spliced_keys...` + baseline | 5,000; fixed | pass |
+| C2 `c2_no_orphans...` / `c2_removed_record...` / nested (`state_v2_verify`) / refusal | 2,000 / 2,000 / 1,000 / fixed | pass |
+| C3 `c3_a_mid_call_flush_anywhere_loses_no_write` (+ fixed) | 2,000 | pass |
+| C4 `c4_storage_delta...` (+ 2) | 500 histories | pass |
+| C5 `c5_remove_some_isolates...` (+ pinned n = 0) | 3,000 | pass |
+| C6 `c6_paging_under_churn...` (+ 2 pinned) | 5,000 | pass |
+| F3 `f3_a_failed_call_leaves_no_trace` | 2,000 | pass |
+| A3, A5 pins (`state_v2_verify`) | fixed | hazards reproduce |
+
+### Kani (0.68, host, `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo kani --tests --lib -p near-sdk --features unstable --harness <name>`)
+
+| Proof | Result | Verification time | Wall (with build) | Soundness round |
+|---|---|---|---|---|
+| `g1_field_tags_are_prefix_free_over_u32` (every pair of u32 tags) | VERIFIED | 4.8 s | 14 s | 6 s |
+| `c7_admitted_v1_prefixes_never_alias_v2_keys` (bounds as in the Soundness table) | VERIFIED | 131.9 s | 137 s | 152 s, CPU shared then |
+
+The harnesses that did not finish under Kani in the Soundness round were not retried.
+
+### Doc-corrections triage (the Soundness round's 12, annotated in place above)
+
+| # | Status | Action |
+|---|---|---|
+| 1 last-key remove skips the slot read | still true | `Map::remove` rustdoc fixed; spec open |
+| 2 blind remove in `LookupMap::discard` / `LookupSet::remove` | still true | rustdoc fixed (and for a record value: 2 removes, the flag key); spec open |
+| 3 blind remove in `Lazy::remove` | still true | rustdoc fixed; spec open |
+| 4 unfinished clear reads one more slot | still true | `remove_step` rustdoc fixed; spec's per-call line open |
+| 5 flag written only on the first unfinished call | resolved by round 2 | none |
+| 6 `at_mut` rustdoc stale | resolved by round 2 | none |
+| 7 `swap_remove` elides an identical rewrite | still true | rustdoc fixed; spec open |
+| 8 limit 0 returns `next = None` | still true | `Map::page` rustdoc fixed; spec open |
+| 9 measured sha256 per op | still true, counts unchanged | spec only (no state rustdoc states a count) |
+| 10 cursor paging can return keys twice | still true | `Map::page` rustdoc fixed; spec's Pagination names only the skip |
+| 11 Lazy values outside the budget | partly resolved (spec says Lazy does not count) | rustdoc fixed; spec open: "`n = 0` clears nothing and sets the flag" is false for a record holding only Lazy values or empty maps |
+| 12 `n = 0` never progresses | resolved by round 2 in the spec | rustdoc now says it too |
+
+Left for the orchestrator, design doc only: 1, 2, 3, 4, 7, 8, 9, 10, 11, plus the F1 cost note above. `verify/cost.rs` `DOC_DIFFS` keeps its indices and marks 4 and 5 (the list's items 5 and 6) as resolved.
+
+### Test counts (end of merge round)
+
+- Lib: 636 passed, 1 ignored (`promise::tests::test_yielded_promise_can_chain_then`, pre-existing).
+- Doctests: 347 passed, 7 ignored, plus 5 standalone `compile_fail`.
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 9, `state_v2_verify` 13.
+- ft-v2 example: 16 migration, plus 2 doctests (1 + 1 standalone `compile_fail`).
+- near-sdk-macros: 49, plus 1 doctest (4 ignored).
+- `proto-wasm-check`: wasm32 check passes, no warnings.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
+
+### Deliberately not done
+
+- **No cargo-mutants re-run.** The Soundness round's mutation tables describe the pre-merge code. Only the two hand mutations above were tried.
+- **libFuzzer / cargo-bolero:** still unavailable (no toolbox, Docker not running). Random engine only.
+- **Kani:** not retried on the harnesses that did not finish before (G1 distinct paths, the G6 trio), nor on G4 cache (the `catch_unwind` ICE).
+- **Miri:** not re-run on the audit tests after the merge. The merge touched no `unsafe` code.
+- **Untouched:** the near-contract-sim gas runs; `docs/storage-v2-spec.md` (the design-doc corrections are listed above for the orchestrator); the Claude Doc.
+- **No `rustfmt`:** the tree was not rustfmt-clean on either side before the merge, and reformatting would bury the diff.
+- **`quiet()`:** still swaps the global panic hook (unchanged, as noted in the Soundness round).
