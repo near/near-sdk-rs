@@ -29,3 +29,5 @@ pub mod g6_layout;
 pub mod c7_m4_alias;
 #[cfg(test)]
 pub mod c2_orphans;
+#[cfg(test)]
+pub mod c5_remove_some;
