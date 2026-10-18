@@ -359,7 +359,7 @@ mod status_message {
     use super::*;
     #[near(contract_state(layout = v2))]
     pub struct StatusV2 {
-        #[key(1, required)]
+        #[key(1, legacy)]
         pub records: V1LookupMap<AccountId, String>,
         #[key(2)]
         updates: near_sdk::state::LookupMap<AccountId, u32>,

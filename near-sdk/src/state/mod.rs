@@ -11,18 +11,91 @@
 //!   collections. Every field needs `#[key(n)]`; `reserved(3, 7)` blocks retired tags.
 //! - `#[key(n)]` is the field's tag. **Tags are the layout: never reuse or renumber one.** A
 //!   field missing from a stored record decodes as its `Default`. `#[key(n, default = expr)]`
-//!   evaluates `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
-//!   `Default` uses it too). `#[key(n, required)]` makes it a decode error naming the tag; use
-//!   it only for fields present since the first write (a field added later uses `default = ..`,
-//!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
-//!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
+//!   uses `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
+//!   `Default` uses it too). `expr` must be a const expression (T6): the derive emits it as a
+//!   `const` item, so a call like `env::predecessor_account_id()` is a compile error, and the
+//!   value an old record decodes to cannot depend on who reads it or when.
+//! - `#[key(n, default_fn = path)]` is the escape hatch for a type with no const constructor
+//!   (`AccountId`, `Vec`, `String` with content): `path` names a `fn() -> T`. **It is called on
+//!   every decode where the tag is absent, until some other change rewrites the record; it
+//!   must be pure.** A function that reads the environment (`env::predecessor_account_id()`,
+//!   the block height, storage) gives the same old record a different value on every read.
+//!   (A `get_mut` or `entry` of the record writes the tag at the flush, since the re-encoding
+//!   then differs.) It must be a path, not a closure or call. `#[key(n, required)]` makes a
+//!   missing tag a decode error naming the tag; use it only for fields present since the first
+//!   write (a field added later uses `default = ..`, `default_fn = ..`, a `Default` type, or
+//!   `Option`; never forced `Option`). `required`, `default` and `default_fn` are exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
 //!   tag is not built in the prototype.
+//! - Field types (T7): every field type must implement [`Value`]. There is no blanket impl
+//!   for Borsh types: primitives, `String`, `AccountId`, `Vec`/`Option`/arrays/tuples of
+//!   those, `state` collections and `#[near(storage)]` records are values, and a plain Borsh
+//!   struct opts in with `#[derive(Leaf)]` ([`BorshLeaf`]). v1 collections (`store::*`,
+//!   `collections::*`, and standards types holding one) implement nothing, so inside a record
+//!   they are E0277 "is not a storage v2 value", a shadowing `use near_sdk::store::LookupMap`
+//!   included. At the root they are allowed as `#[key(n, legacy)]`: stored as their Borsh
+//!   bytes (the prefix) outside the trait, required, never bound; `legacy` anywhere else is a
+//!   derive error.
 //! - Unknown tags (D4): a tag the code does not know is PRESERVED through `get_mut` / `entry`
 //!   (a blind `insert` replaces the record whole). A removed field's bytes therefore persist
 //!   until its tag is listed in `reserved(n)`, which drops them on the next rewrite. Reusing a
 //!   removed tag for a new field resurrects the old bytes (pinned by
 //!   `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes`); the intended guard, a build
 //!   error against the deployed ABI, is not built in the prototype.
+//!
+//! A non-const default does not compile:
+//!
+//! ```compile_fail,E0015
+//! use near_sdk::{env, near, AccountId};
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     // error[E0015]: cannot call non-const function
+//!     // `near_sdk::env::predecessor_account_id` in constants
+//!     #[key(2, default = env::predecessor_account_id())] owner: AccountId,
+//! }
+//! ```
+//!
+//! A const one does:
+//!
+//! ```
+//! use near_sdk::near;
+//! pub const DEFAULT_FEE: u16 = 30;
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1, default = DEFAULT_FEE)] fee_bps: u16,
+//!     #[key(2, default = true)] open: bool,
+//! }
+//! assert_eq!((Pool::default().fee_bps, Pool::default().open), (30, true));
+//! ```
+//!
+//! A non-const value goes through `default_fn`, a pure `fn() -> T`, called on every decode of a
+//! record that lacks the tag:
+//!
+//! ```
+//! use near_sdk::{near, AccountId};
+//! fn default_treasury() -> AccountId {
+//!     "treasury.near".parse().unwrap()
+//! }
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     #[key(2, default_fn = default_treasury)] treasury: AccountId,
+//! }
+//! assert_eq!(Pool::default().treasury.as_str(), "treasury.near");
+//! ```
+//!
+//! `default_fn` takes a path, so a closure (or anything that is not a `fn() -> T`) does not
+//! compile:
+//!
+//! ```compile_fail
+//! use near_sdk::{near, AccountId};
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     // error: `default_fn` takes a path to a `fn() -> T`, not an expression
+//!     #[key(2, default_fn = || "treasury.near".parse().unwrap())] treasury: AccountId,
+//! }
+//! ```
 //!
 //! # What the derive emits for a record `Name`
 //!
@@ -45,34 +118,44 @@
 //! so the prototype's NFT test compiles.)
 //!
 //! - `map.get(&k)` reads and decodes the record. `map.at(&k)` walks to it without reading
-//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 read of the record's bytes,
-//!   not decoded (D9: it must see the clearing flag; it was 1 `storage_has_key` before), and
-//!   `None` if absent (D7: named accessors return `Option`; only `Index` would panic).
+//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 `storage_has_key`, no read,
+//!   no decode, and `None` if absent (D7: named accessors return `Option`; only `Index` would
+//!   panic). An absent record costs a 2nd check, of its D9 flag key.
 //!   `entry(k).or_default()` / `get_mut(&k)` give the decoded record to change.
 //! - Each key is read at most once per call, and written once at the end, in key order, with the
 //!   root last. A record is rewritten only if its encoding changed. `contains_key` is a
 //!   `storage_has_key` and does not warm the cache for a later `get`.
-//! - `remove` clears the value's collections and returns it detached. `remove_some(&k, n)`
-//!   (D9) removes a record in bounded steps across calls: at most `n` entries of what it owns
-//!   per call, then the record; `true` while entries remain. Meanwhile the record carries the
-//!   clearing flag and `get_mut`, `entry` and `at_mut` on it panic, so nothing can be added
-//!   below it faster than it is cleared (`get` / `at` still read).
-//! - FORMAT DECISION (D9): the clearing flag is the field `00 00` (tag 0, length 0) at the front
-//!   of the record bytes. Two bytes is the smallest field the grammar allows; tag 0 is never a
-//!   user tag, so it cannot collide, and tags ascend, so it can only be first. A decoder that
-//!   predates it rejects the record with `TagZero` (fails closed). See `record::CLEARING_FLAG`.
+//! - `remove` clears the value's collections and returns it detached. `remove_step(&k, n)`
+//!   (D9; round 3 T3) removes a record in bounded steps across calls: at most `n` entries of
+//!   what it owns per call, then the record; it returns the `#[must_use]` enum `Removal`,
+//!   `Pending` while entries remain and `Done` once the record is gone. Meanwhile the record is flagged and
+//!   `get_mut`, `entry` and `at_mut` on it panic, so nothing can be added below it faster than
+//!   it is cleared (`get` / `at` still read).
+//! - FORMAT DECISION (D9, flag key): the clearing flag is a separate key, the record's key plus
+//!   one `00` byte (`Path::flag`; tag 0, which no field may use). While a record is being
+//!   cleared its bytes live at the flag key and its record key is absent; the call that
+//!   finishes removes the flag key. So presence of the record key means "present and not
+//!   being cleared": `at_mut`, `get_mut` and `entry` on a present record pay nothing for D9,
+//!   and only a miss on a map value that owns storage consults the flag key (1 more host
+//!   call). Record bytes carry no flag; tag 0 in a record is always `TagZero`.
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
-//!   the index read); `LookupMap::insert` returns `()` (no existence read). It requires
-//!   `V: Leaf`, a value that owns no collections, so for a record that owns one plain `insert`
-//!   does not compile (E0277 naming the fix). The ways in are `insert_new(k, v)` (`V: Record`;
-//!   panics if present, returns the bound record) and `entry(k).or_default()`. First-write-wins
-//!   is `entry(k).or_insert(v)` or `insert_new`.
+//!   the index read; `#[must_use]`, round 3 T1); `LookupMap::insert` returns `()` (no existence
+//!   read). It requires `V: Leaf`, a value that owns no collections, so for a record that owns
+//!   one plain `insert` does not compile (E0277 naming the fix). `try_insert(k, v) ->
+//!   Result<&mut V, Occupied>` exists for every value type: it writes only if the key is absent
+//!   and returns the bound value, and `Occupied` carries nothing (the stored value is not read).
+//!   First-write-wins is `try_insert` or `entry(k).or_insert(v)`; `require!(m.insert(..), ..)`
+//!   is the bug it replaces (the overwrite has already happened when the check fails).
 //! - Enumeration order is the key vector's: insertion order until a remove moves the last key
 //!   into the hole. `page(after, n)` / `page_with` / `keys_page` return `Err(CursorGone)` if the
 //!   cursor key was removed since the last page (D8); a `#[handle_result]` view can return the
 //!   `Result` as is. Offset paging, `iter().skip(from).take(n)` (where `skip` reads nothing),
 //!   never fails but can skip a key after a removal behind the offset. An on-chain batch job
-//!   must not page a map that changes between its calls.
+//!   must not page a map that changes between its calls. Every `Page` / `KeyPage` carries
+//!   `revision` (T4), a counter in the map header that every removal bumps, read with the header
+//!   at no extra cost: equal revisions across pages mean no removal in between. A map that
+//!   empties keeps its header (`len` 0) so the revision never resets; the header goes with the
+//!   record that owns the map.
 //!
 //! - Storage accounting (D5): v2 writes land at the flush, after the method body, so
 //!   `env::storage_usage()` read inside a v2 mutating method after its first write measures
@@ -196,7 +279,7 @@ mod verify;
 #[cfg(feature = "unstable")]
 pub use collections::{
     At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet, Map, MapEntry,
-    Page, Set, Vector, ViewIsReadOnly,
+    Occupied, Page, Removal, Set, Vector, ViewIsReadOnly,
 };
 /// Deferred out of the first release (D3); hidden, kept compiling for the prototype.
 #[cfg(feature = "unstable")]
@@ -212,6 +295,10 @@ pub use record::RecordError;
 pub use root::{Root, __private, flush_root, load_root, raw_root, root_exists};
 #[cfg(feature = "unstable")]
 pub use value::{
-    FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value, ViewField,
-    ViewFieldMut,
+    BorshLeaf, FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value,
+    ViewField, ViewFieldMut,
 };
+/// `#[derive(Leaf)]`: opts a plain Borsh struct or enum into storage v2 as an opaque leaf
+/// (implements [`BorshLeaf`], hence [`Value`], [`Leaf`] and [`Removable`]). T7.
+#[cfg(feature = "unstable")]
+pub use near_sdk_macros::Leaf;

@@ -7,11 +7,19 @@
 //! kind    := 00 entries | 01 index | 02 slots | 03 header
 //! entry   := sha256(borsh(k))[..16] ++ borsh(k)
 //! slot    := u32 little-endian
+//! flag    := 00, once, last, after a map entry whose value owns storage
 //! ```
+//!
+//! The flag segment (D9) names the CLEARING FLAG KEY of a record: `record_path ++ 00`. While
+//! `remove_step` is clearing a record across calls, the record's bytes live at that key and
+//! its own key is absent. `00` is LEB128 for tag 0, which no `#[key]` may use, and no other
+//! tag's LEB128 starts with `00`, so the flag key is never a field path below the record; and
+//! since map keys are prefix-free Borsh behind their own hash, it is never a sibling entry. It
+//! is one byte longer than the record key and shorter than any key below the record, so it fits
+//! in every schema the 2,048-byte bound accepts.
 //!
 //! Only [`Path`]'s builder methods can produce key bytes: there is no `Path::from_bytes`.
 
-use borsh::{BorshDeserialize, BorshSerialize};
 use near_digest::Digest;
 
 /// Default root byte. Outside the range small `BorshStorageKey` enums and ASCII prefixes produce.
@@ -24,6 +32,9 @@ pub const MAX_KEY_LEN: usize = 2048;
 pub const ENTRY_HASH_LEN: usize = 16;
 #[cfg(feature = "unstable-state-hash8")]
 pub const ENTRY_HASH_LEN: usize = 8;
+
+/// The flag segment: appended to a record's key to form its clearing flag key (D9).
+pub const FLAG_SEGMENT: u8 = 0x00;
 
 /// Kind bytes: which internal table of a collection a key belongs to.
 pub mod kind {
@@ -111,6 +122,14 @@ impl Path {
         Path(out).checked()
     }
 
+    /// The clearing flag key of the record at this path (D9): one `00` byte appended (tag 0,
+    /// which no field may use). Holds the record's bytes while `remove_step` clears it across
+    /// calls; absent otherwise.
+    #[track_caller]
+    pub fn flag(&self) -> Path {
+        Path(flag_key_bytes(&self.0))
+    }
+
     /// Dense slot hop.
     #[track_caller]
     pub fn slot(&self, i: u32) -> Path {
@@ -128,6 +147,22 @@ impl Path {
         );
         self
     }
+}
+
+/// The flag key of the record stored at `record_key`: one more byte, `00`, length-checked
+/// against the protocol limit like every `Path` hop. The one place flag keys are built, for
+/// [`Path::flag`] and for the cache, which only holds key bytes.
+#[track_caller]
+pub(crate) fn flag_key_bytes(record_key: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(record_key.len() + 1);
+    out.extend_from_slice(record_key);
+    out.push(FLAG_SEGMENT);
+    assert!(
+        out.len() <= MAX_KEY_LEN,
+        "storage key of {} bytes exceeds the protocol limit of {MAX_KEY_LEN}",
+        out.len()
+    );
+    out
 }
 
 std::thread_local! {
@@ -157,7 +192,7 @@ mod private {
 ///
 /// `MAX_LEN` is the maximum length of `borsh(k)`; it is enforced at runtime on every
 /// `Path::entry` and summed along paths at compile time via `Value::MAX_SUBPATH`.
-pub trait StorageKey: BorshSerialize + BorshDeserialize + private::Sealed {
+pub trait StorageKey: super::value::BorshLeaf + private::Sealed {
     const MAX_LEN: usize;
 }
 
@@ -249,6 +284,30 @@ mod tests {
         let header = balances.kind(kind::HEADER);
         assert_eq!(header.len(), 35);
         assert_eq!(&header.as_bytes()[33..], &[0x02, 0x03]);
+    }
+
+    /// D9: the flag key is the record key plus `00`; it cannot be a field path below the
+    /// record (every field tag's LEB128 starts with a nonzero byte) and sorts before them.
+    #[test]
+    fn flag_key_is_the_record_key_plus_a_zero_byte() {
+        let rec = Path::root(DEFAULT_ROOT).field(4).kind(kind::ENTRIES).entry(&7u32);
+        let flag = rec.flag();
+        assert_eq!(flag.len(), rec.len() + 1);
+        assert_eq!(&flag.as_bytes()[..rec.len()], rec.as_bytes());
+        assert_eq!(flag.as_bytes()[rec.len()], 0x00);
+        for tag in [1u32, 127, 128, 300, u32::MAX] {
+            let child = rec.field(tag);
+            assert_ne!(child.as_bytes()[rec.len()], 0x00, "tag {tag}");
+            assert!(flag < child, "the flag key sorts before every child of the record");
+        }
+    }
+
+    /// The cache builds flag keys from bytes; they are length-checked like every path hop.
+    #[test]
+    fn flag_key_bytes_are_length_checked() {
+        assert_eq!(flag_key_bytes(&[7u8; MAX_KEY_LEN - 1]).len(), MAX_KEY_LEN);
+        let r = std::panic::catch_unwind(|| flag_key_bytes(&[7u8; MAX_KEY_LEN]));
+        assert!(r.is_err(), "a 2,049-byte flag key panics instead of reaching the host");
     }
 
     #[test]

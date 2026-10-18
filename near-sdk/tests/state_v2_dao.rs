@@ -9,6 +9,7 @@ use near_sdk::{AccountId, NearToken, env, near, require};
 pub type ProposalId = u64;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vote {
     Yes,
@@ -99,10 +100,12 @@ impl Dao {
 
     pub fn add_member(&mut self, account_id: AccountId) {
         self.assert_council();
-        require!(!self.members.contains_key(&account_id), "already a member");
-        self.members.insert_new(
-            account_id,
-            Member { joined_at: env::block_height(), ..Default::default() },
+        // T1: `try_insert` is the existence check and the insert in one index read.
+        require!(
+            self.members
+                .try_insert(account_id, Member { joined_at: env::block_height(), ..Default::default() })
+                .is_ok(),
+            "already a member"
         );
     }
 
@@ -133,18 +136,21 @@ impl Dao {
         let id = self.next_id;
         self.next_id += 1;
         member.proposals.insert(id);
-        self.proposals.insert_new(id, Proposal { proposer, description, votes: Default::default() });
+        self.proposals
+            .try_insert(id, Proposal { proposer, description, votes: Default::default() })
+            .expect("proposal id reused");
         id
     }
 
     /// Revision 3: `at_mut` reaches `votes` without reading the proposal record (or the
-    /// member's), and `insert` returning `bool` is the double-vote check.
+    /// member's), and `try_insert` is the double-vote check (T1: it writes nothing when the
+    /// voter already voted; `require!(votes.insert(..))` had already overwritten).
     pub fn vote(&mut self, id: ProposalId, vote: Vote) {
         let voter = env::predecessor_account_id();
         require!(self.members.contains_key(&voter), "members only");
         // D7: `at_mut` returns `Option`, so the existence check is the `expect`.
         let p = self.proposals.at_mut(&id).expect("no such proposal");
-        require!(p.votes.insert(voter.clone(), vote), "already voted");
+        require!(p.votes.try_insert(voter.clone(), vote).is_ok(), "already voted");
         self.members.at_mut(&voter).expect("members only").votes.insert(id);
     }
 
@@ -240,6 +246,23 @@ fn keys() -> std::collections::BTreeSet<Vec<u8>> {
     testing::store().into_keys().collect()
 }
 
+/// T4: keys present now and not in `before` must all be headers of maps that emptied after a
+/// removal: a header key (kind `03`) holding `len = 0` and a nonzero revision (12 bytes). The
+/// header keeps the revision so it never resets; it goes only with the record owning the map.
+fn assert_only_emptied_headers(before: &std::collections::BTreeSet<Vec<u8>>) -> usize {
+    let store = testing::store();
+    let new: Vec<_> = store.keys().filter(|k| !before.contains(*k)).collect();
+    for k in &new {
+        let v = &store[*k];
+        assert!(
+            k.last() == Some(&3) && v.len() == 12 && v[..4] == [0, 0, 0, 0],
+            "leaked a key that is not an emptied map's header: {k:?} = {v:?}"
+        );
+    }
+    assert!(before.iter().all(|k| store.contains_key(k)), "a pre-existing key was removed");
+    new.len()
+}
+
 // ---------------------------------------------------------------------------------------
 
 #[test]
@@ -316,9 +339,9 @@ fn finalize_counts_and_removes() {
     let (out, _) = call("council.near", |c| c.finalize(pid));
     assert_eq!(out, Outcome::Passed);
     assert!(view(|c| c.get_proposal(pid)).0.is_none());
-    // Everything the proposal created is gone, except the root (next_id changed).
-    let after = keys();
-    assert_eq!(after, before, "leaked: {:?}", after.difference(&before).collect::<Vec<_>>());
+    // Everything the proposal created is gone, except the root (next_id changed) and (T4) the
+    // headers of the maps it emptied: `proposals`, and a's and b's `votes`/`proposals` sets.
+    assert_eq!(assert_only_emptied_headers(&before), 4);
     assert_eq!(view(|c| c.member_open_proposals(id("a.near"))).0, 0);
 }
 
@@ -353,9 +376,9 @@ fn remove_member_cleans_up_proposals_and_votes() {
     call("a.near", |c| c.vote(pa, Vote::Yes));
     call("council.near", |c| c.finalize(pa));
     call("council.near", |c| c.add_member(id("b.near")));
-    // Back to the starting key set: nothing orphaned anywhere.
-    let after = keys();
-    assert_eq!(after, before, "leaked: {:?}", after.difference(&before).collect::<Vec<_>>());
+    // Back to the starting key set: nothing orphaned anywhere. T4: the maps that emptied keep
+    // their header (revision); b's record was removed, so b's sets left nothing behind.
+    assert_eq!(assert_only_emptied_headers(&before), 4);
 }
 
 #[test]
@@ -388,14 +411,13 @@ fn vote_op_counts() {
     // (`at_mut` reuses them from the cache). writes: 4 for the votes Map entry, 4 for the
     // member's Set entry. Before revision 3: (7, 8, 0) + 1 has_key, reading both records.
     //
-    // API round D9: `at_mut` must see the clearing flag, which lives in the record bytes, so
-    // it reads the record (no decode) instead of `storage_has_key`. The vote now reads both
-    // records again: (7, 8, 0), 1 has_key (the `members.contains_key` check), and the
-    // proposal's 2,000-byte description is back in the read bytes. This is the cost the
-    // in-record flag buys; see PROTOTYPE_NOTES "API round (Oct 17)".
-    assert_eq!(r.rwd(), (7, 8, 0));
-    assert_eq!(r.has_keys(), 1);
-    assert!(r.read_bytes() > 2_000, "read {} bytes", r.read_bytes());
+    // API round 2 (D9, flag key): a record being cleared lives at its flag key with its record
+    // key absent, so `at_mut` on a present record stays 1 `storage_has_key` and reads nothing.
+    // (The in-record `00 00` flag had made this (7, 8, 0) + 1 has_key, rereading the 2,000-byte
+    // description.) Back to the revision-3 numbers.
+    assert_eq!(r.rwd(), (5, 8, 0));
+    assert_eq!(r.has_keys(), 2);
+    assert!(r.read_bytes() < 2_000, "read {} bytes: the proposal is not read", r.read_bytes());
 }
 
 /// D7: `at_mut` on an absent record is `None` instead of creating orphan children.

@@ -665,7 +665,7 @@ This round brings the prototype in line with the settled decisions in `decisions
 | D3 | `GroupedMap` (with `Group`, `GroupMut`) is `#[doc(hidden)]` with a deferral note. There is no `#[deprecated]`, because the NFT test still uses it and the attribute would spray warnings there. It is gone from the module docs and from the derive and `CHECK` messages. Exchange is rewritten to `markets: Map<MarketId, Market>`, and `proto-wasm-check` carries the same text. | `markets_place_and_cancel`, `market_record_scalars_and_orders`, `opening_a_market_twice_panics`, `cancel_in_an_absent_market_panics`, `place_off_tick_panics` |
 | D4 | No code change: the prototype already preserved unknown tags and dropped only `reserved` ones. | `unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped`, `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes` |
 | D5 | Under `unit-testing`, `env::storage_usage()` panics when the v2 cache has unflushed changes (any slot not Clean). The message points at `storage_delta()`. New `Receipt::storage_delta()` and `testing::storage_delta()`, using key + value + 40 per record (`STORAGE_RECORD_OVERHEAD`). Removes now record `replaced_len = Some(old)` when the key existed. | `storage_usage_inside_a_v2_mutating_method_panics`, `storage_delta_is_the_post_flush_storage_change` (ft; the mock delta equals the mocked blockchain's `storage_usage` delta, and unregister returns it) |
-| D6 | `insert` always overwrites and requires `V: Leaf`. `Leaf` is a new trait: a blanket over Borsh, and derived with HRTB bounds when no field owns storage, the same trick as `Removable`. New `insert_new(k, v) -> &mut V` requires `V: Record` and panics if the key is present. `Map::insert -> bool`, `LookupMap::insert -> ()` with no existence read. The rejected call is E0277 with the fix in the note. | `compile_fail,E0277` doctest plus the passing fix on `LookupMap::insert`; `insert_new_returns_the_bound_record`, `insert_always_overwrites_a_leaf_record`, `insert_new_over_existing_record_panics` |
+| D6 | (Superseded in part by API round 3, T1 and T7, below.) `insert` always overwrites and requires `V: Leaf`. `Leaf` is a new trait: a blanket over Borsh, and derived with HRTB bounds when no field owns storage, the same trick as `Removable`. New `insert_new(k, v) -> &mut V` requires `V: Record` and panics if the key is present. `Map::insert -> bool`, `LookupMap::insert -> ()` with no existence read. The rejected call is E0277 with the fix in the note. | `compile_fail,E0277` doctest plus the passing fix on `LookupMap::insert`; `insert_new_returns_the_bound_record`, `insert_always_overwrites_a_leaf_record`, `insert_new_over_existing_record_panics` |
 | D7 | `at_mut(&k) -> Option<NameAtMut>` on `Map` and `LookupMap`. The DAO `vote` lost its `contains_key` check (the `expect` is the check). | `at_mut_on_an_absent_record_is_none` (lib and DAO), `vote_on_absent_proposal_panics`, `set_balance_on_an_absent_account_panics` |
 | D8 | `page`, `page_with`, `keys_page` and `Set::page` return `Result<_, CursorGone>`. `CursorGone: AsRef<str>`, so a `#[handle_result]` view returns it as is; the Exchange `balances` does, and the wasm32 check covers that wrapper. The offset-paging skip is documented on `Map::page`. | `page_with_removed_cursor_returns_cursor_gone`, `offset_paging_skips_a_key_after_a_removal_behind_the_offset`, `balances_with_a_removed_cursor_is_cursor_gone` |
 | D9 | `Map/LookupMap::remove_some(&k, n) -> bool` (true while entries remain) removes a record in bounded steps. New `Removable::clear_children_some(path, &mut budget)`, which the derive emits. While a clear is unfinished, the record bytes start with the clearing flag, and `get_mut`, `entry` and `at_mut` on that record panic; `get` and `at` still read. Format decision: the flag is `00 00` (tag 0, length 0, first). | `clear_across_two_calls_refuses_an_interleaved_insert`, `writes_below_a_clearing_record_panic_in_the_same_call`, `clear_that_fits_in_one_call_writes_no_flag` (exchange); `remove_some_budgets_across_calls`, `clearing_flag_is_a_leading_empty_tag_zero` (lib) |
@@ -690,6 +690,8 @@ This round brings the prototype in line with the settled decisions in `decisions
   - Reconciled Oct 17: `remove_some(&k, n)` stays. It sits on the same receiver as `Map::clear()`, so the doc and `docs/storage-v2-spec.md` adopt it and record the choice in Open questions.
 
 ### Cost change the designer must see (D9)
+
+Superseded by "API round 2 (Oct 17, flag key)" below: the flag moved to its own key and these costs are reverted.
 
 The flag lives in the record bytes, which `storage_has_key` cannot see. So `at_mut` now does 1 read of the record (no decode) instead of 1 `storage_has_key`. Every `at_mut` path has +1 read and −1 has_key, and pays the record's bytes:
 
@@ -720,6 +722,322 @@ Alternatives:
 - The deployed-ABI `storage diff` checks: D2's hard fail on a newly added `required` tag, and D4's build error on tag reuse.
 - An on-chain `env::storage_delta()`.
 - A trybuild `.stderr` snapshot for D6. The doctest checks E0277 only; the message text is quoted in the doctest's comments.
+
+## API round 2 (Oct 17, flag key)
+
+The designer's decision: the `remove_some` clearing flag leaves the record's bytes and becomes a separate key beside the record, checked by existence, so that `at_mut` is back to one existence check with no read and no decode. Branch `proto/storage-v2-d9`, from `proto/storage-v2` at 77f63c76.
+
+### Key layout
+
+The flag key is the record's key plus one byte, `00`:
+
+```text
+flag_key := record_key 00
+markets[7] record: F0 04 00 h16(7) 07000000      23 bytes
+markets[7] flag:   F0 04 00 h16(7) 07000000 00   24 bytes
+```
+
+- **Not a field below the record:** `00` is tag 0 as a LEB128 varint, which no `#[key]` may use (`Path::field(0)` asserts), and every other tag's varint starts with a nonzero byte.
+- **Not a sibling entry:** map keys are prefix-free Borsh behind their own hash, so no `h16(k') borsh(k')` equals `h16(k) borsh(k) 00`.
+- **Sorted beside its record:** it comes right after the record key and before every child, so the flush stays in key order.
+- **Within 2,048 bytes:** it is one byte longer than the record key and shorter than any key below the record. A record that owns collections always has a longer child, so the derive's 2,048-byte sum already covers it, and `Path::checked` asserts at runtime too.
+
+In code it is `key::FLAG_SEGMENT` and `Path::flag()`, with the layout in the `key.rs` module docs and `docs/storage-v2-spec.md` (Keys are paths from the root, the Flag row). Record bytes carry no flag any more. `record::CLEARING_FLAG`, `record::is_clearing` and the `parse` skip are gone, so tag 0 in a record is `TagZero` again, `00 00` included.
+
+### Existence-check scheme: the record moves to the flag key
+
+A `storage_has_key` returns one bit, and `at_mut` has to tell three states apart: absent, present, being cleared. One check on the common path is only possible if "record key present" by itself means "not being cleared". So while a clear is unfinished the record's bytes, unchanged, live at the flag key and the record key is absent. This is a step past "a flag key beside the record": the record relocates for the duration of the clear. It is the option the decision called folding the check into the key already checked.
+
+- **Hit at the record key:** present and not clearing. `at_mut`, `get_mut` and `entry` pay nothing for D9, so their costs equal those before D9 existed.
+- **Miss at the record key, for a map value that owns storage (`MAX_SUBPATH > 0`):** consult the flag key. `get`, `entry`, `remove`, `replace` and `remove_some` read it, because they need the bytes. `contains_key`, `insert_new` and `at_mut` check its existence. Leaves, `Vector` slots and `Lazy` never consult it.
+- **Flush:** `Clearing::Set` writes the encoding to the flag key and removes the record key. A record loaded from the flag key and then replaced (`Clearing::Cleared`) writes the record key and removes the flag key. A delete removes whichever key holds the record. A blind delete (`discard`, a bulk `clear` of a map of records) removes both, because a nested record may itself be mid-clear.
+- **Refusals:** `LookupMap::insert_new` over a clearing record panics with "is being cleared" (new, free: the slot knows). `Map::insert_new` still says "record exists", because the index is still there.
+
+The rejected alternative keeps the record at its key and checks the flag key on every write that hits an existing record. That gives `at_mut` 2 checks, and adds 1 check to `get_mut` and `entry` on existing records: a repeat `deposit`, `place`, `fill` and `cancel` would each pay it, and DAO `vote` would be 4 checks. Moving the record instead charges misses, which are mostly record creation and happen once per record.
+
+### Before and after, in reads, writes, removes + existence checks
+
+| Method | Before D9 (rev 3) | Flag in record (round 1) | Flag key (now) |
+| --- | --- | --- | --- |
+| Exchange `set_balance` | (2,1,0) + 1 | (3,1,0) + 0 | **(2,1,0) + 1** |
+| Exchange `cancel` | (5,3,3) + 1 | (6,3,3) + 0 | **(5,3,3) + 1** |
+| Exchange `cancel` of an unknown order | not recorded | (3,0,0) + 0 | **(2,0,0) + 1** |
+| Exchange `fill` | not recorded | (3,1,0) + 0 | **(2,1,0) + 1** |
+| DAO `vote` | (5,8,0) + 2 | (7,8,0) + 1 | **(5,8,0) + 2**, proposal not read (< 2,000 bytes read) |
+| lib `at_mut` + insert below (`Map<u32, Account>`) | not recorded | (3,4,0) + 0 | **(2,4,0) + 1** |
+| Exchange first `deposit` (new account) | (5,8,0) | (5,8,0) | **(6,8,0)**: the flag key read on the account miss |
+| Exchange `new_seeded` init | (2,5,0) | (2,5,0) | **(3,5,0)** |
+| lib first `deposit` into a `LookupMap` record | (4,6,0) | (4,6,0) | **(5,6,0)** |
+| `LookupMap::insert_new` of a record | 1 check + 1 write | same | **2 checks** + 1 write |
+| `at_mut` on an absent record | 1 check | 1 read | **2 checks** |
+| bulk `clear` / `clear_some` / `discard` of a map whose values own collections | 3 removes per entry | same | **4 removes per entry**: the flag key, blind |
+| repeat `deposit`, `open_market`, `place`, FT, NFT, DAO finalize and remove_member | unchanged | unchanged | unchanged |
+
+The DAO finalize (33,0,44), remove_member (29,3,40), nft_transfer (8,8,3) and nft_burn (10,2,17) counts printed by the suites are identical at 77f63c76 and now. Every op-log assertion above is exact in the test suites: `state_v2_exchange`, `state_v2_dao` and the lib `state::tests`.
+
+Clearing, per call: 1 record read (2 once flagged), the clearing work, then on the first unfinished call 1 remove (record key) + 1 write (flag key), and on the finishing call 1 remove of the flag key. A flagged record stakes 1 more key byte.
+
+### Example and doc
+
+- Exchange `Market` gets `#[key(4, default = true)] open: bool,        // added later; older records read as open` in both `proto-wasm-check/src/lib.rs` and `near-sdk/tests/state_v2_exchange.rs`. The struct block and the five spec methods are byte-identical between the two. Its one use is in the test file's `place`, outside the printed block: `assert!(m.open, "market closed")`, plus a `halt_market` helper. Test: `market_open_defaults_to_true_for_an_old_record`, where a record seeded without tag 4 reads as open and a halted market refuses an order.
+- The `set_balance` comment, "writes below the record without reading it: one existence check, no decode", is accurate again under the flag key: measured (2,1,0) + 1 check. So it is unchanged, and the spec's caveat that it was stale is removed.
+- `docs/storage-v2-spec.md`:
+  - Keys: a Flag row in the segment table, and a paragraph with the `markets[7]` example.
+  - Cost table: the `LookupMap` `get` and insert columns, and the `Map` insert-new column.
+  - Bounded clearing: rewritten.
+  - "`at_mut` is one existence check": replaces "`at_mut` reads the record", with the before/after table.
+  - Two ways to write; the API-round paragraph; the prototype test counts.
+  - Exchange listing: the `open` line.
+  - Open questions: the `at_mut` row is decided.
+
+### New tests
+
+- `flag_key_is_the_record_key_plus_a_zero_byte` (key).
+- `tag_zero_is_rejected_even_leading_and_empty` (record), replacing `clearing_flag_is_a_leading_empty_tag_zero`.
+- `flag_key_is_dropped_by_replace_remove_and_discard` (lib). It also covers `insert_new` and `entry` refusing a clearing record, and `Map::iter` yielding it.
+- `market_open_defaults_to_true_for_an_old_record` (exchange).
+- Rewritten: `clear_across_two_calls_refuses_an_interleaved_insert`, `clear_that_fits_in_one_call_writes_no_flag` and `remove_some_budgets_across_calls` now assert that the record key is absent and the flag key holds the unchanged bytes, and that a one-call clear never touches the flag key. The interleaved-insert refusals and the `get` mid-clear are as before.
+
+### Deliberately not done
+
+- No flag check at the flush. It would still be one host call per record, only later.
+- No change to `get`/`at` semantics mid-clear. `get` still returns the record, which is why a `get` miss on a map value that owns storage pays the flag-key read. Making `get` return `None` mid-clear would remove that read, but iteration would then meet an indexed key with no entry.
+- `entry` and `get` read the flag key on a miss rather than checking its existence. The bytes are needed for `get` and for a continuing `remove_some`, and one shared path keeps the cache simple. A miss is 1 read of an absent key, not a `storage_has_key`.
+- No migration path for records written with the old `00 00` prefix. The prototype never shipped. Such a record fails closed with `TagZero` on `get`, `get_mut` and `entry`, but **not** on `at_mut`, which only checks the record key (review F2; corrected in API round 3): storage written by earlier prototype builds must be reset.
+- No change to `Map::insert_new`'s message mid-clear ("record exists" from the index). Telling it apart would cost a host call.
+- The Claude Doc is not touched; it syncs from this section and the spec.
+
+### Test counts (end of round 2)
+
+- Lib: 573 (571 + 2 new; the record test was renamed).
+- Doctests: 344.
+- `state_v2_exchange`: 35. `state_v2_ft`: 16. `state_v2_nft`: 17. `state_v2_dao`: 15. `state_v2_migrate`: 5.
+- ft-v2 example: 16 migration plus 1 nested_trap.
+- `proto-wasm-check`: wasm32 check passes, with no warnings.
+
+## API round 3 (Oct 17)
+
+This round applies round-2 decisions T1 to T7 from `decisions-oct17-round2.md` on branch `proto/storage-v2-d9` (from 386d70e2), one commit per decision, then the four fixes from the independent D9 review (`codex-d9-review.md`, F1 to F4) and the `flag_key` bounds check. T8 waits on an audit and T9 to T11 are doc-only; none of them was acted on. `docs/storage-v2-spec.md` carries the same changes in place and a round-3 table under Rollout.
+
+### T1: `insert` overwrites, `try_insert` is first-write-wins
+
+- `Map::insert -> bool` is `#[must_use]`, with a message naming `try_insert` and `let _ = ..`. `LookupMap::insert -> ()` is unchanged.
+- `insert_new` is renamed `try_insert(k, v) -> Result<&mut V, Occupied>` and has no `V: Record` bound, so it exists for leaves too. Collection-owning records still have no `insert` (the `compile_fail,E0277` doctest stays, its note now names `try_insert`).
+- **Chosen where the decision is silent.** The handle is `&mut V`, as `insert_new` returned. `Occupied` is a unit struct with `Debug`, `Display`, `Error` and `AsRef<str>` (like `CursorGone`). It does not hand the value back: `Result::expect` needs `E: Debug`, and records do not derive `Debug`, so `try_insert(..).expect("..")` would stop compiling for exactly the types that need it. A record being cleared is `Err(Occupied)` on `Map` (its index is still there, as before) and still a panic ("is being cleared") on `LookupMap`.
+- **Costs.** `Map::try_insert` = `Map::insert`: 1 index read, then 1 header read + 4 writes for a new key; an existing key costs the index read and nothing else. `LookupMap::try_insert` is 1 `storage_has_key` + 1 write for a leaf (`insert` is 1 write), and 2 checks + 1 write for a collection-owning record (unchanged from `insert_new`). An occupied key never reads the stored value.
+- **Call sites.** DAO `add_member` drops its `contains_key` (`require!(members.try_insert(..).is_ok(), "already a member")`), DAO `vote` is `require!(p.votes.try_insert(..).is_ok(), "already voted")`, NFT `nft_mint` drops its `contains_key`, and Exchange `open_market` is `try_insert(..).expect("market exists")`. No DAO or NFT op-log assertion covers `add_member` or `nft_mint`, so no count changed; each saves 1 `storage_has_key`.
+- **The Exchange listing changed:** `set_balance` discards the bool on purpose, so its line is now `let _ = self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);` in the spec, `proto-wasm-check` and `state_v2_exchange.rs`. Every other ignored `Map::insert` in the tests got `let _ =` (43 sites, plus one in `Migrating::insert`); the wasm32 check has no warnings.
+- Tests: `try_insert_returns_the_bound_record`, `try_insert_over_existing_record_is_occupied` (was `insert_new_over_existing_record_panics`; asserts (1,0,0), the index only), `try_insert_on_leaf_values_keeps_the_first_write` (new).
+
+### T2: accessor names stay, the rule is written down
+
+No code change. The spec's "`at` walks, `get` reads, `at_mut` writes below" paragraph now opens with the rule: `at*` is path arithmetic plus at most one existence check and never decodes; `get*` reads and decodes. It holds in the code as measured in round 2: `at` reads nothing, `at_mut` is 1 `storage_has_key` on a present record (2 on an absent record that owns collections, the D9 flag key, which is still "at most one" per key looked at but two host calls; the spec's cost table states it).
+
+### T3: `remove_step(&k, n) -> Removal`
+
+- `Map::remove_some` and `LookupMap::remove_some` are renamed `remove_step(&k, n) -> Removal`, with `#[must_use] pub enum Removal { Pending, Done }` (exported from `state`; `Debug, Clone, Copy, PartialEq, Eq`, plus `Removal::is_done()`). The must-use message says `Pending` means "call again in a later call".
+- **Chosen where the decision is silent.** The `LookupMap` twin is renamed too, for one name. An absent record is `Done` (was `false`). The panic on a write below a clearing record now says "being cleared by `remove_step` ... until it returns `Removal::Done`". The Exchange test's `close_market` still returns `bool` to JSON (`== Removal::Pending`), so `Removal` needs no serde.
+- **The self-contradiction.** `docs/storage-v2-spec.md` was consistent ("`true` while entries remain" in both places); the contradiction the decision names is in the Claude Doc's appendix C, which this round does not touch. With an enum the direction cannot be misread.
+- No cost change. Tests: `remove_step_budgets_across_calls` (renamed) and the clearing tests now assert `Removal::Pending` / `Removal::Done`.
+- Superseded wording: "`remove_some`" in the API round and round 2 sections above is the old name.
+
+### T4: `revision` on every page
+
+- `Page` and `KeyPage` gain `pub revision: u64`; `Map::revision()` (and on an `At<Map>` view) reads it. It comes from the map header, which every page reads already for the length, so pages cost the same reads as before (`page_revision_changes_only_across_a_removal` asserts header + 2 slots + 2 entries).
+- The header is now `collections::MapHeader { len: u32, revision: u64 }`, with its own `Value` impl: the bare little-endian `u32` (the old 4-byte header) while `revision == 0`, and 12 bytes (`len ++ revision`) after. A map that never had a removal is byte-identical to before. `Vector` keeps its bare `u32` header.
+- **Is the header already written on every removal? Almost.** `remove`/`discard` (via `remove_inner`), `clear_some` and the bounded clear all call `set_len_at`, but `set_len_at(.., 0)` *removed* the header. A counter that dies when the map empties resets to 0, so a page taken before the map emptied and one taken after it was refilled could carry equal revisions with removals in between. I kept the counter alive instead: the call that empties a map now **writes** the header (`len = 0`, revision kept) where it used to remove it. Same number of host calls (a write in place of a remove), but the header key stays staked: key + 12 + 40 bytes, per emptied map, until the record owning the map is removed (`Removable::clear_children[_some]` for `Map` now deletes the header, so removing a record still leaves nothing below it). The alternative, removing the header and documenting that revisions reset on empty, is one line to switch back to if the designer prefers no persistent empty headers.
+- Bumps: `remove_inner` +1 per removal; `clear_some` +1 per call that removes anything (it now returns early when there is nothing to remove, instead of rewriting the same length); the bounded clear +1 per entry (one write at the flush either way); `push_key` keeps it.
+- **Op-count changes (all from the empty-map header):**
+  - lib `itermap_remove_last_key_has_no_moved_key`, emptying: (3,0,4) → (3,1,3). `grouped_map_groups_are_independent_itermaps`, last entry of a group: (3,0,4) → (3,1,3).
+  - lib `bounded_clear`: the map ends with its header (len 0, revision 3) instead of no keys. `itermap_remove_cost_is_independent_of_neighbor_value`: the largest value a host call moves is the 12-byte header (was ≤ 8).
+  - DAO `finalize` with 5 votes: (33,0,44) → (33,7,37), the 5 voters' `votes` sets, the proposer's `proposals` set and the root `proposals` map each emptying. `remove_member`: (29,3,40) → (29,8,36): 5 removes become header writes, plus 1 more remove for the removed member's empty `votes` header that the earlier `finalize` left behind.
+  - DAO `finalize_counts_and_removes` / `remove_member_cleans_up_proposals_and_votes` and NFT `burning_the_last_token_empties_the_owner_group` asserted "no key left behind"; they now assert that the only new keys are emptied maps' headers (4, 4 and 2 of them: the NFT's are the root `tokens` map and alice's owner group, which, being a `GroupedMap` group, is never removed).
+  - Unchanged: every Exchange, FT and migration count, NFT `nft_transfer` (8,8,3) and `nft_burn` (10,2,17), and every 4-byte header byte count in tests (no removal had happened).
+- Tests: `page_revision_changes_only_across_a_removal` (new): two pages with only an insert between them have equal revisions; a removal changes it; emptying with `clear()` and re-inserting the cursor key still gives a different revision; the header is 12 bytes after a removal and 4 without; removing the owning record removes the emptied map's header.
+
+### T5: hash width stays 16; the storage comparison is in the spec
+
+No code change. The spec's "Entry hash width" paragraph now has the storage side: at 8 bytes a nested `Map` entry saves 40 B (16 in the value key and 16 in the index key, each holding two hashes, 8 in the key slot, which holds the parent's hash), about 400 NEAR per million entries at 1e19 yocto/byte, and the reasons 16 stays: the width can never be widened; birthday bound n²/2^65 at 8 bytes is 2.7e-8 at 1M and 0.027 at 1B; correctness never depends on the hash because the Borsh key follows it; trie-prefix grinding costs 2^b per hashed byte at either width.
+
+I checked the 40 B against `key.rs` rather than waiting on the audit: the value and index keys of `accounts[alice].balances[usdt]` are `F0 03 00 h(alice) borsh(alice) 02 {00|01} h(usdt) borsh(usdt)` (two hashes each), and the slot key is `F0 03 00 h(alice) borsh(alice) 02 02 u32` (one). The spec's existing 59 B vs 43 B for the value key is the same 16. The per-map header key (one hash) is per map, not per entry, so it is not in the 40.
+
+### T6: `default = expr` is const
+
+- The derive emits the default as a `const` item in the field's decode: `|| { const __KEY_DEFAULT: T = expr; __KEY_DEFAULT }`, spanned at `expr`. A non-const expression is one error at the expression: `error[E0015]: cannot call non-const function near_sdk::env::predecessor_account_id in constants` (checked by hand; the doctest checks the code). `default = true` on the Exchange `Market` is unchanged.
+- Tests: a `compile_fail,E0015` doctest (`default = env::predecessor_account_id()`) and a passing doctest (`default = DEFAULT_FEE` and `default = true`), both in the `state` module docs. The crate has no trybuild setup, so no `.stderr` snapshot.
+- **What broke, and what that means.** The D2 tests used `default = "treasury.near".parse().unwrap()`, `default = "owner.near".parse().unwrap()` and `default = vec![1, 2]`. None is const, and `AccountId` has no const constructor at all (it owns a `Box<str>`; `AccountIdRef::new_or_panic` is const but yields `&AccountIdRef`). They now use `String::new()`, a `const DEFAULT_TIERS: [u8; 2]`, and a `u16`. So under T6 a field of type `AccountId` (or any heap type with a non-empty default) added after the first write can only be `Option<T>`, which D2 said is never forced. Flagged in the spec's Open questions row. A fn-path escape hatch (`default_fn = path`) would answer it; not built, as the decision says.
+- No cost change: the const is materialised only when the tag is missing, as the closure was.
+
+### T7: positive value bound, `#[key(n, legacy)]`
+
+- **The trait** is `state::Value` (`near-sdk/src/state/value.rs`). The blanket `impl<T: BorshSerialize + BorshDeserialize> Value for T` is gone, and so are the same Borsh blankets on `Leaf`, `Removable`, `ViewField` and `ViewFieldMut`. All five are now blanket over a new public marker, **`BorshLeaf: BorshSerialize + BorshDeserialize + 'static`**, "an opaque leaf stored as its Borsh bytes". That is an explicit opt-in, not a Borsh blanket. It is implemented for `u8`..`u128`, `i8`..`i128`, `bool`, `()`, `String`, `AccountId`, `NearToken`, `Gas`, `PublicKey`, `json_types::{U64, U128, I64, I128, Base64VecU8}`, and `Vec<T>`, `Option<T>`, `[T; N]`, `BTreeMap<K, V>`, `BTreeSet<T>`, `(A, B)`, `(A, B, C)`, `(A, B, C, D)` of leaves. The marker keeps the change small: every byte encoding is what the Borsh blanket produced, and no op-log or byte count moved. (The coherence worry, a marker blanket overlapping the derive's `impl Value for Record`, does not arise: it is the same rule the Borsh blanket relied on, and the integration tests, ft-v2 and the wasm32 crate all compile.)
+- **Opt-in for user types: a separate `#[derive(Leaf)]`**, from `near_sdk::state` (a proc-macro derive in `near-sdk-macros`, re-exported beside the `Leaf` trait like serde's `Serialize`). It emits `impl BorshLeaf for T {}`. I chose it over reusing `#[near(storage)]`, which makes a tagged record with a `#[key]` on every field: `Order`, `Metadata`, `Vote`, `TokenMetadata` and the FT/NFT metadata stay Borsh-encoded with no tags, so the record derive would change their bytes. The test value types now carry `#[near(serializers = [borsh, ..])] #[derive(near_sdk::state::Leaf)]`; none of them is in the printed Exchange block, so the listing did not change for T7.
+- **`StorageKey` now requires `BorshLeaf`**, since map keys are stored as values in key slots. Every existing key type already qualifies.
+- **Chosen where the decision is silent.** `Option<T>` is a value for leaf `T` only. `Option<Record>` would overlap the marker blanket, and a record is not self-delimiting inside a tuple, so tuples are over leaves too. Neither was possible before (records were never Borsh), so nothing regresses. `BTreeMap`/`BTreeSet`/`near_sdk` types were added because they are common opaque values; `HashMap` was not.
+- **`#[key(n, legacy)]`** is new in the derive. It is root only: elsewhere it is a derive error ("only for fields of a `contract_state(layout = v2)` root"). It implies `required`, is exclusive with `default`, and is encoded and decoded with plain Borsh through `__private::{encode_legacy_field, legacy_field}`, outside `Value`, with no binding and no subpath. The bytes are identical to before, which `legacy_root_field_is_its_borsh_bytes_and_required` checks. The derive also rejects a v1 collection *name* at the root without `legacy` ("needs `#[key(n, legacy)]`"). Converted: ft-v2 `v2.rs` tags 1 and 2 (`FungibleToken`, `LazyOption`), `v3.rs` tag 2 (`LazyOption`), the ft-v2 `StatusV2` test root, `state_v2_migrate.rs` (`notes`), and the Exchange `legacy` module. `Migrating<V1, V2>` stays a v2 `Value` (`required`, not `legacy`).
+- **The error.** Both `Value` and `BorshLeaf` have the same `on_unimplemented`: "`T` is not a storage v2 value", with two notes (what is a value and the `#[derive(Leaf)]` opt-in; v1 collections only as `#[key(n, legacy)]` at the root, and "check for a `use near_sdk::store::..` shadowing a glob import"). It is noisy: the shadowed-`LookupMap` record reports 14 errors, 10 distinct diagnostics: 9 "is not a storage v2 value" (one spanned at the field type) and 1 "has no `Default`". When the bad type is a map's value (`Map<u64, Order>` without the derive), the message names the `Map`, not `Order`; the note still says what to do. The syntactic v1-name checks stay, because they fire first with a shorter message for qualified paths and catch the root case.
+- **What no longer compiles, and where it went:**
+  - ft-v2 `tests/nested_trap.rs` is deleted. Its `FungibleToken`-in-a-record case is a `compile_fail,E0277` doctest in `ft-v2/src/lib.rs`, next to a passing doctest of the same type as a `legacy` root field. Its `mod shadowed` case (`use near_sdk::store::LookupMap;` beside `use near_sdk::state::*;`) is a `compile_fail,E0277` doctest on `state::Value`. I checked both by hand: the `FungibleToken` case gives 9 errors, all "`FungibleToken` is not a storage v2 value"; the shadowed import gives the 14 above.
+  - Exchange `mod legacy`: the `User { notes: Notes }` record (a `store::LookupMap` behind a type alias, past the name check) and its two tests, `v1_leaf_nested_in_a_cached_record_writes_late_not_lost` and `removing_a_record_with_a_nested_v1_field_orphans_its_entries`, are gone; the alias trick is the second `compile_fail` doctest on `Value` (a Borsh struct holding a `collections::LookupMap`). New: `legacy_root_field_is_its_borsh_bytes_and_required`. Exchange: 35 → 34.
+- **Not done.** Nothing stops `#[derive(Leaf)]` or a hand-written `impl BorshLeaf` on a struct that holds a v1 collection; the derive cannot see inside the type. The docs say not to. No trybuild `.stderr` snapshot of the error text.
+- Superseded: the "Claim 4" findings above (a nested `FungibleToken` compiles, the shadowed import silently compiles as v1) and the `Removable` caveat about v1 collections being blanket-`Removable`.
+
+### Review fixes to the D9 flag key (`codex-d9-review.md`)
+
+**F1, reinsertion after a blind delete kept both keys (fixed).** Receipt 1 leaves a record mid-clear at its flag key. In receipt 2, `discard(k)` deletes without reading, so the slot's original state stays `Unknown`. Then `try_insert(k, v)` or `entry(k).or_default()` `put`s a new record, which turned the slot from Deleted to Dirty. The flush wrote the record key and, not knowing the flag key held anything, left it. Both keys stayed, and removing the replacement later brought the old record back from the flag key. Fix: a slot remembers `blind_delete` (a delete of a flaggable entry with `Unknown` original state), and a `put` does not clear it. At the flush, a written slot with that bit treats both keys as possibly occupied: it writes the key it belongs at and removes the other one. Cost: only that sequence pays, 1 remove (the flag key) on top of the write; a fresh `try_insert` with no delete before it pays nothing new. Test: `reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key`, across three receipts each, for `LookupMap::try_insert`, `LookupMap::entry().or_default()` and `Map::discard` + `Map::try_insert`. The `LookupMap::try_insert` and `Map` cases fail without the fix (checked by disabling it); the `entry` case goes through the same `put`.
+
+**F2, records with the old in-record `00 00` flag (documented, not guarded).** `get`, `get_mut` and `entry` reject such a record with `TagZero`, but `at_mut` only checks that the record key exists, so it permits writes below a record an earlier build was halfway through clearing. The round-2 note's "fails closed" was wrong for `at_mut`. A cheap guard does not exist: `at_mut`'s whole point is not reading the record, and the old flag is inside the bytes. A guard would cost the read the flag key was introduced to remove. So the notes and the spec now say storage written by earlier prototype builds must be reset. Test: `hazard_old_in_record_flag_passes_at_mut_but_fails_get` pins both halves (a write below via `at_mut` lands; `get` panics with `TagZero`).
+
+**F3, relocation re-encoded the record (fixed).** The first partial clear moved the record to its flag key by re-encoding the decoded value. That materialises `default = ..` fields missing from the stored bytes (an old `Market` gained `04 01 01`, 3 bytes), so the round-2 claims "its bytes, unchanged" and "one more staked key byte" were false in general. Fix: `set_clearing` on a record not modified in this call marks the slot `verbatim`, and the flush writes the stored bytes to the flag key unchanged. A `put` or `delete` clears the mark. A record changed earlier in the same call (via `get_mut` before `remove_step`) still moves as its new encoding, which is the change the caller made. The claims are now true as stated, with that qualifier in the spec. No op-count change. Tests: `clearing_moves_the_original_bytes_to_the_flag_key` (exchange: a market seeded without tag 4 keeps its exact 28 bytes at the flag key; it failed before the fix with `04 01 01` appended), and `replaced_then_flagged_record_relocates_the_new_value` (lib: `remove_step`, then `replace`, then `remove_step` again in one call relocates the replacement; it fails if the resets are removed). T6 does not change this: a const default still materialises on any ordinary rewrite (`get_mut` that changes the record); only the relocation is verbatim.
+
+**F4, the first partial clear flushed out of key order (fixed in code; the guarantee text is unchanged).** `flush_ops` for a record starting to clear emitted `Write(record_key ++ 00)` and then `Remove(record_key)`, a descending pair against "dirty keys once each in key order". It now emits the remove first. A record leaving the flag key (`replace`) already emitted `Write(record_key)` then `Remove(flag_key)`, and a blind delete `Remove(record_key)` then `Remove(flag_key)`, both ascending. Same op counts. Test: `partial_clear_flushes_in_key_order` (exchange) asserts that every write and remove of the first partial clear, root excluded, is in non-descending key order, and that the record key comes before its flag key. It failed before the fix.
+
+**`cache::flag_key` bypassed `Path::checked` (fixed).** Round 2 said the flag key's length "`Path::checked` asserts at runtime too". That was true of `Path::flag`, which only tests use, but the cache builds flag keys from raw key bytes, and that path had no check. Both now go through one helper, `key::flag_key_bytes`, which asserts the 2,048-byte limit. In practice the derive's schema sum already rules out an overlong flag key: a record that owns collections always has a longer child key. So the runtime check is a backstop, and now it really exists. Test: `flag_key_bytes_are_length_checked` (2,047-byte record key → 2,048-byte flag key; a 2,048-byte record key panics).
+
+### Op-count changes this round, in one place
+
+- **T1:** none asserted. DAO `add_member` and NFT `nft_mint` each drop 1 `storage_has_key` (the `contains_key` before the insert is gone); no test pins either. `LookupMap::try_insert` of a leaf is 1 check + 1 write where a blind `insert` is 1 write; that is the price of first-write-wins and is new API, not a change.
+- **T4:** the call that empties a map writes its header instead of removing it (same count, a write for a remove), and the header stays staked: key + 12 + 40 bytes per emptied map until its owning record is removed. DAO `finalize` (33,0,44) → (33,7,37); `remove_member` (29,3,40) → (29,8,36). Lib: emptying a map or group (3,0,4) → (3,1,3). Headers of maps that had a removal are 12 bytes, not 4.
+- **F1:** a reinsert after a blind delete of a flaggable record pays 1 more remove (the flag key), only in that sequence.
+- Checked and unchanged: clearing an empty map that never had a header (`remove_step` or `remove` of a record with an empty `balances`, `clear()` on an empty map) costs no header op, because the header read already knows it is absent (`clearing_an_empty_map_without_a_header_writes_nothing_for_it`: (2,0,1), (2,0,1), (1,0,0)).
+- **T2, T3, T5, T6, T7, F2, F3, F4, flag-key check:** no op-count change. F4 changes only the order of two ops.
+
+### Deliberately not done
+
+- T8 (generation-numbered handles / Miri aliasing) waits on its audit; T9 to T11 are doc-only and belong to the Claude Doc sync. The Claude Doc is not touched.
+- No serde for `Removal`. No `Set::revision()` (a `Set` page carries it). No `Option<Record>` and no tuples of records (T7 notes).
+- No fn-path default (`default_fn = path`); a later-added `AccountId` field is `Option<AccountId>` under T6.
+- No guard for old in-record `00 00` flags in `at_mut` (F2): it would cost the read the flag key exists to avoid.
+- No check that a `#[derive(Leaf)]` type holds no v1 collection, and no trybuild snapshots of the new errors. `#[derive(Leaf)]` adds no bounds on generic parameters, so a generic type that opts in writes its own `where T: BorshLeaf`.
+- The near-contract-sim runs (`proto-migration-sim`, `proto-gas`) were not rerun. The T4 header change alters the bytes of every map header after its first removal, so the sim's gas figures for removals could move by the 8 extra header bytes; the T7 and T1 changes do not touch encodings.
+
+### Test counts (end of round 3)
+
+- Lib: 580 (573 + `clearing_an_empty_map_without_a_header_writes_nothing_for_it`, `try_insert_on_leaf_values_keeps_the_first_write`, `page_revision_changes_only_across_a_removal`, `reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key`, `hazard_old_in_record_flag_passes_at_mut_but_fails_get`, `replaced_then_flagged_record_relocates_the_new_value`, `flag_key_bytes_are_length_checked`; two renamed).
+- Doctests: 346 merged (344 + the T6 const example + the T7 `#[derive(Leaf)]` example) plus 4 standalone `compile_fail` (D6 `insert`, T6 non-const default, T7 shadowed `store::LookupMap`, T7 Borsh struct holding a `collections::LookupMap`).
+- `state_v2_exchange`: 36 (35 − 2 nested-v1 tests + `legacy_root_field_is_its_borsh_bytes_and_required`, `clearing_moves_the_original_bytes_to_the_flag_key`, `partial_clear_flushes_in_key_order`). `state_v2_ft`: 16. `state_v2_nft`: 17. `state_v2_dao`: 15. `state_v2_migrate`: 5.
+- ft-v2 example: 16 migration; `nested_trap.rs` removed; 2 doctests (the `FungibleToken`-in-a-record `compile_fail` and the `legacy` root that compiles).
+- near-sdk-macros: 49.
+- `proto-wasm-check`: wasm32 check passes, no warnings.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
+
+## Audit round (Oct 17, Codex claims)
+
+Four claims from the Codex design review (`/tmp/storage-v2-review/codex-design-review.md`, A1, A2,
+A4, B) checked with executable tests on `proto/storage-v2-audit`, from `1661f6b5` (`77f63c76` plus
+the verify skeleton, which touches none of `cache`, `collections`, `record`, `migrating`). Behaviour
+is pinned, not fixed.
+
+Miri (nightly 2026-10-15) runs the UB traces. They are `#[cfg_attr(not(miri), ignore)]`, so plain
+`cargo test` skips them:
+
+```sh
+NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS="-Zmiri-ignore-leaks [-Zmiri-tree-borrows]" \
+  cargo +nightly miri test -p near-sdk --lib --features unstable,unit-testing -- state::tests::<name> --exact
+```
+
+`-Zmiri-ignore-leaks` is needed because slots are `Box::leak`ed until the flush. Miri stops at the first UB, so run one test at a time.
+
+| Claim | Verdict | Tests (commit) | Observed |
+|---|---|---|---|
+| A1 `cache::get` makes `&mut` on a shared lookup | **PARTIAL**: UB under Stacked Borrows, accepted under Tree Borrows; the "reallocate" part is refuted | `audit_a1_shared_ref_held_across_second_get_of_same_key`, `audit_a1_iter_refs_then_get_of_same_key`, `audit_a1_shared_ref_held_across_gets_of_other_keys` (`62978ddd`) | The traces compile: `Map::get(&self) -> Option<&V>`, so borrowck allows two overlapping lookups and there is no compile error to show. SB: "tag does not exist in the borrow stack" at the later use of the first `&V` (tests.rs:1306, and :1335 for `iter`). The tag was "invalidated by a Unique function-entry retag" at cache.rs:297, `(*p.as_ptr()).as_any_mut()`. TB: both pass, because nothing is written through the `&mut`. A `&V` held across 199 gets of *other* keys is clean under both models: slots and values are separate boxes, and the `BTreeMap` moves only `NonNull`s. |
+| A2 `mem::take` of a collection field: lost writes, no rebind panic | **PARTIAL**: the mechanism is wrong (no write is lost), but the class is real (UAF, orphans, D9 bypass) | `audit_a2_taken_field_handle_and_recreated_handle_stay_coherent`, `audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle` (Miri), `audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect`, `audit_a2_taken_handle_bypasses_remove_some_clearing_guard` (`e0b7486b`) | Collections are `Default` (`Unbound`), so `mem::take(&mut rec.balances)` compiles via `get_mut`, and via `at_mut` too (its fields are `&mut` handles in the arena). The taken handle stays `Bound`, and no panic fires. Both handles route through the same path-keyed cache slots, so each sees the other's writes and the flush writes all of them: **no lost write.** What breaks: (1) a `&V` from the taken handle, then an overwrite through the recreated one (`put` → `drop_value`, cache.rs:160), then a read of the `&V`. Miri reports use-after-free under SB and TB. (2) After `accounts.remove(&alice)`, the taken handle is not detached (only the left-behind one is), so `taken.insert` writes 4 orphan keys (entry, index, slot, header) under the removed path. A later `insert_new(alice, ..)` inherits them (`len 1`, `z = 9`). (3) After `remove_some(&alice, 0)` flags the record, `taken.insert` below it is accepted. The D9 guard checks the record path only in `get_mut`/`entry`/`at_mut`. Later `remove_some` calls still clear the added entry. Nothing blocks the escape at the type level: invariant 3 in cache.rs says single-handle-per-key is not type-enforced, and `__bound_at` is a public (doc-hidden) constructor. |
+| A4 `new_side()`/`old_side()` break the one-side invariant | **CONFIRMED** | `audit_a4_new_side_write_is_overwritten_by_migrate_batch`, `audit_a4_remove_after_new_side_write_resurrects_the_old_value`, `audit_a4_old_side_write_overwrites_the_new_value_at_the_next_batch` (`90fcc10c`, `state_v2_migrate`) | (1) `new_side().insert(tok0, buyer)` while v1 holds tok0: reads return `buyer` until the batch, then `owner(0)`, a lost update. (2) Same setup, then `remove(tok1)` returns `buyer`, and the next `get(tok1)` is `owner(1)`, resurrected through the fallback; the batch then makes it permanent. (3) Mirror: a stale value put back through `old_side()` after the key moved replaces the new value at the next batch. `migrate_batch`'s doc relies on exactly the invariant these accessors let a caller break. |
+| B gas and storage arithmetic | **CONFIRMED**, with one refinement | none (arithmetic from GAS_MEASUREMENTS.md, the spec and key.rs) | See below. |
+
+### B, the arithmetic
+
+- **(i) 138 Ggas "nested read".** It is `balance_of` − `noop_view` = 1.288 − 1.150 Tgas, a workload delta. By column: base 112.7 − 56.4 = 56.3, per-byte 2.1 − 0.1 = 2.0, sha256 9.6, wasm 44.5 − 20.4 = 24.1, other 946.4 − 899.8 = 46.6; total 138.6. The 46.6 of "other" is mostly the JSON argument and return value of the method, so it is a property of the method, not of the read. The read itself is ≈ 56.3 + 2.0 + 9.6 ≈ 68 Ggas plus ≈ 24 Ggas of wasm decode. The 89 Ggas "root read" is likewise `noop_view` − `ping`. Table 4 has no trie-node or load column; its residual equals the 172.9 Ggas load exactly, so reads there show 0 trie-node gas, consistent with flat storage.
+- **(ii) 0.527 Tgas `Map` premium** (100k keys + 100k accounts) = 1.855 − 1.328 Tgas. By column: storage base 425.9 − 120.6 = 305.3 (2 reads × 56.4 + 3 writes × 64.2 = 112.7 + 192.6), trie 148.2 − 36.5 = 111.7 (49 nodes), per-byte 6.5, sha256 10.3, wasm 36.7, other 57.1, load 0; total 527.6. So 0.305 + 0.112 + ~0.110 holds. The refinement: the ~0.110 remainder is mostly "other" (57, register/memory/exec) and wasm (37), and only 10 is hashing. The file's own one-line breakdown (line 97) omits the 6.5 Ggas per-byte term and sums to 522.
+- **Hash width, bytes.** key.rs puts one hash per `entry()` hop: `kind ++ h(k) ++ borsh(k)`. Slots are `kind ++ u32 LE` with no hash. Per `accounts[alice].balances[usdt]` entry: value key 59 B (2 hashes), index key 59 B (2 hashes), slot key 39 B (1 hash, the outer one). At 8 bytes instead of 16 that saves 16 + 16 + 8 = **40 B per entry**: staked bytes go from 115/103/87 = 305 to 99/87/79 = 265 (−13%). The header (35 B key, 1 hash) saves 8 B once per map, and the record key 8 B once per account. Cost: 40 B × 10⁶ entries × 10¹⁹ yoctoNEAR/B = 4 × 10²⁶ yocto = **400 NEAR per million entries**. For `LookupMap` (the value key only) it is 16 B, 160 NEAR per million. The GAS_MEASUREMENTS verdict "doesn't matter; keep 16" is a gas verdict only; the storage-stake side is not weighed anywhere.
+
+### Smallest fixes (not implemented)
+
+- **A1.** In `cache::get`, never form `&mut` for a lookup. Type-check through a shared borrow (`(&*p.as_ptr() as &dyn Any).type_id() == TypeId::of::<V>()`, or an `as_any(&self)` method) and return `p.cast::<V>()`. Every `&V` and `&mut V` then derives from the slot's raw pointer. `get_mut`'s `m(p)` stays sound, since it is still raw-derived. Do not use `NonNull::from(downcast_ref())`: that would make `get_mut` write through a shared-derived pointer.
+- **A2.** The escape cannot be closed at the type level while records hold owned handles: `mem::replace` and `mem::swap` work even without `Default`. Two runtime fixes, in order:
+  - Defer frees: `drop_value` in `put`/`delete` moves the old box to a per-call graveyard freed at the flush. That closes the UAF with no API change. A `&V` vs `&mut V` overlap across two handles is still an aliasing violation, though not a dangling read.
+  - The cache keeps the set of record paths removed or flagged clearing in this call, and `put`/`touch` under such a prefix panics. That closes the orphan writes and the D9 bypass within a call. An escaped handle cannot outlive the call except by deliberate statics.
+  - Longer term: `&mut Record` should not expose collection fields as owned values (`get_mut` returns a view, as `at_mut` does). Also make `__bound_at` crate-private, or rename it to say it is unsafe.
+- **A4.** `new_side()`/`old_side()` return `&V2`/`&V1`, or are removed. As defence in depth, `migrate_batch` skips keys already on the new side (1 extra read per moved key), and `remove` deletes from both sides (1 extra old-side remove).
+
+### Unsafe inventory
+
+The cache uses `unsafe` throughout, by design. cache.rs has 23 `unsafe` blocks, every slot or value deref (lines 146, 160, 198, 230, 235, 279, 287, 297, 314, 340, 356, 366, 380, 392, 401, 409, 414, 425, 435, 454, 474, 495, 515). collections.rs has 37 `unsafe` sites: the `r`/`m`/`arena_mut` helpers and their call sites. root.rs has one `unsafe fn get_record`. record.rs, migrating.rs, key.rs and value.rs have none.
+
+## API round 4 (Oct 17)
+
+Fixes for the audit findings A1, A2 and A4 (`/tmp/storage-v2-review/audit-results.md`), plus three small reversals of round 3, on `proto/storage-v2-d9`. One commit per item. The audit branch `proto/storage-v2-audit` (689c9ec4) was merged first. Its two conflicts were end-of-file appends (this file, `state/tests.rs`), and both sides are kept. Its tests were ported to round-3 names (`try_insert`, `remove_step -> Removal`) and to the D9 flag key: a clearing record lives at `rec ++ 00`, which `audit_keys_below` counts. The merge also brings the verify skeleton (`state/model.rs`, `state/verify/`, `bolero`, `cfg(kani)`), untouched here.
+
+### A1: no `&mut` on the read path
+
+- `Erased::as_any_mut` is gone; `Erased::as_any(&self)` replaces it. `cache::get` checks `is::<V>()` through a shared borrow and returns `p.cast::<V>()`, keeping the box's provenance. `cache::put` returns `p.cast()` too. Invariant 1 in `cache.rs` now says the read path forms no `&mut`.
+- The three `audit_a1_*` tests were `#[cfg_attr(not(miri), ignore)]`, not `cfg(miri)`-only. They are now plain `#[test]`: safe code that passes in `cargo test`, where it checks values only. The verdict is Miri's, and the header comment gives the command.
+- Miri (nightly, `-Zmiri-ignore-leaks`): 3/3 pass under Stacked Borrows (the same-key trace was UB at `cache.rs:297` before) and 3/3 under Tree Borrows. Miri's clock is virtual under isolation, so equal "finished in" times across models are expected; the wall times differ.
+
+### A2: escaped handles (`mem::take` on a record's collection field)
+
+- **(a) Use-after-free, fixed for overwrites and value-less deletes.** `cache::put` no longer frees the old value. It moves the box to a per-call `graveyard` that `free_slots` frees after the slots at the flush. The cache API is split: `delete` / `delete_entry` return nothing and bury the value; `take` / `take_entry` return it and are used only where the API hands the value back (`LookupMap::remove`/`replace`, `Map::remove`, `Vector::pop`/`swap_remove`). `Map::discard` now buries rather than drops. Invariant 2 in `cache.rs` is rewritten to match.
+- **Hole left on purpose:** a removal that *returns* the value must move it out of its box, so a `&V` from an escaped second handle still dangles after `remove`/`replace`/`pop`/`swap_remove` through the other handle. Closing it would mean re-decoding (or cloning) every returned value, compute on every remove, for a case only `mem::take` reaches.
+- Memory: values overwritten in a call stay allocated until its flush (a key overwritten 1,000 times in one call holds 1,000 boxes). Gas bounds the count.
+- **(b) Writes through a stale handle panic: generation numbers** (persona item 6), chosen over a per-call set of removed prefixes. A prefix set cannot tell an escaped handle from the fresh handles of a record re-inserted at the same key in the same call (`remove` then `try_insert`, or `replace`, then a write below). Either it refuses that legitimate sequence, or it re-allows the prefix and with it the escaped handle.
+  - `Binding::Bound(Path, u64)` carries the epoch the handle was last known live at, stamped by `bind_slot` and `__bound_at`. A manual `Debug` keeps the output `Map(Bound(..))`.
+  - A thread-local `EPOCH: Cell<u64>` is never reset, not even by `install_host`. `Cache::record_gone(key)` bumps it and logs `(epoch, key)` for the call. It is called by `delete_impl` when `V::MAX_SUBPATH > 0` (so `Map`/`LookupMap` remove/discard/replace/clear of records, `Lazy<Record>::remove` and nested clears all count) and by `set_clearing` (`remove_step` returning `Pending`). The log is cleared at the flush.
+  - Every `&mut self` method of `LookupMap`, `Map`, `Vector`, `Lazy` and `GroupedMap::group_mut` (28 sites) starts with `self.path.live()`. `Set`/`LookupSet` delegate. `cache::check_live` returns at once if the stamp equals the epoch. Otherwise it scans the log backwards, only entries newer than the stamp, for a key that is a strict byte prefix of the handle's path. A hit panics ("belongs to a record that was removed or started `remove_step` clearing in this call after this handle was made"); a miss moves the stamp to now.
+  - **Per-op cost:** one thread-local load and one `u64` compare per write while no removal happened since the handle last checked. After a removal, one scan of the new log entries per handle, so each entry is scanned at most once per handle. Prefix soundness rests on the key layout: map keys are prefix-free behind their hash, and tags are prefix-free LEB128. No host-call change.
+  - Reads are not checked: `get`/`at` of a clearing record are allowed, and a cached record decoded before `remove_step` in the same call still reads its maps.
+  - Scope: removals in the current call. A handle surviving into a later call is impossible in a contract (the root is decoded per call) and is not covered. `__bound_at` (doc-hidden, public) mints fresh handles and can bypass the check.
+- Tests:
+  - `audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle` is no longer ignored and asserts the `&V` still reads 1. New: `audit_a2_ref_from_taken_handle_survives_discard_through_recreated_handle`.
+  - `audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect` and `audit_a2_taken_handle_bypasses_remove_some_clearing_guard` keep their names but now assert the panic with `catch_unwind`. The first also checks `get_mut`, `entry`, `remove` and `clear`. Both then assert nothing is orphaned: 0 keys below the removed record and a recreated alice is empty; and after clearing, no `late` entry and 0 keys left.
+  - New: `audit_a2_remove_then_reinsert_then_write_below_in_one_call` (also through `remove_step` → `Done` → `entry().or_default()`) and `audit_a2_unrelated_removal_does_not_refuse_other_handles`.
+  - Miri: 7/7 under both models.
+
+### A4: `Migrating` sides
+
+- `new_side(&self) -> &V2`, `old_side(&self) -> &V1`. The migrate flow needs no mutable accessor, but the A4 tests must break the rule on purpose, and v2 operations `Migrating` does not forward need a way in. So the mutable ones exist under names that say what they do: `new_side_mut_unchecked()` and `old_side_mut_unchecked()`. Their docs say they bypass the one-side rule and what still holds if they break it.
+- `migrate_batch` moves through a new `MigrationTarget::target_try_insert`: an old entry whose key is already on the new side is dropped, not moved. It costs nothing for a `Map` target (`try_insert` = `insert`: the index read decides) and +1 `storage_has_key` per entry for a `LookupMap` target.
+- `remove` deletes from both sides. A key on the old side costs what it did. A key on the new side pays 1 old-side remove more: `TreeMap`'s `contains_key` read (no tree walk), 1 `storage_remove` for a v1 `LookupMap`, a deferred `set(None)` for `store::LookupMap`.
+- The three `audit_a4_*` tests keep their names and now assert the fixed behaviour: the newer value survives the batch (`new_side().len() == N`), no resurrection after `remove`, and a stale old-side write is dropped and gone from the old side. They set up the broken state through the `*_unchecked` accessors.
+
+### T1, partly reversed
+
+`Map::insert`'s bool is not `#[must_use]` (the `HashMap`/`HashSet` precedent); the rustdoc says so. `try_insert`'s `Result` is unchanged. The Exchange `set_balance` line is again `self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);` in the spec, `proto-wasm-check` and `state_v2_exchange.rs`. Every listing line in the spec matches both copies; the test file's `use` line differs, as before. The 43 `let _ =` round 3 added at other test sites are harmless and stay.
+
+### T6, loosened
+
+- `default = expr` stays const-only. New: `#[key(n, default_fn = path)]`. The derive emits `let __key_default_fn: fn() -> T = path;`, spanned at the path, then calls it in the decode closure. So a wrong signature is E0308 at the path, and a closure or call is a derive error ("`default_fn` takes a path to a `fn() -> T`, not an expression"); both were checked by hand. `default_fn` is exclusive with `default`, `required` and `legacy`.
+- Documented loudly in the `state` rustdoc and the spec: called on every decode where the tag is absent, until some other change rewrites the record; must be pure. A `get_mut`/`entry` writes the tag at the flush, because the re-encoding differs.
+- The D2 tests are back to D2's types: `Defaults { treasury: AccountId (default_fn = default_treasury), tiers: Vec<u8> (default_fn = default_tiers) }` and `SlimV2Default { owner: AccountId (default_fn = default_owner) }`, with the original assertions. The `DEFAULT_TIERS` const is gone.
+- **Spec.** There was no separate Open questions row about forced `Option`: round 3 had appended that caveat to the D2 "Fields without `Default`" row. I removed the caveat and named `default_fn` in the row, so it again reads "never a forced `Option`". The "Two new attributes" paragraph, the Permanent layout bullet and the derive-error bullet now mention `default_fn`.
+- New doctests: a passing `default_fn` example with an `AccountId`, and a `compile_fail` closure (no error code: a derive error has none).
+
+### T2 wording
+
+The spec's rule sentence now says `at*` is "path arithmetic plus at most two existence checks, never decodes". `at` makes none; `at_mut` makes one on a present record and two on an absent record that owns collections.
+
+### Op-count changes this round
+
+- One: `Migrating::remove` of a key already on the new side, with a v1 `TreeMap` old side, goes from (4,1,3) to (5,1,3), +1 read. New test: `remove_of_a_moved_key_also_removes_on_the_old_side`, which replays the round-3 path by hand for the "before".
+- `migrate_batch` into a `LookupMap` target would pay +1 `storage_has_key` per entry; no test or example uses one.
+- Unchanged: every lib, Exchange, FT, NFT, DAO, migrate and ft-v2 count. A1, A2, T1, T2 and T6 add no host calls; A2 adds the in-memory epoch compare.
+
+### Deliberately not done
+
+- No proxy view types for `get_mut`/fields (the audit's longer-term fix). No duplicate-handle detection without a removal: two live handles to one path still coexist, coherent through the shared cache.
+- The value-returning-removal UAF hole (A2(a) above).
+- Cross-call stale handles; `__bound_at` as a bypass.
+- Reverting round 3's other `let _ =` sites; a trybuild snapshot of the `default_fn` errors.
+- The Claude Doc; the near-contract-sim gas runs (no encoding changed).
+
+### Test counts (end of round 4)
+
+- Lib: 591 passed, 1 ignored (`promise::tests::test_yielded_promise_can_chain_then`, pre-existing). That is 580 + 7 merged audit tests in their ported form (3 A1, 4 A2), all un-ignored + 4 new A2 tests.
+- Doctests: 347 merged (+ the `default_fn` example), 7 ignored; 5 standalone `compile_fail` (+ the `default_fn` closure).
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 9 (5 + 3 audit A4 + `remove_of_a_moved_key_also_removes_on_the_old_side`).
+- ft-v2 example: 16 migration + 2 doctests. near-sdk-macros: 49 (+1 doctest, 4 ignored).
+- `proto-wasm-check`: wasm32 check passes, no warnings.
+- Miri (`-Zmiri-ignore-leaks`), 10 audit lib tests: 10/10 under Stacked Borrows, 10/10 under Tree Borrows.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
 
 
 ## Soundness round (Oct 17)

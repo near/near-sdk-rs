@@ -6,7 +6,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, CursorGone, Lazy, LookupMap, Map, Page};
+use near_sdk::state::{ContractState, CursorGone, Lazy, LookupMap, Map, Page, Removal};
 use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
@@ -14,6 +14,7 @@ pub type MarketId = u32;
 pub type OrderId = u64;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq)]
 pub struct Order {
     pub price: u128,
@@ -21,6 +22,7 @@ pub struct Order {
 }
 
 #[near(serializers = [borsh])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Default)]
 pub struct Metadata {
     pub name: String,
@@ -51,6 +53,7 @@ pub struct Market {
     #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
     #[key(2)] tick_size: u128,
     #[key(3)] next_order_id: OrderId,
+    #[key(4, default = true)] open: bool,        // added later; older records read as open
 }
 
 #[near]
@@ -114,19 +117,22 @@ impl Exchange {
 
     // ---- extra methods for the tests ----
 
-    /// D6: a record that owns collections goes in with `insert_new` (plain `insert` does not
+    /// D6/T1: a record that owns collections goes in with `try_insert` (plain `insert` does not
     /// compile for `Market`).
     pub fn open_market(&mut self, market: MarketId, tick_size: U128) {
-        self.markets.insert_new(market, Market { tick_size: tick_size.0, ..Default::default() });
+        self.markets
+            .try_insert(market, Market { tick_size: tick_size.0, ..Default::default() })
+            .expect("market exists");
     }
 
     /// Scalars and collections of one record together: `get_mut` reads the record.
     pub fn place(&mut self, market: MarketId, order: Order) -> OrderId {
         let m = self.markets.get_mut(&market).expect("no such market");
+        assert!(m.open, "market closed");
         assert_eq!(order.price % m.tick_size, 0, "price off tick");
         let id = m.next_order_id;
         m.next_order_id += 1;
-        m.orders.insert(id, order);
+        let _ = m.orders.insert(id, order);
         id
     }
 
@@ -143,10 +149,15 @@ impl Exchange {
         o.qty.into()
     }
 
-    /// D9: removes a market in bounded steps, at most `n` orders per call. `true` while orders
-    /// remain; meanwhile the market refuses new orders.
+    /// D9/T3: removes a market in bounded steps, at most `n` orders per call. `true` while
+    /// orders remain (`Removal::Pending`); meanwhile the market refuses new orders.
     pub fn close_market(&mut self, market: MarketId, n: u32) -> bool {
-        self.markets.remove_some(&market, n)
+        self.markets.remove_step(&market, n) == Removal::Pending
+    }
+
+    /// Stops new orders in a market without removing it.
+    pub fn halt_market(&mut self, market: MarketId) {
+        self.markets.get_mut(&market).expect("no such market").open = false;
     }
 
     pub fn set_fee(&mut self, fee_bps: u16) {
@@ -220,9 +231,10 @@ fn deposit_balance_of_and_pagination() {
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(
         r.rwd(),
-        (5, 8, 0),
-        "root, account entry + header, usdt entry + header reads; account entry, index, slot, \\
-         header and usdt entry, index, slot, header writes (`accounts` is a `Map` since D3)"
+        (6, 8, 0),
+        "root, account entry + flag key (D9: a miss consults it) + header, usdt entry + header \\
+         reads; account entry, index, slot, header and usdt entry, index, slot, header writes \\
+         (`accounts` is a `Map` since D3)"
     );
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(r.rwd(), (3, 1, 0));
@@ -262,13 +274,14 @@ fn markets_place_and_cancel() {
         assert_eq!(id, i as u64);
     }
     let (_, r) = call("alice.near", |c| c.cancel(7, 0));
-    // root, market record (D9: `at_mut` reads its bytes for the clearing flag, no decode);
-    // orders entry, index, header, last slot reads; moved slot + index + header writes;
-    // 3 removes.
-    assert_eq!(r.rwd(), (6, 3, 3));
-    assert_eq!(r.has_keys(), 0);
+    // root; orders entry, index, header, last slot reads; moved slot + index + header writes;
+    // 3 removes. The market is 1 existence check (`at_mut`), not read: a record being cleared
+    // (D9) lives at its flag key, so a present record key means "not being cleared".
+    assert_eq!(r.rwd(), (5, 3, 3));
+    assert_eq!(r.has_keys(), 1);
     let (_, r) = call("alice.near", |c| c.cancel(7, 99));
-    assert_eq!(r.rwd(), (3, 0, 0), "cancelling an unknown order: root, market bytes, entry read");
+    assert_eq!(r.rwd(), (2, 0, 0), "cancelling an unknown order: root, entry read");
+    assert_eq!(r.has_keys(), 1, "the market's existence");
     let (n, _) = view(|c| c.markets.at(&7).orders.len());
     assert_eq!(n, 2);
 }
@@ -292,12 +305,83 @@ fn market_record_scalars_and_orders() {
     });
     let (left, r) = call("alice.near", |c| c.fill(7, 1, U128(4)));
     assert_eq!(left.0, 16);
-    assert_eq!(r.rwd(), (3, 1, 0), "root, market bytes (D9, not decoded), order; order write");
+    assert_eq!(r.rwd(), (2, 1, 0), "root, order; order write (the market is not read)");
+    assert_eq!(r.has_keys(), 1, "the market's existence");
     let (m, _) = view(|c| {
         let m = c.markets.get(&7).unwrap();
         (m.tick_size, m.next_order_id)
     });
     assert_eq!(m, (5, 2));
+}
+
+/// D2: `#[key(4, default = true)] open` on `Market`. A market record written before the field
+/// existed (no tag 4) reads as open; a halted market refuses orders.
+#[test]
+fn market_open_defaults_to_true_for_an_old_record() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(1)));
+    let key = market_key(7);
+    let stored = testing::store()[&key].clone();
+    let fields = near_sdk::state::record::parse(&stored).unwrap();
+    assert!(fields.iter().any(|(t, _)| *t == 4), "a new market writes tag 4");
+    // a record from before tag 4: tick_size only
+    let mut w = near_sdk::state::record::RecordWriter::new();
+    w.push(2, borsh::to_vec(&1u128).unwrap());
+    testing::seed(&key, &w.finish(None, |_| true));
+    assert!(view(|c| c.markets.get(&7).unwrap().open).0, "missing tag 4 reads as `true`");
+    call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+
+    call("owner.near", |c| c.halt_market(7));
+    let msg = panics(|| {
+        call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+    });
+    assert!(msg.contains("market closed"), "{msg}");
+}
+
+/// Review F3: moving a record to its flag key moves its stored bytes, not a re-encoding. A
+/// market record from before tag 4 (`open`, `default = true`) keeps its exact bytes at the
+/// flag key; re-encoding would materialise `04 01 01` (3 more staked bytes).
+#[test]
+fn clearing_moves_the_original_bytes_to_the_flag_key() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(1)));
+    for _ in 0..3 {
+        call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+    }
+    let key = market_key(7);
+    // the record as an older build wrote it: tick_size and next_order_id, no tag 4
+    let mut w = near_sdk::state::record::RecordWriter::new();
+    w.push(2, borsh::to_vec(&1u128).unwrap());
+    w.push(3, borsh::to_vec(&3u64).unwrap());
+    let old = w.finish(None, |_| true);
+    testing::seed(&key, &old);
+
+    let (more, _) = call("owner.near", |c| c.close_market(7, 1));
+    assert!(more);
+    let flagged = testing::store()[&market_flag_key(7)].clone();
+    assert_eq!(flagged, old, "the stored bytes moved verbatim: no `04 01 01`");
+    assert!(view(|c| c.markets.get(&7).unwrap().open).0, "still reads as open");
+}
+
+/// Review F4: the flush is in key order, the root last. The first partial clear removes the
+/// record key and writes its flag key (one byte longer, so it sorts right after): the remove
+/// must come first.
+#[test]
+fn partial_clear_flushes_in_key_order() {
+    market_with_orders(4);
+    let (key, flag) = (market_key(7), market_flag_key(7));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 2));
+    assert!(more);
+    let flushed: Vec<&Vec<u8>> = r
+        .ops
+        .iter()
+        .filter(|o| matches!(o.kind, testing::OpKind::Write | testing::OpKind::Remove))
+        .map(|o| &o.key)
+        .filter(|k| k.as_slice() != [0xF0])
+        .collect();
+    assert!(flushed.windows(2).all(|w| w[0] <= w[1]), "flush out of key order: {flushed:?}");
+    let pos = |k: &Vec<u8>| flushed.iter().position(|x| *x == k).unwrap();
+    assert!(pos(&key) < pos(&flag), "record key removed before its flag key is written");
 }
 
 #[test]
@@ -309,7 +393,7 @@ fn place_off_tick_panics() {
 }
 
 #[test]
-#[should_panic(expected = "record exists")]
+#[should_panic(expected = "market exists")]
 fn opening_a_market_twice_panics() {
     init("owner.near");
     call("owner.near", |c| c.open_market(7, U128(5)));
@@ -324,13 +408,21 @@ fn market_key(m: MarketId) -> Vec<u8> {
     near_sdk::state::Path::root(0xF0).field(4).kind(0).entry(&m).as_bytes().to_vec()
 }
 
+/// D9: the market's clearing flag key, its record key plus one `00` byte.
+fn market_flag_key(m: MarketId) -> Vec<u8> {
+    near_sdk::state::Path::root(0xF0).field(4).kind(0).entry(&m).flag().as_bytes().to_vec()
+}
+
 fn keys_under(prefix: &[u8]) -> usize {
     testing::store().keys().filter(|k| k.starts_with(prefix)).count()
 }
 
 fn panics(f: impl FnOnce()) -> String {
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).expect_err("should panic");
-    e.downcast_ref::<String>().cloned().unwrap_or_default()
+    e.downcast_ref::<String>()
+        .cloned()
+        .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default()
 }
 
 fn market_with_orders(n: u64) {
@@ -343,8 +435,8 @@ fn market_with_orders(n: u64) {
     });
 }
 
-/// D9: a two-call clear with an interleaved insert. Call 1 clears 2 of 4 orders and leaves
-/// the clearing flag (`00 00`) at the front of the market record. Between the two clear calls,
+/// D9: a two-call clear with an interleaved insert. Call 1 clears 2 of 4 orders and moves the
+/// market record to its clearing flag key (record key + `00`). Between the two clear calls,
 /// every write path into the market panics (`get_mut` via `place`, `at_mut` via `cancel`,
 /// `entry`), while `get` still reads it. Call 2 finishes: the market and all its keys are gone,
 /// and a new market at the same id starts clean.
@@ -352,23 +444,25 @@ fn market_with_orders(n: u64) {
 fn clear_across_two_calls_refuses_an_interleaved_insert() {
     market_with_orders(4);
     let key = market_key(7);
+    let flag = market_flag_key(7);
+    assert_eq!(flag.len(), key.len() + 1);
     let before = testing::store()[&key].clone();
-    assert!(!near_sdk::state::record::is_clearing(&before));
+    assert!(!testing::store().contains_key(&flag));
 
     let (more, r) = call("owner.near", |c| c.close_market(7, 2));
     assert!(more, "2 orders remain");
-    let flagged = testing::store()[&key].clone();
-    assert_eq!(&flagged[..2], &[0x00, 0x00], "clearing flag first");
-    assert_eq!(&flagged[2..], &before[..], "the rest of the record is unchanged");
-    assert_eq!(flagged.len(), before.len() + 2, "the flag costs 2 bytes");
-    assert!(r.keys_written().contains(&key));
+    assert!(!testing::store().contains_key(&key), "the record key is absent while clearing");
+    let flagged = testing::store()[&flag].clone();
+    assert_eq!(flagged, before, "the record's bytes, unchanged, now at the flag key");
+    assert!(r.keys_written().contains(&flag));
+    assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::Remove && o.key == key));
     assert_eq!(view(|c| c.markets.at(&7).orders.len()).0, 2);
 
     // interleaved writes: all refused
     let msg = panics(|| {
         call("alice.near", |c| c.place(7, Order { price: 1, qty: 9 }));
     });
-    assert!(msg.contains("is being cleared by `remove_some`"), "{msg}");
+    assert!(msg.contains("is being cleared by `remove_step`"), "{msg}");
     let msg = panics(|| {
         call("alice.near", |c| c.cancel(7, 0));
     });
@@ -381,15 +475,16 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
     assert!(msg.contains("is being cleared"), "{msg}");
     // reads still work, and nothing was written by the refused calls
     assert_eq!(view(|c| c.markets.get(&7).map(|m| m.tick_size)).0, Some(1));
-    assert_eq!(testing::store()[&key], flagged);
+    assert_eq!(testing::store()[&flag], flagged);
+    assert!(!testing::store().contains_key(&key));
 
     let (more, _) = call("owner.near", |c| c.close_market(7, 2));
     assert!(!more, "finished");
-    assert_eq!(keys_under(&key), 0, "market record and every order key removed");
+    assert_eq!(keys_under(&key), 0, "market record, flag key and every order key removed");
     assert_eq!(view(|c| c.markets.len()).0, 0);
 
     call("owner.near", |c| c.open_market(7, U128(3)));
-    assert!(!near_sdk::state::record::is_clearing(&testing::store()[&key]));
+    assert!(testing::store().contains_key(&key) && !testing::store().contains_key(&flag));
     call("alice.near", |c| c.place(7, Order { price: 3, qty: 1 }));
 }
 
@@ -398,14 +493,16 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
 fn clear_that_fits_in_one_call_writes_no_flag() {
     market_with_orders(3);
     let key = market_key(7);
+    let flag = market_flag_key(7);
     let (more, r) = call("owner.near", |c| c.close_market(7, 3));
     assert!(!more);
     assert_eq!(keys_under(&key), 0);
+    assert!(r.ops.iter().all(|o| o.key != flag), "the flag key is never touched");
     assert!(r.ops.iter().all(|o| o.kind != testing::OpKind::Write || o.key != key));
     assert!(!call("owner.near", |c| c.close_market(7, 3)).0, "absent: done");
 }
 
-/// D9 in one call: after `remove_some` returns `true`, the same call cannot write below the
+/// D9 in one call: after `remove_step` returns `Pending`, the same call cannot write below the
 /// record either.
 #[test]
 #[should_panic(expected = "is being cleared")]
@@ -424,13 +521,8 @@ fn set_balance_writes_below_without_decoding_the_record() {
     init("owner.near");
     call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     let (_, r) = call("owner.near", |c| c.set_balance(alice(), "usdt".into(), U128(9)));
-    assert_eq!(r.has_keys(), 0);
-    assert_eq!(
-        r.rwd(),
-        (3, 1, 0),
-        "root, account bytes (D9: read for the clearing flag, not decoded), balances index; \\
-         entry write"
-    );
+    assert_eq!(r.has_keys(), 1, "the account's existence; the D9 flag key is not checked");
+    assert_eq!(r.rwd(), (2, 1, 0), "root, balances index; entry write (the account is not read)");
     assert_eq!(view(|c| c.balance_of(alice(), "usdt".into())).0.0, 9);
 }
 
@@ -463,7 +555,7 @@ fn oversized_key_panics_naming_the_limit() {
     init("owner.near");
     call("alice.near", |c| {
         let acct = c.accounts.entry(alice()).or_default();
-        acct.balances.insert("x".repeat(600), 1);
+        let _ = acct.balances.insert("x".repeat(600), 1);
     });
 }
 
@@ -509,7 +601,7 @@ fn uninitialized_contract_panics_on_required_field() {
 fn init_body_without_bind_panics_with_hint() {
     testing::use_mock();
     let mut c = Exchange::new("owner.near".parse().unwrap());
-    c.accounts.insert_new(alice(), Account::default());
+    c.accounts.try_insert(alice(), Account::default()).unwrap();
 }
 
 /// Item 12: `.bind()` in `#[init]` lets the body seed collections; the wrapper's write
@@ -520,9 +612,9 @@ fn init_with_bind_seeds_collections() {
     let c = Exchange::new_seeded("owner.near".parse().unwrap());
     c.state_write();
     let r = testing::receipt();
-    // or_default reads the entry and (absent) the header: 2 reads; entry, index, slot, header
-    // and root writes (`accounts` is a `Map` since D3)
-    assert_eq!(r.rwd(), (2, 5, 0));
+    // or_default reads the entry, its D9 flag key (the entry missed) and (absent) the header:
+    // 3 reads; entry, index, slot, header and root writes (`accounts` is a `Map` since D3)
+    assert_eq!(r.rwd(), (3, 5, 0));
     assert_eq!(r.ops.last().unwrap().key, vec![0xF0], "root last");
     let (n, _) = view(|c| c.accounts.get(&"owner.near".parse().unwrap()).map(|a| a.nonce));
     assert_eq!(n, Some(1));
@@ -581,6 +673,16 @@ fn required_field_added_later_fails_old_records() {
 // D2: `#[key(n, default = expr)]`, serde-style
 // ---------------------------------------------------------------------------------------
 
+// T6: `default = expr` is a const expression. A type with no const constructor (`AccountId`,
+// `Vec`) uses `default_fn = path` (API round 4), a `fn() -> T` called on every decode where the
+// tag is absent, so it must be pure. D2's "never a forced `Option`" holds again.
+fn default_treasury() -> AccountId {
+    "treasury.near".parse().unwrap()
+}
+fn default_tiers() -> Vec<u8> {
+    vec![1, 2]
+}
+
 #[near(storage)]
 pub struct Defaults {
     #[key(1)]
@@ -588,9 +690,9 @@ pub struct Defaults {
     #[key(2, default = 30)]
     fee_bps: u16,
     // No `Default` for AccountId, and no `required` or `Option` needed.
-    #[key(3, default = "treasury.near".parse().unwrap())]
+    #[key(3, default_fn = default_treasury)]
     treasury: AccountId,
-    #[key(4, default = vec![1, 2])]
+    #[key(4, default_fn = default_tiers)]
     tiers: Vec<u8>,
 }
 
@@ -645,8 +747,12 @@ fn key_required_still_decodes_and_fails_when_missing() {
 pub struct SlimV2Default {
     #[key(1)]
     nonce: u64,
-    #[key(2, default = "owner.near".parse().unwrap())]
+    #[key(2, default_fn = default_owner)]
     owner: AccountId, // added in v2 the right way
+}
+
+fn default_owner() -> AccountId {
+    "owner.near".parse().unwrap()
 }
 
 fn write_slim_v1(root: &near_sdk::state::Path) {
@@ -683,7 +789,7 @@ fn field_added_as_required_fails_an_old_record_naming_the_tag() {
 }
 
 // ---------------------------------------------------------------------------------------
-// v1 collections as leaf fields (item 9)
+// v1 collections at the root (item 9; T7: `#[key(n, legacy)]`)
 // ---------------------------------------------------------------------------------------
 
 mod legacy {
@@ -691,22 +797,16 @@ use super::*;
 
 #[near(contract_state(layout = v2, root = 0xF1))]
 pub struct Legacy {
-    #[key(1, required)]
+    // T7: a v1 collection is not a `Value`; at the root it is allowed only as `legacy`,
+    // stored as its Borsh bytes (the prefix). Nested in a record it no longer compiles: the
+    // round-2 tests `v1_leaf_nested_in_a_cached_record_writes_late_not_lost` and
+    // `removing_a_record_with_a_nested_v1_field_orphans_its_entries` (a `store::LookupMap`
+    // behind a type alias, past the name check) are now the `compile_fail` doctests on
+    // `near_sdk::state::Value`.
+    #[key(1, legacy)]
     old: near_sdk::store::LookupMap<u32, u32>,
     #[key(2)]
-    users: LookupMap<u32, User>,
-}
-
-// `notes: near_sdk::store::LookupMap<u32, u32>` is now rejected by the derive ("v1 collection
-// `LookupMap` inside a storage record"). A type alias slips past the name check: this is the
-// "best effort" hole, used here on purpose to exercise the drop-after-flush safety net.
-type Notes = near_sdk::store::LookupMap<u32, u32>;
-
-#[near(storage)]
-pub struct User {
-    // LookupMap has no Default, so the field must be `required`.
-    #[key(1, required)]
-    notes: Notes,
+    users: LookupMap<u32, u64>,
 }
 
 fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
@@ -731,6 +831,7 @@ fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
     testing::begin_call();
     let mut c = Legacy::state_read().unwrap();
     c.old.insert(1, 11);
+    c.users.insert(1, 5);
     c.state_write();
     let k = v1_key(b"o", 1);
     assert!(!env::storage_has_key(&k), "nothing written by the v2 flush");
@@ -738,49 +839,19 @@ fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
     assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
 }
 
-/// Item 9: nested in a record held by the v2 cache, a v1 field's write-on-drop now runs when
-/// the flush frees the cache slots: late (after the root) but not lost. Round 1: lost.
+/// T7: a legacy root field is encoded as its Borsh bytes, exactly as before `legacy` existed
+/// (the root bytes are unchanged), and a root without it is a decode error naming the tag.
 #[test]
-fn v1_leaf_nested_in_a_cached_record_writes_late_not_lost() {
+fn legacy_root_field_is_its_borsh_bytes_and_required() {
     setup();
+    let root = testing::env_store()[&vec![0xF1u8]].clone();
+    let prefix = near_sdk::borsh::to_vec(&near_sdk::store::LookupMap::<u32, u32>::new(b"o".to_vec())).unwrap();
+    let fields = near_sdk::state::record::parse(&root).unwrap();
+    assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(prefix));
+    env::storage_write(&[0xF1], &[]);
     testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    c.users.insert(1, User { notes: near_sdk::store::LookupMap::new(b"n1".to_vec()) });
-    c.state_write();
-    drop(c);
-
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    c.users.get_mut(&1).unwrap().notes.insert(5, 55);
-    let k = v1_key(b"n1", 5);
-    assert!(!env::storage_has_key(&k));
-    c.state_write();
-    assert!(env::storage_has_key(&k), "written when the flush dropped the cached record");
-    drop(c);
-}
-
-/// Against revision item 6 ("no leaf can orphan anything"): a nested v1 collection that slips
-/// past the name check is Borsh, hence blanket-`Removable`, so `remove` compiles and leaves
-/// the v1 entries behind with nothing pointing at them.
-#[test]
-fn removing_a_record_with_a_nested_v1_field_orphans_its_entries() {
-    setup();
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    let mut u = User { notes: near_sdk::store::LookupMap::new(b"n2".to_vec()) };
-    u.notes.insert(7, 77);
-    c.users.insert(2, u);
-    c.state_write();
-    drop(c);
-    let k = v1_key(b"n2", 7);
-    assert!(env::storage_has_key(&k));
-
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    assert!(c.users.remove(&2).is_some());
-    c.state_write();
-    drop(c);
-    assert!(env::storage_has_key(&k), "orphaned: the record is gone, its v1 entry is not");
+    let r = std::panic::catch_unwind(|| drop(Legacy::state_read()));
+    assert!(r.is_err(), "missing legacy tag 1 is an error, as `required`");
 }
 
 } // mod legacy
@@ -827,8 +898,8 @@ fn unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped() {
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
     let mut m: Map<u32, Slim> = Map::__bound_at(root.clone());
-    m.insert(1, Slim { nonce: 1 });
-    m.insert(2, Slim { nonce: 1 });
+    let _ = m.insert(1, Slim { nonce: 1 });
+    let _ = m.insert(2, Slim { nonce: 1 });
     testing::flush();
     let mut w = record::RecordWriter::new();
     w.push(1, near_sdk::borsh::to_vec(&1u64).unwrap());
@@ -888,7 +959,7 @@ fn hazard_reusing_a_removed_tag_resurrects_its_stale_bytes() {
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
     let mut v1: Map<u32, VaultV1> = Map::__bound_at(root.clone());
-    v1.insert(1, VaultV1 { nonce: 1, locked: 1_000 });
+    let _ = v1.insert(1, VaultV1 { nonce: 1, locked: 1_000 });
     testing::flush();
     testing::begin_call();
     let mut v2: Map<u32, VaultV2> = Map::__bound_at(root.clone());

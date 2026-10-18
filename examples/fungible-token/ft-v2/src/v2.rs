@@ -24,10 +24,10 @@ pub struct ContractV1 {
 #[near(contract_state(layout = v2))]
 pub struct Contract {
     /// v1, kept at the root: `collections::LookupMap` under prefix `[0]`, written through.
-    #[key(1, required)]
+    #[key(1, legacy)]
     pub token: FungibleToken,
     /// v1, kept at the root: `collections::LazyOption` under prefix `[1]`.
-    #[key(2, required)]
+    #[key(2, legacy)]
     pub metadata: LazyOption<FungibleTokenMetadata>,
     /// New in v2: how many `ft_transfer`s each account has sent since the upgrade.
     #[key(3)]

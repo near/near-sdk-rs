@@ -12,6 +12,7 @@ use near_sdk::{AccountId, NearToken, env, near, require};
 pub type TokenId = String;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct NftContractMetadata {
     pub spec: String,
@@ -20,6 +21,7 @@ pub struct NftContractMetadata {
 }
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct TokenMetadata {
     pub title: Option<String>,
@@ -83,8 +85,8 @@ impl Nft {
     /// Revision 3: `Lazy::new(metadata)` is written when `insert` places the record.
     pub fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId, metadata: TokenMetadata) {
         require!(env::predecessor_account_id() == self.owner, "owner only");
-        require!(!self.tokens.contains_key(&token_id), "token already exists");
-        self.tokens.insert_new(
+        // T1: `try_insert` checks and inserts in one index read.
+        let inserted = self.tokens.try_insert(
             token_id.clone(),
             Token {
                 owner_id: receiver_id.clone(),
@@ -93,7 +95,8 @@ impl Nft {
                 metadata: Lazy::new(metadata),
             },
         );
-        self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
+        require!(inserted.is_ok(), "token already exists");
+        let _ = self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
     #[payable]
@@ -103,7 +106,7 @@ impl Nft {
         require!(token.owner_id == env::predecessor_account_id(), "only the owner can approve");
         let id = token.next_approval_id;
         token.next_approval_id += 1;
-        token.approvals.insert(account_id, id);
+        let _ = token.approvals.insert(account_id, id);
         id
     }
 
@@ -134,7 +137,7 @@ impl Nft {
         // wrote; disjoint field borrows make this fine.
         // Revision 3: `remove` on a `()` value skips the entry read, so it costs `discard`.
         self.tokens_per_owner.group_mut(&old_owner).remove(&token_id);
-        self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
+        let _ = self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
     pub fn nft_burn(&mut self, token_id: TokenId) {
@@ -239,6 +242,23 @@ fn owned_ids(who: &str) -> Vec<TokenId> {
 
 fn keys() -> BTreeSet<Vec<u8>> {
     testing::store().into_keys().collect()
+}
+
+/// T4: keys present now and not in `before` must all be headers of maps that emptied after a
+/// removal: a header key (kind `03`) holding `len = 0` and a nonzero revision (12 bytes). The
+/// header keeps the revision so it never resets; it goes only with the record owning the map.
+fn assert_only_emptied_headers(before: &std::collections::BTreeSet<Vec<u8>>) -> usize {
+    let store = testing::store();
+    let new: Vec<_> = store.keys().filter(|k| !before.contains(*k)).collect();
+    for k in &new {
+        let v = &store[*k];
+        assert!(
+            k.last() == Some(&3) && v.len() == 12 && v[..4] == [0, 0, 0, 0],
+            "leaked a key that is not an emptied map's header: {k:?} = {v:?}"
+        );
+    }
+    assert!(before.iter().all(|k| store.contains_key(k)), "a pre-existing key was removed");
+    new.len()
 }
 
 // ---------------------------------------------------------------------------------------
@@ -352,7 +372,9 @@ fn burning_the_last_token_empties_the_owner_group() {
     mint("t1", "alice.near");
     call("alice.near", |c| c.nft_approve("t1".into(), id("m.near")));
     call("alice.near", |c| c.nft_burn("t1".into()));
-    assert_eq!(keys(), before);
+    // T4: the emptied `tokens` map and alice's emptied owner group keep their headers (the
+    // revision); the token record, its approvals and the group's entries are gone.
+    assert_eq!(assert_only_emptied_headers(&before), 2);
 }
 
 #[test]
@@ -439,7 +461,7 @@ fn setting_a_nested_lazy_before_insert_panics() {
             metadata: Default::default(),
         };
         t.metadata.set(TokenMetadata::default());
-        c.tokens.insert_new("t1".into(), t);
+        let _ = c.tokens.try_insert("t1".into(), t);
     });
 }
 

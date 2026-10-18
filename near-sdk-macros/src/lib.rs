@@ -664,6 +664,20 @@ fn get_where_clause(
     where_clause
 }
 
+/// Storage v2 (prototype, `near_sdk::state::Leaf`): opts a plain Borsh type into storage v2 as
+/// an opaque leaf, stored as its Borsh bytes. Emits `impl near_sdk::state::BorshLeaf`, from
+/// which `Value`, `Leaf` and `Removable` follow. The type must already be Borsh
+/// (`#[near(serializers = [borsh])]`) and must not hold a v1 collection.
+#[proc_macro_derive(Leaf)]
+pub fn derive_state_leaf(item: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    TokenStream::from(quote::quote! {
+        impl #impl_generics ::near_sdk::state::BorshLeaf for #name #ty_generics #where_clause {}
+    })
+}
+
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     match syn::parse::<Item>(item) {
