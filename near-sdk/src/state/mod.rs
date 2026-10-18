@@ -183,6 +183,15 @@ mod migrating;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests;
+/// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
+/// the oracle the `verify` harnesses compare the implementation against.
+#[cfg(feature = "unstable")]
+#[cfg(any(test, kani))]
+mod model;
+/// Bolero / Kani harnesses for the seven guarantees and the named bug classes.
+#[cfg(feature = "unstable")]
+#[cfg(any(test, kani))]
+mod verify;
 
 #[cfg(feature = "unstable")]
 pub use collections::{

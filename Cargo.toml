@@ -24,4 +24,4 @@ rust-version = "1.95"
 
 [workspace.lints.rust.unexpected_cfgs]
 level = "warn"
-check-cfg = ['cfg(near)']
+check-cfg = ['cfg(near)', 'cfg(kani)']
