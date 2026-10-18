@@ -98,9 +98,9 @@ pub enum Decl {
     Reserved,
 }
 
-/// Tags in the schema-evolution harness: 4 (random engine), 3 (Kani; 4 did not finish
-/// symbolic execution in 15 min).
-const TAGS: usize = if cfg!(kani) { 3 } else { 4 };
+/// Tags in the schema-evolution harness: 4 (random engine), 2 (Kani; 4 did not finish
+/// in 15 min, 3 did not finish in 30 min).
+const TAGS: usize = if cfg!(kani) { 2 } else { 4 };
 
 /// Schema evolution, the kernel the derive expands to. A record written by schema S1 (any
 /// subset of tags 1..=4, `u8` fields) is read by schema S2 (each tag Unknown, Default,
@@ -109,7 +109,7 @@ const TAGS: usize = if cfg!(kani) { 3 } else { 4 };
 /// rewrites the record (every known value + 1) merging the original bytes: unknown tags keep
 /// their exact bytes, reserved tags are dropped, known tags carry the new values. Reading the
 /// rewrite back with S1 (a rollback) sees its own unknown-to-S2 fields intact. Bound (Kani):
-/// all 2^3 written subsets x 5^3 schemas x u8 values (tags 1..=3). Random engine: 20,000 cases.
+/// all 2^2 written subsets x 5^2 schemas x u8 values (tags 1..=2). Random engine: 20,000 cases.
 #[test]
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(10))]
