@@ -25,3 +25,5 @@ pub mod g5_linear_iteration;
 pub mod g2_local;
 #[cfg(test)]
 pub mod g6_layout;
+#[cfg(test)]
+pub mod c7_m4_alias;

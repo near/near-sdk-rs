@@ -205,7 +205,7 @@ pub use collections::{Group, GroupMut, GroupedMap};
 #[cfg(feature = "unstable")]
 pub use key::{Path, StorageKey};
 #[cfg(feature = "unstable")]
-pub use migrating::{LegacyIterable, LegacyMap, MigrationTarget, Migrating};
+pub use migrating::{LegacyIterable, LegacyMap, MigrationTarget, Migrating, V1PrefixError, check_v1_prefix};
 #[cfg(feature = "unstable")]
 pub use record::RecordError;
 #[cfg(feature = "unstable")]

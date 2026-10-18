@@ -199,3 +199,87 @@ fn g6_derive_reserved_tag_dropped_on_rewrite_only() {
         assert_eq!(&*back.get(&1).unwrap(), &S1 { a: 9, b: vec![], ..s });
     });
 }
+
+// ---------------------------------------------------------------------------------------
+// C7 / M4: the migrate-time v1-prefix guard, wired (harnesses: src/state/verify/c7_m4_alias.rs)
+// ---------------------------------------------------------------------------------------
+
+mod m4 {
+    use near_sdk::state::testing;
+    use near_sdk::state::{ContractState, Map, Migrating, StateRead, StateWrite};
+    use near_sdk::store::LookupMap as V1LookupMap;
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::{env, near, testing_env};
+
+    #[near(contract_state(layout = v2))]
+    pub struct C {
+        #[key(1, required)]
+        pub m: Migrating<V1LookupMap<[u8; 1], u8>, Map<u8, u8>>,
+        #[key(2)]
+        pub n: u64,
+    }
+
+    fn fresh() {
+        testing_env!(VMContextBuilder::new().build());
+        testing::use_env_host();
+        testing::begin_call();
+    }
+
+    fn msg(e: Box<dyn std::any::Any + Send>) -> String {
+        e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default()
+    }
+
+    /// An empty v1 prefix or one starting with the root byte is rejected when the `Migrating`
+    /// field is written; a safe prefix (`b"s"`) is accepted and round-trips.
+    #[test]
+    fn c7_migrating_rejects_aliasing_v1_prefixes_on_write() {
+        for (prefix, ok) in [(vec![], false), (vec![0xF0], false), (vec![0xF0, 1], false), (b"s".to_vec(), true), (vec![0xF1], true)] {
+            fresh();
+            let r = std::panic::catch_unwind(|| {
+                let c = C { m: Migrating::new(V1LookupMap::new(prefix.clone())), n: 1 };
+                c.state_write();
+            });
+            match (ok, r) {
+                (true, Ok(())) => {
+                    testing::begin_call();
+                    assert_eq!(C::state_read().unwrap().n, 1);
+                }
+                (false, Err(e)) => {
+                    assert!(msg(e).contains("can alias v2 keys"), "prefix {prefix:02x?}");
+                    assert!(!env::storage_has_key(&[0xF0]), "a rejected migrate wrote the root");
+                }
+                (true, Err(e)) => panic!("safe prefix {prefix:02x?} rejected: {}", msg(e)),
+                (false, Ok(())) => panic!("aliasing prefix {prefix:02x?} accepted"),
+            }
+        }
+    }
+
+    /// A stored record whose `Migrating` v1 half has an empty prefix (written before the guard
+    /// existed) fails to LOAD, naming the reason, instead of silently aliasing.
+    #[test]
+    fn c7_migrating_rejects_an_aliasing_v1_prefix_on_load() {
+        fresh();
+        let mut w = near_sdk::state::record::RecordWriter::new();
+        w.push(1, near_sdk::borsh::to_vec(&V1LookupMap::<[u8; 1], u8>::new(vec![])).unwrap());
+        env::storage_write(&[0xF0], &w.finish(None, |_| true));
+        let r = std::panic::catch_unwind(|| C::state_read().map(|c| c.n));
+        assert!(msg(r.expect_err("loaded an aliasing layout")).contains("can alias v2 keys"));
+    }
+
+    /// The stated exception, pinned as a hazard: a v1 map NOT wrapped in `Migrating` (a v1
+    /// field kept beside the v2 root) is not checked. With an empty prefix and a `[u8; 1]`
+    /// key, a caller-chosen key `[0xF0]` overwrites the v2 root record.
+    #[test]
+    fn hazard_an_unwrapped_empty_prefix_v1_map_overwrites_the_v2_root() {
+        fresh();
+        let c = C { m: Migrating::new(V1LookupMap::new(b"s".to_vec())), n: 7 };
+        c.state_write();
+        drop(c);
+        let mut bare: V1LookupMap<[u8; 1], u8> = V1LookupMap::new(vec![]);
+        bare.set([0xF0], Some(0)); // `set` writes without reading the old value
+        bare.flush();
+        assert_eq!(env::storage_read(&[0xF0]).unwrap(), vec![0], "HAZARD: the v2 root was overwritten by a v1 entry");
+        testing::begin_call();
+        assert!(std::panic::catch_unwind(|| C::state_read().map(|c| c.n)).is_err(), "the contract no longer loads");
+    }
+}

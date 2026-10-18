@@ -16,6 +16,11 @@ pub trait ToKey: self::private::Sealed {
     /// Output type for the generated lookup key.
     type KeyType: AsRef<[u8]>;
 
+    /// `true` when every key is `prefix ++ borsh(key)` (no hashing), so the prefix alone
+    /// decides which storage keys the map can write (storage v2's migrate-time prefix guard).
+    #[doc(hidden)]
+    const RAW_PREFIX: bool = false;
+
     fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize;
@@ -64,6 +69,7 @@ pub enum Identity {}
 
 impl ToKey for Identity {
     type KeyType = Vec<u8>;
+    const RAW_PREFIX: bool = true;
 
     fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where

@@ -111,7 +111,7 @@ impl SPath {
     fn hops(&self) -> &[Hop] {
         &self.hops[..self.depth as usize]
     }
-    fn wf(&self) -> bool {
+    pub fn wf(&self) -> bool {
         let h = self.hops();
         h.iter().all(Hop::wf) && h.iter().rev().skip(1).all(Hop::value_position)
     }

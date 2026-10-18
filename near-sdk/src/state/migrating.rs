@@ -31,6 +31,48 @@ pub trait LegacyMap {
     fn legacy_get(&self, k: &Self::K) -> Option<Self::V>;
     /// Removes `k` if present, without returning the value where the type allows it.
     fn legacy_remove(&mut self, k: &Self::K);
+    /// The prefix every storage key of this v1 map starts with, if its keys are
+    /// `prefix ++ borsh(key)`. `None`: hashed keys (a 32-byte digest equals a v2 key only by a
+    /// preimage), or a composite v1 type whose prefix is not exposed (not checked; see
+    /// [`check_v1_prefix`]).
+    fn legacy_prefix(&self) -> Option<&[u8]> {
+        None
+    }
+}
+
+/// Why a v1 prefix can alias v2 keys (decision M4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum V1PrefixError {
+    /// An empty prefix: the v1 key is the caller's borsh bytes, so a caller-chosen key can
+    /// equal any v2 key (status-message's `LookupMap` has one).
+    Empty,
+    /// The prefix starts with the v2 root byte, so v1 keys share the v2 key space.
+    RootByte(u8),
+}
+
+/// M4's migrate-time guard: a v1 map with key prefix `prefix` is disjoint from every v2 key
+/// under root byte `root` if the prefix is non-empty and does not start with `root` (every v2
+/// key starts with `root`). Conservative: a rejected prefix need not alias in practice.
+/// Checked when a `Migrating` field is placed or loaded. A v1 field at the root that is not
+/// wrapped in `Migrating` is not checked (the stated exception).
+pub fn check_v1_prefix(prefix: &[u8], root: u8) -> Result<(), V1PrefixError> {
+    match prefix.first() {
+        None => Err(V1PrefixError::Empty),
+        Some(&b) if b == root => Err(V1PrefixError::RootByte(root)),
+        Some(_) => Ok(()),
+    }
+}
+
+fn guard_v1_prefix<V1: LegacyMap>(old: &V1, path: &Path) {
+    if let Some(p) = old.legacy_prefix() {
+        if let Err(e) = check_v1_prefix(p, path.as_bytes()[0]) {
+            crate::env::panic_str(&v1_prefix_error(e));
+        }
+    }
+}
+
+fn v1_prefix_error(e: V1PrefixError) -> std::string::String {
+    format!("Migrating: the v1 map's key prefix can alias v2 keys ({e:?}); give the v1 map a non-empty prefix whose first byte is not the v2 root byte")
 }
 
 /// A v1 map that can enumerate its keys, so `Migrating::migrate_batch` can drain it.
@@ -100,7 +142,7 @@ impl<V1, V2: Default> Migrating<V1, V2> {
 
 impl<V1, V2> Value for Migrating<V1, V2>
 where
-    V1: BorshSerialize + BorshDeserialize + 'static,
+    V1: LegacyMap + BorshSerialize + BorshDeserialize + 'static,
     V2: MigrationTarget,
 {
     // The v1 prefix is inline in the parent record; the v2 subtree hangs off the field path.
@@ -112,14 +154,25 @@ where
     }
 
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
-        let old = borsh::from_slice(bytes).map_err(|e| RecordError::Leaf(e.to_string()))?;
+        let old: V1 = borsh::from_slice(bytes).map_err(|e| RecordError::Leaf(e.to_string()))?;
+        if let Some(p) = old.legacy_prefix() {
+            check_v1_prefix(p, path.as_bytes()[0]).map_err(|e| RecordError::Leaf(v1_prefix_error(e)))?;
+        }
         let mut new = V2::default();
         new.bind(path);
         Ok(Migrating { old, new })
     }
 
     fn bind(&mut self, path: &Path) {
+        guard_v1_prefix(&self.old, path);
         self.new.bind(path);
+    }
+
+    // The flush calls this on every root field before writing anything, so a `migrate` body
+    // that installs an aliasing v1 map fails without a write.
+    fn __write_pending(&self, path: &Path) {
+        guard_v1_prefix(&self.old, path);
+        self.new.__write_pending(path);
     }
 
     fn detach(&mut self) {
@@ -222,6 +275,9 @@ mod legacy_collections {
         fn legacy_remove(&mut self, k: &K) {
             self.remove_raw(&borsh::to_vec(k).expect("borsh"));
         }
+        fn legacy_prefix(&self) -> Option<&[u8]> {
+            Some(self.key_prefix())
+        }
     }
 
     impl<K, V> LegacyMap for UnorderedMap<K, V>
@@ -303,6 +359,9 @@ mod store_collections {
         /// after the v2 flush).
         fn legacy_remove(&mut self, k: &K) {
             self.set(k.clone(), None);
+        }
+        fn legacy_prefix(&self) -> Option<&[u8]> {
+            self.raw_prefix()
         }
     }
 
