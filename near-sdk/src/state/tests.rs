@@ -97,6 +97,15 @@ where
         <u64 as Removable>::clear_children(&path.field(1));
         <Map<String, u128> as Removable>::clear_children(&path.field(2));
     }
+    fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        if !<u64 as Removable>::clear_children_some(&path.field(1), budget) {
+            return false;
+        }
+        if !<Map<String, u128> as Removable>::clear_children_some(&path.field(2), budget) {
+            return false;
+        }
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -749,7 +758,8 @@ fn missing_tag_reads_as_default() {
 #[should_panic(expected = "TagZero")]
 fn tag_zero_in_stored_record_panics() {
     testing::use_mock();
-    seed(&alice_record_key(), &[0x00, 0x00]);
+    // `00 00` alone is now the D9 clearing flag; a tag 0 with a body is still rejected.
+    seed(&alice_record_key(), &[0x00, 0x01, 0x05]);
     let ex: Ex = load_root();
     ex.accounts.get(&alice());
 }
@@ -1194,17 +1204,59 @@ fn page_with_maps_record_values() {
 }
 
 #[test]
-fn at_mut_writes_below_the_record_without_reading_it() {
+fn at_mut_writes_below_the_record_without_decoding_it() {
     testing::use_mock();
     let mut m: Map<u32, Account> = at(8);
     m.entry(1).or_default().nonce = 7;
     end_call();
     m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
     let r = end_call();
-    assert_eq!(r.has_keys(), 1, "existence check");
-    assert_eq!(r.rwd(), (2, 4, 0), "balances index + header reads, 4 writes; record not read");
+    assert_eq!(r.has_keys(), 0);
+    assert_eq!(
+        r.rwd(),
+        (3, 4, 0),
+        "D9: record bytes read (not decoded) for the clearing flag; balances index + header \
+         reads, 4 writes; the record is not rewritten"
+    );
     assert_eq!(m.get(&1).unwrap().balances.get(&"usdt".to_string()), Some(&5));
     assert_eq!(m.get(&1).unwrap().nonce, 7);
+}
+
+/// D9: `remove_some` budgets entries across nested maps: a record whose `balances` holds 5
+/// entries takes 3 calls at n = 2, the flag sits in the record until the last, and the outer
+/// map's key vector drops the key only then.
+#[test]
+fn remove_some_budgets_across_calls() {
+    testing::use_mock();
+    let mut m: Map<u32, Account> = at(15);
+    let a = m.entry(1).or_default();
+    for i in 0..5 {
+        a.balances.insert(format!("t{i}"), 1);
+    }
+    m.entry(2).or_default().nonce = 1;
+    end_call();
+    let rec = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
+    assert!(m.remove_some(&1, 2));
+    end_call();
+    assert!(record::is_clearing(&store()[&rec]));
+    assert_eq!(m.len(), 2, "still indexed while clearing");
+    end_call();
+    assert!(m.remove_some(&1, 2));
+    end_call();
+    assert!(!m.remove_some(&1, 2), "last entry, then the record");
+    end_call();
+    assert!(!store().contains_key(&rec));
+    assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
+    assert_eq!(m.len(), 1);
+    assert_eq!(m.key_at(0), Some(2));
+    let mut lm: LookupMap<u32, Account> = at(16);
+    lm.entry(1).or_default().balances.insert("a".into(), 1);
+    end_call();
+    assert!(lm.remove_some(&1, 0), "n = 0 clears nothing");
+    end_call();
+    assert!(!lm.remove_some(&1, 1));
+    end_call();
+    assert!(lm.get(&1).is_none());
 }
 
 /// D7: `at_mut` on an absent record is `None` (std convention), and creates nothing.
@@ -1216,6 +1268,6 @@ fn at_mut_on_an_absent_record_is_none() {
     let mut lm: LookupMap<u32, Account> = at(10);
     assert!(lm.at_mut(&9).is_none());
     let r = end_call();
-    assert_eq!(r.has_keys(), 2);
+    assert_eq!(r.reads(), 2, "D9: at_mut reads the record bytes (absent: 0 bytes)");
     assert_eq!(r.keys_written().len(), 0, "nothing created");
 }

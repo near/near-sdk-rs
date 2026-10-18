@@ -266,6 +266,7 @@ pub fn expand(
     let mut removable_bounds = Vec::new();
     let mut leaf_bounds = Vec::new();
     let mut clear = Vec::new();
+    let mut clear_some = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required, default } in &fields {
         let t = tag_lit(*tag);
@@ -295,6 +296,11 @@ pub fn expand(
         removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
         leaf_bounds.push(quote! { for<'__x> #ty: #s::Leaf, });
         clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
+        clear_some.push(quote! {
+            if !<#ty as #s::Removable>::clear_children_some(&path.field(#t), budget) {
+                return false;
+            }
+        });
     }
     let reserved_arms = opts.reserved.iter().map(|r| {
         let t = tag_lit(*r);
@@ -494,6 +500,10 @@ pub fn expand(
             impl #s::Removable for #name where #(#removable_bounds)* {
                 fn clear_children(path: &#s::Path) {
                     #(#clear)*
+                }
+                fn clear_children_some(path: &#s::Path, budget: &mut u32) -> bool {
+                    #(#clear_some)*
+                    true
                 }
             }
 

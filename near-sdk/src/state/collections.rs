@@ -76,14 +76,35 @@ fn set_len_at(header: &Path, n: u32) {
     }
 }
 
-/// `at_mut`: 1 `storage_has_key` unless cached; `None` if the record is absent (so it never
-/// creates children of a record that does not exist), reads nothing.
+/// `at_mut`: 1 read of the record's bytes (no decode) unless cached; `None` if the record is
+/// absent (so it never creates children of a record that does not exist). The read, rather
+/// than a `storage_has_key`, is what lets it see the D9 clearing flag; it panics on a record
+/// being cleared.
 #[track_caller]
 fn record_at_mut<'a, V: Record>(path: Path) -> Option<V::ViewMut<'a>> {
-    if !cache::exists(&path) {
-        return None;
+    let clearing = cache::record_state(&path)?;
+    if clearing && V::MAX_SUBPATH > 0 {
+        clearing_panic(&path);
     }
     Some(V::__view_mut(path))
+}
+
+#[track_caller]
+fn clearing_panic(path: &Path) -> ! {
+    panic!(
+        "state: the record at {path:?} is being cleared by `remove_some`; writes to it or below \
+         it are refused until clearing completes (call `remove_some` again until it returns \
+         false)"
+    )
+}
+
+/// D9: panics if the record at `path` (already read) is being cleared. Only a value that owns
+/// storage can be (a Borsh leaf may legitimately start with `00 00`).
+#[track_caller]
+fn assert_not_clearing<V: Value>(path: &Path) {
+    if V::MAX_SUBPATH > 0 && cache::is_clearing(path) {
+        clearing_panic(path);
+    }
 }
 
 /// Moves a bound handle into the per-call arena and returns `&'a mut` to it.
@@ -310,6 +331,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         let path = self.entry_path(k);
         let p = cache::get::<V>(&path)?;
+        assert_not_clearing::<V>(&path);
         cache::touch(&path);
         Some(unsafe { m(p) })
     }
@@ -421,6 +443,34 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         cache::delete::<V>(&path);
     }
 
+    /// Removes the record at `k` in bounded steps (D9): each call removes at most `n` entries
+    /// of the collections it owns, then the record itself once they are empty. Returns `true`
+    /// while entries remain (call again), `false` once the record is gone (or was absent).
+    ///
+    /// While entries remain the record carries the clearing flag (2 bytes, `00 00`, in its
+    /// record bytes), so `get_mut`, `entry` and `at_mut` on it panic in every later call until
+    /// clearing completes: nothing can be added below a record faster than it is cleared.
+    /// `get` / `at` still read it. Cost per call: 1 read of the record, then what clearing `n`
+    /// entries costs, plus 1 record write (the flag) on a call that does not finish.
+    #[track_caller]
+    pub fn remove_some(&mut self, k: &K, n: u32) -> bool
+    where
+        V: Record + Removable,
+    {
+        let path = self.entry_path(k);
+        if cache::get::<V>(&path).is_none() {
+            return false;
+        }
+        let mut budget = n;
+        if V::clear_children_some(&path, &mut budget) {
+            self.discard(k);
+            false
+        } else {
+            cache::set_clearing(&path);
+            true
+        }
+    }
+
     #[track_caller]
     pub fn entry(&mut self, k: K) -> LookupMapEntry<'_, K, V> {
         let path = self.entry_path(&k);
@@ -453,6 +503,7 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
     read_only! {
         insert(K, V);
         insert_new(K, V);
+        remove_some(&K, u32);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -483,8 +534,10 @@ pub struct LookupMapEntry<'a, K, V> {
 
 impl<'a, K, V: Value> LookupMapEntry<'a, K, V> {
     /// 1 read; if absent, 1 write at flush.
+    #[track_caller]
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
         if let Some(p) = cache::get::<V>(&self.path) {
+            assert_not_clearing::<V>(&self.path);
             cache::touch(&self.path);
             return unsafe { m(p) };
         }
@@ -492,9 +545,11 @@ impl<'a, K, V: Value> LookupMapEntry<'a, K, V> {
         v.bind(&self.path);
         unsafe { m(cache::put(&self.path, v)) }
     }
+    #[track_caller]
     pub fn or_insert(self, v: V) -> &'a mut V {
         self.or_insert_with(|| v)
     }
+    #[track_caller]
     pub fn or_default(self) -> &'a mut V
     where
         V: Default,
@@ -523,6 +578,9 @@ impl<K: StorageKey + Clone + 'static, V: Value> Value for Map<K, V> {
 impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
     fn clear_children(path: &Path) {
         Map::<K, V>::__bound_at(path.clone()).clear();
+    }
+    fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        Map::<K, V>::__bound_at(path.clone()).clear_budgeted(budget)
     }
 }
 
@@ -572,6 +630,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         let path = self.entry_path(k);
         let p = cache::get::<V>(&path)?;
+        assert_not_clearing::<V>(&path);
         cache::touch(&path);
         Some(unsafe { m(p) })
     }
@@ -809,6 +868,54 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         stop > 0
     }
 
+    /// Bounded clear from the end (D9), clearing each value's own collections first; see
+    /// [`Removable::clear_children_some`].
+    fn clear_budgeted(&mut self, budget: &mut u32) -> bool
+    where
+        V: Removable,
+    {
+        loop {
+            let len = self.len();
+            if len == 0 {
+                return true;
+            }
+            let i = len - 1;
+            let slot = self.slot_path(i);
+            let k: K = unsafe { r(cache::get::<K>(&slot).expect("dense key vector")) }.clone();
+            let path = self.entry_path(&k);
+            if !V::clear_children_some(&path, budget) || *budget == 0 {
+                return false;
+            }
+            *budget -= 1;
+            cache::delete::<V>(&path);
+            cache::delete::<u32>(&self.index_path(&k));
+            cache::delete::<K>(&slot);
+            set_len_at(&self.header(), i);
+        }
+    }
+
+    /// Removes the record at `k` in bounded steps (D9): as [`LookupMap::remove_some`], and
+    /// the key leaves the key vector in the call that finishes. Returns `true` while entries
+    /// remain.
+    #[track_caller]
+    pub fn remove_some(&mut self, k: &K, n: u32) -> bool
+    where
+        V: Record + Removable,
+    {
+        let path = self.entry_path(k);
+        if cache::get::<V>(&path).is_none() {
+            return false;
+        }
+        let mut budget = n;
+        if V::clear_children_some(&path, &mut budget) {
+            self.remove_inner(k, false);
+            false
+        } else {
+            cache::set_clearing(&path);
+            true
+        }
+    }
+
     /// A read-only view bound to the path for `k`. Reads nothing by itself.
     #[track_caller]
     pub fn at(&self, k: &K) -> V::View<'_>
@@ -835,6 +942,7 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     read_only! {
         insert(K, V);
         insert_new(K, V);
+        remove_some(&K, u32);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -908,9 +1016,11 @@ pub struct MapEntry<'a, K, V> {
 impl<'a, K: StorageKey + Clone + 'static, V: Value> MapEntry<'a, K, V> {
     /// Existing: 1 read. New: 1 entry read, 1 header read, 4 writes (no index read: an absent
     /// entry implies an absent index).
+    #[track_caller]
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
         let path = self.map.entry_path(&self.k);
         if let Some(p) = cache::get::<V>(&path) {
+            assert_not_clearing::<V>(&path);
             cache::touch(&path);
             return unsafe { m(p) };
         }
@@ -920,9 +1030,11 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> MapEntry<'a, K, V> {
         self.map.push_key(&self.k);
         unsafe { m(p) }
     }
+    #[track_caller]
     pub fn or_insert(self, v: V) -> &'a mut V {
         self.or_insert_with(|| v)
     }
+    #[track_caller]
     pub fn or_default(self) -> &'a mut V
     where
         V: Default,
@@ -951,6 +1063,22 @@ impl<T: Value> Value for Vector<T> {
 impl<T: Removable> Removable for Vector<T> {
     fn clear_children(path: &Path) {
         Vector::<T>::__bound_at(path.clone()).clear();
+    }
+    fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        let v = Vector::<T>::__bound_at(path.clone());
+        loop {
+            let len = v.len();
+            if len == 0 {
+                return true;
+            }
+            let slot = v.slot(len - 1);
+            if !T::clear_children_some(&slot, budget) || *budget == 0 {
+                return false;
+            }
+            *budget -= 1;
+            cache::delete::<T>(&slot);
+            set_len_at(&v.header(), len - 1);
+        }
     }
 }
 
@@ -1169,6 +1297,14 @@ impl<T: Removable> Removable for Lazy<T> {
         T::clear_children(path);
         cache::delete::<T>(path);
     }
+    /// The `Lazy` value's own collections count against the budget; the value is not.
+    fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        if !T::clear_children_some(path, budget) {
+            return false;
+        }
+        cache::delete::<T>(path);
+        true
+    }
 }
 
 impl<T: Value> Lazy<T> {
@@ -1295,6 +1431,9 @@ impl<K: StorageKey + Clone + 'static> Value for Set<K> {
 impl<K: StorageKey + Clone + 'static> Removable for Set<K> {
     fn clear_children(path: &Path) {
         <Map<K, ()> as Removable>::clear_children(path)
+    }
+    fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        <Map<K, ()> as Removable>::clear_children_some(path, budget)
     }
 }
 impl<K: StorageKey + Clone + 'static> Set<K> {

@@ -60,6 +60,8 @@ impl Host for EnvHost {
 trait Erased: Any {
     fn encode(&self, orig: Option<&[u8]>) -> Vec<u8>;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// Whether the value owns storage below its key (so it may carry the clearing flag).
+    fn owns_storage(&self) -> bool;
 }
 
 impl<V: Value> Erased for V {
@@ -69,6 +71,20 @@ impl<V: Value> Erased for V {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+    fn owns_storage(&self) -> bool {
+        V::MAX_SUBPATH > 0
+    }
+}
+
+/// D9 clearing state of a record slot.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Clearing {
+    /// Whatever the stored bytes say (flag present or not).
+    FromOrig,
+    /// `remove_some` started or continued clearing in this call: the flush writes the flag.
+    Set,
+    /// Replaced or removed in this call: not clearing, whatever the stored bytes said.
+    Cleared,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -109,9 +125,35 @@ struct Slot {
     /// Whether the flush merges unknown tags from `orig`. A blind `put` replaces the value
     /// whole, so it clears this; read-modify-write keeps it.
     merge: bool,
+    clearing: Clearing,
 }
 
 impl Slot {
+    fn is_clearing(&self) -> bool {
+        match self.clearing {
+            Clearing::Set => true,
+            Clearing::Cleared => false,
+            Clearing::FromOrig => self.orig.bytes().is_some_and(super::record::is_clearing),
+        }
+    }
+
+    /// The bytes the flush would write for a Touched/Dirty slot. A record being cleared gets
+    /// the flag prepended (the record encoder never merges it from `orig`).
+    fn encode(&self) -> Vec<u8> {
+        let p = self.value.expect("dirty slot has a value");
+        let merge_from = if self.merge { self.orig.bytes() } else { None };
+        // SAFETY: invariant 1.
+        let v = unsafe { p.as_ref() };
+        let enc = v.encode(merge_from);
+        if v.owns_storage() && self.is_clearing() {
+            let mut out = super::record::CLEARING_FLAG.to_vec();
+            out.extend_from_slice(&enc);
+            out
+        } else {
+            enc
+        }
+    }
+
     fn drop_value(&mut self) {
         if let Some(p) = self.value.take() {
             // SAFETY: invariant 2; the caller holds `&mut` on the owning handle.
@@ -143,6 +185,7 @@ impl Cache {
             value: None,
             mode: Mode::Clean,
             merge: true,
+            clearing: Clearing::FromOrig,
         })));
         self.slots.insert(key.to_vec(), s);
         s
@@ -287,6 +330,48 @@ pub(crate) fn exists(path: &Path) -> bool {
     })
 }
 
+/// D9, for `at_mut`: `None` if no record is stored at `path`, else whether it is being
+/// cleared. Reads the record's bytes (1 read, no decode) unless this call already has them:
+/// the flag lives in the record, so `storage_has_key` cannot see it.
+pub(crate) fn record_state(path: &Path) -> Option<bool> {
+    with(|c| {
+        let sp = c.load(path.as_bytes());
+        // SAFETY: invariant 1.
+        let s = unsafe { sp.as_ref() };
+        if s.mode == Mode::Deleted {
+            return None;
+        }
+        if s.value.is_none() && s.orig.bytes().is_none() {
+            return None;
+        }
+        Some(s.is_clearing())
+    })
+}
+
+/// D9: whether the (already loaded) record at `path` is being cleared.
+pub(crate) fn is_clearing(path: &Path) -> bool {
+    with(|c| {
+        c.slots.get(path.as_bytes()).is_some_and(|s| {
+            // SAFETY: invariant 1.
+            unsafe { s.as_ref() }.is_clearing()
+        })
+    })
+}
+
+/// D9: marks the (decoded) record at `path` as being cleared; the flush writes the flag.
+pub(crate) fn set_clearing(path: &Path) {
+    with(|c| {
+        let mut sp = c.slot(path.as_bytes());
+        // SAFETY: invariant 1.
+        let s = unsafe { sp.as_mut() };
+        debug_assert!(s.value.is_some(), "set_clearing on a record that was not read");
+        s.clearing = Clearing::Set;
+        if s.mode == Mode::Clean {
+            s.mode = Mode::Touched;
+        }
+    })
+}
+
 /// Marks a key whose value was handed out as `&mut`.
 pub(crate) fn touch(path: &Path) {
     with(|c| {
@@ -311,6 +396,7 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     s.value = Some(p);
     s.mode = Mode::Dirty;
     s.merge = false;
+    s.clearing = Clearing::Cleared;
     // SAFETY: just allocated as a `V`.
     let any = unsafe { (*p.as_ptr()).as_any_mut() };
     NonNull::from(any.downcast_mut::<V>().expect("just stored"))
@@ -322,6 +408,7 @@ pub(crate) fn delete<V: Value>(path: &Path) -> Option<V> {
     // SAFETY: invariants 1 and 2.
     let s = unsafe { sp.as_mut() };
     s.mode = Mode::Deleted;
+    s.clearing = Clearing::Cleared;
     let p = s.value.take()?;
     // SAFETY: invariant 2; we own the value now.
     let b = unsafe { Box::from_raw(p.as_ptr()) };
@@ -368,10 +455,7 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
             match s.mode {
                 Mode::Clean => {}
                 Mode::Touched | Mode::Dirty => {
-                    let p = s.value.expect("dirty slot has a value");
-                    let merge_from = if s.merge { s.orig.bytes() } else { None };
-                    // SAFETY: invariant 1.
-                    let enc = unsafe { p.as_ref() }.encode(merge_from);
+                    let enc = s.encode();
                     if s.orig.bytes() != Some(&enc[..]) {
                         c.host.write(&key, &enc);
                     }
@@ -413,10 +497,7 @@ pub(crate) fn has_pending_writes() -> bool {
                 Mode::Clean => false,
                 Mode::Deleted => s.orig != Orig::Absent,
                 Mode::Touched | Mode::Dirty => {
-                    let p = s.value.expect("dirty slot has a value");
-                    let merge_from = if s.merge { s.orig.bytes() } else { None };
-                    // SAFETY: invariant 1.
-                    let enc = unsafe { p.as_ref() }.encode(merge_from);
+                    let enc = s.encode();
                     s.orig.bytes() != Some(&enc[..])
                 }
             }

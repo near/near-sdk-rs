@@ -10,6 +10,12 @@
 //! - tag 0 is rejected;
 //! - tags are strictly ascending (the spec does not say this; without it, field order would
 //!   be a second encoding of the same record, see PROTOTYPE_NOTES.md).
+//!
+//! The one exception to "tag 0 is rejected" is the CLEARING FLAG (D9): a record that
+//! `remove_some` is clearing across calls starts with the field `00 00` (tag 0, length 0).
+//! Two bytes, the smallest field the grammar allows; tag 0 can never be a user tag, so it
+//! cannot collide, and since tags ascend it can only be first. `parse` skips it; a decoder that
+//! predates it rejects the record (`TagZero`), which fails closed.
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecordError {
@@ -88,10 +94,19 @@ pub fn read_varint_u32(bytes: &[u8], pos: &mut usize) -> Result<u32, RecordError
     u32::try_from(result).map_err(|_| RecordError::VarintOverflow)
 }
 
-/// Parses a record into `(tag, bytes)` pairs, enforcing the canonical form.
+/// The clearing flag (D9): field tag 0, length 0, first in the record.
+pub const CLEARING_FLAG: [u8; 2] = [0x00, 0x00];
+
+/// Whether stored record bytes carry the clearing flag.
+pub fn is_clearing(bytes: &[u8]) -> bool {
+    bytes.starts_with(&CLEARING_FLAG)
+}
+
+/// Parses a record into `(tag, bytes)` pairs, enforcing the canonical form. A leading clearing
+/// flag is skipped (see [`is_clearing`]).
 pub fn parse(bytes: &[u8]) -> Result<Vec<(u32, &[u8])>, RecordError> {
     let mut out = Vec::new();
-    let mut pos = 0;
+    let mut pos = if is_clearing(bytes) { CLEARING_FLAG.len() } else { 0 };
     let mut prev = 0u32;
     while pos < bytes.len() {
         let tag = read_varint_u32(bytes, &mut pos)?;
@@ -184,8 +199,22 @@ mod tests {
     }
 
     #[test]
+    fn clearing_flag_is_a_leading_empty_tag_zero() {
+        assert!(is_clearing(&[0x00, 0x00, 0x01, 0x00]));
+        assert_eq!(parse(&[0x00, 0x00]), Ok(vec![]));
+        assert_eq!(parse(&[0x00, 0x00, 0x01, 0x01, 0x07]), Ok(vec![(1, &[7u8][..])]));
+        // only once, only first, only empty
+        assert_eq!(parse(&[0x00, 0x00, 0x00, 0x00]), Err(RecordError::TagZero));
+        assert_eq!(parse(&[0x01, 0x00, 0x00, 0x00]), Err(RecordError::TagZero));
+        assert_eq!(parse(&[0x00, 0x01, 0x05]), Err(RecordError::TagZero));
+        // a rewrite never merges the flag from the original bytes; the cache adds it
+        let w = RecordWriter::new();
+        assert_eq!(w.finish(Some(&[0x00, 0x00, 0x02, 0x00]), |_| true), vec![0x02, 0x00]);
+    }
+
+    #[test]
     fn tag_zero_and_order_rejected() {
-        assert_eq!(parse(&[0x00, 0x00]), Err(RecordError::TagZero));
+        assert_eq!(parse(&[0x00, 0x01, 0x05]), Err(RecordError::TagZero));
         assert_eq!(parse(&[0x02, 0x00, 0x01, 0x00]), Err(RecordError::TagOrder { prev: 2, tag: 1 }));
         assert_eq!(parse(&[0x01, 0x00, 0x01, 0x00]), Err(RecordError::TagOrder { prev: 1, tag: 1 }));
         assert_eq!(parse(&[0x01, 0x05, 0x00]), Err(RecordError::Truncated));
