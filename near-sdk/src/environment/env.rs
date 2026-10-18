@@ -73,7 +73,7 @@ pub(crate) fn expect_register<T>(option: Option<T>) -> T {
 
 /// A simple helper to read blob value coming from host's method.
 #[inline]
-fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>> {
+fn try_method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Option<Vec<u8>> {
     unsafe { method(ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER)
 }
@@ -81,7 +81,7 @@ fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>
 /// Same as `try_method_into_register` but expects the data.
 #[inline]
 #[track_caller]
-fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
+fn method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Vec<u8> {
     expect_register(try_method_into_register(method))
 }
 
