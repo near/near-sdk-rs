@@ -19,3 +19,5 @@ pub mod g7_stated_cost;
 pub mod g3_no_debt;
 #[cfg(test)]
 pub mod g4_one_write;
+#[cfg(test)]
+pub mod g5_linear_iteration;
