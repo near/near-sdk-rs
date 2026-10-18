@@ -93,7 +93,7 @@ impl Exchange {
 
     // writes below the record without reading it: one existence check, no decode
     pub fn set_balance(&mut self, id: AccountId, token: TokenId, amount: U128) {
-        let _ = self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
+        self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
     }
 
     // one read below the root; the Account record is never loaded

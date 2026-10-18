@@ -812,9 +812,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// Only for values that own no collections (`V: Leaf`); see [`LookupMap::insert`] for the
     /// rejected call and the fix. For a record that owns collections use [`Map::try_insert`] or
     /// `entry(k).or_default()`.
+    ///
+    /// Not `#[must_use]`, like `HashMap::insert` and `HashSet::insert`: discarding the bool is the
+    /// common overwrite case.
     #[track_caller]
-    #[must_use = "`insert` always overwrites; the bool says whether the key was new. Use \
-                  `try_insert` for first-write-wins, or `let _ = ..` when overwriting is intended"]
     pub fn insert(&mut self, k: K, mut v: V) -> bool
     where
         V: Leaf,
