@@ -501,3 +501,79 @@ mod a5 {
         assert!(removed(&testing::receipt()).1 >= 2 * BIG);
     }
 }
+
+// ---------------------------------------------------------------------------------------
+// C2 for every nestable collection type (the lib fixture nests only a Map)
+// ---------------------------------------------------------------------------------------
+
+mod c2_nested {
+    use near_sdk::near;
+    use near_sdk::state::testing;
+    use near_sdk::state::{Lazy, Map, Path, Set, Vector};
+
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Deep {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        v: Vector<u8>,
+        #[key(3)]
+        s: Set<u8>,
+        #[key(4)]
+        l: Lazy<Vec<u8>>,
+        #[key(5)]
+        m: Map<u8, u8>,
+    }
+
+    /// Random engine, 1,000 cases: records 0 (neighbour) and 1 each hold a Vector, a Set, a
+    /// Lazy and a Map with 0..=5 entries; record 1 is removed by `remove`, `discard` or
+    /// `remove_some(n)` (n = 1..=3, repeated until done). No stored key starts with record 1's
+    /// path afterwards, and record 0's collections are intact.
+    #[test]
+    fn c2_every_nested_collection_type_is_cleared_with_its_record() {
+        let g = (bolero::produce::<[u8; 4]>(), 0u8..3, 1u32..=3);
+        bolero::check!().with_generator(g).with_iterations(1_000).for_each(|(sizes, how, n)| {
+            testing::use_mock();
+            let root = Path::root(0xF0).field(9);
+            let mut m: Map<u32, Deep> = Map::__bound_at(root.clone());
+            for r in 0..2u32 {
+                m.insert_new(r, Deep { n: 1, ..Default::default() });
+                let d = m.get_mut(&r).unwrap();
+                for i in 0..sizes[0] % 6 {
+                    d.v.push(i);
+                }
+                for i in 0..sizes[1] % 6 {
+                    d.s.insert(i);
+                }
+                if sizes[2] % 2 == 1 {
+                    d.l.set(vec![9; 40]);
+                }
+                for i in 0..sizes[3] % 6 {
+                    d.m.insert(i, i);
+                }
+            }
+            testing::flush();
+            let snapshot0: Vec<_> = testing::store().into_iter().filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes())).collect();
+            for round in 0.. {
+                testing::begin_call();
+                let mut m: Map<u32, Deep> = Map::__bound_at(root.clone());
+                let again = match how {
+                    0 => m.remove(&1).is_some() && false,
+                    1 => m.discard(&1) && false,
+                    _ => m.remove_some(&1, *n),
+                };
+                testing::flush();
+                if !again {
+                    break;
+                }
+                assert!(round < 20, "remove_some did not finish");
+            }
+            let gone = root.kind(0).entry(&1u32);
+            let left: Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(gone.as_bytes())).collect();
+            assert!(left.is_empty(), "how={how} left {left:02x?} under the removed record (sizes {sizes:?})");
+            let now0: Vec<_> = testing::store().into_iter().filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes())).collect();
+            assert_eq!(now0, snapshot0, "the neighbour record changed");
+        });
+    }
+}
