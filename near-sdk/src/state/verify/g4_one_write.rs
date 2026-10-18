@@ -153,9 +153,15 @@ fn key(i: u8) -> Path {
 /// then a flush with a root record. Each key is written or removed at most once, in key order,
 /// the root last; nothing is written before the flush; a run of only gets and exists writes
 /// nothing (the view rule). Random engine: 20,000 sequences.
+///
+/// Kani: NOT RUN. Kani 0.68.0 (pinned nightly-2026-08-21) panics compiling any reachable
+/// `catch_unwind` (its intrinsic signature check expects an `i32` return; minimal repro: a
+/// harness calling `std::panic::catch_unwind(|| 1)`). The cache's `dyn` values make the
+/// `unit-testing` mock (enabled in `--tests` builds by near-sdk's self dev-dependency)
+/// reachable, and with it `catch_unwind`; and because Kani compiles every proof harness in the
+/// crate together, a `kani::proof` here would break every other Kani run. Restore the
+/// attributes once Kani accepts the current `catch_unwind` signature.
 #[test]
-#[cfg_attr(kani, kani::proof)]
-#[cfg_attr(kani, kani::unwind(8))]
 fn g4_cache_flush_writes_each_key_once_in_order_root_last() {
     let g = (bolero::produce::<[Option<u8>; 3]>(), bolero::produce::<[CacheOp; 6]>(), 0usize..=6, bolero::produce::<bool>());
     bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(init, ops, n, root_changes)| {
