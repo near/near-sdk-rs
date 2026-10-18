@@ -37,3 +37,5 @@ pub mod c3_lost_writes;
 pub mod c1_hot_collision;
 #[cfg(test)]
 pub mod c6_paging_churn;
+#[cfg(test)]
+pub mod c4_storage_delta;
