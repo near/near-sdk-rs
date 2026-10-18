@@ -328,3 +328,18 @@ fn gaps_cache_lazy_record_set_after_remove() {
     end_call();
     assert_eq!(l.get().map(|a| a.nonce), Some(2));
 }
+
+/// After an in-place `get_mut` (the slot is `Touched`, and the stored unknown tags survive the
+/// flush), `discard` still checks the stored bytes and refuses the record. Pins the behaviour
+/// behind the equivalent `stored_bytes` mutant `!s.merge -> true` (line 630): `Dirty` is only
+/// ever set by a whole `put`, which clears `merge` at the same time, so a merging slot is never
+/// `Dirty` and the guard is always true.
+#[test]
+#[should_panic(expected = "refusing to remove the record")]
+fn gaps_cache_discard_after_in_place_mutation_still_checks_the_stored_bytes() {
+    testing::use_mock();
+    seed(slim_key().as_bytes(), &slim_with_unknown_map());
+    let mut m: LookupMap<u32, SlimRec> = at(7);
+    m.get_mut(&1).expect("stored").nonce = 2;
+    m.discard(&1);
+}
