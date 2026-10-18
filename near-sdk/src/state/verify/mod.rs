@@ -15,3 +15,5 @@ pub mod g1_addressable;
 pub mod cost;
 #[cfg(test)]
 pub mod g7_stated_cost;
+#[cfg(test)]
+pub mod g3_no_debt;

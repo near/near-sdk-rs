@@ -3,7 +3,7 @@
 //! 2's byte claim: no operation on another key moves the neighbour's 100 KiB (the stated
 //! exception, `Vector::swap_remove` / `pop` reaching a large LAST element, is pinned).
 
-use super::cost::{At, Cost, add, c, map_unlink};
+use super::cost::{Cost, Facts, add, at_of, c, map_unlink};
 use super::fixture::Rec;
 use crate::state::key::{DEFAULT_ROOT, Path};
 use crate::state::model::{K, Val};
@@ -66,15 +66,6 @@ impl Setup {
         };
         v.insert(at, NB);
         v
-    }
-    pub fn at(&self, k: u8) -> At {
-        let o = self.order();
-        match o.iter().position(|x| *x == k) {
-            None => At::Absent,
-            Some(_) if o.len() == 1 => At::Only,
-            Some(i) if i == o.len() - 1 => At::Last,
-            Some(_) => At::Inner,
-        }
     }
     /// Seeds storage and starts a fresh call.
     pub fn seed(&self, big: usize) {
@@ -146,23 +137,70 @@ pub enum CostOp {
     RecRemoveSome(K, #[generator(0..6)] u8),
 }
 
-/// The formula from the spec's table for `op` on `setup`, or `None` if the op would panic
-/// (insert_new on an existing record, swap_remove out of bounds): those are not cost rows.
-pub fn formula(op: CostOp, s: &Setup) -> Option<Cost> {
-    let present = |k: u8| s.at(k) != At::Absent;
-    let len = s.order().len() as u32;
-    let idx = |k: u8| s.order().iter().position(|x| *x == k).map(|i| i as u32);
-    let m = s.m as usize;
+impl super::cost::Facts for Setup {
+    fn flat(&self) -> StdVec<u8> {
+        self.order()
+    }
+    fn look_has(&self, k: u8) -> bool {
+        self.order().contains(&k)
+    }
+    fn recs(&self) -> StdVec<u8> {
+        self.order()
+    }
+    fn items(&self, k: u8) -> StdVec<u8> {
+        match k {
+            NB => vec![0],
+            k if k < self.n => (0..self.m).collect(),
+            _ => vec![],
+        }
+    }
+    fn clearing(&self, _: u8) -> bool {
+        false
+    }
+    fn vec_len(&self) -> u32 {
+        self.order().len() as u32
+    }
+    fn set(&self) -> StdVec<u8> {
+        self.order()
+    }
+}
+
+/// The formula from the spec's table for `op`, from facts about its own key, or `None` if the
+/// op would panic (insert_new on an existing record, swap_remove out of bounds, a write below
+/// a clearing record): those are not cost rows.
+pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
+    let flat = f.flat();
+    let recs = f.recs();
+    let present = |k: u8| flat.contains(&k);
+    let rec_present = |k: u8| recs.contains(&k);
+    let len = flat.len() as u32;
+    let vlen = f.vec_len();
+    let idx = |k: u8| flat.iter().position(|x| *x == k).map(|i| i as u32);
     Some(match op {
         CostOp::MapGet(_) | CostOp::LookGet(_) | CostOp::RecGet(_) | CostOp::VecGet(_) | CostOp::LazyGet => c(1, 0, 0, 0),
         CostOp::MapContains(_) | CostOp::LookContains(_) | CostOp::SetContains(_) | CostOp::LSetContains(_) | CostOp::RecContains(_) => c(0, 0, 0, 1),
         // new: index read, header read, 4 writes; existing: index read, 1 write
         CostOp::MapInsert(K(k), _) => if present(k) { c(1, 1, 0, 0) } else { c(2, 4, 0, 0) },
         // existing: 1 read; new: entry read, header read, 4 writes (no index read)
-        CostOp::MapEntry(K(k), _) | CostOp::RecEntryDefault(K(k)) => if present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
-        CostOp::MapGetMut(K(k)) | CostOp::LookGetMut(K(k)) | CostOp::RecGetMut(K(k)) => if present(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
-        CostOp::MapRemove(K(k)) => add(c(1, 0, 0, 0), map_unlink(s.at(k))),
-        CostOp::MapDiscard(K(k)) | CostOp::SetRemove(K(k)) => if present(k) { map_unlink(s.at(k)) } else { c(1, 0, 0, 0) },
+        CostOp::MapEntry(K(k), _) => if present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::RecEntryDefault(K(k)) => match (rec_present(k), f.clearing(k)) {
+            (true, true) => return None,
+            (true, false) => c(1, 0, 0, 0),
+            (false, _) => c(2, 4, 0, 0),
+        },
+        CostOp::MapGetMut(K(k)) => if present(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
+        CostOp::LookGetMut(K(k)) => if f.look_has(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
+        CostOp::RecGetMut(K(k)) => match (rec_present(k), f.clearing(k)) {
+            (true, true) => return None,
+            (true, false) => c(1, 1, 0, 0),
+            (false, _) => c(1, 0, 0, 0),
+        },
+        CostOp::MapRemove(K(k)) => add(c(1, 0, 0, 0), map_unlink(at_of(&flat, k))),
+        CostOp::MapDiscard(K(k)) => if present(k) { map_unlink(at_of(&flat, k)) } else { c(1, 0, 0, 0) },
+        CostOp::SetRemove(K(k)) => {
+            let s = f.set();
+            if s.contains(&k) { map_unlink(at_of(&s, k)) } else { c(1, 0, 0, 0) }
+        }
         CostOp::MapLen | CostOp::RecAtLen(_) => c(1, 0, 0, 0),
         // with a cursor: cursor index + header + 2 per item; without: header + 2 per item;
         // a cursor that is not in the map: CursorGone after 1 read
@@ -179,36 +217,38 @@ pub fn formula(op: CostOp, s: &Setup) -> Option<Cost> {
             c(after.map_or(1, |_| 2) + per * n, 0, 0, 0)
         }
         CostOp::LookInsert(..) | CostOp::LSetInsert(_) | CostOp::LazySet(_) => c(0, 1, 0, 0),
-        CostOp::LookRemove(K(k)) => if present(k) { c(1, 0, 1, 0) } else { c(1, 0, 0, 0) },
+        CostOp::LookRemove(K(k)) => if f.look_has(k) { c(1, 0, 1, 0) } else { c(1, 0, 0, 0) },
         CostOp::LookDiscard(_) | CostOp::LSetRemove(_) | CostOp::LazyRemove => c(0, 0, 1, 0),
         // header read, slot write, header write
         CostOp::VecPush(_) => c(1, 2, 0, 0),
         // header read, slot read, slot remove, header write (header remove when it empties)
-        CostOp::VecPop => match len {
+        CostOp::VecPop => match vlen {
             0 => c(1, 0, 0, 0),
             1 => c(2, 0, 2, 0),
             _ => c(2, 1, 1, 0),
         },
         CostOp::VecSwapRemove(i) => {
             let i = i as u32;
-            if i >= len {
+            if i >= vlen {
                 return None;
             }
-            match (i == len - 1, len) {
+            match (i == vlen - 1, vlen) {
                 (true, 1) => c(2, 0, 2, 0),
                 (true, _) => c(2, 1, 1, 0),
                 // plus 1 read and 1 write of the last slot
                 (false, _) => c(3, 2, 1, 0),
             }
         }
-        CostOp::SetInsert(K(k)) => if present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
-        CostOp::RecInsertNew(K(k)) => if present(k) { return None } else { c(2, 4, 0, 0) },
+        CostOp::SetInsert(K(k)) => if f.set().contains(&k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::RecInsertNew(K(k)) => if rec_present(k) { return None } else { c(2, 4, 0, 0) },
         // at_mut: 1 read of the record (no decode, D9); then the items map insert:
         // new: index read, header read, 4 writes; existing: index read, 1 write
         CostOp::RecAtMutInsert(K(k), K(k2)) => {
-            if !present(k) {
+            if !rec_present(k) {
                 c(1, 0, 0, 0)
-            } else if k != NB && (k2 as usize) < m || k == NB && k2 == 0 {
+            } else if f.clearing(k) {
+                return None;
+            } else if f.items(k).contains(&k2) {
                 c(2, 1, 0, 0)
             } else {
                 c(3, 4, 0, 0)
@@ -217,23 +257,24 @@ pub fn formula(op: CostOp, s: &Setup) -> Option<Cost> {
         // entry read, then clearing the record's map (header read, per item 1 slot read and 3
         // removes, the header removed if it existed), then the outer swap-remove
         CostOp::RecRemove(K(k)) => {
-            if !present(k) {
+            if !rec_present(k) {
                 return Some(c(1, 0, 0, 0));
             }
-            let m = if k == NB { 1 } else { m };
-            add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(s.at(k)))
+            let m = f.items(k).len();
+            add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(at_of(&recs, k)))
         }
         CostOp::RecRemoveSome(K(k), n) => {
-            if !present(k) {
+            if !rec_present(k) {
                 return Some(c(1, 0, 0, 0));
             }
-            let m = if k == NB { 1 } else { m };
+            let m = f.items(k).len();
             let n = n as usize;
             if n >= m {
-                add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(s.at(k)))
+                add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(at_of(&recs, k)))
             } else {
-                // DOC_DIFFS[3]: one extra slot read; the record write carries the flag
-                c(2 + n + 1, (n > 0) as usize + 1, 3 * n, 0)
+                // DOC_DIFFS[3]: one extra slot read. DOC_DIFFS[4]: the record (flag) is
+                // written only if it was not already clearing.
+                c(2 + n + 1, (n > 0) as usize + (!f.clearing(k)) as usize, 3 * n, 0)
             }
         }
     })

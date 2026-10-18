@@ -154,6 +154,12 @@ fn compare(what: &str, ops: &[testing::Op], mut pred: Predicted, trace: &[Op]) {
 /// Runs `ops` through both sides and compares everything. Returns the real side's per-call
 /// host calls, for invariant harnesses. Operations the model says panic are skipped.
 pub fn run(ops: &[Op]) -> Vec<CallLog> {
+    run_state(ops).0
+}
+
+/// As [`run`], also returning the model's committed state at the end (storage equals its
+/// `concretize()`).
+pub fn run_state(ops: &[Op]) -> (Vec<CallLog>, crate::state::model::MState) {
     testing::use_mock();
     let mut m = Model::default();
     let mut logs = Vec::new();
@@ -255,7 +261,7 @@ pub fn run(ops: &[Op]) -> Vec<CallLog> {
         }
     }
     end(&mut m, root, &mut seg_start, &mut logs, &trace);
-    logs
+    (logs, m.committed)
 }
 
 pub fn ops_gen() -> impl bolero::ValueGenerator<Output = std::vec::Vec<Op>> {

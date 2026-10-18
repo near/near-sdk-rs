@@ -76,3 +76,51 @@ pub const DOC_DIFFS: &[&str] = &[
     "Map page / keys_page with limit 0 return next = None even when entries remain (a client that pages with limit 0 sees the end).",
     "sha256 per operation (spec: one per map hop): Map insert new 3, insert existing 2, remove/discard of an inner key 3 (own key twice, moved key once), at_mut + insert new below a record 4, record remove owning 2 items 7.",
 ];
+
+/// What a formula may know: facts about the operation's own key, plus collection lengths
+/// where the spec's formula uses them (vector bounds, page windows).
+pub trait Facts {
+    /// Key-vector order of the `Map<u8, Vec<u8>>` at tag 2.
+    fn flat(&self) -> std::vec::Vec<u8>;
+    fn look_has(&self, k: u8) -> bool;
+    /// Key-vector order of the record map at tag 4.
+    fn recs(&self) -> std::vec::Vec<u8>;
+    /// Keys of record `k`'s items map (empty if absent).
+    fn items(&self, k: u8) -> std::vec::Vec<u8>;
+    fn clearing(&self, k: u8) -> bool;
+    fn vec_len(&self) -> u32;
+    fn set(&self) -> std::vec::Vec<u8>;
+}
+
+pub fn at_of(order: &[u8], k: u8) -> At {
+    match order.iter().position(|x| *x == k) {
+        None => At::Absent,
+        Some(_) if order.len() == 1 => At::Only,
+        Some(i) if i == order.len() - 1 => At::Last,
+        Some(_) => At::Inner,
+    }
+}
+
+impl Facts for crate::state::model::MState {
+    fn flat(&self) -> std::vec::Vec<u8> {
+        self.flat.iter().map(|(k, _)| *k).collect()
+    }
+    fn look_has(&self, k: u8) -> bool {
+        self.look.contains_key(&k)
+    }
+    fn recs(&self) -> std::vec::Vec<u8> {
+        self.recs.iter().map(|(k, _)| *k).collect()
+    }
+    fn items(&self, k: u8) -> std::vec::Vec<u8> {
+        self.recs.iter().find(|(x, _)| *x == k).map_or(vec![], |(_, r)| r.items.iter().map(|(k, _)| *k).collect())
+    }
+    fn clearing(&self, k: u8) -> bool {
+        self.recs.iter().any(|(x, r)| *x == k && r.clearing)
+    }
+    fn vec_len(&self) -> u32 {
+        self.vec.len() as u32
+    }
+    fn set(&self) -> std::vec::Vec<u8> {
+        vec![]
+    }
+}
