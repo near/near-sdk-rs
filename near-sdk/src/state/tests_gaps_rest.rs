@@ -330,3 +330,93 @@ fn gaps_rest_default_unknown_collection_is_none() {
     end_call();
     assert!(!store().contains_key(field(5).as_bytes()), "the record is removed");
 }
+
+// ---------------------------------------------------------------------------------------
+// 4. Removal: `Removal::is_done`, `Occupied`, `guard_removal`'s flag-key decision
+// ---------------------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------------------
+// A hand-expanded leaf-only record: #[near(storage)] struct Pt { #[key(1)] x: u64 }
+// (`__RECORD`, but `MAX_SUBPATH == 0`; no fixture has this shape)
+// ---------------------------------------------------------------------------------------
+
+#[derive(Default, Debug, Clone, PartialEq)]
+struct Pt {
+    x: u64,
+}
+
+impl Value for Pt {
+    const MAX_SUBPATH: usize = p::field_subpath::<u64>(1);
+    const __RECORD: bool = true;
+    fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
+        let f = p::parse(bytes).ok()?;
+        for &(t, w, b) in f.iter() {
+            let hit = match t {
+                1 => p::declared_field_collection::<u64>(w, b),
+                _ => p::unknown_field_collection(w, b),
+            };
+            if let Some((mut trail, k)) = hit {
+                trail.insert(0, t);
+                return Some((trail, k));
+            }
+        }
+        None
+    }
+    fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
+        let of = p::parse_orig(orig);
+        let mut w = p::RecordWriter::new();
+        p::encode_field(&mut w, of.as_ref(), 1, &self.x);
+        w.finish(orig, |t| match t {
+            1 => !<u64 as Value>::INLINE,
+            _ => true,
+        })
+    }
+    fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
+        let f = p::parse(bytes)?;
+        Ok(Self { x: p::field(&f, 1, Some(path))? })
+    }
+}
+impl Leaf for Pt {}
+impl Removable for Pt {}
+
+
+/// Kills `Removal::is_done -> true / false` and `== -> !=`.
+#[test]
+fn gaps_rest_removal_is_done() {
+    assert!(Removal::Done.is_done());
+    assert!(!Removal::Pending.is_done());
+}
+
+/// Kills the `Display for Occupied` and `AsRef<str> for Occupied` mutants.
+#[test]
+fn gaps_rest_occupied_display_is_its_message() {
+    let s = Occupied.to_string();
+    assert_eq!(s, Occupied.as_ref());
+    assert_eq!(s, "state: key already present; nothing was inserted");
+}
+
+/// Kills `guard_removal`'s `&& -> ||` and `> -> >=`: the removal check reads a key's D9 flag
+/// key on a miss only for a map entry (`entry`) of a value that owns storage. A leaf-only
+/// record (`MAX_SUBPATH == 0`) discarded from a `LookupMap`, and a record that owns storage
+/// removed from a `Lazy` (not an entry), both read just the key.
+#[test]
+fn gaps_rest_guard_removal_reads_the_flag_key_only_for_flaggable_entries() {
+    testing::use_mock();
+    let mut lm: LookupMap<u8, Pt> = at(1);
+    lm.discard(&9);
+    let r = end_call();
+    assert_eq!((r.rwd(), r.has_keys()), ((1, 0, 0), 0), "{r:?}");
+
+    let mut l: Lazy<Account> = at(5);
+    l.remove();
+    let r = end_call();
+    assert_eq!((r.rwd(), r.has_keys()), ((2, 0, 0), 0), "{r:?}");
+
+    // Stored, the leaf-only record is read once and removed once.
+    lm.insert(9, Pt { x: 4 });
+    end_call();
+    lm.discard(&9);
+    let r = end_call();
+    assert_eq!((r.rwd(), r.has_keys()), ((1, 0, 1), 0), "{r:?}");
+    assert!(store().is_empty());
+}
