@@ -51,6 +51,13 @@ fn c7_production_v1_keys_vs_production_v2_keys() {
     use crate::store::key::{Identity, Keccak256, Sha256, ToKey};
     let g = (bolero::produce::<SPath>(), bolero::produce::<std::vec::Vec<u8>>().with().len(0usize..=3), bolero::produce::<(std::string::String, u32)>());
     bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(sp, prefix, (ks, ku))| {
+        // Refresh the mocked context before its gas runs out: the Sha256/Keccak256 keys call
+        // `env::sha256` / `env::keccak256`, which charge gas on the shared mock, and past ~20k
+        // inputs (libFuzzer round, Oct 18) the accumulated gas tripped `GasLimitExceeded`.
+        // Resetting every input instead made this test ~60 s slower under the random engine.
+        if crate::env::used_gas() > crate::Gas::from_tgas(200) {
+            crate::testing_env!(crate::test_utils::VMContextBuilder::new().build());
+        }
         if !sp.wf() {
             return;
         }

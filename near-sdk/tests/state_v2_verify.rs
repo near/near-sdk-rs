@@ -170,6 +170,12 @@ fn g6_derive_reordering_fields_changes_nothing() {
 #[test]
 fn d2_derive_required_added_later_fails_naming_the_tag() {
     bolero::check!().with_generator(vals()).with_iterations(500).for_each(|v| {
+        // Refresh the mocked context before its gas runs out: the expected decode panic goes
+        // through a mocked host call that charges gas, and after ~9.7k inputs (libFuzzer round,
+        // Oct 18) the accumulated gas turned it into `GasLimitExceeded`, which does not name the tag.
+        if near_sdk::env::used_gas() > near_sdk::Gas::from_tgas(200) {
+            near_sdk::testing_env!(near_sdk::test_utils::VMContextBuilder::new().build());
+        }
         write_s1(v);
         let m: LookupMap<u32, AddedRequired> = LookupMap::__bound_at(root());
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| m.get(&1).map(|x| x.e)));
