@@ -338,6 +338,31 @@ fn market_open_defaults_to_true_for_an_old_record() {
     assert!(msg.contains("market closed"), "{msg}");
 }
 
+/// Review F3: moving a record to its flag key moves its stored bytes, not a re-encoding. A
+/// market record from before tag 4 (`open`, `default = true`) keeps its exact bytes at the
+/// flag key; re-encoding would materialise `04 01 01` (3 more staked bytes).
+#[test]
+fn clearing_moves_the_original_bytes_to_the_flag_key() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(1)));
+    for _ in 0..3 {
+        call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+    }
+    let key = market_key(7);
+    // the record as an older build wrote it: tick_size and next_order_id, no tag 4
+    let mut w = near_sdk::state::record::RecordWriter::new();
+    w.push(2, borsh::to_vec(&1u128).unwrap());
+    w.push(3, borsh::to_vec(&3u64).unwrap());
+    let old = w.finish(None, |_| true);
+    testing::seed(&key, &old);
+
+    let (more, _) = call("owner.near", |c| c.close_market(7, 1));
+    assert!(more);
+    let flagged = testing::store()[&market_flag_key(7)].clone();
+    assert_eq!(flagged, old, "the stored bytes moved verbatim: no `04 01 01`");
+    assert!(view(|c| c.markets.get(&7).unwrap().open).0, "still reads as open");
+}
+
 #[test]
 #[should_panic(expected = "price off tick")]
 fn place_off_tick_panics() {

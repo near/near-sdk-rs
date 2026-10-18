@@ -136,6 +136,10 @@ struct Slot {
     /// the record it removed may have been at either key. Kept through a later `put`: the
     /// flush then removes the key the new value is not written to (review F1).
     blind_delete: bool,
+    /// `set_clearing` found the record unmodified in this call: the flush moves its stored
+    /// bytes to the flag key verbatim instead of re-encoding it, which could materialise
+    /// `default = ..` fields and change its size (review F3).
+    verbatim: bool,
 }
 
 /// What a flush does for one slot: the writes and removes, by key.
@@ -176,7 +180,10 @@ impl Slot {
         match self.mode {
             Mode::Clean => {}
             Mode::Touched | Mode::Dirty => {
-                let enc = self.encode();
+                let enc = match self.orig.bytes() {
+                    Some(b) if self.verbatim && self.is_clearing() => b.to_vec(),
+                    _ => self.encode(),
+                };
                 let same = self.orig.bytes() == Some(&enc[..]);
                 if self.is_clearing() {
                     if !(at_flag && same) {
@@ -245,6 +252,7 @@ impl Cache {
             flaggable: false,
             at_flag: false,
             blind_delete: false,
+            verbatim: false,
         })));
         self.slots.insert(key.to_vec(), s);
         s
@@ -474,6 +482,7 @@ pub(crate) fn set_clearing(path: &Path) {
         s.clearing = Clearing::Set;
         if s.mode == Mode::Clean {
             s.mode = Mode::Touched;
+            s.verbatim = true;
         }
     })
 }
@@ -503,6 +512,7 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     s.mode = Mode::Dirty;
     s.merge = false;
     s.clearing = Clearing::Cleared;
+    s.verbatim = false;
     // SAFETY: just allocated as a `V`.
     let any = unsafe { (*p.as_ptr()).as_any_mut() };
     NonNull::from(any.downcast_mut::<V>().expect("just stored"))
@@ -528,6 +538,7 @@ fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
     }
     s.mode = Mode::Deleted;
     s.clearing = Clearing::Cleared;
+    s.verbatim = false;
     let p = s.value.take()?;
     // SAFETY: invariant 2; we own the value now.
     let b = unsafe { Box::from_raw(p.as_ptr()) };

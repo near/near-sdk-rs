@@ -1548,3 +1548,25 @@ fn hazard_old_in_record_flag_passes_at_mut_but_fails_get() {
     let msg = r.expect_err("get fails closed on the old prefix");
     assert!(msg.downcast_ref::<String>().is_some_and(|m| m.contains("TagZero")));
 }
+
+/// Review F3 edge: after `remove_step` flags a record, a `replace` and a new `remove_step` in
+/// the same call relocate the NEW record's encoding, not the old stored bytes.
+#[test]
+fn replaced_then_flagged_record_relocates_the_new_value() {
+    testing::use_mock();
+    let mut lm: LookupMap<u32, Account> = at(44);
+    let a = lm.entry(1).or_default();
+    a.nonce = 4;
+    let _ = a.balances.insert("a".into(), 1);
+    let _ = a.balances.insert("b".into(), 1);
+    end_call();
+    assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
+    let _ = lm.replace(1, Account { nonce: 9, ..Default::default() });
+    let _ = lm.at_mut(&1).unwrap().balances.insert("c".into(), 1);
+    assert_eq!(lm.remove_step(&1, 0), Removal::Pending);
+    end_call();
+    let flag = Path::root(DEFAULT_ROOT).field(44).kind(kind::ENTRIES).entry(&1u32).flag();
+    let stored = store()[flag.as_bytes()].clone();
+    let fields = record::parse(&stored).unwrap();
+    assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(borsh::to_vec(&9u64).unwrap()));
+}
