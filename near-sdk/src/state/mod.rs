@@ -17,6 +17,12 @@
 //!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
 //!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
 //!   tag is not built in the prototype.
+//! - Unknown tags (D4): a tag the code does not know is PRESERVED through `get_mut` / `entry`
+//!   (a blind `insert` replaces the record whole). A removed field's bytes therefore persist
+//!   until its tag is listed in `reserved(n)`, which drops them on the next rewrite. Reusing a
+//!   removed tag for a new field resurrects the old bytes (pinned by
+//!   `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes`); the intended guard, a build
+//!   error against the deployed ABI, is not built in the prototype.
 //!
 //! # What the derive emits for a record `Name`
 //!

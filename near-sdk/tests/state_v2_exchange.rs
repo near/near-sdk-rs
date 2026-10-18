@@ -706,6 +706,87 @@ fn reserved_tag_is_dropped_on_rewrite_unknown_tag_is_kept() {
     assert_eq!(tags, vec![1, 4]);
 }
 
+/// D4: unknown tags are PRESERVED through every read-modify-write path (`get_mut` and
+/// `entry(..).or_default()`), and a tag listed in `reserved(n)` is dropped on rewrite.
+#[test]
+fn unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped() {
+    use near_sdk::state::{Path, record};
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut m: Map<u32, Slim> = Map::__bound_at(root.clone());
+    m.insert(1, Slim { nonce: 1 });
+    m.insert(2, Slim { nonce: 1 });
+    testing::flush();
+    let mut w = record::RecordWriter::new();
+    w.push(1, near_sdk::borsh::to_vec(&1u64).unwrap());
+    w.push(3, vec![0x33]); // reserved: a deliberately retired field
+    w.push(4, vec![0x44]); // unknown: a field from a newer version
+    let bytes = w.finish(None, |_| true);
+    let k1 = root.kind(0).entry(&1u32);
+    let k2 = root.kind(0).entry(&2u32);
+    testing::seed(k1.as_bytes(), &bytes);
+    testing::seed(k2.as_bytes(), &bytes);
+    testing::begin_call();
+    m.get_mut(&1).unwrap().nonce = 2;
+    m.entry(2).or_default().nonce = 2;
+    testing::flush();
+    for k in [k1, k2] {
+        let tags: Vec<u32> = record::parse(&testing::store()[k.as_bytes()])
+            .unwrap()
+            .into_iter()
+            .map(|(t, _)| t)
+            .collect();
+        assert_eq!(tags, vec![1, 4], "unknown 4 kept, reserved 3 dropped");
+    }
+}
+
+#[near(storage)]
+pub struct VaultV1 {
+    #[key(1)]
+    nonce: u64,
+    #[key(2)]
+    locked: u128,
+}
+
+/// v2 deletes `locked` but forgets `reserved(2)`.
+#[near(storage)]
+pub struct VaultV2 {
+    #[key(1)]
+    nonce: u64,
+}
+
+/// v3 reuses tag 2 for a different meaning.
+#[near(storage)]
+pub struct VaultV3 {
+    #[key(1)]
+    nonce: u64,
+    #[key(2)]
+    claimable: u128,
+}
+
+/// D4 HAZARD (audit finding), pinned so it reads as a hazard, not a feature: a removed field's
+/// bytes persist through every rewrite until its tag is listed in `reserved(n)`, so reusing the
+/// tag later resurrects them. Here stale `locked` funds reappear as `claimable`. The fix is a
+/// build error for tag reuse against the deployed ABI (not built in the prototype); until then,
+/// always `reserved(n)` a removed tag.
+#[test]
+fn hazard_reusing_a_removed_tag_resurrects_its_stale_bytes() {
+    use near_sdk::state::Path;
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut v1: Map<u32, VaultV1> = Map::__bound_at(root.clone());
+    v1.insert(1, VaultV1 { nonce: 1, locked: 1_000 });
+    testing::flush();
+    testing::begin_call();
+    let mut v2: Map<u32, VaultV2> = Map::__bound_at(root.clone());
+    v2.get_mut(&1).unwrap().nonce = 2; // rewrite under v2: tag 2 is unknown, so preserved
+    testing::flush();
+    testing::begin_call();
+    let v3: Map<u32, VaultV3> = Map::__bound_at(root);
+    let v = v3.get(&1).unwrap();
+    assert_eq!((v.nonce, v.claimable), (2, 1_000), "HAZARD: stale `locked` read as `claimable`");
+}
+
 /// The same flow through the real mocked blockchain (`env::storage_*`), no counting mock.
 #[test]
 fn works_against_the_mocked_blockchain() {
