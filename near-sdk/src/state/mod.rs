@@ -276,6 +276,10 @@ mod tests;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests_gaps;
+/// Tests closing cargo-mutants gaps in `cache.rs` (storage v2 verification round 2).
+#[cfg(feature = "unstable")]
+#[cfg(test)]
+mod tests_gaps_cache;
 /// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
 /// the oracle the `verify` harnesses compare the implementation against.
 #[cfg(feature = "unstable")]
