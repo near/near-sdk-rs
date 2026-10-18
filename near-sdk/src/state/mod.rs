@@ -52,9 +52,10 @@
 //! - Each key is read at most once per call, and written once at the end, in key order, with the
 //!   root last. A record is rewritten only if its encoding changed. `contains_key` is a
 //!   `storage_has_key` and does not warm the cache for a later `get`.
-//! - `remove` clears the value's collections and returns it detached. `remove_some(&k, n)`
-//!   (D9) removes a record in bounded steps across calls: at most `n` entries of what it owns
-//!   per call, then the record; `true` while entries remain. Meanwhile the record is flagged and
+//! - `remove` clears the value's collections and returns it detached. `remove_step(&k, n)`
+//!   (D9; round 3 T3) removes a record in bounded steps across calls: at most `n` entries of
+//!   what it owns per call, then the record; it returns the `#[must_use]` enum `Removal`,
+//!   `Pending` while entries remain and `Done` once the record is gone. Meanwhile the record is flagged and
 //!   `get_mut`, `entry` and `at_mut` on it panic, so nothing can be added below it faster than
 //!   it is cleared (`get` / `at` still read).
 //! - FORMAT DECISION (D9, flag key): the clearing flag is a separate key, the record's key plus
@@ -192,7 +193,7 @@ mod tests;
 #[cfg(feature = "unstable")]
 pub use collections::{
     At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet, Map, MapEntry,
-    Occupied, Page, Set, Vector, ViewIsReadOnly,
+    Occupied, Page, Removal, Set, Vector, ViewIsReadOnly,
 };
 /// Deferred out of the first release (D3); hidden, kept compiling for the prototype.
 #[cfg(feature = "unstable")]

@@ -93,9 +93,9 @@ fn record_at_mut<'a, V: Record>(path: Path) -> Option<V::ViewMut<'a>> {
 #[track_caller]
 fn clearing_panic(path: &Path) -> ! {
     panic!(
-        "state: the record at {path:?} is being cleared by `remove_some`; writes to it or below \
-         it are refused until clearing completes (call `remove_some` again until it returns \
-         false)"
+        "state: the record at {path:?} is being cleared by `remove_step`; writes to it or below \
+         it are refused until clearing completes (call `remove_step` again until it returns \
+         `Removal::Done`)"
     )
 }
 
@@ -121,6 +121,25 @@ unsafe fn arena_mut<'a, C: core::any::Any>(c: C) -> &'a mut C {
 fn assert_insert_new<V: Value>(path: &Path) {
     if V::MAX_SUBPATH > 0 && cache::exists(path) {
         panic!("state: record exists; use get_mut, or remove it first");
+    }
+}
+
+/// What one [`Map::remove_step`] / [`LookupMap::remove_step`] call left behind.
+#[must_use = "`Pending` means the record is still there, being cleared: call `remove_step` again \
+              in a later call until it returns `Done`"]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Removal {
+    /// Entries remain. The record is flagged as being cleared and refuses writes to it or below
+    /// it until a later `remove_step` finishes.
+    Pending,
+    /// The record is gone (or was absent).
+    Done,
+}
+
+impl Removal {
+    /// `true` for `Done`.
+    pub fn is_done(self) -> bool {
+        self == Removal::Done
     }
 }
 
@@ -473,8 +492,9 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     }
 
     /// Removes the record at `k` in bounded steps (D9): each call removes at most `n` entries
-    /// of the collections it owns, then the record itself once they are empty. Returns `true`
-    /// while entries remain (call again), `false` once the record is gone (or was absent).
+    /// of the collections it owns, then the record itself once they are empty. Returns
+    /// `Removal::Pending` while entries remain (call again in a later call), `Removal::Done`
+    /// once the record is gone (or was absent).
     ///
     /// While entries remain the record is stored at its clearing flag key ([`Path::flag`], its
     /// key plus `00`) and its own key is absent, so `get_mut`, `entry` and `at_mut` on it panic
@@ -484,21 +504,21 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// clearing `n` entries costs; the first call that does not finish adds 1 remove (record
     /// key) and 1 write (flag key), and the call that finishes removes the flag key.
     #[track_caller]
-    pub fn remove_some(&mut self, k: &K, n: u32) -> bool
+    pub fn remove_step(&mut self, k: &K, n: u32) -> Removal
     where
         V: Record + Removable,
     {
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
-            return false;
+            return Removal::Done;
         }
         let mut budget = n;
         if V::clear_children_some(&path, &mut budget) {
             self.discard(k);
-            false
+            Removal::Done
         } else {
             cache::set_clearing(&path);
-            true
+            Removal::Pending
         }
     }
 
@@ -535,7 +555,7 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
     read_only! {
         insert(K, V);
         try_insert(K, V);
-        remove_some(&K, u32);
+        remove_step(&K, u32);
         remove(&K);
         discard(&K);
         get_mut(&K);
@@ -929,25 +949,25 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         }
     }
 
-    /// Removes the record at `k` in bounded steps (D9): as [`LookupMap::remove_some`], and
-    /// the key leaves the key vector in the call that finishes. Returns `true` while entries
-    /// remain.
+    /// Removes the record at `k` in bounded steps (D9): as [`LookupMap::remove_step`], and
+    /// the key leaves the key vector in the call that finishes. `Removal::Pending` while
+    /// entries remain, `Removal::Done` once the record is gone (or was absent).
     #[track_caller]
-    pub fn remove_some(&mut self, k: &K, n: u32) -> bool
+    pub fn remove_step(&mut self, k: &K, n: u32) -> Removal
     where
         V: Record + Removable,
     {
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
-            return false;
+            return Removal::Done;
         }
         let mut budget = n;
         if V::clear_children_some(&path, &mut budget) {
             self.remove_inner(k, false);
-            false
+            Removal::Done
         } else {
             cache::set_clearing(&path);
-            true
+            Removal::Pending
         }
     }
 
@@ -978,7 +998,7 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     read_only! {
         insert(K, V);
         try_insert(K, V);
-        remove_some(&K, u32);
+        remove_step(&K, u32);
         remove(&K);
         discard(&K);
         get_mut(&K);

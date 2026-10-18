@@ -832,3 +832,11 @@ This round applies round-2 decisions T1 to T7 from `decisions-oct17-round2.md` o
 ### T2: accessor names stay, the rule is written down
 
 No code change. The spec's "`at` walks, `get` reads, `at_mut` writes below" paragraph now opens with the rule: `at*` is path arithmetic plus at most one existence check and never decodes; `get*` reads and decodes. It holds in the code as measured in round 2: `at` reads nothing, `at_mut` is 1 `storage_has_key` on a present record (2 on an absent record that owns collections, the D9 flag key, which is still "at most one" per key looked at but two host calls; the spec's cost table states it).
+
+### T3: `remove_step(&k, n) -> Removal`
+
+- `Map::remove_some` and `LookupMap::remove_some` are renamed `remove_step(&k, n) -> Removal`, with `#[must_use] pub enum Removal { Pending, Done }` (exported from `state`; `Debug, Clone, Copy, PartialEq, Eq`, plus `Removal::is_done()`). The must-use message says `Pending` means "call again in a later call".
+- **Chosen where the decision is silent.** The `LookupMap` twin is renamed too, for one name. An absent record is `Done` (was `false`). The panic on a write below a clearing record now says "being cleared by `remove_step` ... until it returns `Removal::Done`". The Exchange test's `close_market` still returns `bool` to JSON (`== Removal::Pending`), so `Removal` needs no serde.
+- **The self-contradiction.** `docs/storage-v2-spec.md` was consistent ("`true` while entries remain" in both places); the contradiction the decision names is in the Claude Doc's appendix C, which this round does not touch. With an enum the direction cannot be misread.
+- No cost change. Tests: `remove_step_budgets_across_calls` (renamed) and the clearing tests now assert `Removal::Pending` / `Removal::Done`.
+- Superseded wording: "`remove_some`" in the API round and round 2 sections above is the old name.

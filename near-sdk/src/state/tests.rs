@@ -1256,11 +1256,11 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
 
-/// D9: `remove_some` budgets entries across nested maps: a record whose `balances` holds 5
+/// D9: `remove_step` budgets entries across nested maps: a record whose `balances` holds 5
 /// entries takes 3 calls at n = 2, the record sits at its flag key (record key absent) until
 /// the last, and the outer map's key vector drops the key only then.
 #[test]
-fn remove_some_budgets_across_calls() {
+fn remove_step_budgets_across_calls() {
     testing::use_mock();
     let mut m: Map<u32, Account> = at(15);
     let a = m.entry(1).or_default();
@@ -1272,16 +1272,16 @@ fn remove_some_budgets_across_calls() {
     let rec = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
     let flag = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).flag();
     let before = store()[&rec].clone();
-    assert!(m.remove_some(&1, 2));
+    assert_eq!(m.remove_step(&1, 2), Removal::Pending);
     end_call();
     assert!(!store().contains_key(&rec), "the record key is absent while clearing");
     assert_eq!(store()[flag.as_bytes()], before, "the record's bytes, unchanged, at the flag key");
     assert_eq!(m.len(), 2, "still indexed while clearing");
     assert!(m.contains_key(&1) && m.get(&1).is_some(), "a record being cleared still reads");
     end_call();
-    assert!(m.remove_some(&1, 2));
+    assert_eq!(m.remove_step(&1, 2), Removal::Pending);
     end_call();
-    assert!(!m.remove_some(&1, 2), "last entry, then the record");
+    assert_eq!(m.remove_step(&1, 2), Removal::Done, "last entry, then the record");
     end_call();
     assert!(!store().contains_key(&rec));
     assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
@@ -1290,9 +1290,9 @@ fn remove_some_budgets_across_calls() {
     let mut lm: LookupMap<u32, Account> = at(16);
     let _ = lm.entry(1).or_default().balances.insert("a".into(), 1);
     end_call();
-    assert!(lm.remove_some(&1, 0), "n = 0 clears nothing");
+    assert_eq!(lm.remove_step(&1, 0), Removal::Pending, "n = 0 clears nothing");
     end_call();
-    assert!(!lm.remove_some(&1, 1));
+    assert_eq!(lm.remove_step(&1, 1), Removal::Done);
     end_call();
     assert!(lm.get(&1).is_none());
 }
@@ -1309,7 +1309,7 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
         let _ = a.balances.insert("a".into(), 1);
         let _ = a.balances.insert("b".into(), 1);
         end_call();
-        assert!(lm.remove_some(&1, 1));
+        assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
         end_call();
         let rec = Path::root(DEFAULT_ROOT).field(tag).kind(kind::ENTRIES).entry(&1u32);
         let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
@@ -1369,7 +1369,7 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
     let _ = a.balances.insert("a".into(), 1);
     let _ = a.balances.insert("b".into(), 1);
     end_call();
-    assert!(m.remove_some(&1, 1));
+    assert_eq!(m.remove_step(&1, 1), Removal::Pending);
     end_call();
     assert_eq!(m.iter().map(|(k, v)| (k, v.nonce)).collect::<StdVec<_>>(), vec![(1, 5)]);
     end_call();

@@ -73,7 +73,7 @@ impl<V: Value> Erased for V {
 
 /// D9 clearing state of a record slot.
 ///
-/// A record that `remove_some` is clearing across calls is stored at its FLAG KEY
+/// A record that `remove_step` is clearing across calls is stored at its FLAG KEY
 /// ([`Path::flag`], the record path plus one `00` byte) and its own key is absent. So the
 /// record key's existence alone says "present and not clearing", and `at_mut` stays one
 /// `storage_has_key`; only a miss at the record key consults the flag key.
@@ -81,7 +81,7 @@ impl<V: Value> Erased for V {
 enum Clearing {
     /// Whatever storage says: clearing iff the bytes were found at the flag key.
     FromOrig,
-    /// `remove_some` started or continued clearing in this call: the flush stores the record
+    /// `remove_step` started or continued clearing in this call: the flush stores the record
     /// at the flag key (and removes the record key).
     Set,
     /// Replaced or removed in this call: not clearing, whatever storage said.

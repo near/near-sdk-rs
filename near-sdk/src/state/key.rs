@@ -11,7 +11,7 @@
 //! ```
 //!
 //! The flag segment (D9) names the CLEARING FLAG KEY of a record: `record_path ++ 00`. While
-//! `remove_some` is clearing a record across calls, the record's bytes live at that key and
+//! `remove_step` is clearing a record across calls, the record's bytes live at that key and
 //! its own key is absent. `00` is LEB128 for tag 0, which no `#[key]` may use, and no other
 //! tag's LEB128 starts with `00`, so the flag key is never a field path below the record; and
 //! since map keys are prefix-free Borsh behind their own hash, it is never a sibling entry. It
@@ -116,7 +116,7 @@ impl Path {
     }
 
     /// The clearing flag key of the record at this path (D9): one `00` byte appended (tag 0,
-    /// which no field may use). Holds the record's bytes while `remove_some` clears it across
+    /// which no field may use). Holds the record's bytes while `remove_step` clears it across
     /// calls; absent otherwise.
     #[track_caller]
     pub fn flag(&self) -> Path {

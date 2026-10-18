@@ -6,7 +6,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, CursorGone, Lazy, LookupMap, Map, Page};
+use near_sdk::state::{ContractState, CursorGone, Lazy, LookupMap, Map, Page, Removal};
 use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
@@ -147,10 +147,10 @@ impl Exchange {
         o.qty.into()
     }
 
-    /// D9: removes a market in bounded steps, at most `n` orders per call. `true` while orders
-    /// remain; meanwhile the market refuses new orders.
+    /// D9/T3: removes a market in bounded steps, at most `n` orders per call. `true` while
+    /// orders remain (`Removal::Pending`); meanwhile the market refuses new orders.
     pub fn close_market(&mut self, market: MarketId, n: u32) -> bool {
-        self.markets.remove_some(&market, n)
+        self.markets.remove_step(&market, n) == Removal::Pending
     }
 
     /// Stops new orders in a market without removing it.
@@ -414,7 +414,7 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
     let msg = panics(|| {
         call("alice.near", |c| c.place(7, Order { price: 1, qty: 9 }));
     });
-    assert!(msg.contains("is being cleared by `remove_some`"), "{msg}");
+    assert!(msg.contains("is being cleared by `remove_step`"), "{msg}");
     let msg = panics(|| {
         call("alice.near", |c| c.cancel(7, 0));
     });
@@ -454,7 +454,7 @@ fn clear_that_fits_in_one_call_writes_no_flag() {
     assert!(!call("owner.near", |c| c.close_market(7, 3)).0, "absent: done");
 }
 
-/// D9 in one call: after `remove_some` returns `true`, the same call cannot write below the
+/// D9 in one call: after `remove_step` returns `Pending`, the same call cannot write below the
 /// record either.
 #[test]
 #[should_panic(expected = "is being cleared")]
