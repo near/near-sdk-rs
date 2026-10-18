@@ -113,3 +113,124 @@ fn gaps_rest_at_vector_is_empty() {
     assert_eq!(w.len(), 1);
     testing::assert_view_clean();
 }
+
+// ---------------------------------------------------------------------------------------
+// 2. `Value` impls of `Lazy`, `Set` and `LookupSet`
+// ---------------------------------------------------------------------------------------
+
+/// Kills `Lazy::path -> None` and the deleted `Binding::Bound` arm.
+#[test]
+fn gaps_rest_lazy_path_is_its_binding() {
+    assert_eq!(Lazy::<u64>::default().path(), None);
+    assert_eq!(Lazy::new(1u64).path(), None);
+    let p = field(4);
+    let mut l = Lazy::<u64>::__bound_at(p.clone());
+    assert_eq!(l.path(), Some(&p));
+    let mut b: Lazy<u64> = Lazy::default();
+    b.bind(&p);
+    assert_eq!(b.path(), Some(&p));
+    Value::detach(&mut l);
+    assert_eq!(l.path(), None);
+}
+
+/// Kills `<impl Value for Lazy<T>>::encode_value -> vec![] / vec![0] / vec![1]`: a collection
+/// has no inline encoding, so encoding one fails closed instead of writing bytes. (No SDK path
+/// reaches it since `Lazy<T>` refuses a collection `T` at compile time; this pins the backstop
+/// behind that check.)
+#[test]
+fn gaps_rest_lazy_refuses_inline_encoding() {
+    let m = panic_msg(|| {
+        let _ = Value::encode_value(&Lazy::<u64>::default(), None);
+    });
+    assert!(m.contains("collections are not stored inline"), "{m}");
+}
+
+/// Kills `<impl Value for Set<K>>::encode_value -> vec![] / vec![0] / vec![1]`, as above.
+#[test]
+fn gaps_rest_set_refuses_inline_encoding() {
+    let m = panic_msg(|| {
+        let _ = Value::encode_value(&Set::<u8>::default(), Some(&[1]));
+    });
+    assert!(m.contains("unreachable"), "{m}");
+}
+
+/// Kills `<impl Value for LookupSet<K>>::encode_value -> vec![] / vec![0] / vec![1]`, as above.
+#[test]
+fn gaps_rest_lookup_set_refuses_inline_encoding() {
+    let m = panic_msg(|| {
+        let _ = Value::encode_value(&LookupSet::<u8>::default(), None);
+    });
+    assert!(m.contains("unreachable"), "{m}");
+}
+
+/// Kills the `decode_value -> Ok(Default::default())` mutants of `Lazy`, `Set` and
+/// `LookupSet`: decoding bytes as a collection is an error (the backstop, as above).
+#[test]
+fn gaps_rest_collections_refuse_inline_decoding() {
+    let p = field(1);
+    let want = RecordError::Leaf("a collection has no inline encoding".into());
+    for bytes in [&[][..], &[0x81][..], &[1, 2, 3][..]] {
+        assert_eq!(<Lazy<u64> as Value>::decode_value(bytes, &p).map(|_| ()), Err(want.clone()));
+        assert_eq!(<Set<u8> as Value>::decode_value(bytes, &p).map(|_| ()), Err(want.clone()));
+        assert_eq!(
+            <LookupSet<u8> as Value>::decode_value(bytes, &p).map(|_| ()),
+            Err(want.clone())
+        );
+    }
+}
+
+/// Kills `<impl Value for Set<K>>::detach -> ()`: a record removed from a map comes back with
+/// its `Set` detached, so touching it panics instead of reading the cleared keys.
+#[test]
+fn gaps_rest_removed_record_set_is_detached() {
+    testing::use_mock();
+    let mut m: Map<u8, RecX> = at(6);
+    let r = m.try_insert(1, RecX::default()).ok().unwrap();
+    r.n = 3;
+    r.set.insert(9);
+    end_call();
+    let rx = m.remove(&1).expect("present");
+    assert_eq!(rx.n, 3);
+    let msg = panic_msg(|| {
+        let _ = rx.set.contains(&9);
+    });
+    assert!(msg.contains("collection detached by remove"), "{msg}");
+    let msg = panic_msg(|| {
+        let _ = rx.set.len();
+    });
+    assert!(msg.contains("collection detached by remove"), "{msg}");
+}
+
+/// Kills `<impl Value for LookupSet<K>>::detach -> ()`. No SDK removal reaches it (a record
+/// holding a `LookupSet` is not `Removable`), so this pins the `Value::detach` contract
+/// directly: after `detach`, the set panics on use.
+#[test]
+fn gaps_rest_lookup_set_detach_detaches() {
+    testing::use_mock();
+    let mut s: LookupSet<u8> = at(3);
+    s.insert(1);
+    end_call();
+    assert!(s.contains(&1));
+    Value::detach(&mut s);
+    let msg = panic_msg(|| {
+        let _ = s.contains(&1);
+    });
+    assert!(msg.contains("collection detached by remove"), "{msg}");
+}
+
+/// Kills `<impl Value for Lazy<T>>::__write_pending -> ()`: a `Lazy::new` in a root built as
+/// a struct literal is written by the flush's `__write_pending` walk (1 write), once.
+#[test]
+fn gaps_rest_lazy_write_pending_writes_once() {
+    testing::use_mock();
+    let p = field(4);
+    let l = Lazy::new(7u64);
+    Value::__write_pending(&l, &p);
+    Value::__write_pending(&l, &p); // the pending value was taken: nothing more
+    let r = end_call();
+    assert_eq!(r.rwd(), (0, 1, 0));
+    assert_eq!(store().get(p.as_bytes()), Some(&7u64.to_le_bytes().to_vec()));
+    // An empty `Lazy` writes nothing.
+    Value::__write_pending(&Lazy::<u64>::default(), &field(5));
+    assert_eq!(end_call().rwd(), (0, 0, 0));
+}
