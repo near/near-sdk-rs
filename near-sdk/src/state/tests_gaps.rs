@@ -465,3 +465,44 @@ fn gaps_lazy_new_bound_over_a_stored_record_panics() {
     let mut fresh = Lazy::new(Account::default());
     fresh.bind(&Path::root(DEFAULT_ROOT).field(5));
 }
+
+// ---------------------------------------------------------------------------------------
+// Error litmus (verification round 2): error paths no test pinned
+// ---------------------------------------------------------------------------------------
+
+/// A `#[key(n, legacy)]` root field missing from the stored root is `Missing { tag }`, whose
+/// message names the tag (litmus: replacing it with another error survived every suite).
+#[test]
+fn gaps_legacy_field_missing_is_missing_naming_the_tag() {
+    use super::record::{RecordError, Wire};
+    let other = 7u64.to_le_bytes();
+    let fields: p::Fields<'_> = vec![(1, Wire::Scalar, &other[..])];
+    let e = p::legacy_field::<u64>(&fields, 2).expect_err("tag 2 is absent");
+    assert_eq!(e, RecordError::Missing { tag: 2 });
+    assert!(e.to_string().contains("required field tag 2 is absent"), "{e}");
+    // Present: decoded as its Borsh bytes.
+    assert_eq!(p::legacy_field::<u64>(&fields, 1), Ok(7));
+}
+
+/// `#[key(n, required)]` on a collection is refused at decode, present or absent (litmus:
+/// deleting the check survived every suite).
+#[test]
+fn gaps_required_on_a_collection_field_is_refused() {
+    use super::record::{RecordError, Wire};
+    let path = Path::root(DEFAULT_ROOT);
+    let marker = [0x81u8];
+    let present: p::Fields<'_> = vec![(3, Wire::Marker, &marker[..])];
+    for fields in [vec![], present] {
+        for path in [None, Some(&path)] {
+            let e = p::field_required::<LookupMap<u8, u8>>(&fields, 3, path)
+                .map(|_| ())
+                .expect_err("required on a collection");
+            assert_eq!(e, RecordError::Leaf("`required` on a collection field".into()));
+        }
+    }
+    // The inline case still decodes.
+    let v = 5u32.to_le_bytes();
+    let f: p::Fields<'_> = vec![(3, Wire::Scalar, &v[..])];
+    assert_eq!(p::field_required::<u32>(&f, 3, Some(&path)), Ok(5));
+    assert_eq!(p::field_required::<u32>(&f, 4, Some(&path)), Err(RecordError::Missing { tag: 4 }));
+}
