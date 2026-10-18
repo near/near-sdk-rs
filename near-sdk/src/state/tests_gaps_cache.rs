@@ -343,3 +343,32 @@ fn gaps_cache_discard_after_in_place_mutation_still_checks_the_stored_bytes() {
     m.get_mut(&1).expect("stored").nonce = 2;
     m.discard(&1);
 }
+
+static EXIT_DROPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// A leaf whose `Drop` is counted process-wide, so a drop on another thread is visible.
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct ExitDropper(u8);
+impl BorshLeaf for ExitDropper {}
+impl Drop for ExitDropper {
+    fn drop(&mut self) {
+        EXIT_DROPS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// libFuzzer round (Oct 18): a call that ends with its thread, without a flush or
+/// `begin_call`, still frees its slots and their values when the thread-local cache is
+/// destroyed. Before `impl Drop for Cache` the value was never dropped (LeakSanitizer reported
+/// the slots of the last input of `g1_nested_get_reads_only_its_own_key` at exit).
+#[test]
+fn gaps_cache_thread_exit_frees_unflushed_slots() {
+    std::thread::spawn(|| {
+        testing::use_mock();
+        let mut m: LookupMap<u32, ExitDropper> = at(1);
+        m.insert(1, ExitDropper(1));
+        // No flush: the call ends with the thread.
+    })
+    .join()
+    .unwrap();
+    assert_eq!(EXIT_DROPS.load(std::sync::atomic::Ordering::SeqCst), 1, "unflushed slot value dropped at thread exit");
+}

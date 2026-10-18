@@ -389,6 +389,22 @@ impl Cache {
     }
 }
 
+/// Frees the slots, handles and graveyard still held when the cache itself is dropped: the
+/// thread-local `CACHE` is destroyed at thread exit (and on `exit()` for the main thread), and
+/// a call that ended without a flush or `begin_call` (a read-only view, a test) would otherwise
+/// leak them (libFuzzer round, LeakSanitizer on `g1_nested_get_reads_only_its_own_key`). Wasm
+/// never runs thread-local destructors, so contracts are unaffected.
+///
+/// `install_host` calls `begin_call` before replacing the cache, so this never runs value
+/// destructors inside the `RefCell` borrow. Limitation: at thread exit a value whose `Drop`
+/// touches another thread-local (a nested v1 collection's write-on-drop through the env mock)
+/// may find it already destroyed; nothing in `state/` has such a `Drop` touching `CACHE`.
+impl Drop for Cache {
+    fn drop(&mut self) {
+        free_slots(self.take_slots());
+    }
+}
+
 struct Taken {
     slots: std::vec::Vec<NonNull<Slot>>,
     handles: std::vec::Vec<NonNull<dyn Any>>,
