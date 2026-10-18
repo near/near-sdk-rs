@@ -870,7 +870,7 @@ Breakdown of the 65 missed:
 
 Breakdown of the 75 missed:
 
-- **Unobservable, 3:** the `Display` impl of `CursorGone` and the `Debug` impl of `Lazy`, among others.
+- **Unobservable, 2:** the `Display` impl of `CursorGone` and the `Debug` impl of `Lazy`.
 - **Nested Lazy / Set / LookupSet / Vector inside a record, about 35.** No reference-model or invariant coverage for:
   - inline `encode_value` / `decode_value`, `detach`, `__write_pending`;
   - `Lazy::{path, __bound_at, get_mut}`;
