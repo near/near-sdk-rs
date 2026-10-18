@@ -35,3 +35,5 @@ pub mod c5_remove_some;
 pub mod c3_lost_writes;
 #[cfg(test)]
 pub mod c1_hot_collision;
+#[cfg(test)]
+pub mod c6_paging_churn;
