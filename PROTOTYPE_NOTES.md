@@ -654,3 +654,68 @@ Runners-up:
 - **Untested types and paths.** `collections::UnorderedMap` (implemented, untested); a real `store::LookupMap` contract (only the synthetic `store_lookup` test); `Vector`/`LazyOption` rekeying; `ft_transfer_call`/resolve under v2.
 - **Not on the sim.** `migrate_batch`, and the aliasing attack.
 - **Not built.** The `migrate(old: RawRecord)` macro hook, and dropping stale inline bytes when a tag turns non-inline.
+
+## API round (Oct 17)
+
+This round brings the prototype in line with the settled decisions in `decisions-oct17.md`, items D2 to D9. D1, D10, G* and M* are doc-only and were not acted on. It starts by merging `proto/storage-v2-gas`, which was clean: the `unstable-state-hash8` feature, `proto-gas/` and `GAS_MEASUREMENTS.md`, with the lib suite at 566. Each decision also has a line in the `state` module docs (`near-sdk/src/state/mod.rs`).
+
+| | What changed | Tests |
+| --- | --- | --- |
+| D2 | `#[key(n, default = expr)]`. A missing tag evaluates `expr` lazily, in decode and in the generated `Default`, and the type needs no `Default`. `required` together with `default` is a derive error. `RecordError::Missing` now displays `required field tag N is absent ... needs #[key(N, default = ..)] ...`. | `key_default_expr_fills_missing_tags`, `key_required_still_decodes_and_fails_when_missing`, `field_added_with_default_decodes_an_old_record`, `field_added_as_required_fails_an_old_record_naming_the_tag` (exchange) |
+| D3 | `GroupedMap` (with `Group`, `GroupMut`) is `#[doc(hidden)]` with a deferral note. There is no `#[deprecated]`, because the NFT test still uses it and the attribute would spray warnings there. It is gone from the module docs and from the derive and `CHECK` messages. Exchange is rewritten to `markets: Map<MarketId, Market>`, and `proto-wasm-check` carries the same text. | `markets_place_and_cancel`, `market_record_scalars_and_orders`, `opening_a_market_twice_panics`, `cancel_in_an_absent_market_panics`, `place_off_tick_panics` |
+| D4 | No code change: the prototype already preserved unknown tags and dropped only `reserved` ones. | `unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped`, `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes` |
+| D5 | Under `unit-testing`, `env::storage_usage()` panics when the v2 cache has unflushed changes (any slot not Clean). The message points at `storage_delta()`. New `Receipt::storage_delta()` and `testing::storage_delta()`, using key + value + 40 per record (`STORAGE_RECORD_OVERHEAD`). Removes now record `replaced_len = Some(old)` when the key existed. | `storage_usage_inside_a_v2_mutating_method_panics`, `storage_delta_is_the_post_flush_storage_change` (ft; the mock delta equals the mocked blockchain's `storage_usage` delta, and unregister returns it) |
+| D6 | `insert` always overwrites and requires `V: Leaf`. `Leaf` is a new trait: a blanket over Borsh, and derived with HRTB bounds when no field owns storage, the same trick as `Removable`. New `insert_new(k, v) -> &mut V` requires `V: Record` and panics if the key is present. `Map::insert -> bool`, `LookupMap::insert -> ()` with no existence read. The rejected call is E0277 with the fix in the note. | `compile_fail,E0277` doctest plus the passing fix on `LookupMap::insert`; `insert_new_returns_the_bound_record`, `insert_always_overwrites_a_leaf_record`, `insert_new_over_existing_record_panics` |
+| D7 | `at_mut(&k) -> Option<NameAtMut>` on `Map` and `LookupMap`. The DAO `vote` lost its `contains_key` check (the `expect` is the check). | `at_mut_on_an_absent_record_is_none` (lib and DAO), `vote_on_absent_proposal_panics`, `set_balance_on_an_absent_account_panics` |
+| D8 | `page`, `page_with`, `keys_page` and `Set::page` return `Result<_, CursorGone>`. `CursorGone: AsRef<str>`, so a `#[handle_result]` view returns it as is; the Exchange `balances` does, and the wasm32 check covers that wrapper. The offset-paging skip is documented on `Map::page`. | `page_with_removed_cursor_returns_cursor_gone`, `offset_paging_skips_a_key_after_a_removal_behind_the_offset`, `balances_with_a_removed_cursor_is_cursor_gone` |
+| D9 | `Map/LookupMap::remove_some(&k, n) -> bool` (true while entries remain) removes a record in bounded steps. New `Removable::clear_children_some(path, &mut budget)`, which the derive emits. While a clear is unfinished, the record bytes start with the clearing flag, and `get_mut`, `entry` and `at_mut` on that record panic; `get` and `at` still read. Format decision: the flag is `00 00` (tag 0, length 0, first). | `clear_across_two_calls_refuses_an_interleaved_insert`, `writes_below_a_clearing_record_panic_in_the_same_call`, `clear_that_fits_in_one_call_writes_no_flag` (exchange); `remove_some_budgets_across_calls`, `clearing_flag_is_a_leading_empty_tag_zero` (lib) |
+
+### Invented where the decisions are silent
+
+- **D2:** `default` and `required` together are rejected. A `default` on a collection field is a post-monomorphization `const` assert.
+- **D3:** the `Market` scalars are `tick_size: u128` and `next_order_id: OrderId`, at tags 2 and 3, with `orders` at tag 1. The five spec method bodies match `proto-wasm-check/src/lib.rs`:
+  - `set_balance`: `at_mut(&id).expect("no such account")`.
+  - `cancel`: `markets.at_mut(&market).expect("no such market").orders.remove(&order)`.
+  - `balances`: `#[handle_result] -> Result<Page<TokenId, u128>, CursorGone>`.
+  The doc block should be reconciled with these.
+- **D5:** the guard keys on cache state, not on a "v2 call active" flag. That way views and code between calls never trip it (the ft-v2 migration test reads `storage_usage` right after a view), and any "after" read in a method that wrote does trip it. Gap: a change to a root scalar alone does not trip it, because the root is encoded only at the flush.
+- **D6:** `Lazy::set` on a record that owns collections is still the runtime insert-new check, not a trait bound. `MigrationTarget` now requires `V: Leaf`; values migrated from v1 are always Borsh.
+- **D8:** `keys_page` and `Set::page` also return `Result`, for consistency.
+- **D9:**
+  - The API name is `remove_some(&k, n)`. `clear(n)` would collide with `Map::clear()`, and the operation is a bounded remove.
+  - The budget counts entries removed at any depth. `Lazy` values do not count.
+  - `n = 0` clears nothing and flags the record.
+  - `replace` and `remove` on a clearing record are allowed: they clear unbounded and drop the flag.
+  - Only values with `MAX_SUBPATH > 0` consult the flag, because a Borsh leaf may legitimately start with `00 00`.
+
+### Cost change the designer must see (D9)
+
+The flag lives in the record bytes, which `storage_has_key` cannot see. So `at_mut` now does 1 read of the record (no decode) instead of 1 `storage_has_key`. Every `at_mut` path has +1 read and −1 has_key, and pays the record's bytes:
+
+- `set_balance`: (2,1,0) + 1 has_key → (3,1,0).
+- `cancel`: (5,3,3) → (6,3,3).
+- DAO `vote`: (5,8,0) + 2 has_key → (7,8,0) + 1 has_key, and the 2,000-byte proposal description is read again. The round-3 win, "the proposal record is no longer read to insert a vote", is gone.
+
+The doc's "one existence check, no decode" for `at_mut` and `set_balance` is now half true: there is no decode, but there is a read.
+
+Alternatives:
+
+- A sibling flag key checked with `storage_has_key`. Each `at_mut` then costs 2 has_key calls, record and flag.
+- A flag checked only at the flush, for keys under an `at_mut` path. It still needs the read, just later.
+- Accept the cost.
+
+### Test counts (end of round)
+
+- Lib: 571 (566 after the merge).
+- Doctests: 344, including the D6 `compile_fail` case.
+- `state_v2_exchange`: 34. `state_v2_ft`: 16. `state_v2_nft`: 17. `state_v2_dao`: 15. `state_v2_migrate`: 5.
+- ft-v2 example: 16 migration plus 1 nested_trap.
+- `proto-wasm-check`: wasm32 check passes.
+
+`abi_tests` and `deny_unknown_arguments_tests` fail in this worktree for environment reasons: a workspace-detection error building `examples/adder`, and no real sandbox.
+
+### Not built
+
+- The deployed-ABI `storage diff` checks: D2's hard fail on a newly added `required` tag, and D4's build error on tag reuse.
+- An on-chain `env::storage_delta()`.
+- A trybuild `.stderr` snapshot for D6. The doctest checks E0277 only; the message text is quoted in the doctest's comments.
