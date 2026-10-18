@@ -1416,7 +1416,8 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
     let mut ex = audit_a2_setup(false);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
     let removed = ex.accounts.remove(&alice()).unwrap();
-    assert!(removed.balances.path().is_none(), "the left-behind handle is the one detached");
+    assert_eq!(format!("{:?}", removed.balances), "Map(Detached)", "the left-behind handle is the one detached");
+    assert!(taken.path().is_some(), "the escaped handle is not");
     assert!(taken.insert("z".into(), 9), "no panic: the escaped handle writes freely");
     flush_root(&ex);
     let rec = alice_record_key();
