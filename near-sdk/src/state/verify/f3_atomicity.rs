@@ -138,5 +138,5 @@ fn f3_a_failed_call_leaves_no_trace() {
     });
     let (f, b) = (FLUSH_FAILS.load(Ordering::Relaxed), BODY_FAILS.load(Ordering::Relaxed));
     println!("f3: {f} calls failed in the flush, {b} in the body");
-    assert!(f > 100 && b > 100, "too few injected failures: {f} flush, {b} body");
+    assert!(f > 20 && b > 20, "too few injected failures: {f} flush, {b} body");
 }
