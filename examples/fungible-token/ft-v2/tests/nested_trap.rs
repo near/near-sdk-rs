@@ -58,7 +58,7 @@ fn removing_a_record_that_holds_a_fungible_token_orphans_its_balances() {
     let mut token = FungibleToken::new(b"p1".to_vec());
     token.internal_register_account(&alice);
     token.internal_deposit(&alice, 500);
-    c.pools.insert(1, Pool { token });
+    let _ = c.pools.insert(1, Pool { token });
     c.state_write();
     drop(c);
     let v1_key = [b"p1".as_slice(), &near_sdk::borsh::to_vec(&alice).unwrap()].concat();

@@ -211,8 +211,8 @@ fn map_costs_match_table_beside_100kib_neighbor() {
 fn iter_fixture(neighbor: StdVec<u8>) -> Map<u32, StdVec<u8>> {
     testing::use_mock();
     let mut m: Map<u32, StdVec<u8>> = at(1);
-    m.insert(1, vec![1]); // the entry under test, slot 0
-    m.insert(2, neighbor); // the neighbor, last slot: it is the key that moves on removal
+    let _ = m.insert(1, vec![1]); // the entry under test, slot 0
+    let _ = m.insert(2, neighbor); // the neighbor, last slot: it is the key that moves on removal
     end_call();
     m
 }
@@ -220,11 +220,11 @@ fn iter_fixture(neighbor: StdVec<u8>) -> Map<u32, StdVec<u8>> {
 #[test]
 fn itermap_insert_and_update_costs() {
     let mut m = iter_fixture(big());
-    m.insert(3, vec![3]);
+    let _ = m.insert(3, vec![3]);
     let r = end_call();
     assert_eq!(r.rwd(), (2, 4, 0), "insert new: index read, header read, 4 writes");
 
-    m.insert(3, vec![4]);
+    let _ = m.insert(3, vec![4]);
     let r = end_call();
     assert_eq!(
         r.rwd(),
@@ -288,7 +288,7 @@ fn itermap_pagination_is_linear() {
     testing::use_mock();
     let mut m: Map<u32, u64> = at(1);
     for i in 0..20 {
-        m.insert(i, i as u64);
+        let _ = m.insert(i, i as u64);
     }
     end_call();
     let pg = m.page(None, 5).unwrap();
@@ -319,7 +319,7 @@ fn page_with_removed_cursor_returns_cursor_gone() {
     testing::use_mock();
     let mut m: Map<u32, u64> = at(1);
     for i in 0..3 {
-        m.insert(i, 0);
+        let _ = m.insert(i, 0);
     }
     end_call();
     m.discard(&1);
@@ -342,7 +342,7 @@ fn offset_paging_skips_a_key_after_a_removal_behind_the_offset() {
     testing::use_mock();
     let mut m: Map<u32, u64> = at(1);
     for i in 0..6 {
-        m.insert(i, 0);
+        let _ = m.insert(i, 0);
     }
     end_call();
     let p1: StdVec<u32> = m.keys().skip(0).take(3).collect(); // 0,1,2
@@ -361,7 +361,7 @@ fn page_skips_moved_key_after_interleaved_removal() {
     testing::use_mock();
     let mut m: Map<u32, u64> = at(1);
     for i in 0..6 {
-        m.insert(i, 0);
+        let _ = m.insert(i, 0);
     }
     end_call();
     let p1 = m.page(None, 3).unwrap(); // 0,1,2
@@ -379,10 +379,10 @@ fn no_debt_counts_do_not_depend_on_history() {
     // fresh
     testing::use_mock();
     let mut m: Map<u32, u32> = at(1);
-    m.insert(1_000_000, 1);
-    m.insert(1_000_001, 1);
+    let _ = m.insert(1_000_000, 1);
+    let _ = m.insert(1_000_001, 1);
     end_call();
-    m.insert(7, 7);
+    let _ = m.insert(7, 7);
     let ins_fresh = end_call().rwd();
     m.remove(&1_000_000);
     let rm_fresh = end_call().rwd();
@@ -395,15 +395,15 @@ fn no_debt_counts_do_not_depend_on_history() {
         x = x.wrapping_mul(1_103_515_245).wrapping_add(12345);
         let k = x % 300;
         if x & 1 == 0 {
-            m.insert(k, x);
+            let _ = m.insert(k, x);
         } else {
             m.discard(&k);
         }
     }
-    m.insert(1_000_000, 1);
-    m.insert(1_000_001, 1);
+    let _ = m.insert(1_000_000, 1);
+    let _ = m.insert(1_000_001, 1);
     end_call();
-    m.insert(7_000_000, 7);
+    let _ = m.insert(7_000_000, 7);
     let ins_old = end_call().rwd();
     m.remove(&1_000_000);
     let rm_old = end_call().rwd();
@@ -484,7 +484,7 @@ fn sets() {
 fn balance_updated_ten_times_is_one_write() {
     testing::use_mock();
     let mut m: Map<String, u128> = at(1);
-    m.insert("usdt".into(), 0);
+    let _ = m.insert("usdt".into(), 0);
     end_call();
     for _ in 0..10 {
         *m.get_mut(&"usdt".to_string()).unwrap() += 1;
@@ -576,7 +576,7 @@ fn unchanged_root_is_not_rewritten() {
     flush_root(&ex);
     testing::begin_call();
     let mut ex: Ex = load_root();
-    ex.accounts.insert_new(alice(), Account::default());
+    ex.accounts.try_insert(alice(), Account::default()).unwrap();
     assert!(!flush_root(&ex), "a collection write does not rewrite the root record");
     assert_eq!(receipt().rwd(), (1, 1, 0));
 }
@@ -593,7 +593,7 @@ fn one_call_through_the_cache() {
     let mut ex: Ex = load_root();
     let a = ex.accounts.entry(alice()).or_default();
     for t in ["usdt", "dai", "eth"] {
-        a.balances.insert(t.into(), 100);
+        let _ = a.balances.insert(t.into(), 100);
     }
     flush_root(&ex);
     testing::begin_call();
@@ -703,7 +703,7 @@ fn insert_of_new_record_costs_a_has_key_and_a_write() {
     testing::begin_call();
     let mut ex2: Ex = load_root();
     let before = receipt();
-    ex2.accounts.insert_new(alice(), Account::default());
+    ex2.accounts.try_insert(alice(), Account::default()).unwrap();
     flush_root(&ex2);
     let r = receipt();
     // D9 flag key: a miss at the record key also checks the flag key (a record being cleared
@@ -920,21 +920,21 @@ fn removed_records_collections_are_detached() {
     a.balances.len();
 }
 
-/// D6: `insert_new` returns the record bound to its key, so its collections are usable at
+/// D6/T1: `try_insert` returns the record bound to its key, so its collections are usable at
 /// once; on `Map` it costs what a new-key `insert` costs.
 #[test]
-fn insert_new_returns_the_bound_record() {
+fn try_insert_returns_the_bound_record() {
     testing::use_mock();
     let mut m: Map<u32, Account> = at(11);
-    let a = m.insert_new(1, Account { nonce: 3, ..Default::default() });
-    a.balances.insert("usdt".into(), 5);
+    let a = m.try_insert(1, Account { nonce: 3, ..Default::default() }).unwrap();
+    let _ = a.balances.insert("usdt".into(), 5);
     a.nonce += 1;
     let r = end_call();
     assert_eq!(r.rwd(), (4, 8, 0), "outer: index + header reads, 4 writes; balances: the same");
     assert_eq!(m.get(&1).unwrap().nonce, 4);
     assert_eq!(m.at(&1).balances.get(&"usdt".to_string()), Some(&5));
     let mut lm: LookupMap<u32, Account> = at(12);
-    lm.insert_new(1, Account::default()).nonce = 2;
+    lm.try_insert(1, Account::default()).unwrap().nonce = 2;
     let r = end_call();
     assert_eq!(
         (r.has_keys(), r.writes()),
@@ -964,18 +964,46 @@ fn insert_always_overwrites_a_leaf_record() {
     assert_eq!(lm.get(&1).unwrap().nonce, 5);
 }
 
-/// Item 15 / D6: `insert_new` over an existing key panics instead of silently inheriting the
-/// old record's children (round 1 behaviour). Plain `insert` does not compile for this record.
+/// Item 15 / D6 / T1: `try_insert` over an existing key is `Err(Occupied)` instead of silently
+/// inheriting the old record's children (round 1 behaviour): the index read only, the record
+/// not read, nothing written. Plain `insert` does not compile for this record.
 #[test]
-#[should_panic(expected = "record exists; use get_mut, or remove it first")]
-fn insert_new_over_existing_record_panics() {
+fn try_insert_over_existing_record_is_occupied() {
     testing::use_mock();
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
     flush_root(&ex);
     testing::begin_call();
     let mut ex: Ex = load_root();
-    ex.accounts.insert_new(alice(), Account { nonce: 9, balances: Map::default() });
+    let r = ex.accounts.try_insert(alice(), Account { nonce: 9, balances: Map::default() });
+    assert_eq!(r.err(), Some(crate::state::Occupied));
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 0, 0), "alice's index slot only; the record is not read");
+    assert_eq!(ex.accounts.get(&alice()).unwrap().nonce, 0, "unchanged");
+}
+
+/// T1: `try_insert` exists for leaf values too, and is the first-write-wins guard that
+/// `require!(m.insert(..))` was not: an occupied key keeps its value.
+#[test]
+fn try_insert_on_leaf_values_keeps_the_first_write() {
+    testing::use_mock();
+    let mut m: Map<u32, u64> = at(15);
+    assert_eq!(*m.try_insert(1, 10).unwrap(), 10);
+    let r = end_call();
+    assert_eq!(r.rwd(), (2, 4, 0), "as a new-key insert: index + header reads, 4 writes");
+    assert!(m.try_insert(1, 20).is_err());
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 0, 0), "the index read only");
+    assert_eq!(m.get(&1), Some(&10));
+    end_call();
+    let mut lm: LookupMap<u32, u64> = at(16);
+    lm.try_insert(1, 10).unwrap();
+    let r = end_call();
+    assert_eq!((r.rwd(), r.has_keys()), ((0, 1, 0), 1), "LookupMap leaf: 1 check, 1 write");
+    assert_eq!(lm.try_insert(1, 20).err(), Some(crate::state::Occupied));
+    let r = end_call();
+    assert_eq!((r.rwd(), r.has_keys()), ((0, 0, 0), 1), "1 check, no read, no write");
+    assert_eq!(lm.get(&1), Some(&10));
 }
 
 /// Item 16: moving a record between keys is remove + rebuild. Re-inserting the removed value
@@ -990,7 +1018,7 @@ fn moving_a_record_between_keys_panics() {
     testing::begin_call();
     let mut ex: Ex = load_root();
     let a = ex.accounts.remove(&alice()).unwrap();
-    ex.accounts.insert_new(bob(), a);
+    ex.accounts.try_insert(bob(), a).unwrap();
 }
 
 /// Item 16, the supported path: a removed record's scalars stay readable and a new record is
@@ -1008,7 +1036,7 @@ fn remove_then_rebuild() {
     let old = ex.accounts.remove(&alice()).unwrap();
     let new = ex.accounts.entry(bob()).or_default();
     new.nonce = old.nonce;
-    new.balances.insert("a".into(), bal);
+    let _ = new.balances.insert("a".into(), bal);
     flush_root(&ex);
     testing::begin_call();
     let ex: Ex = load_root();
@@ -1051,7 +1079,7 @@ fn mem_take_breaks_binding() {
     let mut ex: Ex = load_root();
     deposit(&mut ex, alice(), "a", 1);
     let taken = core::mem::take(ex.accounts.get_mut(&alice()).unwrap());
-    ex.accounts.insert_new(bob(), taken);
+    ex.accounts.try_insert(bob(), taken).unwrap();
 }
 
 #[test]
@@ -1078,7 +1106,7 @@ fn bounded_clear() {
     testing::use_mock();
     let mut m: Map<u32, u32> = at(1);
     for i in 0..10 {
-        m.insert(i, i);
+        let _ = m.insert(i, i);
     }
     end_call();
     assert!(m.clear_some(4));
@@ -1095,9 +1123,9 @@ fn bounded_clear() {
 fn grouped_map_groups_are_independent_itermaps() {
     testing::use_mock();
     let mut g: GroupedMap<u32, u64, u64> = at(4);
-    g.group_mut(&1).insert(10, 1);
-    g.group_mut(&1).insert(11, 1);
-    g.group_mut(&2).insert(10, 2);
+    let _ = g.group_mut(&1).insert(10, 1);
+    let _ = g.group_mut(&1).insert(11, 1);
+    let _ = g.group_mut(&2).insert(10, 2);
     end_call();
     assert_eq!(g.group(&1).len(), 2);
     assert_eq!(g.group(&2).get(&10), Some(&2));
@@ -1116,7 +1144,7 @@ fn cache_holds_every_touched_key_for_the_call() {
     testing::use_mock();
     let mut m: Map<u32, StdVec<u8>> = at(1);
     for i in 0..100 {
-        m.insert(i, vec![0; 1024]);
+        let _ = m.insert(i, vec![0; 1024]);
     }
     end_call();
     let n = m.iter().fold(0, |n, _| n + 1); // `count()` alone reads only the header
@@ -1165,7 +1193,7 @@ fn skip_and_count_are_free_on_map_and_vector() {
     let mut m: Map<u32, u32> = at(3);
     let mut v: Vector<u32> = at(4);
     for i in 0..10 {
-        m.insert(i, i);
+        let _ = m.insert(i, i);
         v.push(i);
     }
     end_call();
@@ -1185,8 +1213,8 @@ fn unit_valued_remove_costs_what_discard_costs() {
     let mut a: Map<u32, ()> = at(5);
     let mut b: Map<u32, ()> = at(6);
     for i in 0..3 {
-        a.insert(i, ());
-        b.insert(i, ());
+        let _ = a.insert(i, ());
+        let _ = b.insert(i, ());
     }
     end_call();
     assert_eq!(a.remove(&0), Some(()));
@@ -1216,7 +1244,7 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     let mut m: Map<u32, Account> = at(8);
     m.entry(1).or_default().nonce = 7;
     end_call();
-    m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
+    let _ = m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
     let r = end_call();
     assert_eq!(r.has_keys(), 1, "the record's existence; D9's flag key is not checked on a hit");
     assert_eq!(
@@ -1237,7 +1265,7 @@ fn remove_some_budgets_across_calls() {
     let mut m: Map<u32, Account> = at(15);
     let a = m.entry(1).or_default();
     for i in 0..5 {
-        a.balances.insert(format!("t{i}"), 1);
+        let _ = a.balances.insert(format!("t{i}"), 1);
     }
     m.entry(2).or_default().nonce = 1;
     end_call();
@@ -1260,7 +1288,7 @@ fn remove_some_budgets_across_calls() {
     assert_eq!(m.len(), 1);
     assert_eq!(m.key_at(0), Some(2));
     let mut lm: LookupMap<u32, Account> = at(16);
-    lm.entry(1).or_default().balances.insert("a".into(), 1);
+    let _ = lm.entry(1).or_default().balances.insert("a".into(), 1);
     end_call();
     assert!(lm.remove_some(&1, 0), "n = 0 clears nothing");
     end_call();
@@ -1270,7 +1298,7 @@ fn remove_some_budgets_across_calls() {
 }
 
 /// D9 flag key: every path that ends a clear early (`replace`, `remove`, `discard`) removes
-/// the flag key; `insert_new` over a record being cleared panics; iteration and `get` still
+/// the flag key; `try_insert` over a record being cleared panics; iteration and `get` still
 /// see the record; a flag key never outlives its clear.
 #[test]
 fn flag_key_is_dropped_by_replace_remove_and_discard() {
@@ -1278,8 +1306,8 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
         let mut lm: LookupMap<u32, Account> = at(tag);
         let a = lm.entry(1).or_default();
         a.nonce = 4;
-        a.balances.insert("a".into(), 1);
-        a.balances.insert("b".into(), 1);
+        let _ = a.balances.insert("a".into(), 1);
+        let _ = a.balances.insert("b".into(), 1);
         end_call();
         assert!(lm.remove_some(&1, 1));
         end_call();
@@ -1319,12 +1347,12 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
          key and the flag key"
     );
 
-    // insert_new over a record being cleared panics, and so does `entry`
+    // try_insert over a record being cleared panics, and so does `entry`
     let (mut lm, _, _) = flagged_lookup(23);
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        lm.insert_new(1, Account::default());
+        let _ = lm.try_insert(1, Account::default());
     }))
-    .expect_err("insert_new over a clearing record");
+    .expect_err("try_insert over a clearing record");
     assert!(e.downcast_ref::<String>().is_some_and(|m| m.contains("is being cleared")));
     testing::begin_call();
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -1338,8 +1366,8 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
     let mut m: Map<u32, Account> = at(24);
     let a = m.entry(1).or_default();
     a.nonce = 5;
-    a.balances.insert("a".into(), 1);
-    a.balances.insert("b".into(), 1);
+    let _ = a.balances.insert("a".into(), 1);
+    let _ = a.balances.insert("b".into(), 1);
     end_call();
     assert!(m.remove_some(&1, 1));
     end_call();

@@ -83,8 +83,8 @@ impl Nft {
     /// Revision 3: `Lazy::new(metadata)` is written when `insert` places the record.
     pub fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId, metadata: TokenMetadata) {
         require!(env::predecessor_account_id() == self.owner, "owner only");
-        require!(!self.tokens.contains_key(&token_id), "token already exists");
-        self.tokens.insert_new(
+        // T1: `try_insert` checks and inserts in one index read.
+        let inserted = self.tokens.try_insert(
             token_id.clone(),
             Token {
                 owner_id: receiver_id.clone(),
@@ -93,7 +93,8 @@ impl Nft {
                 metadata: Lazy::new(metadata),
             },
         );
-        self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
+        require!(inserted.is_ok(), "token already exists");
+        let _ = self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
     #[payable]
@@ -103,7 +104,7 @@ impl Nft {
         require!(token.owner_id == env::predecessor_account_id(), "only the owner can approve");
         let id = token.next_approval_id;
         token.next_approval_id += 1;
-        token.approvals.insert(account_id, id);
+        let _ = token.approvals.insert(account_id, id);
         id
     }
 
@@ -134,7 +135,7 @@ impl Nft {
         // wrote; disjoint field borrows make this fine.
         // Revision 3: `remove` on a `()` value skips the entry read, so it costs `discard`.
         self.tokens_per_owner.group_mut(&old_owner).remove(&token_id);
-        self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
+        let _ = self.tokens_per_owner.group_mut(&receiver_id).insert(token_id, ());
     }
 
     pub fn nft_burn(&mut self, token_id: TokenId) {
@@ -439,7 +440,7 @@ fn setting_a_nested_lazy_before_insert_panics() {
             metadata: Default::default(),
         };
         t.metadata.set(TokenMetadata::default());
-        c.tokens.insert_new("t1".into(), t);
+        let _ = c.tokens.try_insert("t1".into(), t);
     });
 }
 

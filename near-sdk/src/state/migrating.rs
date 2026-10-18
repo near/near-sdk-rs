@@ -75,7 +75,7 @@ impl<K: StorageKey + Clone + 'static, V: Removable + Leaf> MigrationTarget for N
         self.get(k)
     }
     fn target_insert(&mut self, k: K, v: V) {
-        self.insert(k, v);
+        let _ = self.insert(k, v);
     }
     fn target_remove(&mut self, k: &K) {
         self.discard(k);

@@ -88,12 +88,12 @@ pub trait Record: Value {
 ///
 /// `Map::insert` / `LookupMap::insert` always overwrite, so they require `V: Leaf`: overwriting
 /// a record that owns collections would leave its old entries behind or silently merge them.
-/// For such a record the ways in are `insert_new(k, v)` (panics if present) and
+/// For such a record the ways in are `try_insert(k, v)` (`Err(Occupied)` if present) and
 /// `entry(k).or_default()`.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` owns storage (a collection, a `Lazy`, or a record holding one), so `insert` cannot overwrite it",
     label = "`insert` always overwrites; it needs a value that owns no collections",
-    note = "use `insert_new(k, v)` (panics if the key exists, returns the bound record) or `entry(k).or_default()`; to replace a record, `remove` it first"
+    note = "use `try_insert(k, v)` (`Err(Occupied)` if the key exists, else the bound record) or `entry(k).or_default()`; to replace a record, `remove` it first"
 )]
 pub trait Leaf: Value {}
 

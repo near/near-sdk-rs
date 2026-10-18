@@ -99,10 +99,12 @@ impl Dao {
 
     pub fn add_member(&mut self, account_id: AccountId) {
         self.assert_council();
-        require!(!self.members.contains_key(&account_id), "already a member");
-        self.members.insert_new(
-            account_id,
-            Member { joined_at: env::block_height(), ..Default::default() },
+        // T1: `try_insert` is the existence check and the insert in one index read.
+        require!(
+            self.members
+                .try_insert(account_id, Member { joined_at: env::block_height(), ..Default::default() })
+                .is_ok(),
+            "already a member"
         );
     }
 
@@ -133,18 +135,21 @@ impl Dao {
         let id = self.next_id;
         self.next_id += 1;
         member.proposals.insert(id);
-        self.proposals.insert_new(id, Proposal { proposer, description, votes: Default::default() });
+        self.proposals
+            .try_insert(id, Proposal { proposer, description, votes: Default::default() })
+            .expect("proposal id reused");
         id
     }
 
     /// Revision 3: `at_mut` reaches `votes` without reading the proposal record (or the
-    /// member's), and `insert` returning `bool` is the double-vote check.
+    /// member's), and `try_insert` is the double-vote check (T1: it writes nothing when the
+    /// voter already voted; `require!(votes.insert(..))` had already overwritten).
     pub fn vote(&mut self, id: ProposalId, vote: Vote) {
         let voter = env::predecessor_account_id();
         require!(self.members.contains_key(&voter), "members only");
         // D7: `at_mut` returns `Option`, so the existence check is the `expect`.
         let p = self.proposals.at_mut(&id).expect("no such proposal");
-        require!(p.votes.insert(voter.clone(), vote), "already voted");
+        require!(p.votes.try_insert(voter.clone(), vote).is_ok(), "already voted");
         self.members.at_mut(&voter).expect("members only").votes.insert(id);
     }
 

@@ -65,11 +65,13 @@
 //!   and only a miss on a map value that owns storage consults the flag key (1 more host
 //!   call). Record bytes carry no flag; tag 0 in a record is always `TagZero`.
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
-//!   the index read); `LookupMap::insert` returns `()` (no existence read). It requires
-//!   `V: Leaf`, a value that owns no collections, so for a record that owns one plain `insert`
-//!   does not compile (E0277 naming the fix). The ways in are `insert_new(k, v)` (`V: Record`;
-//!   panics if present, returns the bound record) and `entry(k).or_default()`. First-write-wins
-//!   is `entry(k).or_insert(v)` or `insert_new`.
+//!   the index read; `#[must_use]`, round 3 T1); `LookupMap::insert` returns `()` (no existence
+//!   read). It requires `V: Leaf`, a value that owns no collections, so for a record that owns
+//!   one plain `insert` does not compile (E0277 naming the fix). `try_insert(k, v) ->
+//!   Result<&mut V, Occupied>` exists for every value type: it writes only if the key is absent
+//!   and returns the bound value, and `Occupied` carries nothing (the stored value is not read).
+//!   First-write-wins is `try_insert` or `entry(k).or_insert(v)`; `require!(m.insert(..), ..)`
+//!   is the bug it replaces (the overwrite has already happened when the check fails).
 //! - Enumeration order is the key vector's: insertion order until a remove moves the last key
 //!   into the hole. `page(after, n)` / `page_with` / `keys_page` return `Err(CursorGone)` if the
 //!   cursor key was removed since the last page (D8); a `#[handle_result]` view can return the
@@ -190,7 +192,7 @@ mod tests;
 #[cfg(feature = "unstable")]
 pub use collections::{
     At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet, Map, MapEntry,
-    Page, Set, Vector, ViewIsReadOnly,
+    Occupied, Page, Set, Vector, ViewIsReadOnly,
 };
 /// Deferred out of the first release (D3); hidden, kept compiling for the prototype.
 #[cfg(feature = "unstable")]

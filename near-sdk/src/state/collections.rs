@@ -214,6 +214,29 @@ impl AsRef<str> for CursorGone {
 }
 impl std::error::Error for CursorGone {}
 
+/// `try_insert(k, v)` found the key already present. Nothing was written and the stored value
+/// was not read (only its existence was checked). Carries nothing, so `.expect("..")` works for
+/// any value type, records without `Debug` included.
+///
+/// Implements `AsRef<str>`, so a `#[handle_result]` method can return it as is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Occupied;
+
+impl Occupied {
+    const MSG: &'static str = "state: key already present; nothing was inserted";
+}
+impl core::fmt::Display for Occupied {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(Self::MSG)
+    }
+}
+impl AsRef<str> for Occupied {
+    fn as_ref(&self) -> &str {
+        Self::MSG
+    }
+}
+impl std::error::Error for Occupied {}
+
 /// One page of a cursor-paginated collection.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
@@ -341,7 +364,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// included). Returns nothing, since knowing whether the key existed would cost a read.
     ///
     /// Only for values that own no collections (`V: Leaf`). For a record that owns collections
-    /// use [`LookupMap::insert_new`] or `entry(k).or_default()`:
+    /// use [`LookupMap::try_insert`] or `entry(k).or_default()`:
     ///
     /// ```compile_fail,E0277
     /// use near_sdk::near;
@@ -353,8 +376,8 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// fn place(markets: &mut LookupMap<u32, Market>) {
     ///     // error[E0277]: `Market` owns storage (a collection, a `Lazy`, or a record holding
     ///     // one), so `insert` cannot overwrite it
-    ///     // note: use `insert_new(k, v)` (panics if the key exists, returns the bound record)
-    ///     // or `entry(k).or_default()`; to replace a record, `remove` it first
+    ///     // note: use `try_insert(k, v)` (`Err(Occupied)` if the key exists, else the bound
+    ///     // record) or `entry(k).or_default()`; to replace a record, `remove` it first
     ///     markets.insert(7, Market::default());
     /// }
     /// ```
@@ -369,7 +392,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// #     #[key(1)] orders: Map<u64, u128>,
     /// # }
     /// fn place(markets: &mut LookupMap<u32, Market>) {
-    ///     let m = markets.insert_new(7, Market::default());
+    ///     let m = markets.try_insert(7, Market::default()).expect("market exists");
     ///     m.orders.insert(1, 100);
     /// }
     /// ```
@@ -383,21 +406,25 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         cache::put(&path, v);
     }
 
-    /// Inserts a record that may own collections, and returns it bound to its key:
-    /// 1 `storage_has_key` + 1 write. Panics if the key exists ("record exists; use get_mut,
-    /// or remove it first"), so first-write-wins needs no separate check.
+    /// Inserts only if the key is absent, and returns the value bound to its key; `Err(Occupied)`
+    /// if present, with nothing written and the stored value not read. For every value type,
+    /// leaf or record; the only way in for a record that owns collections besides `entry`.
+    ///
+    /// 1 `storage_has_key` + 1 write (a plain `insert` is 1 write, no check). For a value that
+    /// owns collections a miss adds 1 `storage_has_key` on its D9 flag key, and a record being
+    /// cleared by `remove_step` panics instead of returning `Occupied`.
+    ///
+    /// `require!(m.try_insert(k, v).is_ok(), "..")` or `m.try_insert(k, v).expect("..")` is the
+    /// first-write-wins guard; plain `insert` would overwrite.
     #[track_caller]
-    pub fn insert_new(&mut self, k: K, mut v: V) -> &mut V
-    where
-        V: Record,
-    {
+    pub fn try_insert(&mut self, k: K, mut v: V) -> Result<&mut V, Occupied> {
         let path = self.entry_path(&k);
         if cache::exists_entry::<V>(&path) {
             assert_not_clearing::<V>(&path);
-            panic!("state: record exists; use get_mut, or remove it first");
+            return Err(Occupied);
         }
         v.bind(&path);
-        unsafe { m(cache::put(&path, v)) }
+        Ok(unsafe { m(cache::put(&path, v)) })
     }
 
     /// 1 read, 1 write. The old value comes back detached, its collections cleared.
@@ -507,7 +534,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
 impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
     read_only! {
         insert(K, V);
-        insert_new(K, V);
+        try_insert(K, V);
         remove_some(&K, u32);
         remove(&K);
         discard(&K);
@@ -650,12 +677,15 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// Always overwrites. Returns `true` if the key was new (free: the index read says so).
     ///
     /// New key: 1 index read, 1 header read, 4 writes. Existing key: 1 index read, 1 write.
-    /// First-write-wins is `entry(k).or_insert(v)`, or `insert_new` for a record.
+    /// First-write-wins is [`Map::try_insert`] (same cost) or `entry(k).or_insert(v)`; do not
+    /// write `require!(m.insert(k, v), "..")`, which has already overwritten when it fails.
     ///
     /// Only for values that own no collections (`V: Leaf`); see [`LookupMap::insert`] for the
-    /// rejected call and the fix. For a record that owns collections use [`Map::insert_new`] or
+    /// rejected call and the fix. For a record that owns collections use [`Map::try_insert`] or
     /// `entry(k).or_default()`.
     #[track_caller]
+    #[must_use = "`insert` always overwrites; the bool says whether the key was new. Use \
+                  `try_insert` for first-write-wins, or `let _ = ..` when overwriting is intended"]
     pub fn insert(&mut self, k: K, mut v: V) -> bool
     where
         V: Leaf,
@@ -670,23 +700,23 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         !exists
     }
 
-    /// Inserts a record that may own collections, and returns it bound to its key. New key:
-    /// 1 index read, 1 header read, 4 writes. Panics if the key exists ("record exists; use
-    /// get_mut, or remove it first"): an existing record's collections would otherwise be
-    /// left behind or merged.
+    /// Inserts only if the key is absent, and returns the value bound to its key; `Err(Occupied)`
+    /// if present, with nothing written and the stored value not read. For every value type,
+    /// leaf or record; the only way in for a record that owns collections besides `entry`.
+    ///
+    /// Same cost as `insert`: 1 index read, then for a new key 1 header read and 4 writes; an
+    /// existing key costs the index read only. A record being cleared by `remove_step` still
+    /// has its index, so it is `Occupied`.
     #[track_caller]
-    pub fn insert_new(&mut self, k: K, mut v: V) -> &mut V
-    where
-        V: Record,
-    {
+    pub fn try_insert(&mut self, k: K, mut v: V) -> Result<&mut V, Occupied> {
         let path = self.entry_path(&k);
         if cache::get::<u32>(&self.index_path(&k)).is_some() {
-            panic!("state: record exists; use get_mut, or remove it first");
+            return Err(Occupied);
         }
         v.bind(&path);
         let p = cache::put(&path, v);
         self.push_key(&k);
-        unsafe { m(p) }
+        Ok(unsafe { m(p) })
     }
 
     #[track_caller]
@@ -947,7 +977,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     read_only! {
         insert(K, V);
-        insert_new(K, V);
+        try_insert(K, V);
         remove_some(&K, u32);
         remove(&K);
         discard(&K);
@@ -1326,7 +1356,8 @@ impl<T: Value> Lazy<T> {
         cache::touch(&path);
         Some(unsafe { m(p) })
     }
-    /// 1 write (a record that owns collections: insert-new, as `LookupMap::insert`).
+    /// 1 write (a record that owns collections: panics if one is already stored, since
+    /// overwriting it would orphan its collections).
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
         let path = bound(&self.path).clone();

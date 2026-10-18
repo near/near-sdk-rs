@@ -91,7 +91,7 @@ impl Exchange {
 
     // writes below the record without reading it: one existence check, no decode
     pub fn set_balance(&mut self, id: AccountId, token: TokenId, amount: U128) {
-        self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
+        let _ = self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
     }
 
     // one read below the root; the Account record is never loaded
@@ -115,10 +115,12 @@ impl Exchange {
 
     // ---- extra methods for the tests ----
 
-    /// D6: a record that owns collections goes in with `insert_new` (plain `insert` does not
+    /// D6/T1: a record that owns collections goes in with `try_insert` (plain `insert` does not
     /// compile for `Market`).
     pub fn open_market(&mut self, market: MarketId, tick_size: U128) {
-        self.markets.insert_new(market, Market { tick_size: tick_size.0, ..Default::default() });
+        self.markets
+            .try_insert(market, Market { tick_size: tick_size.0, ..Default::default() })
+            .expect("market exists");
     }
 
     /// Scalars and collections of one record together: `get_mut` reads the record.
@@ -128,7 +130,7 @@ impl Exchange {
         assert_eq!(order.price % m.tick_size, 0, "price off tick");
         let id = m.next_order_id;
         m.next_order_id += 1;
-        m.orders.insert(id, order);
+        let _ = m.orders.insert(id, order);
         id
     }
 
@@ -343,7 +345,7 @@ fn place_off_tick_panics() {
 }
 
 #[test]
-#[should_panic(expected = "record exists")]
+#[should_panic(expected = "market exists")]
 fn opening_a_market_twice_panics() {
     init("owner.near");
     call("owner.near", |c| c.open_market(7, U128(5)));
@@ -505,7 +507,7 @@ fn oversized_key_panics_naming_the_limit() {
     init("owner.near");
     call("alice.near", |c| {
         let acct = c.accounts.entry(alice()).or_default();
-        acct.balances.insert("x".repeat(600), 1);
+        let _ = acct.balances.insert("x".repeat(600), 1);
     });
 }
 
@@ -551,7 +553,7 @@ fn uninitialized_contract_panics_on_required_field() {
 fn init_body_without_bind_panics_with_hint() {
     testing::use_mock();
     let mut c = Exchange::new("owner.near".parse().unwrap());
-    c.accounts.insert_new(alice(), Account::default());
+    c.accounts.try_insert(alice(), Account::default()).unwrap();
 }
 
 /// Item 12: `.bind()` in `#[init]` lets the body seed collections; the wrapper's write
@@ -869,8 +871,8 @@ fn unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped() {
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
     let mut m: Map<u32, Slim> = Map::__bound_at(root.clone());
-    m.insert(1, Slim { nonce: 1 });
-    m.insert(2, Slim { nonce: 1 });
+    let _ = m.insert(1, Slim { nonce: 1 });
+    let _ = m.insert(2, Slim { nonce: 1 });
     testing::flush();
     let mut w = record::RecordWriter::new();
     w.push(1, near_sdk::borsh::to_vec(&1u64).unwrap());
@@ -930,7 +932,7 @@ fn hazard_reusing_a_removed_tag_resurrects_its_stale_bytes() {
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
     let mut v1: Map<u32, VaultV1> = Map::__bound_at(root.clone());
-    v1.insert(1, VaultV1 { nonce: 1, locked: 1_000 });
+    let _ = v1.insert(1, VaultV1 { nonce: 1, locked: 1_000 });
     testing::flush();
     testing::begin_call();
     let mut v2: Map<u32, VaultV2> = Map::__bound_at(root.clone());
