@@ -234,3 +234,99 @@ fn gaps_rest_lazy_write_pending_writes_once() {
     Value::__write_pending(&Lazy::<u64>::default(), &field(5));
     assert_eq!(end_call().rwd(), (0, 0, 0));
 }
+
+// ---------------------------------------------------------------------------------------
+// 3. Record markers and the unknown-collection message
+// ---------------------------------------------------------------------------------------
+
+/// Kills `marker::is_marker -> true` and `&& -> ||`.
+#[test]
+fn gaps_rest_is_marker_is_exactly_the_defined_kinds() {
+    for b in 0..=u8::MAX {
+        assert_eq!(marker::is_marker(b), (0x81..=0x87).contains(&b), "{b:#x}");
+    }
+}
+
+/// Kills the six deleted arms of `marker::name` (the `MAP` arm is pinned elsewhere).
+#[test]
+fn gaps_rest_marker_names() {
+    for (k, n) in [
+        (marker::MAP, "Map"),
+        (marker::LOOKUP_MAP, "LookupMap"),
+        (marker::SET, "Set"),
+        (marker::LOOKUP_SET, "LookupSet"),
+        (marker::VECTOR, "Vector"),
+        (marker::LAZY, "Lazy"),
+        (marker::GROUPED_MAP, "GroupedMap"),
+        (0x88, "unknown collection"),
+        (0x00, "unknown collection"),
+    ] {
+        assert_eq!(marker::name(k), n, "{k:#x}");
+    }
+}
+
+/// Stored `Account` bytes: `nonce` 1, plus `extra` (already encoded fields, tags above 2).
+fn account_bytes_with(extra: &[u8]) -> StdVec<u8> {
+    let mut b = vec![record::field_key(1, Wire::Scalar) as u8, 8];
+    b.extend_from_slice(&1u64.to_le_bytes());
+    b.extend_from_slice(extra);
+    b
+}
+
+/// The removal check's panic names the kind the unknown tag's marker declares (through
+/// `marker::name`), and for a top-level tag suggests `reserved(t)` by number. Kills the
+/// deleted `[t]` arm of `unknown_collection_panic` and, through the message, the deleted arms
+/// of `marker::name`.
+#[test]
+fn gaps_rest_unknown_collection_panic_names_kind_and_tag() {
+    let marker_key = record::field_key(7, Wire::Marker) as u8;
+    for (k, n) in [
+        (marker::MAP, "Map"),
+        (marker::LOOKUP_MAP, "LookupMap"),
+        (marker::SET, "Set"),
+        (marker::LOOKUP_SET, "LookupSet"),
+        (marker::VECTOR, "Vector"),
+        (marker::LAZY, "Lazy"),
+        (marker::GROUPED_MAP, "GroupedMap"),
+        (0x90, "unknown collection"),
+    ] {
+        testing::use_mock();
+        seed(field(5).as_bytes(), &account_bytes_with(&[marker_key, 1, k]));
+        let mut l: Lazy<Account> = at(5);
+        let msg = panic_msg(|| l.remove());
+        assert!(msg.contains(&format!("carry tag 7, a `{n}` field")), "{msg}");
+        assert!(msg.contains("list the tag in `#[near(storage, reserved(7))]`"), "{msg}");
+    }
+    // A nested trail (tag 7 is a nested record holding a `Set` marker at its tag 2) names the
+    // path instead.
+    testing::use_mock();
+    let inner = [record::field_key(2, Wire::Marker) as u8, 1, marker::SET];
+    let mut extra = vec![record::field_key(7, Wire::Record) as u8, inner.len() as u8];
+    extra.extend_from_slice(&inner);
+    seed(field(5).as_bytes(), &account_bytes_with(&extra));
+    let mut l: Lazy<Account> = at(5);
+    let msg = panic_msg(|| l.remove());
+    assert!(msg.contains("carry tag 7 > 2, a `Set` field"), "{msg}");
+    assert!(msg.contains("`reserved(n)` on the record that dropped it (tag path 7 > 2)"), "{msg}");
+}
+
+/// Kills the six `Value::__unknown_collection -> Some(..)` mutants of the default body: a
+/// declared leaf or collection field whose stored bytes are wire 2 (a field once declared as
+/// a nested record, re-typed by a later version) holds no collection, so removal proceeds.
+#[test]
+fn gaps_rest_default_unknown_collection_is_none() {
+    assert_eq!(<u64 as Value>::__unknown_collection(&[]), None);
+    assert_eq!(<u64 as Value>::__unknown_collection(&[0x09, 1, 0x81]), None);
+    assert_eq!(<Map<u8, u8> as Value>::__unknown_collection(&[0x09, 1, 0x81]), None);
+    assert_eq!(p::declared_field_collection::<u64>(Wire::Record, &[0x09, 1, 0x81]), None);
+
+    // Through a removal: `nonce` (tag 1, declared `u64`) stored as wire 2, 8 bytes.
+    testing::use_mock();
+    let mut b = vec![record::field_key(1, Wire::Record) as u8, 8];
+    b.extend_from_slice(&[0x09, 1, 0x81, 0, 0, 0, 0, 0]);
+    seed(field(5).as_bytes(), &b);
+    let mut l: Lazy<Account> = at(5);
+    l.remove();
+    end_call();
+    assert!(!store().contains_key(field(5).as_bytes()), "the record is removed");
+}
