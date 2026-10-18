@@ -720,3 +720,178 @@ Alternatives:
 - The deployed-ABI `storage diff` checks: D2's hard fail on a newly added `required` tag, and D4's build error on tag reuse.
 - An on-chain `env::storage_delta()`.
 - A trybuild `.stderr` snapshot for D6. The doctest checks E0277 only; the message text is quoted in the doctest's comments.
+
+
+## Soundness round (Oct 17)
+
+Goal: make each of the seven guarantees and each named bug class machine-checked with a stated bound. Everything lives in `near-sdk/src/state/verify/` (lib harnesses), `near-sdk/src/state/model.rs` (the reference model), and `near-sdk/tests/state_v2_verify.rs` (through the real `#[near(storage)]` derive).
+
+Engines:
+
+- bolero's random engine, under `cargo test`.
+- Kani 0.68 on the host, run with `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo kani --tests --lib -p near-sdk --features unstable --harness <name>`.
+- libFuzzer: **not run, toolbox unavailable** (cargo-bolero is not installed and Docker was not running).
+
+### Reference model (Part A)
+
+`model.rs` is an independent implementation:
+
+- its own key encoder (`spec_key`);
+- an abstract state, `MState`, which `concretize()` turns into store bytes;
+- a cache model covering slot states Unknown/Absent/PresentUnread/Present and modes Clean/Touched/Dirty/Deleted.
+
+`verify/diff.rs` drives the real types and the model over the same generated history: up to 60 ops, including mid-call flushes, views, and retyped (schema-evolved) calls. After every call it compares:
+
+- results;
+- the multiset of reads;
+- the ordered list of writes and removes;
+- the store bytes.
+
+It also asserts that no write happens before the flush. The oracle was validated by mutation:
+
+- dropping the moved-key index write fails Part A;
+- truncating field tags fails G1;
+- an extra read fails G2.
+
+### Harness table
+
+"Diff" means the harness is differential against the reference model or another oracle. "Inv" means an invariant checked on the real implementation alone. Random-engine iteration counts are the defaults; `BOLERO_RANDOM_ITERATIONS` overrides them.
+
+| Item | Harness | Checks | Engine, bound | Result | Kind |
+|---|---|---|---|---|---|
+| Part A | `diff::differential_against_reference_model` (+ fixed sequences) | results, read multiset, ordered writes/removes, store bytes per call; no write before the flush | random, 2,000 histories of up to 60 ops over 5 keys | pass | diff |
+| G1 Addressable | `g1_field_tags_are_prefix_free_over_u32` | `root ++ LEB128(tag)` decodes back, and two tags never prefix each other | **Kani, every pair of u32 tags: VERIFIED (6 s)**; random 20,000 | pass | inv |
+| G1 | `g1_addressable_distinct_paths_distinct_keys` | two distinct paths give distinct keys, with free symbolic placement hashes | Kani: depth 4 did not complete in 40 min; depth 2 did not complete in 30 min (CPU shared with mutants). Not verified. Random: depth 4, real sha256, varint-edge tags, 20,000 pairs | random pass | inv |
+| G1 | `g1_production_keys_equal_spec_keys`, `g1_long_paths_up_to_the_protocol_limit`, `g1_key_of_exactly_2048_bytes...`, `g1_identical_hashes_still_give_distinct_keys`, `g1_field_tag_varint_transitions`, `g1_nested_get_reads_only_its_own_key` | the production encoder equals the independent spec encoder (F1); 2,048-byte limit accepted / 2,049 panics; zero reads to compute a key | random 20,000 / 5,000; fixed cases | pass | diff + inv |
+| G1/M4 (C7) | `c7_admitted_v1_prefixes_never_alias_v2_keys` | an admitted v1 prefix never aliases a v2 key (forged-tail mode makes the alias reachable); rejections carry the right reason | **Kani: any root byte, prefixes 0..=3 bytes, suffix 0..=4 bytes or forged tail, any nonzero u32 tag, any kind, free 16-byte hash, 0..=2-byte key: VERIFIED (152 s)**. (The first Kani run found a harness bug, symbolic tag 0, now excluded.) random 100,000 | random pass | inv |
+| C7 | `c7_production_v1_keys_vs_production_v2_keys` + derive tests (`m4::*`) | production v1 keys from all 3 hashers vs production v2 paths; an empty prefix forges any v2 key; the guard fires on write (no write made) and on load, for every v1 map type | random 20,000; fixed | pass | inv |
+| G2 Local | `g2_local_op_touches_only_its_own_path_and_bookkeeping` | every host call is in the op's allowed set; no other entry's value key; the 100 KiB neighbour never moves | random 3,000 (about 2,000 reach the checks) | pass | inv |
+| G3 No debt | `g3_no_debt_counts_depend_only_on_the_ops_own_key`, `g3_no_debt_after_10000_random_operations` | op cost depends only on its own key's facts, after any history | random 5,000; 3 histories of exactly 10,000 ops | pass | diff (formula) |
+| G4 One write | `g4_one_write_per_key_per_call_in_key_order_root_last`, `g4_nothing_happens_in_drop`, `g4_root_is_last...` | each key written at most once per call, in key order, root last; views never write; no writes from Drop | random 2,000 each | pass | inv |
+| G4 | `g4_cache_flush_writes_each_key_once_in_order_root_last` | the same, on the cache directly with a recording host (also F2 slot states) | random 20,000; **Kani not run**: Kani 0.68 ICEs on any reachable `catch_unwind` | pass | inv |
+| G5 Linear iteration | `g5_page_costs_two_reads_plus_two_per_entry`, `g5_page_of_64_on_an_aged_map` | 2+2n reads (keys only: 2+n), exact window, CursorGone in 1 read | random 5,000; maps of 0..=200 after 80 removals | pass | diff (mirror) |
+| G6 Permanent layout | `g6_record_encode_then_parse_is_identity` | encode then parse is the identity | Kani not verified: 4 fields x 16 bytes (15 min) and 2 fields x 4 bytes (20 min) did not finish; random 20,000 (4 fields, 16 bytes) | random pass | inv |
+| G6 | `g6_record_parse_accepts_only_canonical_encodings` | one encoding per record | Kani not verified: strings of 10/6/4 bytes did not finish (15-27 min); random 50,000 strings of up to 64 bytes | random pass | inv |
+| G6/D2/D4 | `g6_schema_evolution_defaults_required_unknown_reserved` | defaults, `default = expr`, required fails naming the tag, unknown tags byte-preserved through a rewrite, reserved tags dropped | Kani not verified: 4/3/2 tags did not finish (15-30 min); random 20,000 (4 tags x 5 decls) | random pass | diff (oracle) |
+| G6/D2 derive | `tests/state_v2_verify.rs` `g6_derive_*`, `d2_derive_required_*` | S1 to S2 through the real derive: added (Default / `default =`), removed, reordered (byte-identical), required ("Missing { tag: 4 }"), reserved; zero writes on decode | random 2,000 (500 for required) | pass | diff |
+| G7 Stated cost | `g7_stated_cost_beside_a_100kib_neighbour` (+ 3 pinned) | every op's receipt equals the spec formula, and is identical beside a 1-byte neighbour; `at_mut` measured = (3 reads, 4 sha); sha256 per op measured | random 20,000 | pass (deviations in DOC_DIFFS) | diff (formula) |
+| C1 HOT collision | `c1_spliced_keys_never_collide_across_collections`, `c1_baseline_v1_raw_prefix_maps_collide` | adversarial keys spliced from other collections' storage keys, across sibling, lookup and nested maps: distinct keys, own values; the v1 baseline does collide | random 5,000 | pass | inv |
+| C2 Orphans | `c2_no_orphans_after_random_histories`, `c2_removed_record_leaves_no_key_under_its_path` | every stored key under the record map belongs to a live record's bookkeeping; remove / discard / remove_some leave nothing behind | random 2,000 each | pass | inv |
+| C3 Lost writes | `c3_a_mid_call_flush_anywhere_loses_no_write`, `c3_fixed_shapes...`, `hazard_two_roots...` | inserting a mid-call flush anywhere leaves the final store identical | random 2,000 | pass | metamorphic |
+| C4 storage_delta | `c4_storage_delta_matches_storage_usage_and_the_guard_is_sound` (+ 2) | logged `storage_delta` equals the change in `storage_usage`; a quiet guard implies only the root is written; root-scalar gap pinned | random 500 histories, env host | pass | diff (runtime rule) |
+| C5 remove_some | `c5_remove_some_isolates_the_record_until_it_is_gone`, `c5_pinned_budget_zero...` | writes below a clearing record panic without effect (same and later calls); exact progress min(n, remaining); calls <= ceil(m/n)+1; flag written only once | random 3,000 | pass | diff (mirror) |
+| C6 Paging under churn | `c6_paging_under_churn_is_exact_or_cursor_gone` (+ 2 pinned) | exact window or CursorGone; offset never duplicates; insert-only churn is complete; skips only of moved keys; **cursor duplicates found** | random 5,000 | pass | diff (mirror) |
+| C8 = D2 | see G6 rows | | | | |
+| F3 Atomicity | `f3_a_failed_call_leaves_no_trace` | a panic at every flush position or in the body, then revert: equals the model without that call | random 2,000 (784 flush and 1,873 body failures injected) | pass | diff |
+| A3 Rollback | `a3::hazard_rollback_new_record_inherits_old_children` | pinned hazard | fixed | hazard reproduces | pin |
+| A5 Liveness | `a5::hazard_lazy_values_consume_no_clearing_budget`, `..._budget_zero` | pinned hazard with bytes per attempt | fixed | hazard reproduces | pin |
+
+### Doc corrections found (not applied; docs/ untouched)
+
+Measured, and pinned by `verify/cost.rs` `DOC_DIFFS` and `g7_stated_cost`, unless noted:
+
+1. Map/Set remove of the LAST key also skips the last-slot read: 3 reads for remove, 2 for discard, not 4.
+2. `LookupMap::discard` / `LookupSet::remove` of an absent key still issue one blind `storage_remove`.
+3. `Lazy::remove` issues one blind `storage_remove` even when the Lazy is empty.
+4. An unfinished `remove_some` call reads one more key slot than it removes: 2 + n + 1 reads.
+5. `remove_some` writes the clearing flag only on the FIRST unfinished call; later unfinished calls write nothing. The spec says every such call writes it.
+6. `at_mut` is 1 record read, with no decode and no `storage_has_key`. The rustdoc on `Map::at_mut` / `LookupMap::at_mut` still says "1 storage_has_key" (stale).
+7. `Vector::swap_remove` elides the rewrite of slot i when the moved element's bytes are identical to the removed one's.
+8. `page` / `keys_page` with limit 0 return `next = None` even when entries remain.
+9. sha256 per operation, measured: Map insert new 3, insert existing 2, inner remove/discard 3, at_mut + insert below a record 4, record remove owning 2 items 7.
+10. (C6) Cursor paging can return keys twice when a swap-remove moves the cursor key toward the front. The `Map::page` rustdoc names only the skip.
+11. (A5) "each call removes at most n entries" holds for map entries only. Lazy values below the record are removed in the first attempt, and a Lazy-only record goes with n = 0.
+12. (C5) `remove_some(k, 0)` on a record that still has entries never makes progress.
+
+The `set_balance` comment in the Exchange example is known-stale and was left alone, as instructed.
+
+### Hazards pinned (tests that pass while the hazard exists)
+
+- **A3, rollback subtree ownership** (`a3::hazard_rollback_new_record_inherits_old_children`). Sequence: version B gives a record a child map; a rollback to A removes the record and recreates it; redeploying B shows the new record the old record's children. Missing invariant: a record's subtree belongs to the record *instance*, not its key. Either removal clears every key under the record's path whatever the current schema (a prefix delete), or record paths carry an instance/generation component.
+- **A5, Lazy values consume no clearing budget.** With 4 x 64 KiB Lazy fields and 3 map entries, `remove_some(k, 1)` removed (removes, value bytes) per attempt as `[(7, 262166), (7, 6), (12, 24)]`. A record holding only Lazy fields is removed whole by `remove_some(k, 0)`. So bounded clearing is bounded in entries, not in bytes or gas.
+- **C3, two roots alive in one call** lose the first root's scalar write. This is not reachable through the `#[near]` wrapper.
+- **C4/D5 gap:** a change to a root scalar alone does not trip the `storage_usage()` guard, but its flush still charges storage.
+- **C5, `remove_some(k, 0)`** on a record with entries makes no progress. A loop with n = 0 never finishes.
+- **C6, cursor paging can return keys twice.** A swap-remove can move the cursor key itself toward the front. The `Map::page` rustdoc names only the skip, so this is a doc correction. Offset paging never duplicates; it only skips moved keys.
+- **C7/M4:** a v1 map that is *not* wrapped in `Migrating` (a bare v1 field beside the v2 root) is unchecked. With an empty prefix and a `[u8; 1]` key, it overwrites the v2 root record.
+- **G6/D4 tag reuse:** already pinned by `state_v2_exchange::hazard_reusing_a_removed_tag_resurrects_its_stale_bytes`.
+- **C2, v1-nested exception:** already pinned by `state_v2_exchange::legacy::removing_a_record_with_a_nested_v1_field_orphans_its_entries`.
+
+### Code changes outside verify/
+
+- `check_v1_prefix(prefix, root) -> Result<(), V1PrefixError>`, the M4 migrate-time guard. It runs in `Migrating`'s `bind`, `decode_value` and `__write_pending`, so an aliasing migrate fails before any write and an aliasing stored layout fails to load. It is conservative: a rejected prefix need not alias in practice.
+- `LegacyMap::legacy_prefixes()`, implemented for every v1 map: `collections::{LookupMap, UnorderedMap, TreeMap}` and `store::{LookupMap, IterableMap}`, the latter over Identity-keyed tables only, since hashed keys are 32-byte digests.
+- `ToKey::RAW_PREFIX`, a hidden const with a default; small `pub(crate)` prefix accessors.
+- `Path::entry_hashed`, so that harnesses can supply a symbolic hash.
+- `kani` added to the lib's cfg allowlist and to `check-cfg`; `bolero = "0.13"` added as a dev-dependency.
+
+### Mutation testing
+
+cargo-mutants 27.1.0, run with `--in-diff` (`git diff master...HEAD -- near-sdk/src/state`, i.e. the whole v2 branch, not only this round). verify/, model.rs, tests.rs and testing.rs are excluded. Two passes:
+
+1. A fast pass: lib `verify::` harnesses only, with `BOLERO_RANDOM_ITERATIONS=300` and the fixed 10,000-op test skipped.
+2. `--iterate` over the survivors: full random iterations, the whole lib, plus `state_v2_verify`, `state_v2_migrate` and `state_v2_exchange`.
+
+**Core files** (cache, key, record, root, value, migrating; 333 mutants):
+
+| | Count |
+|---|---|
+| Caught | 200 |
+| Timeouts (also caught) | 7 |
+| Unviable | 61 |
+| Missed | 65 |
+
+Breakdown of the 65 missed:
+
+- **Equivalent, 7:**
+  - `write_varint` `|` to `^` (the low byte is below 0x80);
+  - two `value.rs` defaults;
+  - the 4 mutants of the default `LegacyMap::legacy_prefixes` body (every impl overrides it).
+- **Migration paths the state_v2 tests do not assert on, 29.** Some are exercised only by the ft-v2 example workspace, which is outside the test command:
+  - `raw_root` / `root_orig` / `parse_orig` (14);
+  - the `Migrating` `LookupMap` target and `NewMap::target_remove` (4);
+  - `legacy_get` / `legacy_remove` / `legacy_take` / `legacy_is_empty` of the v1 maps (11).
+- **Closed after the run, 4:** `collections::LookupMap::legacy_prefixes`, by adding that type to the C7 derive test. Each of the 4 mutants fails it by construction; this was not re-run.
+- **Real harness gaps, 25:**
+  - `has_pending_writes` (4): the view assertion is never driven negatively;
+  - static `MAX_LEN` arithmetic for tuple and `Option` keys (4);
+  - the derive's `MAX_SUBPATH` helpers `__private::{max, field_subpath, varint_len}` (7); the runtime 2,048-byte check still backs them up;
+  - `Migrating::{contains_key, remove, new_side, bind, detach}` (6), which no test calls;
+  - `EnvHost::has_key` (1), `Path::is_empty` (2), the `Path` `Debug` impl (1).
+
+**collections.rs** (331 mutants), after pass 1 and one full-test iterate:
+
+| | Count |
+|---|---|
+| Caught | 139 |
+| Timeouts (also caught) | 5 |
+| Unviable | 107 |
+| Missed | 80 |
+
+A second iterate, which includes the nested-collection C2 test added after the first, is still running at the time of writing; see the commit that follows this one.
+
+### Not done / skipped
+
+- libFuzzer / cargo-bolero: **not run, toolbox unavailable** (cargo-bolero is not installed; Docker was not running). Every bolero harness ran under the random engine only.
+- Kani, harnesses that did not finish under the stated time caps (Kani 0.68, CBMC 6.11, cadical; CPU shared with cargo-mutants `-j 2`):
+  - G1 distinct paths: depth 4 (40 min), depth 2 (30 min).
+  - G6 schema evolution: 4 tags (15 min), 3 tags (30 min), 2 tags (30 min).
+  - G6 canonical, as a symbolic `Vec`: 10 bytes (15 min), 6 bytes (27 min), 4 bytes (15 min).
+
+  The likely cause is CBMC unrolling the varint writer and `Vec` growth at every call site. These claims are random-engine only until a run completes; the attempted bounds are recorded in the harness rustdoc.
+- Kani on G4 cache: not run. Kani 0.68 ICEs on any reachable `catch_unwind` (intrinsic signature check). The `unit-testing` mock, which is reachable from the cache's `dyn` values, contains one. Minimal repro: a harness calling `std::panic::catch_unwind(|| 1)`.
+- F2: no separate slot-state exhaustion harness. Part A, which drives every slot state through the model, and the G4 cache harness (get/exists/put/delete/touch from absent and present initial states, against a recording host) cover it.
+- F3, legacy `store::*` drop-write positions: not injected. On chain a panic traps without unwinding, so a drop write never runs in a failed receipt. In the unwinding mock the drop runs during the unwind and the simulated revert restores the snapshot anyway.
+- A1, A2, A4 and the gas notes: another agent's scope, not duplicated.
+- The ft-v2 example workspace (`examples/fungible-token`) was not part of the mutation test command, so the migration paths only it uses show up as missed mutants.
+
+### Test counts (end of round)
+
+- Lib: 616 (572 at the start of the round).
+- `state_v2_verify`: 13 (new).
+- Doctests: 344.
+- `state_v2_exchange` 34, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 5: all unchanged and passing.
+- ft-v2 example: 16 migration tests plus 1 nested_trap, passing with the new prefix guard.
+
+`abi_tests` and `deny_unknown_arguments_tests` still fail for the environment reasons noted above.
+
