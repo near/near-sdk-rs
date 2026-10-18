@@ -18,7 +18,7 @@ use crate::state::{V1PrefixError, check_v1_prefix};
 /// Random engine: 100,000 cases.
 #[test]
 #[cfg_attr(kani, kani::proof)]
-#[cfg_attr(kani, kani::unwind(8))]
+#[cfg_attr(kani, kani::unwind(20))]
 fn c7_admitted_v1_prefixes_never_alias_v2_keys() {
     let g = (
         bolero::produce::<u8>(),
