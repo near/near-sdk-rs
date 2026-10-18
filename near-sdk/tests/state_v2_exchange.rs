@@ -363,6 +363,27 @@ fn clearing_moves_the_original_bytes_to_the_flag_key() {
     assert!(view(|c| c.markets.get(&7).unwrap().open).0, "still reads as open");
 }
 
+/// Review F4: the flush is in key order, the root last. The first partial clear removes the
+/// record key and writes its flag key (one byte longer, so it sorts right after): the remove
+/// must come first.
+#[test]
+fn partial_clear_flushes_in_key_order() {
+    market_with_orders(4);
+    let (key, flag) = (market_key(7), market_flag_key(7));
+    let (more, r) = call("owner.near", |c| c.close_market(7, 2));
+    assert!(more);
+    let flushed: Vec<&Vec<u8>> = r
+        .ops
+        .iter()
+        .filter(|o| matches!(o.kind, testing::OpKind::Write | testing::OpKind::Remove))
+        .map(|o| &o.key)
+        .filter(|k| k.as_slice() != [0xF0])
+        .collect();
+    assert!(flushed.windows(2).all(|w| w[0] <= w[1]), "flush out of key order: {flushed:?}");
+    let pos = |k: &Vec<u8>| flushed.iter().position(|x| *x == k).unwrap();
+    assert!(pos(&key) < pos(&flag), "record key removed before its flag key is written");
+}
+
 #[test]
 #[should_panic(expected = "price off tick")]
 fn place_off_tick_panics() {

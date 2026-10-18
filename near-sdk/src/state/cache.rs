@@ -186,11 +186,12 @@ impl Slot {
                 };
                 let same = self.orig.bytes() == Some(&enc[..]);
                 if self.is_clearing() {
-                    if !(at_flag && same) {
-                        ops.push(FlushOp::Write(flag_key(key), enc));
-                    }
+                    // Key order (review F4): the record key sorts before its flag key.
                     if at_key {
                         ops.push(FlushOp::Remove(key.to_vec()));
+                    }
+                    if !(at_flag && same) {
+                        ops.push(FlushOp::Write(flag_key(key), enc));
                     }
                 } else {
                     if !(at_key && same) {
@@ -583,7 +584,8 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
             // SAFETY: flush runs after the method body; invariant 1.
             let s = unsafe { sp.as_ref() };
             // A flag key sorts right after its record key and before every child of the
-            // record, so writing it here keeps the flush in key order.
+            // record, so emitting it here, after any op on the record key, keeps the flush in
+            // key order (`flush_ops` emits the record key first).
             for op in s.flush_ops(&key) {
                 match op {
                     FlushOp::Write(k, v) => c.host.write(&k, &v),
