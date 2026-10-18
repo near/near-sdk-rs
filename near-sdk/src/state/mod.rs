@@ -272,6 +272,10 @@ mod migrating;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests;
+/// Tests closing cargo-mutants gaps (PROTOTYPE_NOTES.md, "Mutation testing").
+#[cfg(feature = "unstable")]
+#[cfg(test)]
+mod tests_gaps;
 /// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
 /// the oracle the `verify` harnesses compare the implementation against.
 #[cfg(feature = "unstable")]
