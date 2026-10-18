@@ -963,3 +963,78 @@ NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS="-Zmiri-ignore-leaks [-Zmiri-tree-
 ### Unsafe inventory
 
 The cache uses `unsafe` throughout, by design. cache.rs has 23 `unsafe` blocks, every slot or value deref (lines 146, 160, 198, 230, 235, 279, 287, 297, 314, 340, 356, 366, 380, 392, 401, 409, 414, 425, 435, 454, 474, 495, 515). collections.rs has 37 `unsafe` sites: the `r`/`m`/`arena_mut` helpers and their call sites. root.rs has one `unsafe fn get_record`. record.rs, migrating.rs, key.rs and value.rs have none.
+
+## API round 4 (Oct 17)
+
+Fixes for the audit findings A1, A2 and A4 (`/tmp/storage-v2-review/audit-results.md`), plus three small reversals of round 3, on `proto/storage-v2-d9`. One commit per item. The audit branch `proto/storage-v2-audit` (689c9ec4) was merged first. Its two conflicts were end-of-file appends (this file, `state/tests.rs`), and both sides are kept. Its tests were ported to round-3 names (`try_insert`, `remove_step -> Removal`) and to the D9 flag key: a clearing record lives at `rec ++ 00`, which `audit_keys_below` counts. The merge also brings the verify skeleton (`state/model.rs`, `state/verify/`, `bolero`, `cfg(kani)`), untouched here.
+
+### A1: no `&mut` on the read path
+
+- `Erased::as_any_mut` is gone; `Erased::as_any(&self)` replaces it. `cache::get` checks `is::<V>()` through a shared borrow and returns `p.cast::<V>()`, keeping the box's provenance. `cache::put` returns `p.cast()` too. Invariant 1 in `cache.rs` now says the read path forms no `&mut`.
+- The three `audit_a1_*` tests were `#[cfg_attr(not(miri), ignore)]`, not `cfg(miri)`-only. They are now plain `#[test]`: safe code that passes in `cargo test`, where it checks values only. The verdict is Miri's, and the header comment gives the command.
+- Miri (nightly, `-Zmiri-ignore-leaks`): 3/3 pass under Stacked Borrows (the same-key trace was UB at `cache.rs:297` before) and 3/3 under Tree Borrows. Miri's clock is virtual under isolation, so equal "finished in" times across models are expected; the wall times differ.
+
+### A2: escaped handles (`mem::take` on a record's collection field)
+
+- **(a) Use-after-free, fixed for overwrites and value-less deletes.** `cache::put` no longer frees the old value. It moves the box to a per-call `graveyard` that `free_slots` frees after the slots at the flush. The cache API is split: `delete` / `delete_entry` return nothing and bury the value; `take` / `take_entry` return it and are used only where the API hands the value back (`LookupMap::remove`/`replace`, `Map::remove`, `Vector::pop`/`swap_remove`). `Map::discard` now buries rather than drops. Invariant 2 in `cache.rs` is rewritten to match.
+- **Hole left on purpose:** a removal that *returns* the value must move it out of its box, so a `&V` from an escaped second handle still dangles after `remove`/`replace`/`pop`/`swap_remove` through the other handle. Closing it would mean re-decoding (or cloning) every returned value, compute on every remove, for a case only `mem::take` reaches.
+- Memory: values overwritten in a call stay allocated until its flush (a key overwritten 1,000 times in one call holds 1,000 boxes). Gas bounds the count.
+- **(b) Writes through a stale handle panic: generation numbers** (persona item 6), chosen over a per-call set of removed prefixes. A prefix set cannot tell an escaped handle from the fresh handles of a record re-inserted at the same key in the same call (`remove` then `try_insert`, or `replace`, then a write below). Either it refuses that legitimate sequence, or it re-allows the prefix and with it the escaped handle.
+  - `Binding::Bound(Path, u64)` carries the epoch the handle was last known live at, stamped by `bind_slot` and `__bound_at`. A manual `Debug` keeps the output `Map(Bound(..))`.
+  - A thread-local `EPOCH: Cell<u64>` is never reset, not even by `install_host`. `Cache::record_gone(key)` bumps it and logs `(epoch, key)` for the call. It is called by `delete_impl` when `V::MAX_SUBPATH > 0` (so `Map`/`LookupMap` remove/discard/replace/clear of records, `Lazy<Record>::remove` and nested clears all count) and by `set_clearing` (`remove_step` returning `Pending`). The log is cleared at the flush.
+  - Every `&mut self` method of `LookupMap`, `Map`, `Vector`, `Lazy` and `GroupedMap::group_mut` (28 sites) starts with `self.path.live()`. `Set`/`LookupSet` delegate. `cache::check_live` returns at once if the stamp equals the epoch. Otherwise it scans the log backwards, only entries newer than the stamp, for a key that is a strict byte prefix of the handle's path. A hit panics ("belongs to a record that was removed or started `remove_step` clearing in this call after this handle was made"); a miss moves the stamp to now.
+  - **Per-op cost:** one thread-local load and one `u64` compare per write while no removal happened since the handle last checked. After a removal, one scan of the new log entries per handle, so each entry is scanned at most once per handle. Prefix soundness rests on the key layout: map keys are prefix-free behind their hash, and tags are prefix-free LEB128. No host-call change.
+  - Reads are not checked: `get`/`at` of a clearing record are allowed, and a cached record decoded before `remove_step` in the same call still reads its maps.
+  - Scope: removals in the current call. A handle surviving into a later call is impossible in a contract (the root is decoded per call) and is not covered. `__bound_at` (doc-hidden, public) mints fresh handles and can bypass the check.
+- Tests:
+  - `audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle` is no longer ignored and asserts the `&V` still reads 1. New: `audit_a2_ref_from_taken_handle_survives_discard_through_recreated_handle`.
+  - `audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect` and `audit_a2_taken_handle_bypasses_remove_some_clearing_guard` keep their names but now assert the panic with `catch_unwind`. The first also checks `get_mut`, `entry`, `remove` and `clear`. Both then assert nothing is orphaned: 0 keys below the removed record and a recreated alice is empty; and after clearing, no `late` entry and 0 keys left.
+  - New: `audit_a2_remove_then_reinsert_then_write_below_in_one_call` (also through `remove_step` → `Done` → `entry().or_default()`) and `audit_a2_unrelated_removal_does_not_refuse_other_handles`.
+  - Miri: 7/7 under both models.
+
+### A4: `Migrating` sides
+
+- `new_side(&self) -> &V2`, `old_side(&self) -> &V1`. The migrate flow needs no mutable accessor, but the A4 tests must break the rule on purpose, and v2 operations `Migrating` does not forward need a way in. So the mutable ones exist under names that say what they do: `new_side_mut_unchecked()` and `old_side_mut_unchecked()`. Their docs say they bypass the one-side rule and what still holds if they break it.
+- `migrate_batch` moves through a new `MigrationTarget::target_try_insert`: an old entry whose key is already on the new side is dropped, not moved. It costs nothing for a `Map` target (`try_insert` = `insert`: the index read decides) and +1 `storage_has_key` per entry for a `LookupMap` target.
+- `remove` deletes from both sides. A key on the old side costs what it did. A key on the new side pays 1 old-side remove more: `TreeMap`'s `contains_key` read (no tree walk), 1 `storage_remove` for a v1 `LookupMap`, a deferred `set(None)` for `store::LookupMap`.
+- The three `audit_a4_*` tests keep their names and now assert the fixed behaviour: the newer value survives the batch (`new_side().len() == N`), no resurrection after `remove`, and a stale old-side write is dropped and gone from the old side. They set up the broken state through the `*_unchecked` accessors.
+
+### T1, partly reversed
+
+`Map::insert`'s bool is not `#[must_use]` (the `HashMap`/`HashSet` precedent); the rustdoc says so. `try_insert`'s `Result` is unchanged. The Exchange `set_balance` line is again `self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);` in the spec, `proto-wasm-check` and `state_v2_exchange.rs`. Every listing line in the spec matches both copies; the test file's `use` line differs, as before. The 43 `let _ =` round 3 added at other test sites are harmless and stay.
+
+### T6, loosened
+
+- `default = expr` stays const-only. New: `#[key(n, default_fn = path)]`. The derive emits `let __key_default_fn: fn() -> T = path;`, spanned at the path, then calls it in the decode closure. So a wrong signature is E0308 at the path, and a closure or call is a derive error ("`default_fn` takes a path to a `fn() -> T`, not an expression"); both were checked by hand. `default_fn` is exclusive with `default`, `required` and `legacy`.
+- Documented loudly in the `state` rustdoc and the spec: called on every decode where the tag is absent, until some other change rewrites the record; must be pure. A `get_mut`/`entry` writes the tag at the flush, because the re-encoding differs.
+- The D2 tests are back to D2's types: `Defaults { treasury: AccountId (default_fn = default_treasury), tiers: Vec<u8> (default_fn = default_tiers) }` and `SlimV2Default { owner: AccountId (default_fn = default_owner) }`, with the original assertions. The `DEFAULT_TIERS` const is gone.
+- **Spec.** There was no separate Open questions row about forced `Option`: round 3 had appended that caveat to the D2 "Fields without `Default`" row. I removed the caveat and named `default_fn` in the row, so it again reads "never a forced `Option`". The "Two new attributes" paragraph, the Permanent layout bullet and the derive-error bullet now mention `default_fn`.
+- New doctests: a passing `default_fn` example with an `AccountId`, and a `compile_fail` closure (no error code: a derive error has none).
+
+### T2 wording
+
+The spec's rule sentence now says `at*` is "path arithmetic plus at most two existence checks, never decodes". `at` makes none; `at_mut` makes one on a present record and two on an absent record that owns collections.
+
+### Op-count changes this round
+
+- One: `Migrating::remove` of a key already on the new side, with a v1 `TreeMap` old side, goes from (4,1,3) to (5,1,3), +1 read. New test: `remove_of_a_moved_key_also_removes_on_the_old_side`, which replays the round-3 path by hand for the "before".
+- `migrate_batch` into a `LookupMap` target would pay +1 `storage_has_key` per entry; no test or example uses one.
+- Unchanged: every lib, Exchange, FT, NFT, DAO, migrate and ft-v2 count. A1, A2, T1, T2 and T6 add no host calls; A2 adds the in-memory epoch compare.
+
+### Deliberately not done
+
+- No proxy view types for `get_mut`/fields (the audit's longer-term fix). No duplicate-handle detection without a removal: two live handles to one path still coexist, coherent through the shared cache.
+- The value-returning-removal UAF hole (A2(a) above).
+- Cross-call stale handles; `__bound_at` as a bypass.
+- Reverting round 3's other `let _ =` sites; a trybuild snapshot of the `default_fn` errors.
+- The Claude Doc; the near-contract-sim gas runs (no encoding changed).
+
+### Test counts (end of round 4)
+
+- Lib: 591 passed, 1 ignored (`promise::tests::test_yielded_promise_can_chain_then`, pre-existing). That is 580 + 7 merged audit tests in their ported form (3 A1, 4 A2), all un-ignored + 4 new A2 tests.
+- Doctests: 347 merged (+ the `default_fn` example), 7 ignored; 5 standalone `compile_fail` (+ the `default_fn` closure).
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 9 (5 + 3 audit A4 + `remove_of_a_moved_key_also_removes_on_the_old_side`).
+- ft-v2 example: 16 migration + 2 doctests. near-sdk-macros: 49 (+1 doctest, 4 ignored).
+- `proto-wasm-check`: wasm32 check passes, no warnings.
+- Miri (`-Zmiri-ignore-leaks`), 10 audit lib tests: 10/10 under Stacked Borrows, 10/10 under Tree Borrows.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
