@@ -1711,37 +1711,73 @@ fn audit_a2_taken_field_handle_and_recreated_handle_stay_coherent() {
     );
 }
 
-/// A2, the trace that does break: a `&V` from the escaped handle, then an overwrite of that
-/// key through the recreated handle (`cache::put` -> `drop_value` frees the box), then a read
-/// of the `&V`. Safe code, compiles (two different variables). Use-after-free: Miri only.
+/// A2 hole 1, fixed in API round 4: a `&V` from the escaped handle, then an overwrite of that
+/// key through the recreated handle, then a read of the `&V`. Safe code, compiles (two
+/// different variables). `cache::put` used to free the old box (use-after-free under both
+/// Miri models); it now buries it until the flush, so the `&V` still reads the old value.
+/// Runs in plain `cargo test` too; the verdict that matters is Miri's.
 #[test]
-#[cfg_attr(not(miri), ignore = "use-after-free trace, run under Miri")]
 fn audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle() {
     let mut ex = audit_a2_setup(false);
     let taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
     let r: &u128 = taken.get(&"a".into()).unwrap();
     ex.accounts.at_mut(&alice()).unwrap().balances.insert("a".into(), 99);
     let observed = *r;
-    assert_eq!(observed, 1);
+    assert_eq!(observed, 1, "the overwritten value lives until the flush");
+    assert_eq!(taken.get(&"a".into()), Some(&99), "and a new lookup sees the new one");
     flush_root(&ex);
 }
 
-/// A2, parent removed: `remove` clears alice's children and deletes the record, but the
-/// escaped handle is not detached (only the returned record is). Writes through it go
-/// through, leave orphan keys under the removed path, and a record later created at the same
-/// key inherits them.
+/// A2 hole 1, the same through a removal that hands nothing back (`discard`): the cached
+/// value is buried, not freed, so the `&V` from the escaped handle stays valid.
+#[test]
+fn audit_a2_ref_from_taken_handle_survives_discard_through_recreated_handle() {
+    let mut ex = audit_a2_setup(false);
+    let taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    let r: &u128 = taken.get(&"a".into()).unwrap();
+    assert!(ex.accounts.at_mut(&alice()).unwrap().balances.discard(&"a".into()));
+    assert_eq!(*r, 1);
+    assert_eq!(taken.get(&"a".into()), None);
+    flush_root(&ex);
+}
+
+fn audit_panic_message(e: Box<dyn core::any::Any + Send>) -> String {
+    e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|m| m.to_string())).unwrap_or_default()
+}
+
+/// A2 hole 2, fixed in API round 4: `remove` clears alice's children and deletes the record;
+/// the escaped handle (not detached, only the returned record is) used to write freely,
+/// leaving 4 orphan keys under the removed path that a record later created at the same key
+/// inherited. Its write now panics (the removal bumped the epoch past the handle's stamp), so
+/// nothing is orphaned and a recreated alice starts empty.
 #[test]
 fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
     let mut ex = audit_a2_setup(false);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
     let removed = ex.accounts.remove(&alice()).unwrap();
     assert_eq!(format!("{:?}", removed.balances), "Map(Detached)", "the left-behind handle is the one detached");
-    assert!(taken.path().is_some(), "the escaped handle is not");
-    assert!(taken.insert("z".into(), 9), "no panic: the escaped handle writes freely");
+    assert!(taken.path().is_some(), "the escaped handle is still bound");
+    let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = taken.insert("z".into(), 9);
+    }))
+    .expect_err("a write through the escaped handle after the parent's remove");
+    assert!(audit_panic_message(e).contains("was removed or started `remove_step` clearing"));
+    // Every other write path of the handle is refused too.
+    for op in 0..4 {
+        let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match op {
+            0 => drop(taken.get_mut(&"a".into())),
+            1 => drop(taken.entry("y".into()).or_insert(1)),
+            2 => drop(taken.remove(&"a".into())),
+            _ => taken.clear(),
+        }))
+        .expect_err("every write path checks");
+        assert!(audit_panic_message(e).contains("was removed"), "op {op}");
+    }
+    assert_eq!(taken.get(&"a".into()), None, "reads are not refused; the entry is gone");
     flush_root(&ex);
     let rec = alice_record_key();
     assert!(!store().contains_key(&rec), "the record is gone");
-    assert_eq!(audit_keys_below(&rec), 4, "orphans: entry, index, slot 0, header of `z`");
+    assert_eq!(audit_keys_below(&rec), 0, "no orphans");
 
     testing::begin_call();
     let mut ex: Ex = load_root();
@@ -1750,24 +1786,29 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
     testing::begin_call();
     let ex: Ex = load_root();
     let b = ex.accounts.at(&alice()).balances;
-    assert_eq!((b.len(), b.get(&"z".into())), (1, Some(&9)), "new record inherits the orphan");
+    assert_eq!((b.len(), b.get(&"z".into())), (0, None), "the new record inherits nothing");
 }
 
-/// A2, parent being cleared (D9): after `remove_step(&alice, 0)` flags the record, `at_mut` /
+/// A2 hole 3, fixed in API round 4: after `remove_step(&alice, 0)` flags the record, `at_mut` /
 /// `get_mut` / `entry` on it panic (pinned by `writes_below_a_clearing_record_panic_in_the_same_call`
-/// in state_v2_exchange), but the escaped handle inserts below it without a panic. The later
-/// `remove_step` calls still clear what it added.
+/// in state_v2_exchange), and now so does the escaped handle: `set_clearing` bumps the epoch
+/// like a removal. The later `remove_step` calls clear everything and leave nothing below.
 #[test]
 fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
     let mut ex = audit_a2_setup(true);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
     assert_eq!(ex.accounts.remove_step(&alice(), 0), Removal::Pending, "flagged, nothing cleared");
-    assert!(taken.insert("late".into(), 5), "accepted below a clearing record");
+    let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = taken.insert("late".into(), 5);
+    }))
+    .expect_err("a write below a clearing record through the escaped handle");
+    assert!(audit_panic_message(e).contains("was removed or started `remove_step` clearing"));
+    assert_eq!(taken.get(&"a".into()), Some(&1), "reads of a clearing record are still allowed");
     flush_root(&ex);
     let rec = alice_record_key();
     let flag = super::key::flag_key_bytes(&rec);
     assert!(!store().contains_key(&rec) && store().contains_key(&flag), "D9: moved to its flag key");
-    assert_eq!(audit_keys_below(&rec), 3 * 3 + 1 + 1, "a, b and late, the header, the flag key");
+    assert_eq!(audit_keys_below(&rec), 2 * 3 + 1 + 1, "a and b, the header, the flag key; no `late`");
 
     let mut calls = 0;
     loop {
@@ -1780,7 +1821,45 @@ fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
             break;
         }
     }
-    assert_eq!(calls, 2);
+    assert_eq!(calls, 1, "two entries, budget two");
     assert!(!store().contains_key(&rec));
-    assert_eq!(audit_keys_below(&rec), 0, "the bypassing write is still cleared eventually");
+    assert_eq!(audit_keys_below(&rec), 0, "nothing left below");
+}
+
+/// A2(b) must not refuse the legitimate sequence the generation check exists to tell apart
+/// from an escaped handle: remove a record, re-insert one at the same key, write below it,
+/// all in one call. The new record's handles are bound after the removal.
+#[test]
+fn audit_a2_remove_then_reinsert_then_write_below_in_one_call() {
+    let mut ex = audit_a2_setup(true);
+    let _ = ex.accounts.remove(&alice()).unwrap();
+    let a = ex.accounts.try_insert(alice(), Account::default()).expect("removed above");
+    assert!(a.balances.insert("n".into(), 7), "new key");
+    ex.accounts.get_mut(&alice()).unwrap().balances.insert("m".into(), 8);
+    ex.accounts.at_mut(&alice()).unwrap().balances.insert("o".into(), 9);
+    // And after `remove_step` finishing in the same call, through `entry().or_default()`.
+    assert_eq!(ex.accounts.remove_step(&alice(), 10), Removal::Done);
+    ex.accounts.entry(alice()).or_default().balances.insert("p".into(), 10);
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    let b = ex.accounts.at(&alice()).balances;
+    assert_eq!((b.len(), b.get(&"p".into()), b.get(&"a".into())), (1, Some(&10), None));
+}
+
+/// A2(b): a removal elsewhere does not refuse a handle that is not below it (the slow path
+/// scans, finds nothing, and moves the handle's stamp forward), including an escaped one.
+#[test]
+fn audit_a2_unrelated_removal_does_not_refuse_other_handles() {
+    let mut ex = audit_a2_setup(false);
+    deposit(&mut ex, bob(), "a", 5);
+    let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    let _ = ex.accounts.remove(&bob()).unwrap();
+    assert!(taken.insert("b".into(), 2), "alice's balances are not below bob");
+    assert!(ex.accounts.at_mut(&alice()).unwrap().balances.insert("c".into(), 3));
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    assert_eq!(ex.accounts.at(&alice()).balances.len(), 3);
+    assert!(!ex.accounts.contains_key(&bob()));
 }

@@ -21,20 +21,51 @@ unsafe fn m<'a, V>(p: NonNull<V>) -> &'a mut V {
 }
 
 /// Where a collection handle points.
-#[derive(Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 enum Binding {
     /// Constructed with `Default` and not yet placed.
     #[default]
     Unbound,
-    Bound(Path),
+    /// Bound to a path, stamped with the removal epoch it was last known live at (audit A2,
+    /// [`cache::check_live`]): set when bound, advanced by `live()`.
+    Bound(Path, u64),
     /// The record holding this collection was removed; its children were cleared.
     Detached,
+}
+
+impl core::fmt::Debug for Binding {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Binding::Unbound => f.write_str("Unbound"),
+            Binding::Bound(p, _) => f.debug_tuple("Bound").field(p).finish(),
+            Binding::Detached => f.write_str("Detached"),
+        }
+    }
+}
+
+impl Binding {
+    /// A handle bound to `path` now.
+    fn at(path: Path) -> Self {
+        Binding::Bound(path, cache::epoch())
+    }
+
+    /// Audit A2: before every write through a handle, panics if the record it lives under was
+    /// removed (or started `remove_step` clearing) in this call after the handle was bound,
+    /// which only an escaped handle (`mem::take` on a field) can see. One thread-local load and
+    /// one `u64` compare unless a removal happened since this handle last checked. Unbound and
+    /// detached handles fall through to `bound`'s panics.
+    #[track_caller]
+    fn live(&mut self) {
+        if let Binding::Bound(p, seen) = self {
+            cache::check_live(p, seen);
+        }
+    }
 }
 
 #[track_caller]
 fn bound(b: &Binding) -> &Path {
     match b {
-        Binding::Bound(p) => p,
+        Binding::Bound(p, _) => p,
         Binding::Unbound => panic!(
             "state: collection is not bound to a path; place its record with `insert` or \
              `or_default()` first (in `#[init]`, call `.bind()` on the root). If the record was \
@@ -47,7 +78,7 @@ fn bound(b: &Binding) -> &Path {
 #[track_caller]
 fn bind_slot(slot: &mut Binding, path: &Path) {
     match slot {
-        Binding::Bound(old) if old != path => panic!(
+        Binding::Bound(old, _) if old != path => panic!(
             "state: collection already bound to {old:?}; a record cannot move to another key \
              (`mem::take`/`mem::replace` on a stored record is unsupported; remove it and build \
              a new one)"
@@ -56,7 +87,7 @@ fn bind_slot(slot: &mut Binding, path: &Path) {
             "state: this record was removed and its collections cleared; build a new record \
              instead of re-inserting the removed one"
         ),
-        _ => *slot = Binding::Bound(path.clone()),
+        _ => *slot = Binding::at(path.clone()),
     }
 }
 
@@ -344,13 +375,13 @@ macro_rules! collection_value {
             /// The path this handle is bound to, if any.
             pub fn path(&self) -> Option<&Path> {
                 match &self.path {
-                    Binding::Bound(p) => Some(p),
+                    Binding::Bound(p, _) => Some(p),
                     _ => None,
                 }
             }
             #[doc(hidden)]
             pub fn __bound_at(path: Path) -> Self {
-                Self { path: Binding::Bound(path), _m: PhantomData }
+                Self { path: Binding::at(path), _m: PhantomData }
             }
         }
     };
@@ -414,6 +445,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// 1 read; 1 write at flush if the value changed. Unknown tags are preserved.
     #[track_caller]
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        self.path.live();
         let path = self.entry_path(k);
         let p = cache::get_entry::<V>(&path)?;
         assert_not_clearing::<V>(&path);
@@ -462,6 +494,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Leaf,
     {
+        self.path.live();
         let path = self.entry_path(&k);
         v.bind(&path);
         cache::put(&path, v);
@@ -479,6 +512,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     /// first-write-wins guard; plain `insert` would overwrite.
     #[track_caller]
     pub fn try_insert(&mut self, k: K, mut v: V) -> Result<&mut V, Occupied> {
+        self.path.live();
         let path = self.entry_path(&k);
         if cache::exists_entry::<V>(&path) {
             assert_not_clearing::<V>(&path);
@@ -494,11 +528,12 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         let path = self.entry_path(&k);
         let mut old = None;
         if cache::get_entry::<V>(&path).is_some() {
             V::clear_children(&path);
-            let mut o = cache::delete_entry::<V>(&path).expect("value was just read");
+            let mut o = cache::take_entry::<V>(&path).expect("value was just read");
             o.detach();
             old = Some(o);
         }
@@ -514,10 +549,11 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         let path = self.entry_path(k);
         cache::get_entry::<V>(&path)?;
         V::clear_children(&path);
-        let mut v = cache::delete_entry::<V>(&path).expect("value was just read");
+        let mut v = cache::take_entry::<V>(&path).expect("value was just read");
         v.detach();
         Some(v)
     }
@@ -528,6 +564,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         let path = self.entry_path(k);
         V::clear_children(&path);
         cache::delete_entry::<V>(&path);
@@ -550,6 +587,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Record + Removable,
     {
+        self.path.live();
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
@@ -566,6 +604,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
 
     #[track_caller]
     pub fn entry(&mut self, k: K) -> LookupMapEntry<'_, K, V> {
+        self.path.live();
         let path = self.entry_path(&k);
         LookupMapEntry { path, _m: PhantomData }
     }
@@ -589,6 +628,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     where
         V: Record,
     {
+        self.path.live();
         record_at_mut::<V>(self.entry_path(k))
     }
 }
@@ -748,6 +788,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// 1 read; 1 write at flush if the value changed.
     #[track_caller]
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        self.path.live();
         let path = self.entry_path(k);
         let p = cache::get_entry::<V>(&path)?;
         assert_not_clearing::<V>(&path);
@@ -778,6 +819,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Leaf,
     {
+        self.path.live();
         let path = self.entry_path(&k);
         let exists = cache::get::<u32>(&self.index_path(&k)).is_some();
         v.bind(&path);
@@ -797,6 +839,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     /// has its index, so it is `Occupied`.
     #[track_caller]
     pub fn try_insert(&mut self, k: K, mut v: V) -> Result<&mut V, Occupied> {
+        self.path.live();
         let path = self.entry_path(&k);
         if cache::get::<u32>(&self.index_path(&k)).is_some() {
             return Err(Occupied);
@@ -809,6 +852,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 
     #[track_caller]
     pub fn entry(&mut self, k: K) -> MapEntry<'_, K, V> {
+        self.path.live();
         MapEntry { map: self, k }
     }
 
@@ -825,9 +869,14 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         let i = unsafe { *r(cache::get::<u32>(&idx_path)?) };
         let len = self.len();
         V::clear_children(&path);
-        if let Some(mut v) = cache::delete_entry::<V>(&path) {
-            v.detach();
-            value = Some(v);
+        if read_value || core::mem::size_of::<V>() == 0 {
+            if let Some(mut v) = cache::take_entry::<V>(&path) {
+                v.detach();
+                value = Some(v);
+            }
+        } else {
+            // `discard`: nothing is handed back, so a cached value is buried, not freed.
+            cache::delete_entry::<V>(&path);
         }
         cache::delete::<u32>(&idx_path);
         let last = len - 1;
@@ -854,6 +903,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         if core::mem::size_of::<V>() == 0 {
             let path = self.entry_path(k);
             return match self.remove_inner(k, false)? {
@@ -873,6 +923,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         self.remove_inner(k, false).is_some()
     }
 
@@ -970,6 +1021,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         while self.clear_some(u32::MAX) {}
     }
 
@@ -979,6 +1031,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Removable,
     {
+        self.path.live();
         let len = self.len();
         let stop = len.saturating_sub(n);
         if stop == len {
@@ -1043,6 +1096,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Record + Removable,
     {
+        self.path.live();
         let path = self.entry_path(k);
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
@@ -1076,6 +1130,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     where
         V: Record,
     {
+        self.path.live();
         record_at_mut::<V>(self.entry_path(k))
     }
 }
@@ -1260,6 +1315,7 @@ impl<T: Value> Vector<T> {
     }
 
     pub fn get_mut(&mut self, i: u32) -> Option<&mut T> {
+        self.path.live();
         let path = self.slot(i);
         let p = cache::get::<T>(&path)?;
         cache::touch(&path);
@@ -1268,6 +1324,7 @@ impl<T: Value> Vector<T> {
 
     /// 1 header read, 1 write, 1 header write.
     pub fn push(&mut self, mut v: T) {
+        self.path.live();
         let len = self.len();
         let path = self.slot(len);
         v.bind(&path);
@@ -1280,6 +1337,7 @@ impl<T: Value> Vector<T> {
     where
         T: Removable,
     {
+        self.path.live();
         let len = self.len();
         if len == 0 {
             return None;
@@ -1287,7 +1345,7 @@ impl<T: Value> Vector<T> {
         let path = self.slot(len - 1);
         cache::get::<T>(&path);
         T::clear_children(&path);
-        let mut v = cache::delete::<T>(&path);
+        let mut v = cache::take::<T>(&path);
         if let Some(v) = v.as_mut() {
             v.detach();
         }
@@ -1298,17 +1356,18 @@ impl<T: Value> Vector<T> {
     /// 1 header read, 2 reads (slot `i`, last), 1 write, 1 remove, 1 header write.
     #[track_caller]
     pub fn swap_remove(&mut self, i: u32) -> T {
+        self.path.live();
         let () = Self::CHECK_MOVABLE;
         let len = self.len();
         assert!(i < len, "state::Vector index {i} out of bounds (len {len})");
         let path = self.slot(i);
         cache::get::<T>(&path).expect("dense");
-        let v = cache::delete::<T>(&path).expect("just read");
+        let v = cache::take::<T>(&path).expect("just read");
         let last = len - 1;
         if i != last {
             let last_path = self.slot(last);
             cache::get::<T>(&last_path).expect("dense");
-            let moved = cache::delete::<T>(&last_path).expect("just read");
+            let moved = cache::take::<T>(&last_path).expect("just read");
             cache::put(&path, moved);
         }
         set_len_at(&self.header(), last);
@@ -1321,6 +1380,7 @@ impl<T: Value> Vector<T> {
     where
         T: Removable,
     {
+        self.path.live();
         let len = self.len();
         for i in 0..len {
             let path = self.slot(i);
@@ -1395,13 +1455,13 @@ impl<T> Lazy<T> {
     /// The path this handle is bound to, if any.
     pub fn path(&self) -> Option<&Path> {
         match &self.path {
-            Binding::Bound(p) => Some(p),
+            Binding::Bound(p, _) => Some(p),
             _ => None,
         }
     }
     #[doc(hidden)]
     pub fn __bound_at(path: Path) -> Self {
-        Lazy { path: Binding::Bound(path), pending: core::cell::Cell::new(None) }
+        Lazy { path: Binding::at(path), pending: core::cell::Cell::new(None) }
     }
 }
 
@@ -1460,6 +1520,7 @@ impl<T: Value> Lazy<T> {
     }
     #[track_caller]
     pub fn get_mut(&mut self) -> Option<&mut T> {
+        self.path.live();
         let path = bound(&self.path).clone();
         let p = cache::get::<T>(&path)?;
         cache::touch(&path);
@@ -1469,6 +1530,7 @@ impl<T: Value> Lazy<T> {
     /// overwriting it would orphan its collections).
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
+        self.path.live();
         let path = bound(&self.path).clone();
         assert_insert_new::<T>(&path);
         v.bind(&path);
@@ -1480,6 +1542,7 @@ impl<T: Value> Lazy<T> {
     where
         T: Removable,
     {
+        self.path.live();
         let path = bound(&self.path).clone();
         T::clear_children(&path);
         cache::delete::<T>(&path);
@@ -1701,6 +1764,7 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
     }
     #[track_caller]
     pub fn group_mut(&mut self, g: &G) -> GroupMut<'_, K, V> {
+        self.path.live();
         let p = cache::arena(Map::<K, V>::__bound_at(self.group_path(g)));
         // SAFETY: the handle is a fresh allocation owned by the cache arena and freed only at
         // the flush / `begin_call` (invariant 4). `&mut self` for `'_` makes this the only
@@ -1747,7 +1811,7 @@ impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: 
 {
     type Out = At<'a, GroupedMap<G, K, V>>;
     fn __view_field(field_path: Path) -> Self::Out {
-        At::new(GroupedMap { path: Binding::Bound(field_path), _m: PhantomData })
+        At::new(GroupedMap { path: Binding::at(field_path), _m: PhantomData })
     }
 }
 impl<'a, R: Value, K: StorageKey + 'static> ViewField<'a, R> for LookupSet<K> {
@@ -1787,7 +1851,7 @@ view_mut_as_arena!(Lazy<T>, [T: Value], Lazy::__bound_at);
 view_mut_as_arena!(
     GroupedMap<G, K, V>,
     [G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value],
-    |p| GroupedMap { path: Binding::Bound(p), _m: PhantomData }
+    |p| GroupedMap { path: Binding::at(p), _m: PhantomData }
 );
 view_mut_as_arena!(LookupSet<K>, [K: StorageKey + 'static], |p| LookupSet(LookupMap::__bound_at(p)));
 view_mut_as_arena!(Set<K>, [K: StorageKey + Clone + 'static], |p| Set(Map::__bound_at(p)));

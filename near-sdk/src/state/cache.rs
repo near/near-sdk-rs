@@ -14,13 +14,19 @@
 //!    value while a collection operation is not running. The read path (`get`) forms no `&mut`
 //!    at all: it type-checks through a shared borrow and returns a pointer cast, so a `&V`
 //!    handed out earlier stays valid under Stacked and Tree Borrows (audit A1).
-//! 2. Within a call, a value is dropped or overwritten only by an operation that takes
-//!    `&mut` on the collection handle that owns the key (`insert`, `remove`, `discard`,
-//!    `clear`). Borrowck then guarantees no reference from *that handle* is alive.
+//! 2. Within a call, a value is replaced or removed only by an operation that takes `&mut` on
+//!    the collection handle that owns the key (`insert`, `remove`, `discard`, `clear`).
+//!    Borrowck then guarantees no reference from *that handle* is alive. A second handle to
+//!    the same path (a field moved out with `mem::take`, audit A2) is not seen by borrowck, so
+//!    a value that is overwritten (`put`) or deleted without being returned (`delete`) is not
+//!    freed: it moves to the call's graveyard and is freed with the slots at the flush, and a
+//!    `&V` from the other handle stays valid for the call. A removal that *returns* the value
+//!    (`take`: `remove`, `replace`, `pop`, `swap_remove`) has to move it out, so a `&V` to it
+//!    from an escaped second handle still dangles; that one hole is documented, not closed.
 //! 3. Exactly one handle can produce a `&mut` to a given key: the borrow chain from the
 //!    single root. This is NOT type-enforced. Two roots alive at once (possible in tests by
 //!    calling `state_read()` twice) can alias.
-//! 4. The flush (and `begin_call`) frees every slot. No reference obtained from the root may
+//! 4. The flush (and `begin_call`) frees every slot and the graveyard. No reference obtained from the root may
 //!    be alive at the flush. The wrapper guarantees this (it flushes after the method body
 //!    returns); code calling `state_write(&root)` by hand while holding a reference does not,
 //!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
@@ -224,7 +230,7 @@ impl Slot {
 
     fn drop_value(&mut self) {
         if let Some(p) = self.value.take() {
-            // SAFETY: invariant 2; the caller holds `&mut` on the owning handle.
+            // SAFETY: invariant 4; only the flush frees a slot, with no reference alive.
             unsafe { drop(Box::from_raw(p.as_ptr())) };
         }
     }
@@ -237,11 +243,24 @@ pub(crate) struct Cache {
     root: Option<Vec<u8>>,
     /// Collection handles handed out by reference (`group_mut`); freed with the slots.
     handles: std::vec::Vec<NonNull<dyn Any>>,
+    /// Values overwritten or deleted in this call, freed with the slots (invariant 2).
+    graveyard: std::vec::Vec<NonNull<dyn Erased>>,
+    /// This call's removals of values that own storage, and `remove_step` clearings:
+    /// `(epoch, key)`, in epoch order. A handle bound below `key` before `epoch` is stale
+    /// (audit A2); see [`check_live`].
+    gone: std::vec::Vec<(u64, Vec<u8>)>,
 }
 
 impl Cache {
     fn new(host: Box<dyn Host>) -> Self {
-        Cache { host, slots: BTreeMap::new(), root: None, handles: std::vec::Vec::new() }
+        Cache {
+            host,
+            slots: BTreeMap::new(),
+            root: None,
+            handles: std::vec::Vec::new(),
+            graveyard: std::vec::Vec::new(),
+            gone: std::vec::Vec::new(),
+        }
     }
 
     fn slot(&mut self, key: &[u8]) -> NonNull<Slot> {
@@ -301,16 +320,30 @@ impl Cache {
     /// `RefCell` borrow.
     fn take_slots(&mut self) -> Taken {
         self.root = None;
+        self.gone.clear();
         Taken {
             slots: core::mem::take(&mut self.slots).into_values().collect(),
             handles: core::mem::take(&mut self.handles),
+            graveyard: core::mem::take(&mut self.graveyard),
         }
+    }
+
+    /// Logs that the value at `key`, which owns storage, was removed or started clearing: every
+    /// handle bound below it before now is stale (audit A2).
+    fn record_gone(&mut self, key: &[u8]) {
+        let e = EPOCH.with(|c| {
+            let e = c.get() + 1;
+            c.set(e);
+            e
+        });
+        self.gone.push((e, key.to_vec()));
     }
 }
 
 struct Taken {
     slots: std::vec::Vec<NonNull<Slot>>,
     handles: std::vec::Vec<NonNull<dyn Any>>,
+    graveyard: std::vec::Vec<NonNull<dyn Erased>>,
 }
 
 /// Frees slots and their values, then handles (outside the cache borrow, so a value's `Drop`,
@@ -320,6 +353,10 @@ fn free_slots(taken: Taken) {
         // SAFETY: invariant 4; the slot has been removed from the cache.
         let mut slot = unsafe { Box::from_raw(sp.as_ptr()) };
         slot.drop_value();
+    }
+    for vp in taken.graveyard {
+        // SAFETY: invariant 4; buried values are owned by the graveyard alone.
+        unsafe { drop(Box::from_raw(vp.as_ptr())) };
     }
     for hp in taken.handles {
         // SAFETY: invariant 4 (handles are freed with the slots).
@@ -338,6 +375,48 @@ pub(crate) fn arena<T: Any>(v: T) -> NonNull<T> {
 
 std::thread_local! {
     static CACHE: RefCell<Cache> = RefCell::new(Cache::new(Box::new(EnvHost)));
+    /// Removal epoch (audit A2): bumped by every removal of a value that owns storage and every
+    /// `remove_step` clearing. Never reset, not even by `install_host`, so a handle's stamp from
+    /// an earlier call is always older than this call's removals.
+    static EPOCH: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+}
+
+/// The current removal epoch; a handle is stamped with it when bound.
+pub(crate) fn epoch() -> u64 {
+    EPOCH.with(core::cell::Cell::get)
+}
+
+/// Audit A2: panics if a value that owns storage was removed (or started `remove_step`
+/// clearing) at a key strictly below which `path` lies, after the handle at `path` was
+/// stamped with `seen`. Such a handle escaped its record (`mem::take` on a field), and writing
+/// through it would orphan keys under a removed record or bypass the clearing guard. A handle
+/// bound after the removal (a record re-inserted at the same key) is fresh and passes.
+///
+/// Cost: one thread-local load and one `u64` compare while no removal happened since the
+/// handle last checked; otherwise a scan of only the removals newer than `seen`, then `seen`
+/// moves to now, so each removal is scanned at most once per handle.
+#[track_caller]
+pub(crate) fn check_live(path: &Path, seen: &mut u64) {
+    let now = epoch();
+    if *seen == now {
+        return;
+    }
+    let key = path.as_bytes();
+    let stale = with(|c| {
+        c.gone
+            .iter()
+            .rev()
+            .take_while(|(e, _)| *e > *seen)
+            .any(|(_, gone)| key.len() > gone.len() && key.starts_with(gone))
+    });
+    if stale {
+        panic!(
+            "state: the collection at {path:?} belongs to a record that was removed or started \
+             `remove_step` clearing in this call after this handle was made; a handle moved out \
+             of its record (`mem::take`/`mem::replace` on a field) cannot write any more"
+        );
+    }
+    *seen = now;
 }
 
 fn with<R>(f: impl FnOnce(&mut Cache) -> R) -> R {
@@ -494,6 +573,7 @@ pub(crate) fn set_clearing(path: &Path) {
             s.mode = Mode::Touched;
             s.verbatim = true;
         }
+        c.record_gone(path.as_bytes());
     })
 }
 
@@ -512,10 +592,17 @@ pub(crate) fn touch(path: &Path) {
 /// Writes a value without reading the key first. The value replaces whatever is stored,
 /// unknown tags included.
 pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
-    let mut sp = with(|c| c.slot(path.as_bytes()));
+    let mut sp = with(|c| {
+        let mut sp = c.slot(path.as_bytes());
+        // SAFETY: invariants 1 and 2. The old value is buried, not freed: an escaped second
+        // handle may still hold a `&V` to it (audit A2).
+        if let Some(old) = unsafe { sp.as_mut() }.value.take() {
+            c.graveyard.push(old);
+        }
+        sp
+    });
     // SAFETY: invariants 1 and 2.
     let s = unsafe { sp.as_mut() };
-    s.drop_value();
     let b: Box<dyn Erased> = Box::new(v);
     let p = NonNull::from(Box::leak(b));
     s.value = Some(p);
@@ -527,19 +614,52 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     p.cast::<V>()
 }
 
-/// Removes the value at `path`, returning it if it was decoded. No host read.
-pub(crate) fn delete<V: Value>(path: &Path) -> Option<V> {
-    delete_impl::<V>(path, false)
+/// Removes the value at `path`, returning it if it was decoded. No host read. The value moves
+/// out of the cache, so this is only for removals that hand it back (invariant 2).
+pub(crate) fn take<V: Value>(path: &Path) -> Option<V> {
+    let p = delete_impl::<V>(path, false)?;
+    // SAFETY: invariant 2; the slot no longer points at the value, so we own it now.
+    let b = unsafe { Box::from_raw(p.as_ptr()) };
+    let any: Box<dyn Any> = b;
+    any.downcast::<V>().ok().map(|b| *b)
+}
+
+/// [`take`] for a map entry; see [`delete_entry`] for the flag key.
+pub(crate) fn take_entry<V: Value>(path: &Path) -> Option<V> {
+    let p = delete_impl::<V>(path, V::MAX_SUBPATH > 0)?;
+    // SAFETY: as in `take`.
+    let b = unsafe { Box::from_raw(p.as_ptr()) };
+    let any: Box<dyn Any> = b;
+    any.downcast::<V>().ok().map(|b| *b)
+}
+
+/// Removes the value at `path`. No host read. A decoded value is buried until the flush, not
+/// freed (invariant 2).
+pub(crate) fn delete<V: Value>(path: &Path) {
+    bury(delete_impl::<V>(path, false));
 }
 
 /// [`delete`] for a map entry. If `V` owns storage and the entry was not read in this call,
 /// the flush also removes its flag key, since the record may be mid-clear (D9): 1 more remove.
-pub(crate) fn delete_entry<V: Value>(path: &Path) -> Option<V> {
-    delete_impl::<V>(path, V::MAX_SUBPATH > 0)
+pub(crate) fn delete_entry<V: Value>(path: &Path) {
+    bury(delete_impl::<V>(path, V::MAX_SUBPATH > 0));
 }
 
-fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
-    let mut sp = with(|c| c.entry_slot(path.as_bytes(), flaggable));
+fn bury(p: Option<NonNull<dyn Erased>>) {
+    if let Some(p) = p {
+        with(|c| c.graveyard.push(p));
+    }
+}
+
+/// Marks the slot deleted and unlinks its value, which the caller takes or buries. A value that
+/// owns storage is logged as gone (audit A2).
+fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<dyn Erased>> {
+    let mut sp = with(|c| {
+        if V::MAX_SUBPATH > 0 {
+            c.record_gone(path.as_bytes());
+        }
+        c.entry_slot(path.as_bytes(), flaggable)
+    });
     // SAFETY: invariants 1 and 2.
     let s = unsafe { sp.as_mut() };
     if s.flaggable && s.orig == Orig::Unknown {
@@ -548,11 +668,7 @@ fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
     s.mode = Mode::Deleted;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
-    let p = s.value.take()?;
-    // SAFETY: invariant 2; we own the value now.
-    let b = unsafe { Box::from_raw(p.as_ptr()) };
-    let any: Box<dyn Any> = b;
-    any.downcast::<V>().ok().map(|b| *b)
+    s.value.take()
 }
 
 /// Reads the raw root bytes and remembers the root key so the flush writes it last.
