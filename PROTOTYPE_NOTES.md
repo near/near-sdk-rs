@@ -687,6 +687,7 @@ This round brings the prototype in line with the settled decisions in `decisions
   - `n = 0` clears nothing and flags the record.
   - `replace` and `remove` on a clearing record are allowed: they clear unbounded and drop the flag.
   - Only values with `MAX_SUBPATH > 0` consult the flag, because a Borsh leaf may legitimately start with `00 00`.
+  - Reconciled Oct 17: `remove_some(&k, n)` stays. It sits on the same receiver as `Map::clear()`, so the doc and `docs/storage-v2-spec.md` adopt it and record the choice in Open questions.
 
 ### Cost change the designer must see (D9)
 
