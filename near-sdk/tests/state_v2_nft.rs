@@ -190,7 +190,10 @@ impl Nft {
         after: Option<TokenId>,
         limit: u32,
     ) -> KeyPage<TokenId> {
-        self.tokens_per_owner.group(&account_id).keys_page(after.as_ref(), limit)
+        self.tokens_per_owner
+            .group(&account_id)
+            .keys_page(after.as_ref(), limit)
+            .unwrap_or_else(|e| env::panic_str(e.as_ref()))
     }
 
     pub fn nft_metadata(&self) -> NftContractMetadata {

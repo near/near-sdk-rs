@@ -32,17 +32,20 @@
 //! value cannot itself be a collection: put it in a record, or use `GroupedMap`.
 //!
 //! - `map.get(&k)` reads and decodes the record. `map.at(&k)` walks to it without reading
-//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 `storage_has_key`, panics
-//!   if absent. `entry(k).or_default()` / `get_mut(&k)` give the decoded record to change.
+//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 `storage_has_key`, and
+//!   `None` if absent (D7: named accessors return `Option`; only `Index` would panic).
+//!   `entry(k).or_default()` / `get_mut(&k)` give the decoded record to change.
 //! - Each key is read at most once per call, and written once at the end, in key order, with the
 //!   root last. A record is rewritten only if its encoding changed. `contains_key` is a
 //!   `storage_has_key` and does not warm the cache for a later `get`.
 //! - `remove` clears the value's collections and returns it detached. `insert` of a record
 //!   that owns collections panics if the key exists.
 //! - Enumeration order is the key vector's: insertion order until a remove moves the last key
-//!   into the hole. `page(after, n)` / `page_with` panic if the cursor key was removed since the
-//!   last page, so a public listing that may race with removals should use offset paging,
-//!   `iter().skip(from).take(n)`, where `skip` reads nothing.
+//!   into the hole. `page(after, n)` / `page_with` / `keys_page` return `Err(CursorGone)` if the
+//!   cursor key was removed since the last page (D8); a `#[handle_result]` view can return the
+//!   `Result` as is. Offset paging, `iter().skip(from).take(n)` (where `skip` reads nothing),
+//!   never fails but can skip a key after a removal behind the offset. An on-chain batch job
+//!   must not page a map that changes between its calls.
 //!
 //! See `state::testing` for the counting mock host and a call harness.
 
@@ -150,7 +153,7 @@ mod tests;
 
 #[cfg(feature = "unstable")]
 pub use collections::{
-    At, Group, GroupMut, GroupedMap, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry,
+    At, CursorGone, Group, GroupMut, GroupedMap, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry,
     LookupSet, Map, MapEntry, Page, Set, Vector, ViewIsReadOnly,
 };
 #[cfg(feature = "unstable")]

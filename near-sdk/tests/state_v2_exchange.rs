@@ -94,7 +94,7 @@ impl Exchange {
 
     // cursor pagination; offset pagination stays available and cheap
     pub fn balances(&self, id: AccountId, after: Option<TokenId>) -> Page<TokenId, u128> {
-        self.accounts.at(&id).balances.page(after.as_ref(), 50)
+        self.accounts.at(&id).balances.page(after.as_ref(), 50).unwrap()
     }
 
     pub fn cancel(&mut self, market: MarketId, order: OrderId) {

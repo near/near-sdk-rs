@@ -282,18 +282,18 @@ fn itermap_pagination_is_linear() {
         m.insert(i, i as u64);
     }
     end_call();
-    let pg = m.page(None, 5);
+    let pg = m.page(None, 5).unwrap();
     assert_eq!(pg.items.len(), 5);
     assert_eq!(pg.next, Some(4));
     let r = end_call();
     assert_eq!(r.reads(), 1 + 2 * 5, "no cursor: header + 2 per item");
 
-    let pg2 = m.page(pg.next.as_ref(), 5);
+    let pg2 = m.page(pg.next.as_ref(), 5).unwrap();
     assert_eq!(pg2.items[0].0, 5);
     let r = end_call();
     assert_eq!(r.reads(), 2 + 2 * 5, "cursor: index + header + 2 per item (2n + 2)");
 
-    let last = m.page(Some(&14), 50);
+    let last = m.page(Some(&14), 50).unwrap();
     assert_eq!(last.items.len(), 5);
     assert_eq!(last.next, None);
     end_call();
@@ -304,9 +304,9 @@ fn itermap_pagination_is_linear() {
     assert_eq!(end_call().reads(), 1 + 2 * 7, "iter: 2 per entry");
 }
 
+/// D8: a removed cursor key is an error value, not a panic, on every cursor-paged method.
 #[test]
-#[should_panic(expected = "cursor key no longer exists")]
-fn page_with_removed_cursor_panics() {
+fn page_with_removed_cursor_returns_cursor_gone() {
     testing::use_mock();
     let mut m: Map<u32, u64> = at(1);
     for i in 0..3 {
@@ -315,7 +315,34 @@ fn page_with_removed_cursor_panics() {
     end_call();
     m.discard(&1);
     end_call();
-    m.page(Some(&1), 10);
+    assert_eq!(m.page(Some(&1), 10), Err(CursorGone));
+    assert_eq!(m.page_with(Some(&1), 10, |_, v| *v), Err(CursorGone));
+    assert_eq!(m.keys_page(Some(&1), 10), Err(CursorGone));
+    assert_eq!(end_call().rwd(), (1, 0, 0), "one read, the cursor's index");
+    assert!(CursorGone.as_ref().contains("cursor key no longer exists"));
+    let mut s: Set<u32> = at(2);
+    s.insert(1);
+    s.remove(&1);
+    assert_eq!(s.page(Some(&1), 10), Err(CursorGone));
+}
+
+/// D8: offset paging can SKIP a key after a removal behind the offset (the last key moves
+/// into the hole, ahead of where the next page starts). Documented on `Map::page`.
+#[test]
+fn offset_paging_skips_a_key_after_a_removal_behind_the_offset() {
+    testing::use_mock();
+    let mut m: Map<u32, u64> = at(1);
+    for i in 0..6 {
+        m.insert(i, 0);
+    }
+    end_call();
+    let p1: StdVec<u32> = m.keys().skip(0).take(3).collect(); // 0,1,2
+    end_call();
+    m.discard(&0); // key 5 moves to slot 0
+    end_call();
+    let p2: StdVec<u32> = m.keys().skip(3).take(3).collect(); // slots 3.. = 3,4
+    let seen: StdVec<u32> = p1.into_iter().chain(p2).collect();
+    assert_eq!(seen, vec![0, 1, 2, 3, 4], "key 5 is never returned");
 }
 
 /// Cursor pages skip a key when a removal between pages moves the last key into a gap
@@ -328,11 +355,11 @@ fn page_skips_moved_key_after_interleaved_removal() {
         m.insert(i, 0);
     }
     end_call();
-    let p1 = m.page(None, 3); // 0,1,2
+    let p1 = m.page(None, 3).unwrap(); // 0,1,2
     end_call();
     m.discard(&0); // key 5 moves to slot 0
     end_call();
-    let p2 = m.page(p1.next.as_ref(), 3);
+    let p2 = m.page(p1.next.as_ref(), 3).unwrap();
     let seen: StdVec<u32> =
         p1.items.iter().chain(p2.items.iter()).map(|(k, _)| *k).collect();
     assert_eq!(seen, vec![0, 1, 2, 3, 4], "key 5 is never returned");
@@ -839,7 +866,7 @@ fn view_on_absent_key() {
     assert_eq!(v.balances.len(), 0);
     assert_eq!(v.balances.get(&"usdt".into()), None);
     assert!(ex.accounts.get(&bob()).is_none());
-    assert!(v.balances.page(None, 10).items.is_empty());
+    assert!(v.balances.page(None, 10).unwrap().items.is_empty());
 }
 
 #[test]
@@ -1066,7 +1093,7 @@ fn set_insert_of_an_existing_key_writes_nothing_and_set_has_map_parity() {
     assert!(!s.insert(3));
     assert_eq!(end_call().rwd(), (1, 0, 0), "index read only");
     assert_eq!(s.key_at(4), Some(4));
-    let p = s.page(None, 2);
+    let p = s.page(None, 2).unwrap();
     assert_eq!((p.keys, p.next), (vec![0, 1], Some(1)));
     end_call();
     let got: StdVec<u32> = s.iter().skip(3).take(2).collect();
@@ -1120,7 +1147,7 @@ fn page_with_maps_record_values() {
         m.entry(i).or_default().nonce = u64::from(i) * 10;
     }
     end_call();
-    let p = m.page_with(None, 2, |k, a| (*k, a.nonce));
+    let p = m.page_with(None, 2, |k, a| (*k, a.nonce)).unwrap();
     assert_eq!(p.items, vec![(0, (0, 0)), (1, (1, 10))]);
     assert_eq!(p.next, Some(1));
 }
@@ -1131,7 +1158,7 @@ fn at_mut_writes_below_the_record_without_reading_it() {
     let mut m: Map<u32, Account> = at(8);
     m.entry(1).or_default().nonce = 7;
     end_call();
-    m.at_mut(&1).balances.insert("usdt".into(), 5);
+    m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
     let r = end_call();
     assert_eq!(r.has_keys(), 1, "existence check");
     assert_eq!(r.rwd(), (2, 4, 0), "balances index + header reads, 4 writes; record not read");
@@ -1139,10 +1166,15 @@ fn at_mut_writes_below_the_record_without_reading_it() {
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
 
+/// D7: `at_mut` on an absent record is `None` (std convention), and creates nothing.
 #[test]
-#[should_panic(expected = "`at_mut` on a record that does not exist")]
-fn at_mut_on_an_absent_record_panics() {
+fn at_mut_on_an_absent_record_is_none() {
     testing::use_mock();
     let mut m: Map<u32, Account> = at(9);
-    let _ = m.at_mut(&9);
+    assert!(m.at_mut(&9).is_none());
+    let mut lm: LookupMap<u32, Account> = at(10);
+    assert!(lm.at_mut(&9).is_none());
+    let r = end_call();
+    assert_eq!(r.has_keys(), 2);
+    assert_eq!(r.keys_written().len(), 0, "nothing created");
 }

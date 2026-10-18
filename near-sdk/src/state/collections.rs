@@ -76,17 +76,14 @@ fn set_len_at(header: &Path, n: u32) {
     }
 }
 
-/// `at_mut`: 1 `storage_has_key` unless cached, panics if the record is absent (so it never
+/// `at_mut`: 1 `storage_has_key` unless cached; `None` if the record is absent (so it never
 /// creates children of a record that does not exist), reads nothing.
 #[track_caller]
-fn record_at_mut<'a, V: Record>(path: Path) -> V::ViewMut<'a> {
+fn record_at_mut<'a, V: Record>(path: Path) -> Option<V::ViewMut<'a>> {
     if !cache::exists(&path) {
-        panic!(
-            "state: `at_mut` on a record that does not exist; create it with \
-             `entry(k).or_default()` (or `insert`) first"
-        );
+        return None;
     }
-    V::__view_mut(path)
+    Some(V::__view_mut(path))
 }
 
 /// Moves a bound handle into the per-call arena and returns `&'a mut` to it.
@@ -169,6 +166,31 @@ macro_rules! read_only {
         )*
     };
 }
+
+/// The cursor key passed to `page` / `page_with` / `keys_page` was removed since the page that
+/// returned it, so there is no position to continue from. Restart from a key you still hold,
+/// from `None`, or switch to offset paging (`iter().skip(from).take(n)`).
+///
+/// Implements `AsRef<str>`, so a `#[handle_result]` view returning
+/// `Result<Page<K, V>, CursorGone>` maps it to a panic with this message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CursorGone;
+
+impl CursorGone {
+    const MSG: &'static str = "state: page cursor key no longer exists (removed since the last \
+                               page); restart from a known key or use offset paging";
+}
+impl core::fmt::Display for CursorGone {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(Self::MSG)
+    }
+}
+impl AsRef<str> for CursorGone {
+    fn as_ref(&self) -> &str {
+        Self::MSG
+    }
+}
+impl std::error::Error for CursorGone {}
 
 /// One page of a cursor-paginated collection.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -365,9 +387,10 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
 
     /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
     /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. Panics if the record does not exist.
+    /// record itself is not read. `None` if the record does not exist (std convention: named
+    /// accessors return `Option`).
     #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> V::ViewMut<'_>
+    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
     where
         V: Record,
     {
@@ -608,46 +631,44 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         self.key_at_ptr(i).map(|p| unsafe { r(p) }.clone())
     }
 
-    #[track_caller]
-    fn cursor_start(&self, after: Option<&K>) -> u32 {
+    fn cursor_start(&self, after: Option<&K>) -> Result<u32, CursorGone> {
         match after {
-            None => 0,
+            None => Ok(0),
             Some(k) => {
-                let i = cache::get::<u32>(&self.index_path(k)).unwrap_or_else(|| {
-                    panic!(
-                        "state: page cursor key no longer exists (removed since the last page); \
-                         restart from a known key"
-                    )
-                });
-                (unsafe { *r(i) }) + 1
+                let i = cache::get::<u32>(&self.index_path(k)).ok_or(CursorGone)?;
+                Ok((unsafe { *r(i) }) + 1)
             }
         }
     }
 
     /// Cursor page: with a cursor, 2 reads (cursor index, header) plus 2 per item.
-    /// Without a cursor, 1 read plus 2 per item. Panics if the cursor key no longer exists.
-    #[track_caller]
+    /// Without a cursor, 1 read plus 2 per item. `Err(CursorGone)` if the cursor key was
+    /// removed since the page that returned it (1 read, the cursor's index).
+    ///
+    /// Cursor and offset paging both assume the map does not change between pages. A cursor
+    /// whose key was removed fails loudly; offset paging (`iter().skip(from).take(n)`) does
+    /// not fail but can SKIP a key: a removal behind the offset moves the last key into the
+    /// hole, ahead of where the next page starts. An on-chain batch job must not page a map
+    /// that changes between its calls.
     ///
     /// Needs `V: Clone`, which a record holding a collection never is: use [`Map::page_with`]
     /// and map each record to the type you return.
-    pub fn page(&self, after: Option<&K>, limit: u32) -> Page<K, V>
+    pub fn page(&self, after: Option<&K>, limit: u32) -> Result<Page<K, V>, CursorGone>
     where
         V: Clone,
     {
         self.page_with(after, limit, |_, v| v.clone())
     }
 
-    /// Cursor page with each value mapped by `f`: same reads as `page`. The path for
-    /// record-valued maps: `map.page_with(after, 50, |id, p| ProposalJson::new(id, p))`.
-    /// Panics if the cursor key no longer exists.
-    #[track_caller]
+    /// Cursor page with each value mapped by `f`: same reads and errors as `page`. The path
+    /// for record-valued maps: `map.page_with(after, 50, |id, p| ProposalJson::new(id, p))`.
     pub fn page_with<T>(
         &self,
         after: Option<&K>,
         limit: u32,
         mut f: impl FnMut(&K, &V) -> T,
-    ) -> Page<K, T> {
-        let start = self.cursor_start(after);
+    ) -> Result<Page<K, T>, CursorGone> {
+        let start = self.cursor_start(after)?;
         let len = self.len();
         let end = start.saturating_add(limit).min(len);
         let mut items = std::vec::Vec::with_capacity((end.saturating_sub(start)) as usize);
@@ -657,19 +678,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             items.push((k, v));
         }
         let next = if end < len { items.last().map(|(k, _)| k.clone()) } else { None };
-        Page { items, next }
+        Ok(Page { items, next })
     }
 
-    /// Key-only cursor page: as `page`, 1 read per key.
-    #[track_caller]
-    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
-        let start = self.cursor_start(after);
+    /// Key-only cursor page: as `page`, 1 read per key; same `CursorGone` error.
+    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> Result<KeyPage<K>, CursorGone> {
+        let start = self.cursor_start(after)?;
         let len = self.len();
         let end = start.saturating_add(limit).min(len);
         let keys: std::vec::Vec<K> =
             (start..end).map(|i| self.key_at(i).expect("dense key vector")).collect();
         let next = if end < len { keys.last().cloned() } else { None };
-        KeyPage { keys, next }
+        Ok(KeyPage { keys, next })
     }
 
     /// 2 reads per entry yielded, plus 1 for the length. Order is the key vector's: insertion
@@ -728,9 +748,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 
     /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
     /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. Panics if the record does not exist.
+    /// record itself is not read. `None` if the record does not exist (std convention: named
+    /// accessors return `Option`).
     #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> V::ViewMut<'_>
+    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
     where
         V: Record,
     {
@@ -765,25 +786,22 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     pub fn key_at(&self, i: u32) -> Option<K> {
         self.inner.key_at(i)
     }
-    #[track_caller]
-    pub fn page(&self, after: Option<&K>, limit: u32) -> Page<K, V>
+    pub fn page(&self, after: Option<&K>, limit: u32) -> Result<Page<K, V>, CursorGone>
     where
         V: Clone,
     {
         self.inner.page(after, limit)
     }
-    #[track_caller]
     pub fn page_with<T>(
         &self,
         after: Option<&K>,
         limit: u32,
         mut f: impl FnMut(&K, &'a V) -> T,
-    ) -> Page<K, T> {
+    ) -> Result<Page<K, T>, CursorGone> {
         // The reads live for 'a (see `get`), so `f` may keep them.
         self.inner.page_with(after, limit, |k, v| f(k, unsafe { &*(v as *const V) }))
     }
-    #[track_caller]
-    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+    pub fn keys_page(&self, after: Option<&K>, limit: u32) -> Result<KeyPage<K>, CursorGone> {
         self.inner.keys_page(after, limit)
     }
     /// As `Map::iter`; `skip(n)` is free.
@@ -1234,9 +1252,8 @@ impl<K: StorageKey + Clone + 'static> Set<K> {
     pub fn key_at(&self, i: u32) -> Option<K> {
         self.0.key_at(i)
     }
-    /// Cursor page of keys: as `Map::keys_page`. Panics if the cursor key no longer exists.
-    #[track_caller]
-    pub fn page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+    /// Cursor page of keys: as `Map::keys_page`, including its `CursorGone` error.
+    pub fn page(&self, after: Option<&K>, limit: u32) -> Result<KeyPage<K>, CursorGone> {
         self.0.keys_page(after, limit)
     }
     /// 1 read per key yielded, plus 1 for the length. `skip(n)` is free, so offset pagination
@@ -1263,8 +1280,7 @@ impl<'a, K: StorageKey + Clone + 'static> At<'a, Set<K>> {
     pub fn key_at(&self, i: u32) -> Option<K> {
         self.inner.key_at(i)
     }
-    #[track_caller]
-    pub fn page(&self, after: Option<&K>, limit: u32) -> KeyPage<K> {
+    pub fn page(&self, after: Option<&K>, limit: u32) -> Result<KeyPage<K>, CursorGone> {
         self.inner.page(after, limit)
     }
     /// As `Set::iter`; `skip(n)` is free.

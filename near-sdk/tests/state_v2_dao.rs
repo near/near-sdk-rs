@@ -142,9 +142,10 @@ impl Dao {
     pub fn vote(&mut self, id: ProposalId, vote: Vote) {
         let voter = env::predecessor_account_id();
         require!(self.members.contains_key(&voter), "members only");
-        require!(self.proposals.contains_key(&id), "no such proposal");
-        require!(self.proposals.at_mut(&id).votes.insert(voter.clone(), vote), "already voted");
-        self.members.at_mut(&voter).votes.insert(id);
+        // D7: `at_mut` returns `Option`, so the existence check is the `expect`.
+        let p = self.proposals.at_mut(&id).expect("no such proposal");
+        require!(p.votes.insert(voter.clone(), vote), "already voted");
+        self.members.at_mut(&voter).expect("members only").votes.insert(id);
     }
 
     /// Counts the votes, removes the proposal, and reports the outcome.
@@ -179,8 +180,11 @@ impl Dao {
     }
 
     /// Paginated proposals, as views. Revision 3: `page_with` maps each record.
+    /// D8: a removed cursor is `Err(CursorGone)`; this view maps it to a panic with its message.
     pub fn proposals(&self, after: Option<ProposalId>, limit: u32) -> Page<ProposalId, ProposalJson> {
-        self.proposals.page_with(after.as_ref(), limit, |id, p| proposal_json(*id, p))
+        self.proposals
+            .page_with(after.as_ref(), limit, |id, p| proposal_json(*id, p))
+            .unwrap_or_else(|e| env::panic_str(e.as_ref()))
     }
 
     pub fn is_member(&self, account_id: AccountId) -> bool {
@@ -389,14 +393,20 @@ fn vote_op_counts() {
     assert!(r.read_bytes() < 500, "read {} bytes", r.read_bytes());
 }
 
-/// Revision 3: `at_mut` on an absent record panics instead of creating orphan children.
+/// D7: `at_mut` on an absent record is `None` instead of creating orphan children.
 #[test]
-#[should_panic(expected = "`at_mut` on a record that does not exist")]
-fn at_mut_on_absent_record_panics() {
+fn at_mut_on_absent_record_is_none() {
     setup(&["a.near"]);
-    call("a.near", |c| {
-        c.proposals.at_mut(&99).votes.insert(id("a.near"), Vote::Yes);
-    });
+    let (none, r) = call("a.near", |c| c.proposals.at_mut(&99).is_none());
+    assert!(none);
+    assert!(r.keys_written().iter().all(|k| k.as_slice() == [0xF0]), "nothing created");
+}
+
+#[test]
+#[should_panic(expected = "no such proposal")]
+fn vote_on_absent_proposal_panics() {
+    setup(&["a.near"]);
+    call("a.near", |c| c.vote(99, Vote::Yes));
 }
 
 #[test]

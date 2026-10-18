@@ -56,7 +56,7 @@ impl Exchange {
 
     // writes below the record without reading it: one existence check, no decode
     pub fn set_balance(&mut self, id: AccountId, token: TokenId, amount: U128) {
-        self.accounts.at_mut(&id).balances.insert(token, amount.0);
+        self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
     }
 
     // one read below the root; the Account record is never loaded
@@ -66,7 +66,7 @@ impl Exchange {
 
     // cursor pagination; offset pagination stays available and cheap
     pub fn balances(&self, id: AccountId, after: Option<TokenId>) -> Page<TokenId, u128> {
-        self.accounts.at(&id).balances.page(after.as_ref(), 50)
+        self.accounts.at(&id).balances.page(after.as_ref(), 50).unwrap()
     }
 
     pub fn cancel(&mut self, market: MarketId, order: OrderId) {
