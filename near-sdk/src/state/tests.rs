@@ -1570,3 +1570,25 @@ fn replaced_then_flagged_record_relocates_the_new_value() {
     let fields = record::parse(&stored).unwrap();
     assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(borsh::to_vec(&9u64).unwrap()));
 }
+
+/// T4: clearing an empty map that never had a header costs no header op: the header read
+/// already says it is absent, so deleting it is free. `remove_step` and `remove` of a record
+/// with an empty `balances`, and `clear()` on an empty map.
+#[test]
+fn clearing_an_empty_map_without_a_header_writes_nothing_for_it() {
+    testing::use_mock();
+    let mut lm: LookupMap<u32, Account> = at(45);
+    lm.try_insert(1, Account::default()).unwrap();
+    lm.try_insert(2, Account::default()).unwrap();
+    end_call();
+    assert_eq!(lm.remove_step(&1, 1), Removal::Done);
+    let r = end_call();
+    assert_eq!(r.rwd(), (2, 0, 1), "record read + balances header read; record remove");
+    assert!(lm.remove(&2).is_some());
+    let r = end_call();
+    assert_eq!(r.rwd(), (2, 0, 1), "record read + balances header read; record remove");
+    let mut m: Map<u32, u64> = at(46);
+    m.clear();
+    let r = end_call();
+    assert_eq!(r.rwd(), (1, 0, 0), "the header read only");
+}

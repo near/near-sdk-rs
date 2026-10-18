@@ -893,3 +893,30 @@ I checked the 40 B against `key.rs` rather than waiting on the audit: the value 
 **F4, the first partial clear flushed out of key order (fixed in code; the guarantee text is unchanged).** `flush_ops` for a record starting to clear emitted `Write(record_key ++ 00)` and then `Remove(record_key)`, a descending pair against "dirty keys once each in key order". It now emits the remove first. A record leaving the flag key (`replace`) already emitted `Write(record_key)` then `Remove(flag_key)`, and a blind delete `Remove(record_key)` then `Remove(flag_key)`, both ascending. Same op counts. Test: `partial_clear_flushes_in_key_order` (exchange) asserts that every write and remove of the first partial clear, root excluded, is in non-descending key order, and that the record key comes before its flag key. It failed before the fix.
 
 **`cache::flag_key` bypassed `Path::checked` (fixed).** Round 2 said the flag key's length "`Path::checked` asserts at runtime too". That was true of `Path::flag`, which only tests use, but the cache builds flag keys from raw key bytes, and that path had no check. Both now go through one helper, `key::flag_key_bytes`, which asserts the 2,048-byte limit. In practice the derive's schema sum already rules out an overlong flag key: a record that owns collections always has a longer child key. So the runtime check is a backstop, and now it really exists. Test: `flag_key_bytes_are_length_checked` (2,047-byte record key → 2,048-byte flag key; a 2,048-byte record key panics).
+
+### Op-count changes this round, in one place
+
+- **T1:** none asserted. DAO `add_member` and NFT `nft_mint` each drop 1 `storage_has_key` (the `contains_key` before the insert is gone); no test pins either. `LookupMap::try_insert` of a leaf is 1 check + 1 write where a blind `insert` is 1 write; that is the price of first-write-wins and is new API, not a change.
+- **T4:** the call that empties a map writes its header instead of removing it (same count, a write for a remove), and the header stays staked: key + 12 + 40 bytes per emptied map until its owning record is removed. DAO `finalize` (33,0,44) → (33,7,37); `remove_member` (29,3,40) → (29,8,36). Lib: emptying a map or group (3,0,4) → (3,1,3). Headers of maps that had a removal are 12 bytes, not 4.
+- **F1:** a reinsert after a blind delete of a flaggable record pays 1 more remove (the flag key), only in that sequence.
+- Checked and unchanged: clearing an empty map that never had a header (`remove_step` or `remove` of a record with an empty `balances`, `clear()` on an empty map) costs no header op, because the header read already knows it is absent (`clearing_an_empty_map_without_a_header_writes_nothing_for_it`: (2,0,1), (2,0,1), (1,0,0)).
+- **T2, T3, T5, T6, T7, F2, F3, F4, flag-key check:** no op-count change. F4 changes only the order of two ops.
+
+### Deliberately not done
+
+- T8 (generation-numbered handles / Miri aliasing) waits on its audit; T9 to T11 are doc-only and belong to the Claude Doc sync. The Claude Doc is not touched.
+- No serde for `Removal`. No `Set::revision()` (a `Set` page carries it). No `Option<Record>` and no tuples of records (T7 notes).
+- No fn-path default (`default_fn = path`); a later-added `AccountId` field is `Option<AccountId>` under T6.
+- No guard for old in-record `00 00` flags in `at_mut` (F2): it would cost the read the flag key exists to avoid.
+- No check that a `#[derive(Leaf)]` type holds no v1 collection, and no trybuild snapshots of the new errors. `#[derive(Leaf)]` adds no bounds on generic parameters, so a generic type that opts in writes its own `where T: BorshLeaf`.
+- The near-contract-sim runs (`proto-migration-sim`, `proto-gas`) were not rerun. The T4 header change alters the bytes of every map header after its first removal, so the sim's gas figures for removals could move by the 8 extra header bytes; the T7 and T1 changes do not touch encodings.
+
+### Test counts (end of round 3)
+
+- Lib: 580 (573 + `clearing_an_empty_map_without_a_header_writes_nothing_for_it`, `try_insert_on_leaf_values_keeps_the_first_write`, `page_revision_changes_only_across_a_removal`, `reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key`, `hazard_old_in_record_flag_passes_at_mut_but_fails_get`, `replaced_then_flagged_record_relocates_the_new_value`, `flag_key_bytes_are_length_checked`; two renamed).
+- Doctests: 346 merged (344 + the T6 const example + the T7 `#[derive(Leaf)]` example) plus 4 standalone `compile_fail` (D6 `insert`, T6 non-const default, T7 shadowed `store::LookupMap`, T7 Borsh struct holding a `collections::LookupMap`).
+- `state_v2_exchange`: 36 (35 − 2 nested-v1 tests + `legacy_root_field_is_its_borsh_bytes_and_required`, `clearing_moves_the_original_bytes_to_the_flag_key`, `partial_clear_flushes_in_key_order`). `state_v2_ft`: 16. `state_v2_nft`: 17. `state_v2_dao`: 15. `state_v2_migrate`: 5.
+- ft-v2 example: 16 migration; `nested_trap.rs` removed; 2 doctests (the `FungibleToken`-in-a-record `compile_fail` and the `legacy` root that compiles).
+- near-sdk-macros: 49.
+- `proto-wasm-check`: wasm32 check passes, no warnings.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.

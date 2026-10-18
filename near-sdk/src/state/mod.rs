@@ -116,7 +116,11 @@
 //!   cursor key was removed since the last page (D8); a `#[handle_result]` view can return the
 //!   `Result` as is. Offset paging, `iter().skip(from).take(n)` (where `skip` reads nothing),
 //!   never fails but can skip a key after a removal behind the offset. An on-chain batch job
-//!   must not page a map that changes between its calls.
+//!   must not page a map that changes between its calls. Every `Page` / `KeyPage` carries
+//!   `revision` (T4), a counter in the map header that every removal bumps, read with the header
+//!   at no extra cost: equal revisions across pages mean no removal in between. A map that
+//!   empties keeps its header (`len` 0) so the revision never resets; the header goes with the
+//!   record that owns the map.
 //!
 //! - Storage accounting (D5): v2 writes land at the flush, after the method body, so
 //!   `env::storage_usage()` read inside a v2 mutating method after its first write measures
