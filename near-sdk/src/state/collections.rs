@@ -1628,6 +1628,17 @@ impl<'a, T: Value> At<'a, Vector<T>> {
 /// the root) and writes it then, so a struct literal can carry the value:
 /// `tokens.insert(id, Token { owner, metadata: Lazy::new(m), ..Default::default() })`. A
 /// `Lazy::new` that is never placed writes nothing. `Default` is an empty `Lazy`.
+///
+/// The value cannot itself be a collection or `Lazy` (it has no inline encoding); put it in a
+/// `#[near(storage)]` record:
+///
+/// ```compile_fail,E0080
+/// use near_sdk::state::{Lazy, Set};
+/// fn main() {
+///     let l: Lazy<Set<u8>> = Lazy::default();
+///     let _ = l.get(); // error[E0080]: a Lazy value cannot itself be a collection
+/// }
+/// ```
 pub struct Lazy<T> {
     path: Binding,
     pending: core::cell::Cell<Option<T>>,
@@ -1686,6 +1697,7 @@ impl<T: Value> Value for Lazy<T> {
     }
     #[track_caller]
     fn __write_pending(&self, path: &Path) {
+        let () = Lazy::<T>::CHECK;
         if let Some(mut v) = self.pending.take() {
             assert_insert_new::<T>(path);
             v.bind(path);
@@ -1719,15 +1731,23 @@ impl<T: Removable> Removable for Lazy<T> {
 }
 
 impl<T: Value> Lazy<T> {
+    const CHECK: () = assert!(T::INLINE, "a Lazy value cannot itself be a collection; put it in a `#[near(storage)]` record");
+
+    #[track_caller]
+    fn p(&self) -> &Path {
+        let () = Self::CHECK;
+        bound(&self.path)
+    }
+
     /// 1 read.
     #[track_caller]
     pub fn get(&self) -> Option<&T> {
-        cache::get::<T>(bound(&self.path)).map(|p| unsafe { r(p) })
+        cache::get::<T>(self.p()).map(|p| unsafe { r(p) })
     }
     #[track_caller]
     pub fn get_mut(&mut self) -> Option<&mut T> {
         self.path.live();
-        let path = bound(&self.path).clone();
+        let path = self.p().clone();
         let p = cache::get::<T>(&path)?;
         cache::touch(&path);
         Some(unsafe { m(p) })
@@ -1737,7 +1757,7 @@ impl<T: Value> Lazy<T> {
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
         self.path.live();
-        let path = bound(&self.path).clone();
+        let path = self.p().clone();
         assert_insert_new::<T>(&path);
         v.bind(&path);
         cache::put(&path, v);
@@ -1751,7 +1771,7 @@ impl<T: Value> Lazy<T> {
         T: Removable,
     {
         self.path.live();
-        let path = bound(&self.path).clone();
+        let path = self.p().clone();
         guard_removal::<T>(&path, false);
         T::clear_children(&path);
         cache::delete::<T>(&path);
@@ -1766,7 +1786,7 @@ impl<'a, T: Value> At<'a, Lazy<T>> {
     }
     #[track_caller]
     pub fn get(&self) -> Option<&'a T> {
-        cache::get::<T>(bound(&self.inner.path)).map(|p| unsafe { r(p) })
+        cache::get::<T>(self.inner.p()).map(|p| unsafe { r(p) })
     }
 }
 
