@@ -14,8 +14,11 @@
 //! (the v1 bytes move), and `Migrating` can later be replaced by the bare v2 map at the *same*
 //! tag (the v2 entries are already where the bare map looks).
 //!
-//! Invariant: every key is on at most one side. Writes keep it (they delete the old entry);
-//! so a key found on the new side needs no old-side delete.
+//! Invariant (the one-side rule): every key is on at most one side. `insert` keeps it (it deletes
+//! the old entry). It is not trusted blindly: `migrate_batch` never overwrites a key already on
+//! the new side, and `remove` deletes from both sides, so a key on both sides (only reachable
+//! through [`Migrating::new_side_mut_unchecked`] / [`Migrating::old_side_mut_unchecked`]) keeps
+//! its new-side value and can be removed for good.
 
 use super::collections::{LookupMap as NewLookupMap, Map as NewMap};
 use super::key::{Path, StorageKey};
@@ -51,6 +54,8 @@ pub trait MigrationTarget: Value + Default {
     type V;
     fn target_get(&self, k: &Self::K) -> Option<&Self::V>;
     fn target_insert(&mut self, k: Self::K, v: Self::V);
+    /// Inserts only if `k` is absent; returns whether it inserted.
+    fn target_try_insert(&mut self, k: Self::K, v: Self::V) -> bool;
     fn target_remove(&mut self, k: &Self::K);
 }
 
@@ -62,6 +67,10 @@ impl<K: StorageKey + 'static, V: Removable + Leaf> MigrationTarget for NewLookup
     }
     fn target_insert(&mut self, k: K, v: V) {
         self.insert(k, v)
+    }
+    /// 1 `storage_has_key` + 1 write (`insert` is 1 write).
+    fn target_try_insert(&mut self, k: K, v: V) -> bool {
+        self.try_insert(k, v).is_ok()
     }
     fn target_remove(&mut self, k: &K) {
         self.discard(k)
@@ -76,6 +85,10 @@ impl<K: StorageKey + Clone + 'static, V: Removable + Leaf> MigrationTarget for N
     }
     fn target_insert(&mut self, k: K, v: V) {
         let _ = self.insert(k, v);
+    }
+    /// Same cost as `insert` for a new key: the index read it makes anyway decides.
+    fn target_try_insert(&mut self, k: K, v: V) -> bool {
+        self.try_insert(k, v).is_ok()
     }
     fn target_remove(&mut self, k: &K) {
         self.discard(k);
@@ -159,29 +172,56 @@ where
         self.new.target_insert(k, v);
     }
 
-    /// Removes from whichever side holds `k`.
+    /// Removes `k` from both sides and returns the value a `get` would have returned (the new
+    /// side's, if it has one). A key on the old side only costs what it did: the reads of `get`
+    /// and 1 old-side remove. A key on the new side costs the new-side remove plus 1 old-side
+    /// remove of a key it normally no longer holds (for a v1 `LookupMap` or `store::LookupMap`
+    /// 1 `storage_remove`, for an `UnorderedMap` its index lookup, for a `TreeMap` its
+    /// `contains_key` read: 1 read, no tree walk), so that an old value cannot resurrect through
+    /// the fallback read even if the one-side rule was broken.
     pub fn remove(&mut self, k: &K) -> Option<V> {
         let v = self.get(k)?;
         if self.new.target_get(k).is_some() {
             self.new.target_remove(k);
-        } else {
-            self.old.legacy_remove(k);
         }
+        self.old.legacy_remove(k);
         Some(v)
     }
 
-    /// The v2 map, for operations `Migrating` does not forward.
-    pub fn new_side(&mut self) -> &mut V2 {
+    /// The v2 map, read-only: for reads `Migrating` does not forward (paging, `len`, `iter`
+    /// of what has moved so far). A key that has not moved yet is not in it.
+    pub fn new_side(&self) -> &V2 {
+        &self.new
+    }
+
+    /// The v1 map, read-only.
+    pub fn old_side(&self) -> &V1 {
+        &self.old
+    }
+
+    /// The v2 map, mutable, **bypassing the one-side rule**: nothing deletes the old entry of a
+    /// key written here, and nothing stops writing a key the old side still holds.
+    ///
+    /// Not needed by the migrate flow (`insert`, `remove` and `migrate_batch` cover it); it is
+    /// for v2 operations `Migrating` does not forward, on keys known to be on the new side
+    /// only. If the rule is broken anyway, the damage is bounded: a read prefers the new side,
+    /// `migrate_batch` drops an old entry whose key is already on the new side instead of
+    /// overwriting the newer value, and `remove` deletes both sides.
+    pub fn new_side_mut_unchecked(&mut self) -> &mut V2 {
         &mut self.new
     }
 
-    /// The v1 map.
-    pub fn old_side(&mut self) -> &mut V1 {
+    /// The v1 map, mutable, **bypassing the one-side rule**: a write here can put back a key
+    /// that has already moved. See [`Migrating::new_side_mut_unchecked`] for what still holds.
+    pub fn old_side_mut_unchecked(&mut self) -> &mut V1 {
         &mut self.old
     }
 
-    /// Moves up to `n` entries from the old side to the new. Returns how many moved. By the
-    /// one-side invariant an old entry is never stale, so it overwrites nothing newer.
+    /// Moves up to `n` entries from the old side to the new. Returns how many old entries it
+    /// took (each is gone from the old side). An entry whose key is already on the new side is
+    /// dropped, not moved: the new side is never older, so the old value never overwrites it.
+    /// For a v2 `Map` target the skip is free (the index read `insert` makes anyway decides);
+    /// for a v2 `LookupMap` target it costs 1 `storage_has_key` per entry.
     /// (The bound sits on the method, not the impl, so a v1 `LookupMap` gets the
     /// `LegacyIterable` diagnostic instead of a bare "method exists but bounds not satisfied".)
     pub fn migrate_batch(&mut self, n: u32) -> u32
@@ -191,7 +231,7 @@ where
         let moved = self.old.legacy_take(n);
         let count = moved.len() as u32;
         for (k, v) in moved {
-            self.new.target_insert(k, v);
+            self.new.target_try_insert(k, v);
         }
         count
     }

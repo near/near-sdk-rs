@@ -344,8 +344,12 @@ mod store_lookup {
 }
 
 // ---------------------------------------------------------------------------------------
-// Audit round (Oct 17, Codex claims). A4: `new_side()` / `old_side()` hand out the raw maps,
-// so a caller can break the one-side invariant that `migrate_batch` and `remove` rely on.
+// Audit round (Oct 17, Codex claims). A4: `new_side()` / `old_side()` handed out the raw maps,
+// so a caller could break the one-side invariant that `migrate_batch` and `remove` relied on.
+// API round 4: the side accessors are read-only; the mutable ones are named
+// `*_side_mut_unchecked` (they bypass the rule), and `migrate_batch` / `remove` no longer
+// trust the rule. These tests break it on purpose through the unchecked accessors and assert
+// the fixed behaviour.
 // ---------------------------------------------------------------------------------------
 
 fn drain_owners() {
@@ -362,43 +366,50 @@ fn drain_owners() {
 }
 
 /// A4, leg 1: a newer value written straight to the new side while the old side still holds
-/// the key is overwritten by the stale old value when `migrate_batch` moves that key.
+/// the key. `migrate_batch` used to overwrite it with the stale v1 value; it now drops the old
+/// entry because the key is already on the new side.
 #[test]
 fn audit_a4_new_side_write_is_overwritten_by_migrate_batch() {
     populate();
     init(NftV2::migrate);
     let buyer: AccountId = "buyer.near".parse().unwrap();
     call::<NftV2, _>(|c| {
-        c.owner_by_id.new_side().insert(tok(0), buyer.clone());
+        let _ = c.owner_by_id.new_side_mut_unchecked().insert(tok(0), buyer.clone());
     });
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(0)));
-    assert_eq!(o, Some(buyer), "before the batch, the new side wins the read");
+    assert_eq!(o, Some(buyer.clone()), "before the batch, the new side wins the read");
     drain_owners();
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(0)));
-    assert_eq!(o, Some(owner(0)), "lost update: the stale v1 value replaced the newer one");
+    assert_eq!(o, Some(buyer), "the batch skipped the key already on the new side");
+    let (n, _) = call::<NftV2, _>(|c| c.owner_by_id.new_side().len());
+    assert_eq!(n, N, "every token on the new side once");
 }
 
-/// A4, leg 2: same setup, then `remove(k)` on the wrapper. It finds `k` on the new side, removes
-/// only there, and the old value resurrects through the fallback read.
+/// A4, leg 2: same setup, then `remove(k)` on the wrapper. It used to remove only from the new
+/// side, so the old value resurrected through the fallback read (and the batch made it
+/// permanent); it now deletes from both sides.
 #[test]
 fn audit_a4_remove_after_new_side_write_resurrects_the_old_value() {
     populate();
     init(NftV2::migrate);
     let buyer: AccountId = "buyer.near".parse().unwrap();
     call::<NftV2, _>(|c| {
-        c.owner_by_id.new_side().insert(tok(1), buyer.clone());
+        let _ = c.owner_by_id.new_side_mut_unchecked().insert(tok(1), buyer.clone());
     });
     let (removed, _) = call::<NftV2, _>(|c| c.owner_by_id.remove(&tok(1)));
-    assert_eq!(removed, Some(buyer));
+    assert_eq!(removed, Some(buyer), "the new side's value comes back");
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(1)));
-    assert_eq!(o, Some(owner(1)), "resurrected: the old side still held tok(1)");
+    assert_eq!(o, None, "no resurrection: the old side lost tok(1) too");
     drain_owners();
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(1)));
-    assert_eq!(o, Some(owner(1)), "and the batch makes the resurrection permanent");
+    assert_eq!(o, None, "and the batch has nothing to bring back");
+    let (n, _) = call::<NftV2, _>(|c| c.owner_by_id.new_side().len());
+    assert_eq!(n, N - 1);
 }
 
-/// A4, the mirror through `old_side()`: a stale value put back on the old side after the key
-/// moved to the new side overwrites the new value at the next batch.
+/// A4, the mirror through the old side: a stale value put back on the old side after the key
+/// moved to the new side. The next batch used to overwrite the new value with it; it now drops
+/// the stale entry.
 #[test]
 fn audit_a4_old_side_write_overwrites_the_new_value_at_the_next_batch() {
     populate();
@@ -407,11 +418,38 @@ fn audit_a4_old_side_write_overwrites_the_new_value_at_the_next_batch() {
     let stale: AccountId = "stale.near".parse().unwrap();
     call::<NftV2, _>(|c| c.owner_by_id.insert(tok(2), buyer.clone()));
     call::<NftV2, _>(|c| {
-        c.owner_by_id.old_side().insert(&tok(2), &stale);
+        c.owner_by_id.old_side_mut_unchecked().insert(&tok(2), &stale);
     });
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(2)));
-    assert_eq!(o, Some(buyer), "new side still wins the read");
+    assert_eq!(o, Some(buyer.clone()), "new side still wins the read");
     drain_owners();
     let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(2)));
-    assert_eq!(o, Some(stale));
+    assert_eq!(o, Some(buyer), "the stale old entry was dropped, not moved");
+    let (gone, _) = call::<NftV2, _>(|c| c.owner_by_id.old_side().get(&tok(2)).is_none());
+    assert!(gone, "and it is gone from the old side");
+}
+
+/// API round 4 cost of the A4 `remove` fix, pinned: removing a key that already moved to the
+/// new side now also removes it on the old side. The round-3 path (read, then remove on the new
+/// side only) is replayed by hand on a second moved key for the comparison.
+#[test]
+fn remove_of_a_moved_key_also_removes_on_the_old_side() {
+    populate();
+    init(NftV2::migrate);
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    call::<NftV2, _>(|c| {
+        c.owner_by_id.insert(tok(3), buyer.clone());
+        c.owner_by_id.insert(tok(4), buyer.clone());
+    });
+    let (v, before) = call::<NftV2, _>(|c| {
+        let v = c.owner_by_id.get(&tok(4));
+        assert!(c.owner_by_id.new_side_mut_unchecked().discard(&tok(4)));
+        v
+    });
+    assert_eq!(v, Some(buyer.clone()));
+    let (removed, after) = call::<NftV2, _>(|c| c.owner_by_id.remove(&tok(3)));
+    assert_eq!(removed, Some(buyer));
+    assert_eq!(before.rwd(), (4, 1, 3), "the round-3 path: read, then remove on the new side only");
+    assert_eq!(after.rwd(), (5, 1, 3), "+1 read: the v1 TreeMap's contains_key, which misses");
+    assert_eq!((before.has_keys(), after.has_keys()), (0, 0));
 }
