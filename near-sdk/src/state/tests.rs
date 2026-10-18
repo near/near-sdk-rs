@@ -1592,3 +1592,197 @@ fn clearing_an_empty_map_without_a_header_writes_nothing_for_it() {
     let r = end_call();
     assert_eq!(r.rwd(), (1, 0, 0), "the header read only");
 }
+
+// ---------------------------------------------------------------------------------------
+// Audit round (Oct 17, Codex claims). A1: `cache::get` retags `&mut V` on a shared lookup.
+//
+// The traces below compile in safe code: `Map::get(&self) -> Option<&V>`, so two shared
+// lookups may overlap. Plain `cargo test` cannot judge them (nothing is written through the
+// `&mut`), so they run only under Miri:
+//
+//   NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS=-Zmiri-ignore-leaks \
+//     cargo +nightly miri test -p near-sdk --lib --features unstable,unit-testing -- state::tests::audit_
+//
+// (add `-Zmiri-tree-borrows` to MIRIFLAGS for the Tree Borrows verdict).
+// ---------------------------------------------------------------------------------------
+
+fn audit_a1_fixture(tag: u32, n: u32) -> Map<u32, u128> {
+    testing::use_mock();
+    let mut m: Map<u32, u128> = at(tag);
+    for i in 0..n {
+        m.insert(i, 1000 + u128::from(i));
+    }
+    end_call();
+    m
+}
+
+/// A1, same key: `&V` from `get(k)` held across a second `get(k)`, then used.
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_shared_ref_held_across_second_get_of_same_key() {
+    let m = audit_a1_fixture(40, 1);
+    let first: &u128 = m.get(&0).unwrap();
+    let second: &u128 = m.get(&0).unwrap();
+    assert_eq!(*second, 1000);
+    assert_eq!(*first, 1000, "use of the first reference after the second get");
+    end_call();
+}
+
+/// A1, other keys: `&V` held across 200 `get`s of other keys (new slots, BTreeMap node splits),
+/// then used. Slots and values are separate boxes, so this exercises "could reallocate".
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_shared_ref_held_across_gets_of_other_keys() {
+    let m = audit_a1_fixture(41, 200);
+    let first: &u128 = m.get(&0).unwrap();
+    let mut sum = 0u128;
+    for i in 1..200 {
+        sum += *m.get(&i).unwrap();
+    }
+    assert!(sum > 0);
+    assert_eq!(*first, 1000);
+    end_call();
+}
+
+/// A1, realistic surface: references collected from `iter()`, then a lookup of one of those
+/// keys, then a use of the collected reference.
+#[test]
+#[cfg_attr(not(miri), ignore = "aliasing trace, run under Miri")]
+fn audit_a1_iter_refs_then_get_of_same_key() {
+    let m = audit_a1_fixture(42, 3);
+    let all: StdVec<(u32, &u128)> = m.iter().collect();
+    let again = m.get(&all[0].0).unwrap();
+    assert_eq!(*again, 1000);
+    assert_eq!(*all[0].1, 1000);
+    end_call();
+}
+
+// ---------------------------------------------------------------------------------------
+// Audit round (Oct 17, Codex claims). A2: `mem::take` of a collection field escapes a bound
+// handle; `at_mut` / `get_mut` then recreate a second handle to the same path.
+// ---------------------------------------------------------------------------------------
+
+/// alice holds `a = 1` (and `b = 2` when `two`), flushed; returns the next call's root.
+fn audit_a2_setup(two: bool) -> Ex {
+    testing::use_mock();
+    let mut ex: Ex = load_root();
+    deposit(&mut ex, alice(), "a", 1);
+    if two {
+        deposit(&mut ex, alice(), "b", 2);
+    }
+    flush_root(&ex);
+    testing::begin_call();
+    load_root()
+}
+
+fn audit_keys_below(rec: &[u8]) -> usize {
+    store().keys().filter(|k| k.len() > rec.len() && k.starts_with(rec)).count()
+}
+
+/// A2, the reviewer's "lost write / no rebind panic" trace. Observed: no panic (the taken
+/// handle stays `Bound`; nothing rebinds it), and NO lost write: both handles address the same
+/// cache slots by path, so each sees the other's writes and the flush writes all of them.
+#[test]
+fn audit_a2_taken_field_handle_and_recreated_handle_stay_coherent() {
+    let mut ex = audit_a2_setup(false);
+    let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    assert!(taken.path().is_some(), "the escaped handle is still bound to alice's balances");
+    taken.insert("b".into(), 2);
+    {
+        let view = ex.accounts.at_mut(&alice()).expect("record still present");
+        assert_eq!(view.balances.get(&"b".into()), Some(&2), "recreated handle sees taken's write");
+        view.balances.insert("c".into(), 3);
+        *view.balances.get_mut(&"a".into()).unwrap() += 10;
+    }
+    assert_eq!(taken.get(&"c".into()), Some(&3), "taken sees the recreated handle's write");
+    assert_eq!(taken.get(&"a".into()), Some(&11));
+    assert_eq!(taken.len(), 3);
+    // The same escape works through `at_mut` (its fields are `&mut` handles in the arena).
+    let taken2 = core::mem::take(ex.accounts.at_mut(&alice()).unwrap().balances);
+    assert_eq!(taken2.len(), 3);
+    flush_root(&ex);
+
+    testing::begin_call();
+    let ex: Ex = load_root();
+    let b = ex.accounts.at(&alice()).balances;
+    assert_eq!(b.len(), 3);
+    assert_eq!(
+        (b.get(&"a".into()), b.get(&"b".into()), b.get(&"c".into())),
+        (Some(&11), Some(&2), Some(&3)),
+        "every write through either handle reached storage"
+    );
+}
+
+/// A2, the trace that does break: a `&V` from the escaped handle, then an overwrite of that
+/// key through the recreated handle (`cache::put` -> `drop_value` frees the box), then a read
+/// of the `&V`. Safe code, compiles (two different variables). Use-after-free: Miri only.
+#[test]
+#[cfg_attr(not(miri), ignore = "use-after-free trace, run under Miri")]
+fn audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle() {
+    let mut ex = audit_a2_setup(false);
+    let taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    let r: &u128 = taken.get(&"a".into()).unwrap();
+    ex.accounts.at_mut(&alice()).unwrap().balances.insert("a".into(), 99);
+    let observed = *r;
+    assert_eq!(observed, 1);
+    flush_root(&ex);
+}
+
+/// A2, parent removed: `remove` clears alice's children and deletes the record, but the
+/// escaped handle is not detached (only the returned record is). Writes through it go
+/// through, leave orphan keys under the removed path, and a record later created at the same
+/// key inherits them.
+#[test]
+fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
+    let mut ex = audit_a2_setup(false);
+    let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    let removed = ex.accounts.remove(&alice()).unwrap();
+    assert_eq!(format!("{:?}", removed.balances), "Map(Detached)", "the left-behind handle is the one detached");
+    assert!(taken.path().is_some(), "the escaped handle is not");
+    assert!(taken.insert("z".into(), 9), "no panic: the escaped handle writes freely");
+    flush_root(&ex);
+    let rec = alice_record_key();
+    assert!(!store().contains_key(&rec), "the record is gone");
+    assert_eq!(audit_keys_below(&rec), 4, "orphans: entry, index, slot 0, header of `z`");
+
+    testing::begin_call();
+    let mut ex: Ex = load_root();
+    ex.accounts.try_insert(alice(), Account::default()).expect("alice was removed");
+    flush_root(&ex);
+    testing::begin_call();
+    let ex: Ex = load_root();
+    let b = ex.accounts.at(&alice()).balances;
+    assert_eq!((b.len(), b.get(&"z".into())), (1, Some(&9)), "new record inherits the orphan");
+}
+
+/// A2, parent being cleared (D9): after `remove_step(&alice, 0)` flags the record, `at_mut` /
+/// `get_mut` / `entry` on it panic (pinned by `writes_below_a_clearing_record_panic_in_the_same_call`
+/// in state_v2_exchange), but the escaped handle inserts below it without a panic. The later
+/// `remove_step` calls still clear what it added.
+#[test]
+fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
+    let mut ex = audit_a2_setup(true);
+    let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
+    assert_eq!(ex.accounts.remove_step(&alice(), 0), Removal::Pending, "flagged, nothing cleared");
+    assert!(taken.insert("late".into(), 5), "accepted below a clearing record");
+    flush_root(&ex);
+    let rec = alice_record_key();
+    let flag = super::key::flag_key_bytes(&rec);
+    assert!(!store().contains_key(&rec) && store().contains_key(&flag), "D9: moved to its flag key");
+    assert_eq!(audit_keys_below(&rec), 3 * 3 + 1 + 1, "a, b and late, the header, the flag key");
+
+    let mut calls = 0;
+    loop {
+        testing::begin_call();
+        let mut ex: Ex = load_root();
+        let more = ex.accounts.remove_step(&alice(), 2) == Removal::Pending;
+        flush_root(&ex);
+        calls += 1;
+        if !more {
+            break;
+        }
+    }
+    assert_eq!(calls, 2);
+    assert!(!store().contains_key(&rec));
+    assert_eq!(audit_keys_below(&rec), 0, "the bypassing write is still cleared eventually");
+}
