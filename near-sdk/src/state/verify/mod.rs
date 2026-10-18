@@ -31,3 +31,5 @@ pub mod c7_m4_alias;
 pub mod c2_orphans;
 #[cfg(test)]
 pub mod c5_remove_some;
+#[cfg(test)]
+pub mod c3_lost_writes;
