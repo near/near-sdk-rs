@@ -21,6 +21,9 @@ pub struct Field {
     pub present: bool,
 }
 
+/// Longest byte string the canonical-form harness tries: 4 under Kani, 64 otherwise.
+const CAN_MAX: usize = if cfg!(kani) { 4 } else { 64 };
+
 const NF: usize = if cfg!(kani) { 2 } else { 4 };
 
 fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>> {
@@ -40,7 +43,7 @@ fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>>
 /// Random engine: up to 4 fields, bodies 0..=16, 20,000 records.
 #[test]
 #[cfg_attr(kani, kani::proof)]
-#[cfg_attr(kani, kani::unwind(8))]
+#[cfg_attr(kani, kani::unwind(18))]
 fn g6_record_encode_then_parse_is_identity() {
     bolero::check!().with_type::<[Field; NF]>().with_iterations(20_000).for_each(|fields| {
         if cfg!(kani) && fields.iter().any(|f| f.len > 4) {
@@ -69,8 +72,9 @@ fn g6_record_encode_then_parse_is_identity() {
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(7))]
 fn g6_record_parse_accepts_only_canonical_encodings() {
-    let max = if cfg!(kani) { 4 } else { 64 };
-    bolero::check!().with_generator(bolero::produce::<std::vec::Vec<u8>>().with().len(0usize..=max)).with_iterations(50_000).for_each(|b| {
+    // a fixed array plus a symbolic length: bolero's Vec generator is costly under Kani
+    bolero::check!().with_type::<([u8; CAN_MAX], u8)>().with_iterations(50_000).for_each(|(arr, n)| {
+        let b = &arr[..*n as usize % (CAN_MAX + 1)];
         if let Ok(fields) = record::parse(b) {
             let mut w = RecordWriter::new();
             for (t, body) in &fields {
