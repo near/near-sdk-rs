@@ -252,6 +252,27 @@ Reproduce (from `proto-gas/sim`, after building the wasm into a directory):
 `CARGO_TARGET_DIR=<own target dir> GAS_RES_DIR=<dir with v2_h16.wasm> cargo +1.95.0 test --test storage_v2_gas perf_rows -- --include-ignored --nocapture`
 (`GAS_SIZES` overrides the default 10k).
 
+**After merge (63d62e86 + perf).** The same `perf_rows` run on the merge commit `40124811`
+(`proto/storage-v2` at `63d62e86`, verification round 2, merged with this branch), rebuilt with
+`proto-gas/build.sh`, sim from a private `CARGO_TARGET_DIR`. Raw output:
+`proto-gas/results/gas_merge_20261018.txt`.
+
+| row (10k keys) | after fix (perf branch) | after merge | op-only after fix / merge (Ggas) | WASM_INSTRUCTION after fix / merge (Ggas) |
+|---|---:|---:|---:|---:|
+| `Map` insert new | 1.796 | 1.796 | 729.8 / 730.2 | 93.5 / 93.9 |
+| `Map` update existing | 1.422 | 1.422 | 355.6 / 356.0 | 68.2 / 68.6 |
+| `Map` remove non-last | 2.150 | 2.150 | 1083.8 / 1084.2 | 116.1 / 116.4 |
+| `LookupMap` insert new | 1.315 | 1.315 | 248.7 / 249.1 | 57.7 / 58.1 |
+| `LookupMap` update | 1.323 | 1.324 | 257.0 / 257.4 | 58.0 / 58.4 |
+| `LookupMap` remove | 1.377 | 1.377 | 310.9 / 311.3 | 57.9 / 58.3 |
+
+Every row is within 0.4 Ggas of the perf branch (target: 1 Ggas). Ops are unchanged
+(3/4/0/0, 2/1/0/0, 5/3/3/0, 1/1/0/0, 1/1/0/0, 2/0/1/0), as are storage base, per-byte and
+trie-node figures, so the +0.3-0.4 Ggas is wasm instructions only. cache.rs is byte-identical to the perf branch, so this is
+attributed (by elimination, not a separate build) to the verification round's other production
+changes: wire-typed record field keys in record.rs, plus collections.rs and root.rs edits. Wasm size: `v2_h16` 163,398 B (+37 B over 163,361 B),
+SHA-256 `cc884e57…a6624b`. Contract loading unchanged at 178.0 Ggas (`ping` 1.066 Tgas).
+
 The Oct 17 run follows, unchanged.
 
 

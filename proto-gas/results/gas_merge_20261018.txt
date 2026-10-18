@@ -1,0 +1,27 @@
+# perf_rows on the merged code (40124811 = 63d62e86 + proto/storage-v2-perf), Oct 18 2026
+# v2_h16.wasm sha256 cc884e57051c30fb08f66b33710cfd4ab0fc36c3fd8e5fec5ca66130b7a6624b
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running tests/storage_v2_gas.rs (/tmp/merge-perf-sim-target/debug/deps/storage_v2_gas-35b56779510caae9)
+
+running 1 test
+
+v2_h16.wasm 163398 B; ping 1.066 Tgas (load 178.0)
+
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.796 (1.792-1.801) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 93.9 | 178.0 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.796 op-only 730.2 wasm 93.9
+| v2 Map (h16) | 10000 | update existing | 1.422 (1.420-1.422) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 68.6 | 178.0 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.422 op-only 356.0 wasm 68.6
+| v2 Map (h16) | 10000 | remove (non-last) | 2.150 (2.144-2.153) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 116.4 | 178.0 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.150 op-only 1084.2 wasm 116.4
+| v2 LookupMap (h16) | 10000 | insert new | 1.315 (1.313-1.318) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 58.1 | 178.0 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.315 op-only 249.1 wasm 58.1
+| v2 LookupMap (h16) | 10000 | update existing | 1.324 (1.321-1.324) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 58.4 | 178.0 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.324 op-only 257.4 wasm 58.4
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.377 (1.375-1.377) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 58.3 | 178.0 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.377 op-only 311.3 wasm 58.3
+test perf_rows ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 2.66s
+
