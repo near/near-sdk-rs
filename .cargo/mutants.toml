@@ -1,0 +1,39 @@
+# cargo-mutants configuration (storage v2 prototype, verification round 2, Oct 18 2026).
+#
+# `exclude_re` lists mutants proven equivalent (no observable change in storage, host op
+# counts or order, gas, return values or panics) or unreachable. Each entry is matched against
+# the mutant's full name as printed by `cargo mutants --list`; none is anchored on a line
+# number so the list survives edits. Add an entry only with the reason next to it.
+exclude_re = [
+    # cache.rs `stored_bytes`: `Mode::Dirty` is only set by a whole `put`, which clears `merge`
+    # in the same statement, so `!s.merge` is always true for a Dirty slot.
+    'replace match guard !s\.merge with true in stored_bytes',
+    # cache.rs `root_orig -> None`: `raw_root` then falls back to `read_root`, which serves the
+    # same cached bytes.
+    'replace root_orig -> Option<Vec<u8>> with None',
+    # collections.rs `MAX_SUBPATH > 0` -> `>= 0` in `record_at_mut` and `assert_not_clearing`:
+    # only a value that owns storage (MAX_SUBPATH > 0) can ever be flagged clearing, so the
+    # clearing test alone decides.
+    'replace > with >= in record_at_mut',
+    'replace > with >= in assert_not_clearing',
+    # key.rs `Path::is_empty -> false`: every Path starts from a one-byte root and only appends.
+    'replace Path::is_empty -> bool with false',
+    # record.rs `|` -> `^` in `field_key` (tag << 2 | wire, wire < 4) and `write_varint`
+    # (low 7 bits | 0x80 continuation): the OR'd bits are disjoint, so XOR is identical.
+    'replace \| with \^ in field_key',
+    'replace \| with \^ in write_varint',
+    # value.rs blanket `FieldDefault::field_default`: the body already is `T::default()`.
+    'replace <impl FieldDefault for T>::field_default -> Self with Default::default\(\)',
+    # value.rs default `Removable::clear_children_some -> true`: every type that overrides
+    # `clear_children` (the four collections and the derive) also overrides
+    # `clear_children_some`, so the default only runs for values owning nothing, where
+    # `clear_children` is the empty default.
+    'replace Removable::clear_children_some -> bool with true',
+    # root.rs `__private::max` `>` -> `>=`: equal arguments return the same value.
+    'replace > with >= in __private::max',
+    # migrating.rs default `LegacyMap::legacy_prefixes` body: all five impls override it.
+    'replace LegacyMap::legacy_prefixes -> ',
+    # migrating.rs `Migrating::detach -> ()`: unreachable, Migrating is not `Removable`, so
+    # nothing detaches it.
+    'replace <impl Value for Migrating<V1, V2>>::detach with \(\)',
+]
