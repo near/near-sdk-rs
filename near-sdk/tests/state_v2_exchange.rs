@@ -625,17 +625,22 @@ fn required_field_added_later_fails_old_records() {
 // D2: `#[key(n, default = expr)]`, serde-style
 // ---------------------------------------------------------------------------------------
 
+pub const DEFAULT_TIERS: [u8; 2] = [1, 2];
+
+// T6: `default = expr` is a const expression. `"treasury.near".parse().unwrap()` and
+// `vec![1, 2]` (the D2 version of this struct) no longer compile; an `AccountId` has no const
+// constructor, so an `AccountId` field added later is `Option<AccountId>` or `required` only
+// if present since the first write.
 #[near(storage)]
 pub struct Defaults {
     #[key(1)]
     nonce: u64,
     #[key(2, default = 30)]
     fee_bps: u16,
-    // No `Default` for AccountId, and no `required` or `Option` needed.
-    #[key(3, default = "treasury.near".parse().unwrap())]
-    treasury: AccountId,
-    #[key(4, default = vec![1, 2])]
-    tiers: Vec<u8>,
+    #[key(3, default = String::new())]
+    memo: String,
+    #[key(4, default = DEFAULT_TIERS)]
+    tiers: [u8; 2],
 }
 
 #[near(storage)]
@@ -652,7 +657,7 @@ pub struct Required {
 fn key_default_expr_fills_missing_tags() {
     use near_sdk::state::Path;
     let d = Defaults::default();
-    assert_eq!((d.nonce, d.fee_bps, d.treasury.as_str(), d.tiers.clone()), (0, 30, "treasury.near", vec![1, 2]));
+    assert_eq!((d.nonce, d.fee_bps, d.memo.as_str(), d.tiers), (0, 30, "", [1, 2]));
 
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
@@ -661,7 +666,7 @@ fn key_default_expr_fills_missing_tags() {
     testing::flush();
     testing::begin_call();
     let d = m.get(&1).unwrap();
-    assert_eq!((d.fee_bps, d.treasury.as_str()), (5, "treasury.near"), "present tag wins");
+    assert_eq!((d.fee_bps, d.tiers), (5, [1, 2]), "present tag wins");
 }
 
 /// D2 derive: `required` keeps working: present decodes, absent is an error naming the tag.
@@ -689,8 +694,8 @@ fn key_required_still_decodes_and_fails_when_missing() {
 pub struct SlimV2Default {
     #[key(1)]
     nonce: u64,
-    #[key(2, default = "owner.near".parse().unwrap())]
-    owner: AccountId, // added in v2 the right way
+    #[key(2, default = 250)]
+    fee_bps: u16, // added in v2 the right way (T6: a const default)
 }
 
 fn write_slim_v1(root: &near_sdk::state::Path) {
@@ -710,7 +715,7 @@ fn field_added_with_default_decodes_an_old_record() {
     write_slim_v1(&root);
     let v2: LookupMap<u32, SlimV2Default> = LookupMap::__bound_at(root);
     let s = v2.get(&1).unwrap();
-    assert_eq!((s.nonce, s.owner.as_str()), (3, "owner.near"));
+    assert_eq!((s.nonce, s.fee_bps), (3, 250));
 }
 
 /// D2 cross-schema: the same field added as `required` fails every old record, and the

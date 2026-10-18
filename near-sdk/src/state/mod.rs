@@ -11,8 +11,11 @@
 //!   collections. Every field needs `#[key(n)]`; `reserved(3, 7)` blocks retired tags.
 //! - `#[key(n)]` is the field's tag. **Tags are the layout: never reuse or renumber one.** A
 //!   field missing from a stored record decodes as its `Default`. `#[key(n, default = expr)]`
-//!   evaluates `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
-//!   `Default` uses it too). `#[key(n, required)]` makes it a decode error naming the tag; use
+//!   uses `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
+//!   `Default` uses it too). `expr` must be a const expression (T6): the derive emits it as a
+//!   `const` item, so a call like `env::predecessor_account_id()` is a compile error, and the
+//!   value an old record decodes to cannot depend on who reads it or when. `AccountId` has no
+//!   const constructor, so a later-added `AccountId` field is `Option<AccountId>`. `#[key(n, required)]` makes it a decode error naming the tag; use
 //!   it only for fields present since the first write (a field added later uses `default = ..`,
 //!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
 //!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
@@ -23,6 +26,32 @@
 //!   removed tag for a new field resurrects the old bytes (pinned by
 //!   `hazard_reusing_a_removed_tag_resurrects_its_stale_bytes`); the intended guard, a build
 //!   error against the deployed ABI, is not built in the prototype.
+//!
+//! A non-const default does not compile:
+//!
+//! ```compile_fail,E0015
+//! use near_sdk::{env, near, AccountId};
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1)] fee_bps: u16,
+//!     // error[E0015]: cannot call non-const function
+//!     // `near_sdk::env::predecessor_account_id` in constants
+//!     #[key(2, default = env::predecessor_account_id())] owner: AccountId,
+//! }
+//! ```
+//!
+//! A const one does:
+//!
+//! ```
+//! use near_sdk::near;
+//! pub const DEFAULT_FEE: u16 = 30;
+//! #[near(storage)]
+//! pub struct Pool {
+//!     #[key(1, default = DEFAULT_FEE)] fee_bps: u16,
+//!     #[key(2, default = true)] open: bool,
+//! }
+//! assert_eq!((Pool::default().fee_bps, Pool::default().open), (30, true));
+//! ```
 //!
 //! # What the derive emits for a record `Name`
 //!

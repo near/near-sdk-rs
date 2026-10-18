@@ -4,8 +4,9 @@
 //! For a record `S` with `#[key(n)]` on every named field this emits:
 //! - the struct itself with the `#[key]` attributes stripped;
 //! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
-//!   decode (missing tag -> `FieldDefault`, the expression of `#[key(n, default = expr)]`, or
-//!   an error for `#[key(n, required)]`),
+//!   decode (missing tag -> `FieldDefault`, the const expression of
+//!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), or an error for
+//!   `#[key(n, required)]`),
 //!   bind / detach, and `MAX_SUBPATH` summed over fields;
 //! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
 //!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
@@ -277,7 +278,16 @@ pub fn expand(
         if *required {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
         } else if let Some(d) = default {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_or::<#ty>(f, #t, path, || #d)?, });
+            // T6: `expr` is a `const` item, so it is evaluated at compile time and a non-const
+            // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
+            // error at the expression (E0015). Re-evaluating it on every decode of an old
+            // record is then harmless: it is the same value every time.
+            let c = quote_spanned! {d.span()=>
+                const __KEY_DEFAULT: #ty = #d;
+            };
+            dec.push(quote_spanned! {ty.span()=>
+                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT })?,
+            });
         } else {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
         }
