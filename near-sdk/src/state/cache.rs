@@ -132,6 +132,10 @@ struct Slot {
     flaggable: bool,
     /// `orig` describes the flag key, not the record key (which is then known absent).
     at_flag: bool,
+    /// A blind delete (no read, `orig` unknown) of a flaggable entry happened in this call, so
+    /// the record it removed may have been at either key. Kept through a later `put`: the
+    /// flush then removes the key the new value is not written to (review F1).
+    blind_delete: bool,
 }
 
 /// What a flush does for one slot: the writes and removes, by key.
@@ -164,7 +168,11 @@ impl Slot {
     fn flush_ops(&self, key: &[u8]) -> std::vec::Vec<FlushOp> {
         let mut ops = std::vec::Vec::new();
         let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
-        let (at_key, at_flag) = (present && !self.at_flag, present && self.at_flag);
+        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
+        if self.blind_delete && self.orig == Orig::Unknown {
+            // F1: a blind delete then a reinsert: either key may still hold the old record.
+            (at_key, at_flag) = (true, true);
+        }
         match self.mode {
             Mode::Clean => {}
             Mode::Touched | Mode::Dirty => {
@@ -236,6 +244,7 @@ impl Cache {
             clearing: Clearing::FromOrig,
             flaggable: false,
             at_flag: false,
+            blind_delete: false,
         })));
         self.slots.insert(key.to_vec(), s);
         s
@@ -514,6 +523,9 @@ fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
     let mut sp = with(|c| c.entry_slot(path.as_bytes(), flaggable));
     // SAFETY: invariants 1 and 2.
     let s = unsafe { sp.as_mut() };
+    if s.flaggable && s.orig == Orig::Unknown {
+        s.blind_delete = true;
+    }
     s.mode = Mode::Deleted;
     s.clearing = Clearing::Cleared;
     let p = s.value.take()?;

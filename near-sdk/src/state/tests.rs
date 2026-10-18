@@ -1459,3 +1459,68 @@ fn page_revision_changes_only_across_a_removal() {
     end_call();
     assert!(!store().keys().any(|k| k.starts_with(below.as_bytes())), "nothing left below the record");
 }
+
+/// Review F1: a record left mid-clear by an earlier receipt lives at its flag key. In a fresh
+/// receipt, a blind `discard` then a reinsert (`try_insert`, `entry().or_default()`) must still
+/// remove the flag key at the flush; otherwise both keys stay and removing the replacement
+/// later resurrects the old record from the flag key.
+#[test]
+fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
+    fn flagged(tag: u32) -> (LookupMap<u32, Account>, StdVec<u8>, StdVec<u8>) {
+        let mut lm: LookupMap<u32, Account> = at(tag);
+        let a = lm.entry(1).or_default();
+        a.nonce = 4;
+        let _ = a.balances.insert("a".into(), 1);
+        let _ = a.balances.insert("b".into(), 1);
+        end_call();
+        assert_eq!(lm.remove_step(&1, 1), Removal::Pending);
+        end_call();
+        let rec = Path::root(DEFAULT_ROOT).field(tag).kind(kind::ENTRIES).entry(&1u32);
+        let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
+        assert!(!store().contains_key(&rec) && store().contains_key(&flag));
+        (lm, rec, flag)
+    }
+    testing::use_mock();
+    for (tag, via_entry) in [(40, false), (41, true)] {
+        let (mut lm, rec, flag) = flagged(tag);
+        // receipt 2: blind discard (no read), then a new record at the same key
+        lm.discard(&1);
+        if via_entry {
+            lm.entry(1).or_default().nonce = 7;
+        } else {
+            lm.try_insert(1, Account { nonce: 7, ..Default::default() }).unwrap();
+        }
+        end_call();
+        assert!(store().contains_key(&rec), "the replacement is at the record key");
+        assert!(!store().contains_key(&flag), "the old record's flag key is gone");
+        assert_eq!(lm.get(&1).unwrap().nonce, 7);
+        end_call();
+        // receipt 3: removing the replacement leaves nothing to resurrect
+        assert_eq!(lm.remove(&1).map(|a| a.nonce), Some(7));
+        end_call();
+        assert!(lm.get(&1).is_none(), "no old record comes back from the flag key");
+        assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
+        end_call();
+    }
+
+    // The same through `Map`: `discard` reads the index, not the record, so the entry's
+    // delete is blind too.
+    let mut m: Map<u32, Account> = at(42);
+    let a = m.entry(1).or_default();
+    let _ = a.balances.insert("a".into(), 1);
+    let _ = a.balances.insert("b".into(), 1);
+    end_call();
+    assert_eq!(m.remove_step(&1, 1), Removal::Pending);
+    end_call();
+    let rec = Path::root(DEFAULT_ROOT).field(42).kind(kind::ENTRIES).entry(&1u32);
+    let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
+    assert!(store().contains_key(&flag));
+    assert!(m.discard(&1));
+    m.try_insert(1, Account { nonce: 8, ..Default::default() }).unwrap();
+    end_call();
+    assert!(store().contains_key(&rec) && !store().contains_key(&flag));
+    assert_eq!(m.remove(&1).map(|a| a.nonce), Some(8));
+    end_call();
+    assert!(m.get(&1).is_none());
+    assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
+}
