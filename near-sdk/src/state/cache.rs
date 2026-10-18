@@ -152,10 +152,19 @@ struct Slot {
     verbatim: bool,
 }
 
-/// What a flush does for one slot: the writes and removes, by key.
-enum FlushOp {
-    Write(Vec<u8>, Vec<u8>),
-    Remove(Vec<u8>),
+/// Which key a flush op targets: the slot's own key, or its D9 flag key (the key plus `00`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum At {
+    Key,
+    Flag,
+}
+
+/// One host operation a flush performs for a slot. It borrows the slot's bytes and names the
+/// target key by [`At`], so emitting an op copies nothing; the flag key is built only for an op
+/// that targets it.
+enum FlushOp<'a> {
+    Write(At, &'a [u8]),
+    Remove(At),
 }
 
 impl Slot {
@@ -175,12 +184,12 @@ impl Slot {
         unsafe { p.as_ref() }.encode(merge_from)
     }
 
-    /// The host operations a flush performs for this slot at `key`. A record being cleared
-    /// goes to its flag key and leaves its record key; a record no longer being cleared goes
-    /// back to its record key and leaves the flag key. Unchanged bytes at the same key are
-    /// not rewritten.
-    fn flush_ops(&self, key: &[u8]) -> std::vec::Vec<FlushOp> {
-        let mut ops = std::vec::Vec::new();
+    /// Calls `f` with each host operation a flush performs for this slot, in the order the
+    /// flush must issue them. A record being cleared goes to its flag key and leaves its record
+    /// key; a record no longer being cleared goes back to its record key and leaves the flag
+    /// key. Unchanged bytes at the same key are not rewritten. Allocates only the encoding of a
+    /// Touched/Dirty value (none for a record moved verbatim).
+    fn for_each_flush_op(&self, mut f: impl FnMut(FlushOp<'_>)) {
         let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
         let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
         if self.blind_delete && self.orig == Orig::Unknown {
@@ -190,25 +199,26 @@ impl Slot {
         match self.mode {
             Mode::Clean => {}
             Mode::Touched | Mode::Dirty => {
-                let enc = match self.orig.bytes() {
-                    Some(b) if self.verbatim && self.is_clearing() => b.to_vec(),
-                    _ => self.encode(),
+                let clearing = self.is_clearing();
+                let enc: std::borrow::Cow<'_, [u8]> = match self.orig.bytes() {
+                    Some(b) if self.verbatim && clearing => std::borrow::Cow::Borrowed(b),
+                    _ => std::borrow::Cow::Owned(self.encode()),
                 };
                 let same = self.orig.bytes() == Some(&enc[..]);
-                if self.is_clearing() {
+                if clearing {
                     // Key order (review F4): the record key sorts before its flag key.
                     if at_key {
-                        ops.push(FlushOp::Remove(key.to_vec()));
+                        f(FlushOp::Remove(At::Key));
                     }
                     if !(at_flag && same) {
-                        ops.push(FlushOp::Write(flag_key(key), enc));
+                        f(FlushOp::Write(At::Flag, &enc));
                     }
                 } else {
                     if !(at_key && same) {
-                        ops.push(FlushOp::Write(key.to_vec(), enc));
+                        f(FlushOp::Write(At::Key, &enc));
                     }
                     if at_flag {
-                        ops.push(FlushOp::Remove(flag_key(key)));
+                        f(FlushOp::Remove(At::Flag));
                     }
                 }
             }
@@ -216,22 +226,21 @@ impl Slot {
                 Orig::Absent => {}
                 // A blind delete (`discard`, a bulk clear): the record may be at either key.
                 Orig::Unknown => {
-                    ops.push(FlushOp::Remove(key.to_vec()));
+                    f(FlushOp::Remove(At::Key));
                     if self.flaggable {
-                        ops.push(FlushOp::Remove(flag_key(key)));
+                        f(FlushOp::Remove(At::Flag));
                     }
                 }
-                _ if self.at_flag => ops.push(FlushOp::Remove(flag_key(key))),
-                _ => ops.push(FlushOp::Remove(key.to_vec())),
+                _ if self.at_flag => f(FlushOp::Remove(At::Flag)),
+                _ => f(FlushOp::Remove(At::Key)),
             },
         }
-        ops
     }
 
-    /// How many `storage_remove` calls [`Slot::flush_ops`] emits for this slot, computed from
-    /// the same state without encoding the value. `flush_ops` is the source of truth;
-    /// [`pending_removes`] asserts the two agree, and the C5 harness calls it before every
-    /// flush.
+    /// How many `storage_remove` calls [`Slot::for_each_flush_op`] emits for this slot,
+    /// computed from the same state without encoding the value. `for_each_flush_op` is the
+    /// source of truth; [`pending_removes`] asserts the two agree, and the C5 harness calls it
+    /// before every flush.
     fn remove_count(&self) -> u32 {
         self.remove_count_as(self.mode, self.clearing)
     }
@@ -330,15 +339,18 @@ impl Cache {
     }
 
     /// Ensures the slot's original bytes are known, reading the host at most once per call.
-    /// A flaggable slot that misses at its key reads its flag key (D9).
-    fn load(&mut self, key: &[u8]) -> NonNull<Slot> {
-        let mut sp = self.slot(key);
+    /// Marks the slot flaggable first when `flaggable` (as [`Cache::entry_slot`]); a flaggable
+    /// slot that misses at its key reads its flag key (D9). One slot lookup, and the record key
+    /// is passed to the host as is (no copy).
+    fn load(&mut self, key: &[u8], flaggable: bool) -> NonNull<Slot> {
+        let mut sp = self.entry_slot(key, flaggable);
         // SAFETY: slots are only accessed inside cache operations (invariant 1).
         let s = unsafe { sp.as_mut() };
         let unread = matches!(s.orig, Orig::Unknown | Orig::PresentUnread);
         if unread && s.value.is_none() && s.mode == Mode::Clean {
-            let at = if s.at_flag { flag_key(key) } else { key.to_vec() };
-            s.orig = match self.host.read(&at) {
+            let found =
+                if s.at_flag { self.host.read(&flag_key(key)) } else { self.host.read(key) };
+            s.orig = match found {
                 Some(b) => Orig::Present(b),
                 None if s.flaggable && !s.at_flag => match self.host.read(&flag_key(key)) {
                     Some(b) => {
@@ -500,8 +512,7 @@ pub(crate) fn get_entry<V: Value>(path: &Path) -> Option<NonNull<V>> {
 fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
     let key = path.as_bytes();
     let (mut sp, bytes) = with(|c| {
-        c.entry_slot(key, flaggable);
-        let mut sp = c.load(key);
+        let mut sp = c.load(key, flaggable);
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_mut() };
         if s.value.is_some() || s.mode == Mode::Deleted {
@@ -621,8 +632,7 @@ pub(crate) fn set_clearing(path: &Path) {
 pub(crate) fn stored_bytes(path: &Path, flaggable: bool) -> Option<Vec<u8>> {
     with(|c| {
         let key = path.as_bytes();
-        c.entry_slot(key, flaggable);
-        let sp = c.load(key);
+        let sp = c.load(key, flaggable);
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_ref() };
         match s.mode {
@@ -674,15 +684,14 @@ pub(crate) fn clearing_cost(path: &Path) -> u32 {
 pub(crate) fn pending_removes() -> u32 {
     with(|c| {
         c.slots
-            .iter()
-            .map(|(k, s)| {
+            .values()
+            .map(|s| {
                 // SAFETY: invariant 1.
                 let s = unsafe { s.as_ref() };
                 let n = s.remove_count();
-                debug_assert_eq!(
-                    n as usize,
-                    s.flush_ops(k).iter().filter(|o| matches!(o, FlushOp::Remove(_))).count()
-                );
+                let mut emitted = 0u32;
+                s.for_each_flush_op(|op| emitted += u32::from(matches!(op, FlushOp::Remove(_))));
+                debug_assert_eq!(n, emitted);
                 n
             })
             .sum()
@@ -787,7 +796,7 @@ fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<dyn Era
 pub(crate) fn read_root(path: &Path) -> Option<Vec<u8>> {
     with(|c| {
         c.root = Some(path.as_bytes().to_vec());
-        let sp = c.load(path.as_bytes());
+        let sp = c.load(path.as_bytes(), false);
         // SAFETY: invariant 1.
         unsafe { sp.as_ref() }.orig.bytes().map(<[u8]>::to_vec)
     })
@@ -810,24 +819,29 @@ pub(crate) fn root_orig(path: &Path) -> Option<Vec<u8>> {
 /// preserve unknown tags. Returns whether the root was written.
 pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) -> bool {
     let (wrote_root, slots) = with(|c| {
-        let root_key = root.map(|(p, _)| p.as_bytes().to_vec()).or_else(|| c.root.clone());
-        let keys: std::vec::Vec<(std::vec::Vec<u8>, NonNull<Slot>)> =
-            c.slots.iter().map(|(k, s)| (k.clone(), *s)).collect();
-        for (key, sp) in keys {
-            if Some(&key) == root_key.as_ref() {
+        // Disjoint borrows: the slots are walked in place (no key is copied) while the host is
+        // called. Nothing in this loop adds a slot, and a host call cannot reach the cache
+        // (it is borrowed for the whole flush).
+        let Cache { host, slots, root: read_root_key, .. } = &mut *c;
+        let root_key: Option<&[u8]> = match root {
+            Some((p, _)) => Some(p.as_bytes()),
+            None => read_root_key.as_deref(),
+        };
+        for (key, sp) in slots.iter() {
+            if Some(&key[..]) == root_key {
                 continue;
             }
             // SAFETY: flush runs after the method body; invariant 1.
             let s = unsafe { sp.as_ref() };
             // A flag key sorts right after its record key and before every child of the
             // record, so emitting it here, after any op on the record key, keeps the flush in
-            // key order (`flush_ops` emits the record key first).
-            for op in s.flush_ops(&key) {
-                match op {
-                    FlushOp::Write(k, v) => c.host.write(&k, &v),
-                    FlushOp::Remove(k) => c.host.remove(&k),
-                }
-            }
+            // key order (`for_each_flush_op` emits the record key first).
+            s.for_each_flush_op(|op| match op {
+                FlushOp::Write(At::Key, v) => host.write(key, v),
+                FlushOp::Write(At::Flag, v) => host.write(&flag_key(key), v),
+                FlushOp::Remove(At::Key) => host.remove(key),
+                FlushOp::Remove(At::Flag) => host.remove(&flag_key(key)),
+            });
         }
         let mut wrote_root = false;
         if let Some((path, encode)) = root {
@@ -853,8 +867,10 @@ pub(crate) fn has_pending_writes() -> bool {
             if Some(k) == c.root.as_ref() {
                 return false;
             }
+            let mut any = false;
             // SAFETY: invariant 1.
-            !unsafe { s.as_ref() }.flush_ops(k).is_empty()
+            unsafe { s.as_ref() }.for_each_flush_op(|_| any = true);
+            any
         })
     })
 }
