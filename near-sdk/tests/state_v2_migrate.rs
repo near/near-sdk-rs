@@ -608,3 +608,125 @@ mod v1_lookup_to_v2_lookup {
         init(|| V2 { balances: Migrating::new(V1LookupMap::new(vec![ROOT, 1])) });
     }
 }
+
+/// The two iterable v1 maps of `NftV2` (a `TreeMap` and a `store::IterableMap`) through the
+/// wrapper: neither is empty before the drain, the `IterableMap` side serves fallback reads and
+/// loses the key on `insert`, and both are empty after the drain.
+#[test]
+fn tree_map_and_iterable_map_sides_fall_back_move_on_insert_and_report_emptiness() {
+    populate();
+    init(NftV2::migrate);
+    let (v, _) = call::<NftV2, _>(|c| {
+        (c.owner_by_id.old_is_empty(), c.approvals.old_is_empty(), c.approvals.get(&tok(3)), c.approvals.get(&tok(N)))
+    });
+    assert_eq!(v, (false, false, Some(3), None), "both old sides hold N entries; fallback read");
+
+    let (v, _) = call::<NftV2, _>(|c| {
+        c.approvals.insert(tok(3), 99);
+        (c.approvals.old_side().get(&tok(3)).copied(), c.approvals.new_side().get(&tok(3)).copied())
+    });
+    assert_eq!(v, (None, Some(99)), "insert moved the key off the v1 IterableMap");
+    let (v, _) = call::<NftV2, _>(|c| (c.approvals.get(&tok(3)), c.approvals.old_side().len(), c.approvals.new_side().len()));
+    assert_eq!(v, (Some(99), N - 1, 1));
+
+    for _ in 0..20 {
+        let (done, _) = call::<NftV2, _>(|c| {
+            c.owner_by_id.migrate_batch(50);
+            c.approvals.migrate_batch(50);
+            (c.owner_by_id.old_is_empty(), c.approvals.old_is_empty())
+        });
+        if done == (true, true) {
+            break;
+        }
+    }
+    let (v, _) = call::<NftV2, _>(|c| {
+        (
+            c.owner_by_id.old_is_empty(),
+            c.approvals.old_is_empty(),
+            c.owner_by_id.new_side().len(),
+            c.approvals.new_side().len(),
+            c.approvals.get(&tok(3)),
+        )
+    });
+    assert_eq!(v, (true, true, N, N, Some(99)));
+}
+
+/// `Migrating<collections::UnorderedMap, Map>`: fallback reads, `insert` moving a key, and
+/// `migrate_batch` / `old_is_empty` draining it.
+mod unordered {
+    use super::*;
+    use near_sdk::collections::UnorderedMap;
+
+    #[derive(BorshStorageKey)]
+    #[near]
+    enum K {
+        Scores,
+    }
+
+    #[near(contract_state)]
+    pub struct V1 {
+        scores: UnorderedMap<String, u64>,
+    }
+
+    mod v2m {
+        use super::*;
+        #[near(contract_state(layout = v2))]
+        pub struct V2 {
+            #[key(1, required)]
+            pub scores: Migrating<UnorderedMap<String, u64>, Map<String, u64>>,
+        }
+    }
+    use v2m::V2;
+
+    const M: u32 = 10;
+    fn k(i: u32) -> String {
+        format!("k{i}")
+    }
+
+    #[test]
+    fn unordered_map_side_falls_back_moves_on_insert_and_drains_in_batches() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        let mut c = V1 { scores: UnorderedMap::new(K::Scores) };
+        for i in 0..M {
+            c.scores.insert(&k(i), &(i as u64));
+        }
+        env::state_write(&c);
+        drop(c);
+        init(|| {
+            let old: V1 = env::state_read().unwrap();
+            env::storage_remove(b"STATE");
+            V2 { scores: Migrating::new(old.scores) }
+        });
+
+        let (v, _) = call::<V2, _>(|c| (c.scores.old_is_empty(), c.scores.get(&k(3)), c.scores.get(&k(M))));
+        assert_eq!(v, (false, Some(3), None), "not empty; fallback read; absent key");
+
+        let (v, _) = call::<V2, _>(|c| {
+            c.scores.insert(k(3), 33);
+            c.scores.old_side().get(&k(3))
+        });
+        assert_eq!(v, None, "insert removed k3 from the v1 map");
+        let (v, _) = call::<V2, _>(|c| (c.scores.get(&k(3)), c.scores.old_side().len(), c.scores.new_side().len()));
+        assert_eq!(v, (Some(33), (M - 1) as u64, 1));
+
+        let (v, _) = call::<V2, _>(|c| (c.scores.migrate_batch(4), c.scores.old_side().len(), c.scores.new_side().len(), c.scores.old_is_empty()));
+        assert_eq!(v, (4, (M - 5) as u64, 5, false), "4 entries moved");
+
+        let mut calls = 0;
+        while !call::<V2, _>(|c| {
+            c.scores.migrate_batch(4);
+            c.scores.old_is_empty()
+        })
+        .0
+        {
+            calls += 1;
+            assert!(calls < 5, "old side did not drain");
+        }
+        let (v, _) = call::<V2, _>(|c| (c.scores.old_side().len(), c.scores.new_side().len(), (0..M).map(|i| c.scores.get(&k(i))).collect::<Vec<_>>()));
+        let want: Vec<_> = (0..M).map(|i| Some(if i == 3 { 33 } else { i as u64 })).collect();
+        assert_eq!(v, (0, M, want));
+        assert!(testing::env_store().keys().all(|k| k[0] == ROOT), "no v1 keys left");
+    }
+}
