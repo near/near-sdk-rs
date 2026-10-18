@@ -342,3 +342,76 @@ mod store_lookup {
         assert_eq!(v, (Some(8), Some(1)));
     }
 }
+
+// ---------------------------------------------------------------------------------------
+// Audit round (Oct 17, Codex claims). A4: `new_side()` / `old_side()` hand out the raw maps,
+// so a caller can break the one-side invariant that `migrate_batch` and `remove` rely on.
+// ---------------------------------------------------------------------------------------
+
+fn drain_owners() {
+    for _ in 0..20 {
+        let (done, _) = call::<NftV2, _>(|c| {
+            c.owner_by_id.migrate_batch(50);
+            c.owner_by_id.old_is_empty()
+        });
+        if done {
+            return;
+        }
+    }
+    panic!("old side did not drain");
+}
+
+/// A4, leg 1: a newer value written straight to the new side while the old side still holds
+/// the key is overwritten by the stale old value when `migrate_batch` moves that key.
+#[test]
+fn audit_a4_new_side_write_is_overwritten_by_migrate_batch() {
+    populate();
+    init(NftV2::migrate);
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    call::<NftV2, _>(|c| {
+        c.owner_by_id.new_side().insert(tok(0), buyer.clone());
+    });
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(0)));
+    assert_eq!(o, Some(buyer), "before the batch, the new side wins the read");
+    drain_owners();
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(0)));
+    assert_eq!(o, Some(owner(0)), "lost update: the stale v1 value replaced the newer one");
+}
+
+/// A4, leg 2: same setup, then `remove(k)` on the wrapper. It finds `k` on the new side, removes
+/// only there, and the old value resurrects through the fallback read.
+#[test]
+fn audit_a4_remove_after_new_side_write_resurrects_the_old_value() {
+    populate();
+    init(NftV2::migrate);
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    call::<NftV2, _>(|c| {
+        c.owner_by_id.new_side().insert(tok(1), buyer.clone());
+    });
+    let (removed, _) = call::<NftV2, _>(|c| c.owner_by_id.remove(&tok(1)));
+    assert_eq!(removed, Some(buyer));
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(1)));
+    assert_eq!(o, Some(owner(1)), "resurrected: the old side still held tok(1)");
+    drain_owners();
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(1)));
+    assert_eq!(o, Some(owner(1)), "and the batch makes the resurrection permanent");
+}
+
+/// A4, the mirror through `old_side()`: a stale value put back on the old side after the key
+/// moved to the new side overwrites the new value at the next batch.
+#[test]
+fn audit_a4_old_side_write_overwrites_the_new_value_at_the_next_batch() {
+    populate();
+    init(NftV2::migrate);
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    let stale: AccountId = "stale.near".parse().unwrap();
+    call::<NftV2, _>(|c| c.owner_by_id.insert(tok(2), buyer.clone()));
+    call::<NftV2, _>(|c| {
+        c.owner_by_id.old_side().insert(&tok(2), &stale);
+    });
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(2)));
+    assert_eq!(o, Some(buyer), "new side still wins the read");
+    drain_owners();
+    let (o, _) = call::<NftV2, _>(|c| c.owner_by_id.get(&tok(2)));
+    assert_eq!(o, Some(stale));
+}
