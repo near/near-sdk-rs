@@ -1488,3 +1488,166 @@ The model writes `REC_ITEMS -> [0x81]` in `RecM::bytes()`, so the differential h
 - near-sdk-macros: 49, plus 1 doctest.
 - `proto-wasm-check`: wasm32 check passes.
 - `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
+
+## Verification round 2 (Oct 18)
+
+Better guarantees pass after API round 5: the impeccable-rust Testing, Chaos and Exhaustive verification sections. Started at 5030854b. One production change to the record format (the kind-marker fix), one compile-time API tightening (`Lazy` of a collection), a Miri fix to the unit-test mock (outside `state/`), and test work.
+
+### Kind markers are wire-typed (eecbd7ec)
+
+A field key is now `varint(tag << 2 | wire)`:
+- Wire 0 is a scalar.
+- Wire 1 is a kind marker; its body must be exactly 1 byte.
+- Wire 2 is a nested record.
+- Wire 3 is reserved and rejected (`RecordError::ReservedWire`).
+
+Tags stay strictly ascending across all wire types, key < 2^34, and tag 0 is still rejected. The A3 removal check reads only wire-1 fields and recurses only into wire-2 fields, so no scalar can be mistaken for a marker. Before this, a 1-byte scalar 0x81..0x87, or a nested value that parsed as a record, read as an unknown collection and blocked removal. The kind bytes are unchanged (0x81 to 0x87). An unknown kind byte under wire 1 still counts as a marker (fail closed).
+
+Changes:
+- **Writer:** `RecordWriter` keeps each field's wire type (`push`, `push_record`, `push_marker`, `push_wire`), and unknown fields merge back in order with their wire.
+- **Derive:** the derive calls `declared_field_collection::<T>(wire, body)`, which recurses only for wire 2.
+- **Cost:** one-byte field keys now cover tags up to 31 (was 127). The 13-byte account example is `04 08 <8> 09 01 81`.
+- **Spec:** the record-format grammar, the worked example, the staked bytes, the A3 paragraph and the decision row are updated.
+- **Model:** `enc_record` writes `(t << 2) | wire`.
+- **G6 harnesses:** the identity and canonical harnesses draw a wire per field. The marker harness is renamed `g6_kind_markers_are_wire_typed_preserved_and_checked_on_removal` and requires that no scalar or scalar-like-record ever fires. Unwind bounds are unchanged.
+
+The former false positive is pinned by `record::tests::scalars_with_marker_bytes_are_not_collections` and `state_v2_verify::a3_scalars_with_marker_bytes_never_block_removal`. Re-adding the old heuristic fails 3 tests.
+
+### Reference model owns Lazy, Set, LookupSet and Vector in records (da03611c)
+
+`MRoot` gains two hand-expanded record maps:
+- `xrecs: Map<u8, RecX>` (tag 6), where `RecX` holds `n`, `Lazy<u64>`, `Set<u8>` and `Vector<u64>`, and is Removable.
+- `lrecs: LookupMap<u8, RecL>` (tag 7), where `RecL` holds `n` and `LookupSet<u8>`, and is not Removable.
+
+The model mirrors them with `RecXM`/`RecLM`, `concretize_set`/`concretize_vec` and shared Vector helpers, and the budgeted clear is Lazy, then Set, then Vector, counted in host removes. There are 29 new ops, including remove_step on X records with the D9 flag key. `would_panic` covers writes to a clearing X record and out-of-bounds swap_remove.
+
+New differential tests:
+- `differential_fixed_nested_sequences`.
+- `differential_generator_reaches_nested_ops`: at least 25 nested op kinds in 200 histories.
+- `differential_nested_against_reference_model`: 2,000 nested-only histories.
+
+Three hand mutations are each caught: skipping Lazy's has_key in the budgeted clear, a free Vector header, and an early `true` from the Vector clear.
+
+### Miri
+
+The runs used nightly Miri on the host, with `-Zmiri-ignore-leaks`, plus `-Zmiri-disable-isolation` for bolero, which calls `stat`. Stacked Borrows (SB) is the default model; Tree Borrows (TB) adds `-Zmiri-tree-borrows`.
+
+| Target | Commit | SB | TB |
+|---|---|---|---|
+| 10 cache/handle audit tests (A1 ×3, A2 ×7) | eecbd7ec | pass | pass |
+| Round-5 tests: remove_step ×2, flag key, unknown tags survive, C5 below-three | eecbd7ec | pass | pass |
+| `record::tests` (9) | eecbd7ec, 2999a34d | pass | pass |
+| G6 kind-marker harness | eecbd7ec | pass | pass |
+| `state::tests::` (74) | eecbd7ec | **UB** (mock) | **UB** (mock) |
+| `state::tests::` (74) | 2999a34d | pass (32 min) | pass (47 min) |
+| `state::tests_gaps::` (27) | 780458ed | pass | pass |
+
+Both findings were in the unit-test mock (master #1629), not in `state/`, and both were fixed in 2999a34d:
+- **SB:** `MockedBlockchain::new` moved the `Box`-owned `HostFixture` after `HostCtx` had borrowed through it. Moving a `Box` retags it Unique and invalidates those borrows. It fired when a panic inside `catch_unwind` lazily created a fresh mock. The fixture now owns both allocations through raw pointers (`Box::leak`/`NonNull`) and frees them in `Drop`.
+- **TB:** a test that catches a state panic unwound out of `near_sys::panic_utf8`, which is declared `extern "C"`, while the mock defines it `extern "C-unwind"`. near-sys now declares its imports `extern "C-unwind"`, which is identical on wasm32 (contracts use `panic = "abort"`). env.rs's `method_into_register` fn-pointer type follows. This is a cross-crate change to a published crate's fn item types, kept in its own commit so it can be dropped or upstreamed separately.
+
+One Miri warning remains: an integer-to-pointer cast at mocked_blockchain.rs:284. It comes from the mock's u64-pointer host ABI, which mirrors wasm, and it is not UB under permissive provenance.
+
+### Mutation testing, round 2
+
+The settings are the Soundness round's: cargo-mutants 27.1.0, `--in-diff` of `git diff master...eecbd7ec -- near-sdk/src/state`, and the 7 production files of `state/`. Pass 1 ran the `verify::` lib harnesses with `BOLERO_RANDOM_ITERATIONS=300`, skipping `g3_no_debt_after_10000`, at -j 4. Pass 2 ran `--iterate` over the lib plus `state_v2_verify`, `state_v2_migrate` and `state_v2_exchange` at full iterations (auto timeout 288 s).
+
+The three columns are:
+- **Before:** the code and tests at eecbd7ec.
+- **After:** after subagents A and B, the model extension and the litmus tests, measured by `--iterate`.
+- **After-final:** adds the hand-proven kills of the two gap rounds (each mutation applied by hand, the new test watched fail, then reverted). The production files are unchanged by those rounds except 4a617de7, so no new sweep was run for them.
+
+| File | n | Before caught / missed / timeout / unviable | After (measured) caught / missed | After-final caught / missed (all equivalent) |
+|---|---|---|---|---|
+| cache.rs | 226 | 134 / 27 / 19 / 46 | 142 / 20 | 160 / 2 |
+| collections.rs | 393 | 186 / 84 / 14 / 109 | 231 / 40 | 269 / 2 |
+| key.rs | 34 | 15 / 7 / 0 / 12 | 21 / 1 | 21 / 1 |
+| migrating.rs | 92 | 49 / 23 / 5 / 15 | 65 / 7 | 67 / 5 |
+| record.rs | 99 | 84 / 10 / 2 / 3 | 84 / 10 | 92 / 2 |
+| root.rs | 60 | 35 / 16 / 0 / 9 | 50 / 1 | 50 / 1 |
+| value.rs | 15 | 3 / 8 / 1 / 3 | 3 / 8 | 9 / 2 |
+| **Total** | **919** | **506 / 175 / 41 / 197** | **596 / 87** | **668 / 15** |
+
+Timeouts are 39 after and 41 before. They are counted as detected: mutants that loop or blow the 288 s budget, such as `get -> None` and `Slot::is_clearing -> false`.
+
+Method for "before": tests were only added between the two runs, so a mutant missed after was also missed before. Only the 240 mutants on lines where "after" caught something were re-run at eecbd7ec (a crafted `--in-diff`, /tmp/storage-v2-review/vr2/before2.diff).
+
+The gaps were closed in five groups:
+- **Migrating (subagent A, 4 commits):** contains_key and bind, v1 LookupMap into a v2 LookupMap, the UnorderedMap/TreeMap/IterableMap legacy impls, and raw_root/root_orig/parse_orig.
+- **Surface (subagent B, 2 commits):** the view-write check driven negatively, key MAX_LEN, the derive helpers (`varint_len`, `field_subpath`), Path and EnvHost, IndexIter, len/is_empty, At<LookupMap>, MAX_SUBPATH, and Lazy insert-new.
+- **cache.rs (3 commits):** delete_cost, remove_count_as and stored_bytes accounting; take/delete/bury/delete_impl and slot freeing (a drop-counting leaf); and the check_live epoch and strict-prefix bounds.
+- **Rest (5 commits):** the At views of Map, Set and Vector; the Value impls of Lazy, Set and LookupSet; kind markers and the unknown-collection message; Removal::is_done, Occupied and guard_removal's flag read; and NewLookupMap::target_try_insert.
+- **Production fix found on the way (4a617de7):** `Lazy<Set<u8>>` (and any `Lazy<collection>`) compiled, then panicked at the flush with "entered unreachable code". `Lazy` now has the same const `CHECK` as Map, LookupMap and Vector, pinned by a `compile_fail` doctest.
+
+The 15 survivors are all equivalent or unreachable. Each is listed with its reason in `.cargo/mutants.toml` `exclude_re` (12 patterns), which takes the list from 920 to 905 mutants:
+1. `stored_bytes` guard `!s.merge -> true`: only a whole `put` sets Dirty, and it clears `merge` in the same statement. The test `gaps_cache_discard_after_in_place_mutation_still_checks_the_stored_bytes` pins the in-place path.
+2. `root_orig -> None`: `raw_root` falls back to `read_root`, which serves the same cached bytes.
+3. `record_at_mut` `MAX_SUBPATH > 0` → `>= 0`: only storage-owning values can be clearing.
+4. `assert_not_clearing`, the same mutation: same reason.
+5. `Path::is_empty -> false`: no empty Path is constructible.
+6. `field_key` `|` → `^`: disjoint bits.
+7. `write_varint` `|` → `^`: disjoint bits.
+8. `FieldDefault::field_default -> Default::default()`: the body is already `T::default()`.
+9. `Removable::clear_children_some -> true` (default body): every override of `clear_children` also overrides `clear_children_some`.
+10. `__private::max` `>` → `>=`: equal arguments return the same value.
+11. to 14. The default `LegacyMap::legacy_prefixes` body (4 mutants): all 5 impls override it.
+15. `Migrating::detach -> ()`: unreachable, because Migrating is not Removable.
+
+Observation, not changed: `Map::try_insert` over a record being cleared returns `Err(Occupied)`, while `LookupMap::try_insert` panics with the clearing message. Neither writes anything, so it is safe, but the two APIs disagree.
+
+### Error litmus
+
+Each main Err/panic path was neutered in a scratch worktree, and the `state::` lib tests (skipping the 10,000-op G3) plus all `state_v2_*` suites were run:
+
+| Path neutered | Result |
+|---|---|
+| CursorGone (cursor falls back to the start) | caught by 19, incl. `page_with_removed_cursor_returns_cursor_gone` |
+| Occupied (try_insert overwrites) | caught by 14 |
+| try_insert's clearing check (LookupMap) | caught by 1 (`flag_key_is_dropped_by_replace_remove_and_discard`, direct) |
+| `required` Missing → other error | caught by 14 |
+| `required` Missing names the wrong tag | caught by 14 |
+| `legacy` field Missing → other error | **survived** → `gaps_legacy_field_missing_is_missing_naming_the_tag` |
+| `required` on a collection field check deleted | **survived** → `gaps_required_on_a_collection_field_is_refused` |
+| Kind-marker refusal (A3 panic) | caught by 2 (`state_v2_verify` A3) |
+| Clearing guard in `assert_not_clearing` | caught by 7 |
+| Clearing guard in `record_at_mut` | caught by 2 |
+| Generation-stamp panic (`check_live`) | caught by 3 |
+| v1-prefix check (`check_v1_prefix -> Ok`) | caught by 9 |
+| v1-prefix bind guard | caught by 6 |
+| `storage_usage` guard | caught by 6 |
+
+Each of the two new tests was confirmed to fail under its neuter (780458ed). The scripts are in /tmp/storage-v2-review/vr2/litmus/.
+
+### Kani G6 (launched, not awaited)
+
+The three G6 harnesses run uncapped, one after another in a single detached shell loop. The unwind bounds are unchanged:
+- `g6_record_encode_then_parse_is_identity` (unwind 18).
+- `g6_record_parse_accepts_only_canonical_encodings` (unwind 7).
+- `g6_schema_evolution_defaults_required_unknown_reserved` (unwind 10).
+
+Launch details:
+- **Worktree:** `.claude/worktrees/storage-v2-kani-g6`, detached at the commit that adds this section.
+- **Command per harness:** `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo kani --tests --lib -p near-sdk --features unstable --harness state::verify::g6_layout::<name>`.
+- **Detaching:** the `trap '' HUP` + `perl setsid` + `caffeinate -i` recipe, with no timeout.
+- **Logs:** `/tmp/storage-v2-review/kani/<harness>.log`.
+- **PID:** the loop's PID is in `/tmp/storage-v2-review/kani/g6.pid`, and the start time is in `g6.start`.
+
+The G1 run in `storage-v2-kani` was left alone.
+
+### Deliberately not done
+
+- **libFuzzer / cargo-fuzz:** Docker is down (the VM disk is full), so no fuzz targets were run. bolero ran with its random engine only.
+- **No new full mutants sweep after the gap rounds:** the after-final column combines the measured after numbers with hand-proven kills. The production files changed only by 4a617de7 (`Lazy` CHECK, +1 mutant).
+- **No Miri on the integration suites** (`state_v2_*`) or the whole lib. The matrix covers the state lib modules where the unsafe cache and handle code lives.
+- **The near-sys `C-unwind` change and the mock fix are not upstreamed:** they are master-mock issues, kept in one commit.
+- **Map/LookupMap try_insert inconsistency left as is** (see above).
+
+### Test counts (end of verification round 2)
+
+- Lib: 705 passed, 1 ignored (was 639 at round 5: nested-model differential tests, tests_gaps 27, tests_gaps_cache 14, tests_gaps_rest 19, record and model tests).
+- Doctests: 348 passed, 7 ignored, plus 7 standalone. The new one is the `Lazy<collection>` `compile_fail`.
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 17 (was 9), `state_v2_verify` 17 (was 16).
+- ft-v2 example: 16, plus 2 doctests.
+- near-sdk-macros: 49, plus 1 doctest.
+- `proto-wasm-check`: wasm32 check passes.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
