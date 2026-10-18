@@ -103,6 +103,31 @@ pub mod __private {
         }
     }
 
+    /// Decodes a `#[key(n, default = expr)]` field: missing evaluates `default` (serde-style).
+    /// The type needs no `Default`. The generated `Default` for the record goes through here
+    /// too, so it also uses the expression.
+    pub fn field_or<T: Value>(
+        fields: &Fields<'_>,
+        tag: u32,
+        path: Option<&Path>,
+        default: impl FnOnce() -> T,
+    ) -> Result<T, RecordError> {
+        const {
+            assert!(T::INLINE, "`#[key(n, default = ..)]` on a collection field: collections have no inline value to default")
+        };
+        match (find(fields, tag), path) {
+            (Some(b), Some(path)) => T::decode_value(b, &path.field(tag))
+                .map_err(|e| RecordError::Field { tag, msg: e.to_string() }),
+            (_, path) => {
+                let mut v = default();
+                if let Some(path) = path {
+                    v.bind(&path.field(tag));
+                }
+                Ok(v)
+            }
+        }
+    }
+
     /// Decodes a `#[key(n, required)]` field: missing is an error instead of a default.
     pub fn field_required<T: Value>(
         fields: &Fields<'_>,

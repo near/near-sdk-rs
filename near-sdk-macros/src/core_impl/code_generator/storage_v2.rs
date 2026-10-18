@@ -4,7 +4,8 @@
 //! For a record `S` with `#[key(n)]` on every named field this emits:
 //! - the struct itself with the `#[key]` attributes stripped;
 //! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
-//!   decode (missing tag -> `FieldDefault`, or an error for `#[key(n, required)]`),
+//!   decode (missing tag -> `FieldDefault`, the expression of `#[key(n, default = expr)]`, or
+//!   an error for `#[key(n, required)]`),
 //!   bind / detach, and `MAX_SUBPATH` summed over fields;
 //! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
 //!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
@@ -42,6 +43,8 @@ struct KeyedField {
     vis: syn::Visibility,
     tag: u32,
     required: bool,
+    /// `#[key(n, default = expr)]`: evaluated when the tag is missing from a stored record.
+    default: Option<syn::Expr>,
 }
 
 /// Collection names that exist only in v1 (`near_sdk::store` / `near_sdk::collections`). A
@@ -117,8 +120,8 @@ fn derives(item: &ItemStruct, names: &[&str]) -> bool {
     })
 }
 
-fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool)> {
-    // `#[key(3)]` / `#[key(3, required)]`
+fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool, Option<syn::Expr>)> {
+    // `#[key(3)]` / `#[key(3, required)]` / `#[key(3, default = expr)]`
     let args = attr.parse_args_with(
         syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
     )?;
@@ -133,16 +136,34 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool)> {
         }
     };
     let mut required = false;
+    let mut default = None;
     for e in it {
         match e {
             syn::Expr::Path(p) if p.path.is_ident("required") => required = true,
-            _ => return Err(syn::Error::new(e.span(), "expected `required`")),
+            syn::Expr::Assign(a)
+                if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default")) =>
+            {
+                default = Some((*a.right).clone());
+            }
+            _ => {
+                return Err(syn::Error::new(
+                    e.span(),
+                    "expected `required` or `default = expr`",
+                ));
+            }
         }
+    }
+    if required && default.is_some() {
+        return Err(syn::Error::new(
+            attr.span(),
+            "`required` and `default = ..` are exclusive: `required` fails on a missing tag, \
+             `default` fills it",
+        ));
     }
     if tag == 0 {
         return Err(syn::Error::new(attr.span(), "tag 0 is reserved; tags start at 1"));
     }
-    Ok((tag, required))
+    Ok((tag, required, default))
 }
 
 pub fn expand(
@@ -180,7 +201,7 @@ pub fn expand(
             return Err(e);
         }
         let ident = f.ident.clone().expect("named");
-        let Some((tag, required)) = found else {
+        let Some((tag, required, default)) = found else {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("field `{ident}` needs a `#[key(n)]` tag: the tags are the storage layout"),
@@ -213,7 +234,14 @@ pub fn expand(
                  (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order> }`)",
             ));
         }
-        fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), tag, required });
+        fields.push(KeyedField {
+            ident,
+            ty: f.ty.clone(),
+            vis: f.vis.clone(),
+            tag,
+            required,
+            default,
+        });
     }
 
     let name = &item.ident;
@@ -239,7 +267,7 @@ pub fn expand(
     let mut leaf_bounds = Vec::new();
     let mut clear = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, tag, required } in &fields {
+    for KeyedField { ident, ty, vis: fvis, tag, required, default } in &fields {
         let t = tag_lit(*tag);
         max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
@@ -247,6 +275,8 @@ pub fn expand(
         // Spanned at the field type, so a missing `Default` points at the field.
         if *required {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
+        } else if let Some(d) = default {
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_or::<#ty>(f, #t, path, || #d)?, });
         } else {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
         }

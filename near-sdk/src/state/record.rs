@@ -29,7 +29,16 @@ pub enum RecordError {
 
 impl core::fmt::Display for RecordError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Debug::fmt(self, f)
+        core::fmt::Debug::fmt(self, f)?;
+        if let RecordError::Missing { tag } = self {
+            write!(
+                f,
+                ": required field tag {tag} is absent from the stored record; `required` is only \
+                 for fields present since the record's first write, a field added later needs \
+                 `#[key({tag}, default = ..)]`, a `Default` type, or `Option`"
+            )?;
+        }
+        Ok(())
     }
 }
 

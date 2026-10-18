@@ -10,9 +10,13 @@
 //! - `#[near(storage)]` on a struct makes it a record: a value that can sit in a map and own
 //!   collections. Every field needs `#[key(n)]`; `reserved(3, 7)` blocks retired tags.
 //! - `#[key(n)]` is the field's tag. **Tags are the layout: never reuse or renumber one.** A
-//!   field missing from a stored record decodes as its `Default`. `#[key(n, required)]` makes
-//!   it a decode error instead; use it only for fields present since the first write (a field
-//!   added later must be `Default` or `Option`).
+//!   field missing from a stored record decodes as its `Default`. `#[key(n, default = expr)]`
+//!   evaluates `expr` instead (serde-style, D2; the type needs no `Default`, and the generated
+//!   `Default` uses it too). `#[key(n, required)]` makes it a decode error naming the tag; use
+//!   it only for fields present since the first write (a field added later uses `default = ..`,
+//!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
+//!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
+//!   tag is not built in the prototype.
 //!
 //! # What the derive emits for a record `Name`
 //!

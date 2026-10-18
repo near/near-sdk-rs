@@ -465,6 +465,111 @@ fn required_field_added_later_fails_old_records() {
 }
 
 // ---------------------------------------------------------------------------------------
+// D2: `#[key(n, default = expr)]`, serde-style
+// ---------------------------------------------------------------------------------------
+
+#[near(storage)]
+pub struct Defaults {
+    #[key(1)]
+    nonce: u64,
+    #[key(2, default = 30)]
+    fee_bps: u16,
+    // No `Default` for AccountId, and no `required` or `Option` needed.
+    #[key(3, default = "treasury.near".parse().unwrap())]
+    treasury: AccountId,
+    #[key(4, default = vec![1, 2])]
+    tiers: Vec<u8>,
+}
+
+#[near(storage)]
+pub struct Required {
+    #[key(1, required)]
+    owner: AccountId,
+    #[key(2)]
+    nonce: u64,
+}
+
+/// D2 derive: a missing tag evaluates the expression, in `decode` and in the generated
+/// `Default`; a present tag decodes as usual.
+#[test]
+fn key_default_expr_fills_missing_tags() {
+    use near_sdk::state::Path;
+    let d = Defaults::default();
+    assert_eq!((d.nonce, d.fee_bps, d.treasury.as_str(), d.tiers.clone()), (0, 30, "treasury.near", vec![1, 2]));
+
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut m: LookupMap<u32, Defaults> = LookupMap::__bound_at(root);
+    m.insert(1, Defaults { fee_bps: 5, ..Defaults::default() });
+    testing::flush();
+    testing::begin_call();
+    let d = m.get(&1).unwrap();
+    assert_eq!((d.fee_bps, d.treasury.as_str()), (5, "treasury.near"), "present tag wins");
+}
+
+/// D2 derive: `required` keeps working: present decodes, absent is an error naming the tag.
+#[test]
+fn key_required_still_decodes_and_fails_when_missing() {
+    use near_sdk::state::Path;
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    let mut m: LookupMap<u32, Required> = LookupMap::__bound_at(root.clone());
+    m.insert(1, Required { owner: alice(), nonce: 2 });
+    testing::flush();
+    testing::begin_call();
+    assert_eq!(m.get(&1).unwrap().owner, alice());
+    // A stored record with only tag 2.
+    let mut w = near_sdk::state::record::RecordWriter::new();
+    w.push(2, near_sdk::borsh::to_vec(&3u64).unwrap());
+    testing::seed(root.kind(0).entry(&2u32).as_bytes(), &w.finish(None, |_| true));
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = m.get(&2).map(|r| r.nonce);
+    }));
+    assert!(r.is_err());
+}
+
+#[near(storage)]
+pub struct SlimV2Default {
+    #[key(1)]
+    nonce: u64,
+    #[key(2, default = "owner.near".parse().unwrap())]
+    owner: AccountId, // added in v2 the right way
+}
+
+fn write_slim_v1(root: &near_sdk::state::Path) {
+    let mut v1: LookupMap<u32, SlimV1> = LookupMap::__bound_at(root.clone());
+    v1.insert(1, SlimV1 { nonce: 3 });
+    testing::flush();
+    testing::begin_call();
+}
+
+/// D2 cross-schema: a field added with `default = ..` decodes a record written before it
+/// existed.
+#[test]
+fn field_added_with_default_decodes_an_old_record() {
+    use near_sdk::state::Path;
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    write_slim_v1(&root);
+    let v2: LookupMap<u32, SlimV2Default> = LookupMap::__bound_at(root);
+    let s = v2.get(&1).unwrap();
+    assert_eq!((s.nonce, s.owner.as_str()), (3, "owner.near"));
+}
+
+/// D2 cross-schema: the same field added as `required` fails every old record, and the
+/// message names the tag (and the fix).
+#[test]
+#[should_panic(expected = "required field tag 2 is absent from the stored record")]
+fn field_added_as_required_fails_an_old_record_naming_the_tag() {
+    use near_sdk::state::Path;
+    testing::use_mock();
+    let root = Path::root(0xF0).field(9);
+    write_slim_v1(&root);
+    let v2: LookupMap<u32, SlimV2> = LookupMap::__bound_at(root);
+    let _ = v2.get(&1).map(|s| (&s.owner, s.nonce));
+}
+
+// ---------------------------------------------------------------------------------------
 // v1 collections as leaf fields (item 9)
 // ---------------------------------------------------------------------------------------
 
