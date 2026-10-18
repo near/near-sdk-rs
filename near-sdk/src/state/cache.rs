@@ -577,6 +577,25 @@ pub(crate) fn set_clearing(path: &Path) {
     })
 }
 
+/// The bytes stored at `path` before this call, for the removal check (API round 5, A3):
+/// 1 read unless this call already read the key (a flaggable entry that misses reads its flag
+/// key too, as `get_entry`). `None` if nothing is stored, or if this call already replaced the
+/// value whole or deleted it (the old bytes are then no longer what the removal removes).
+pub(crate) fn stored_bytes(path: &Path, flaggable: bool) -> Option<Vec<u8>> {
+    with(|c| {
+        let key = path.as_bytes();
+        c.entry_slot(key, flaggable);
+        let sp = c.load(key);
+        // SAFETY: invariant 1.
+        let s = unsafe { sp.as_ref() };
+        match s.mode {
+            Mode::Deleted => None,
+            Mode::Dirty if !s.merge => None,
+            _ => s.orig.bytes().map(<[u8]>::to_vec),
+        }
+    })
+}
+
 /// Marks a key whose value was handed out as `&mut`.
 pub(crate) fn touch(path: &Path) {
     with(|c| {

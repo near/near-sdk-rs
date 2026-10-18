@@ -5,6 +5,8 @@
 //! exactly one encoding. Drives the production codec (`record::RecordWriter`, `record::parse`)
 //! and the helpers the derive expands to (`root::__private::{field, field_or,
 //! field_required}`). The derive's own output is checked in `tests/state_v2_verify.rs`.
+//! Since API round 5 a collection field leaves a kind marker (`tag 01 kind`) in its record;
+//! `g6_kind_markers_written_preserved_and_checked_on_removal` covers it.
 
 use crate::state::key::{DEFAULT_ROOT, Path};
 use crate::state::record::{self, RecordError, RecordWriter};
@@ -208,5 +210,126 @@ fn g6_record_roundtrip_large_tags_and_bodies() {
         v.sort_by_key(|(t, _)| *t);
         let got: std::vec::Vec<(u32, std::vec::Vec<u8>)> = record::parse(&enc).unwrap().into_iter().map(|(t, b)| (t, b.to_vec())).collect();
         assert_eq!(got, v);
+    });
+}
+
+/// How schema S1 wrote a tag (kind-marker harness).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TypeGenerator)]
+pub enum Wrote {
+    Absent,
+    /// A one-byte scalar (`u8`); values `0x81..=0x87` look like a kind marker.
+    Scalar(u8),
+    /// A collection field of kind `0x81 + (k % 7)`.
+    Collection(u8),
+}
+
+/// How schema S2 declares a tag (kind-marker harness).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TypeGenerator)]
+pub enum Declares {
+    Unknown,
+    Scalar,
+    Collection(u8),
+    Reserved,
+}
+
+fn kind_of(k: u8) -> u8 {
+    record::marker::MAP + k % 7
+}
+
+/// The removal check the derive expands to (`__unknown_collection`), over the kernel helpers:
+/// the first tag S2 neither declares nor reserves whose value is a kind marker (or a nested
+/// record holding one).
+fn first_unknown_collection(bytes: &[u8], s2: &[Declares; TAGS]) -> Option<(std::vec::Vec<u32>, u8)> {
+    let f = p::parse(bytes).ok()?;
+    for &(t, b) in f.iter() {
+        let declared = (t as usize) <= TAGS && s2[t as usize - 1] != Declares::Unknown;
+        if !declared && let Some((mut trail, k)) = p::unknown_field_collection(b) {
+            trail.insert(0, t);
+            return Some((trail, k));
+        }
+    }
+    None
+}
+
+/// API round 5 (A3), the record-format side of "removal fails closed on unknown collection
+/// tags". Random engine, 20,000 cases: S1 writes up to 4 tags, each absent, a one-byte scalar
+/// or a collection field; S2 declares each tag unknown, scalar, collection or reserved.
+/// - A record writer emits exactly `tag 01 kind` for each collection field (3 bytes for tags
+///   below 128) and a root writer emits none; the result is canonical (parses, re-encodes to
+///   itself).
+/// - The removal check under S2 fires iff some tag S2 leaves unknown holds a marker: every
+///   S1 collection field S2 does not declare or reserve, and (the documented false positive)
+///   a one-byte scalar S1 wrote with a marker value. Reserved and declared tags never fire.
+/// - S2's read-modify-write keeps unknown markers byte-for-byte, drops reserved tags, and
+///   writes its own marker for each collection it declares (the stored one is not merged).
+#[test]
+fn g6_kind_markers_written_preserved_and_checked_on_removal() {
+    let g = bolero::produce::<([Wrote; TAGS], [Declares; TAGS])>();
+    bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(s1, s2)| {
+        // S1 writes, as `encode_field` does
+        let write = |root: bool| {
+            let mut w = if root { RecordWriter::root() } else { RecordWriter::new() };
+            for (i, x) in s1.iter().enumerate() {
+                let t = i as u32 + 1;
+                match x {
+                    Wrote::Absent => {}
+                    Wrote::Scalar(v) => w.push(t, vec![*v]),
+                    Wrote::Collection(k) => w.push_marker(t, kind_of(*k)),
+                }
+            }
+            w.finish(None, |_| true)
+        };
+        let stored = write(false);
+        let as_root = write(true);
+        let f = record::parse(&stored).expect("own encoding parses");
+        let scalars = s1.iter().filter(|x| matches!(x, Wrote::Scalar(_))).count();
+        let colls = s1.iter().filter(|x| matches!(x, Wrote::Collection(_))).count();
+        assert_eq!(stored.len(), 3 * (scalars + colls), "one varint tag, one length byte, one value byte per field");
+        assert_eq!(as_root.len(), 3 * scalars, "a root leaves no markers");
+        for (i, x) in s1.iter().enumerate() {
+            let got = record::find(&f, i as u32 + 1);
+            match x {
+                Wrote::Absent => assert_eq!(got, None),
+                Wrote::Scalar(v) => assert_eq!(got, Some(&[*v][..])),
+                Wrote::Collection(k) => assert_eq!(got, Some(&[kind_of(*k)][..])),
+            }
+        }
+        let mut w = RecordWriter::new();
+        for (t, b) in &f {
+            w.push(*t, b.to_vec());
+        }
+        assert_eq!(w.finish(None, |_| true), stored, "canonical");
+
+        // the removal check under S2
+        let want = (0..TAGS).find_map(|i| match (s1[i], s2[i]) {
+            (Wrote::Collection(k), Declares::Unknown) => Some((vec![i as u32 + 1], kind_of(k))),
+            (Wrote::Scalar(v), Declares::Unknown) if record::marker::is_marker(v) => Some((vec![i as u32 + 1], v)),
+            _ => None,
+        });
+        assert_eq!(first_unknown_collection(&stored, s2), want);
+
+        // S2 rewrites (read-modify-write, merging the stored bytes)
+        let mut w = RecordWriter::new();
+        for (i, d) in s2.iter().enumerate() {
+            let t = i as u32 + 1;
+            match d {
+                Declares::Scalar => w.push(t, vec![0x07]),
+                Declares::Collection(k) => w.push_marker(t, kind_of(*k)),
+                Declares::Unknown | Declares::Reserved => {}
+            }
+        }
+        let keep = |t: u32| (t as usize) <= TAGS && s2[t as usize - 1] == Declares::Unknown;
+        let rewritten = w.finish(Some(&stored), keep);
+        let after = record::parse(&rewritten).expect("parses");
+        for i in 0..TAGS {
+            let t = i as u32 + 1;
+            let got = record::find(&after, t);
+            match s2[i] {
+                Declares::Unknown => assert_eq!(got, record::find(&f, t), "unknown tag {t} not preserved"),
+                Declares::Reserved => assert_eq!(got, None, "reserved tag {t} not dropped"),
+                Declares::Scalar => assert_eq!(got, Some(&[0x07][..])),
+                Declares::Collection(k) => assert_eq!(got, Some(&[kind_of(k)][..]), "S2's own marker"),
+            }
+        }
     });
 }

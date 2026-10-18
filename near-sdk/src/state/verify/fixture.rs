@@ -13,6 +13,7 @@
 //!     #[key(5)] vec: Vector<Vec<u8>>,
 //! }
 //! #[near(storage)] struct Rec   { #[key(1)] n: u64, #[key(2)] items: Map<u8, Vec<u8>> }
+//! // Stored as `01 08 n(8)  02 01 81`: since API round 5 `items` leaves its kind marker.
 //! // Rec re-typed by a later deploy: tag 1 removed, tag 3 added with `default = 7`.
 //! #[near(storage)] struct RecV2 { #[key(2)] items: Map<u8, Vec<u8>>, #[key(3, default = 7)] note: u32 }
 //! ```
@@ -49,6 +50,22 @@ impl Value for Rec {
         p::field_subpath::<u64>(REC_N),
         p::field_subpath::<Map<u8, StdVec<u8>>>(REC_ITEMS),
     );
+    const __RECORD: bool = true;
+    fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
+        let f = p::parse(bytes).ok()?;
+        for &(t, b) in f.iter() {
+            let hit = match t {
+                REC_N => <u64 as Value>::__unknown_collection(b),
+                REC_ITEMS => <Map<u8, StdVec<u8>> as Value>::__unknown_collection(b),
+                _ => p::unknown_field_collection(b),
+            };
+            if let Some((mut trail, k)) = hit {
+                trail.insert(0, t);
+                return Some((trail, k));
+            }
+        }
+        None
+    }
     fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
         let mut w = p::RecordWriter::new();
@@ -150,6 +167,22 @@ impl Value for RecV2 {
         p::field_subpath::<Map<u8, StdVec<u8>>>(REC_ITEMS),
         p::field_subpath::<u32>(REC2_NOTE),
     );
+    const __RECORD: bool = true;
+    fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
+        let f = p::parse(bytes).ok()?;
+        for &(t, b) in f.iter() {
+            let hit = match t {
+                REC_ITEMS => <Map<u8, StdVec<u8>> as Value>::__unknown_collection(b),
+                REC2_NOTE => <u32 as Value>::__unknown_collection(b),
+                _ => p::unknown_field_collection(b),
+            };
+            if let Some((mut trail, k)) = hit {
+                trail.insert(0, t);
+                return Some((trail, k));
+            }
+        }
+        None
+    }
     fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
         let mut w = p::RecordWriter::new();
@@ -240,7 +273,7 @@ impl Root for MRoot {
     );
     fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
-        let mut w = p::RecordWriter::new();
+        let mut w = p::RecordWriter::root();
         p::encode_field(&mut w, of.as_ref(), TAG_COUNTER, &self.counter);
         p::encode_field(&mut w, of.as_ref(), TAG_FLAT, &self.flat);
         p::encode_field(&mut w, of.as_ref(), TAG_LOOK, &self.look);

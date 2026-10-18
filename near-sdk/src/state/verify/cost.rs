@@ -73,7 +73,7 @@ pub fn add(a: Cost, b: Cost) -> Cost {
 #[allow(dead_code)] // the list the report reproduces
 pub const DOC_DIFFS: &[&str] = &[
     "Map/Set remove of the LAST key: the spec lists '1 read and 1 remove of the last slot' and only says the moved-key writes are skipped; the slot read is skipped too (3 reads, not 4, for remove; 2 for discard).",
-    "LookupMap::discard and LookupSet::remove of an ABSENT key still issue one storage_remove (blind remove, no read); the spec does not say. For a value that owns collections, discard issues 2 (record key and flag key); the spec says that one.",
+    "LookupMap::discard and LookupSet::remove of an ABSENT key still issue one storage_remove (blind remove, no read); the spec does not say. (API round 5: a `#[near(storage)]` record value is read first, the unknown-collection check, so its discard is 1 read + 1 remove, 0 removes if absent, and no longer the blind 2 removes of record key and flag key.)",
     "Lazy::remove issues one storage_remove even when the Lazy was empty (blind remove).",
     "remove_step on a call that does not finish reads ONE MORE key slot than it removes (the loop reads the next slot before it sees the budget is spent), plus the map header: record lookups + 1 + n + 1 reads. The spec's per-call line names only the record read(s) and 'the cost of clearing up to n entries'.",
     "RESOLVED (API round 2): remove_step moves the record to its flag key only on the FIRST unfinished call (1 remove of the record key, then 1 write of the flag key); later unfinished calls write nothing. The spec now says so.",

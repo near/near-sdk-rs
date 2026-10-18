@@ -28,6 +28,22 @@ impl Value for Account {
         p::field_subpath::<u64>(1),
         p::field_subpath::<Map<String, u128>>(2),
     );
+    const __RECORD: bool = true;
+    fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
+        let f = p::parse(bytes).ok()?;
+        for &(t, b) in f.iter() {
+            let hit = match t {
+                1 => <u64 as Value>::__unknown_collection(b),
+                2 => <Map<String, u128> as Value>::__unknown_collection(b),
+                _ => p::unknown_field_collection(b),
+            };
+            if let Some((mut trail, k)) = hit {
+                trail.insert(0, t);
+                return Some((trail, k));
+            }
+        }
+        None
+    }
     fn encode_value(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
         let mut w = p::RecordWriter::new();
@@ -124,7 +140,7 @@ impl Root for Ex {
     );
     fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
-        let mut w = p::RecordWriter::new();
+        let mut w = p::RecordWriter::root();
         p::encode_field(&mut w, of.as_ref(), 2, &self.fee_bps);
         p::encode_field(&mut w, of.as_ref(), 3, &self.accounts);
         w.finish(orig, |t| match t {
@@ -636,7 +652,11 @@ fn unknown_tags_survive_a_rewrite() {
     flush_root(&ex);
     let stored = store()[&alice_record_key()].clone();
     let f = record::parse(&stored).unwrap();
-    assert_eq!(f, vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (9, &[0xAA, 0xBB][..])]);
+    // API round 5: the rewrite also adds the `balances` kind marker the old bytes lacked.
+    assert_eq!(
+        f,
+        vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (2, &[record::marker::MAP][..]), (9, &[0xAA, 0xBB][..])]
+    );
 }
 
 /// Hand-expanded scalar-only record `Slim { #[key(1)] nonce: u64 }` (owns no collections, so
@@ -1338,16 +1358,16 @@ fn flag_key_is_dropped_by_replace_remove_and_discard() {
     assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
     let _ = flag;
 
-    // discard (blind): removes both keys, since it cannot know which one holds the record
+    // discard: since API round 5 it reads the record first (the unknown-collection check), so
+    // it knows the flag key holds it and removes only that key (was blind: both keys, 6)
     let (mut lm, rec, _) = flagged_lookup(22);
     lm.discard(&1);
     let r = end_call();
     assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
     assert_eq!(
         r.rwd().2,
-        6,
-        "the remaining balance's entry, index, slot and the balances header; then the record \
-         key and the flag key"
+        5,
+        "the remaining balance's entry, index, slot and the balances header; then the flag key"
     );
 
     // try_insert over a record being cleared panics, and so does `entry`

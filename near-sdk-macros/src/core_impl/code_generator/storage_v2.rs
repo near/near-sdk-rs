@@ -7,7 +7,10 @@
 //!   decode (missing tag -> `FieldDefault`, the const expression of
 //!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), a call of the `fn() -> T` of
 //!   `#[key(n, default_fn = path)]` (API round 4), or an error for `#[key(n, required)]`),
-//!   bind / detach, and `MAX_SUBPATH` summed over fields;
+//!   bind / detach, and `MAX_SUBPATH` summed over fields; since API round 5 each collection
+//!   field leaves its kind marker (`tag 01 kind`) in the record (a root's writer leaves none),
+//!   `__RECORD = true`, and `__unknown_collection` (the removal check: an undeclared,
+//!   unreserved tag holding a marker, at any depth);
 //! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
 //!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
 //!   `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested view for
@@ -337,6 +340,8 @@ pub fn expand(
     let mut leaf_bounds = Vec::new();
     let mut clear = Vec::new();
     let mut clear_some = Vec::new();
+    // API round 5 (A3): one arm per declared tag for `__unknown_collection`.
+    let mut unknown_arms = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required, default, default_fn, legacy } in &fields {
         let t = tag_lit(*tag);
@@ -345,12 +350,15 @@ pub fn expand(
             // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
             enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
             known_arms.push(quote! { #t => false, });
+            unknown_arms.push(quote! { #t => ::core::option::Option::None, });
             dec.push(quote_spanned! {ty.span()=> #ident: #p::legacy_field::<#ty>(f, #t)?, });
             continue;
         }
         max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
+        // a declared field: a nested record checks its own bytes, anything else is known
+        unknown_arms.push(quote! { #t => <#ty as #s::Value>::__unknown_collection(b), });
         // Spanned at the field type, so a missing `Default` points at the field.
         if *required {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
@@ -405,15 +413,42 @@ pub fn expand(
         let t = tag_lit(*r);
         quote! { #t => false, }
     });
+    // `reserved(n)` tags are known-and-empty for removal: the version that owned a reserved
+    // collection tag must have cleared it.
+    let reserved_unknown_arms: Vec<_> = opts
+        .reserved
+        .iter()
+        .map(|r| {
+            let t = tag_lit(*r);
+            quote! { #t => ::core::option::Option::None, }
+        })
+        .collect();
+    let unknown_collection_body = quote! {
+        let f = #p::parse(bytes).ok()?;
+        for &(t, b) in f.iter() {
+            let hit = match t {
+                #(#reserved_unknown_arms)*
+                #(#unknown_arms)*
+                _ => #p::unknown_field_collection(b),
+            };
+            if let ::core::option::Option::Some((mut trail, k)) = hit {
+                trail.insert(0, t);
+                return ::core::option::Option::Some((trail, k));
+            }
+        }
+        ::core::option::Option::None
+    };
 
     let max_subpath = quote! {{
         let mut m = 0usize;
         #(#max_terms)*
         m
     }};
+    // A root never leaves kind markers (it is never removed); a record does (API round 5).
+    let writer = if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
     let encode_body = quote! {
         let of = #p::parse_orig(orig);
-        let mut w = #p::RecordWriter::new();
+        let mut w = #writer;
         #(#enc)*
         // keep a stored tag iff the code does not know it inline and it is not reserved
         w.finish(orig, |t| match t {
@@ -551,6 +586,12 @@ pub fn expand(
         const _: () = {
             impl #s::Value for #name {
                 const MAX_SUBPATH: usize = #max_subpath;
+                const __RECORD: bool = true;
+                fn __unknown_collection(bytes: &[u8])
+                    -> ::core::option::Option<(::std::vec::Vec<u32>, u8)>
+                {
+                    #unknown_collection_body
+                }
                 fn encode_value(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                     #encode_body
                 }

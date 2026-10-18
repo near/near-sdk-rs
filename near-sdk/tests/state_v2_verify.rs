@@ -357,13 +357,14 @@ mod m4 {
 }
 
 // ---------------------------------------------------------------------------------------
-// A3: rollback subtree ownership (hazard, pinned)
+// A3: rollback subtree ownership. API round 5: removal fails closed on unknown collection tags.
 // ---------------------------------------------------------------------------------------
 
 mod a3 {
     use near_sdk::near;
     use near_sdk::state::testing;
-    use near_sdk::state::{Map, Path};
+    use near_sdk::state::{LookupMap, Map, Path, record};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
 
     /// Version B: the record owns a child map at tag 2.
     #[near(storage)]
@@ -383,42 +384,233 @@ mod a3 {
         n: u64,
     }
 
+    /// Version A', which lists B's collection tag in `reserved(2)`: known-and-empty.
+    #[near(storage, reserved(2))]
+    #[derive(Default)]
+    pub struct RecAReserved {
+        #[key(1)]
+        n: u64,
+    }
+
+    /// Version C: A plus a scalar at tag 3 (an unknown scalar tag to A).
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct RecC {
+        #[key(1)]
+        n: u64,
+        #[key(3)]
+        note: u32,
+    }
+
+    /// A nested record that owns a collection, and its rollback shape.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct InnerB {
+        #[key(1)]
+        x: u8,
+        #[key(2)]
+        kids: Map<u8, u64>,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct InnerA {
+        #[key(1)]
+        x: u8,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct OuterB {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        inner: InnerB,
+    }
+    /// Knows `inner` but as `InnerA`, which does not declare `kids`.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct OuterKnowsInnerA {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        inner: InnerA,
+    }
+    /// Does not declare `inner` at all.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct OuterA {
+        #[key(1)]
+        n: u64,
+    }
+
     fn root() -> Path {
         Path::root(0xF0).field(9)
     }
 
-    /// HAZARD (A3), pinned. Version B adds a child map under record 1; the contract is
-    /// rolled back to version A, which removes record 1 and creates a NEW record 1; version B
-    /// is redeployed and the new record sees the OLD record's children. A's `remove` cannot
-    /// clear a subtree it has no type for, and nothing in the path distinguishes the new
-    /// record from the old one. Missing invariant: a record's subtree is owned by the record
-    /// INSTANCE, not its key; removal must clear every key under the record's path whatever
-    /// the current schema (a prefix delete), or record paths need an instance/generation
-    /// component. Not fixed here (design decision).
-    #[test]
-    fn hazard_rollback_new_record_inherits_old_children() {
+    fn msg(e: Box<dyn std::any::Any + Send>) -> String {
+        e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default()
+    }
+
+    fn quiet<R>(f: impl FnOnce() -> R) -> std::thread::Result<R> {
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let r = catch_unwind(AssertUnwindSafe(f));
+        std::panic::set_hook(hook);
+        r
+    }
+
+    fn kid_key() -> Vec<u8> {
+        root().kind(0).entry(&1u32).field(2).kind(0).entry(&5u8).as_bytes().to_vec()
+    }
+
+    /// Version B writes record 1 with one child; the store afterwards.
+    fn write_b() {
         testing::use_mock();
-        // version B
         let mut b: Map<u32, RecB> = Map::__bound_at(root());
         b.try_insert(1, RecB { n: 1, ..Default::default() }).unwrap();
         b.at_mut(&1).unwrap().kids.insert(5, 50);
         testing::flush();
-        drop(b);
-        // roll back to version A: remove record 1 and create a fresh one
+    }
+
+    /// Runs `f` in a fresh call, expects the A3 panic, and checks that it names tag `tag`,
+    /// the collection type and both fixes, and that storage is unchanged.
+    fn assert_refused(what: &str, tag: &str, f: impl FnOnce()) {
         testing::begin_call();
-        let mut a: Map<u32, RecA> = Map::__bound_at(root());
-        assert!(a.remove(&1).is_some());
-        a.try_insert(1, RecA { n: 2 }).unwrap();
+        let before = testing::store();
+        let e = quiet(|| {
+            f();
+            testing::flush();
+        })
+        .expect_err(what);
+        let m = msg(e);
+        assert!(m.contains(&format!("carry tag {tag}, a `Map` field")), "{what}: {m}");
+        assert!(m.contains("Roll forward") && m.contains("reserved("), "{what}: {m}");
+        testing::begin_call();
+        assert_eq!(testing::store(), before, "{what}: the refused removal changed storage");
+        assert!(testing::store().contains_key(&kid_key()), "{what}");
+    }
+
+    /// The A3 pin, flipped. Version B gives record 1 a child map (tag 2, stored with its kind
+    /// marker `02 01 81`); the contract rolls back to version A, which does not declare tag 2.
+    /// Every way A can remove the record (`remove`, `discard`, `remove_step`, a `LookupMap`
+    /// `remove` / `replace` / `discard`, a bulk `clear` of the map) panics naming tag 2 and
+    /// changes nothing, so A can never recreate record 1 over B's children. (Before round 5 A's
+    /// `remove` succeeded, left `kids[5]` behind, and a redeployed B showed it under the new
+    /// record.)
+    #[test]
+    fn a3_rollback_removal_of_a_record_with_an_unknown_collection_tag_panics() {
+        write_b();
+        let rec_key = root().kind(0).entry(&1u32).as_bytes().to_vec();
+        let stored = testing::store()[&rec_key].clone();
+        assert_eq!(
+            record::parse(&stored).unwrap(),
+            vec![(1, &1u64.to_le_bytes()[..]), (2, &[record::marker::MAP][..])],
+            "B's record carries the kids marker"
+        );
+        let nz = 3;
+        assert_refused("remove", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove(&1)));
+        assert_refused("discard", "2", || drop(Map::<u32, RecA>::__bound_at(root()).discard(&1)));
+        assert_refused("remove_step", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove_step(&1, nz)));
+        assert_refused("clear", "2", || Map::<u32, RecA>::__bound_at(root()).clear());
+        // the same record bytes under a LookupMap of A at another path
+        let lroot = Path::root(0xF0).field(10);
+        let lkey = lroot.kind(0).entry(&1u32).as_bytes().to_vec();
+        testing::begin_call();
+        testing::seed(&lkey, &stored);
         testing::flush();
-        drop(a);
-        let kid_key = root().kind(0).entry(&1u32).field(2).kind(0).entry(&5u8);
-        assert!(testing::store().contains_key(kid_key.as_bytes()), "A's remove left B's child entry behind");
-        // redeploy B
+        assert_refused("LookupMap::remove", "2", || drop(LookupMap::<u32, RecA>::__bound_at(lroot.clone()).remove(&1)));
+        assert_refused("LookupMap::discard", "2", || LookupMap::<u32, RecA>::__bound_at(lroot.clone()).discard(&1));
+        assert_refused("LookupMap::replace", "2", || {
+            drop(LookupMap::<u32, RecA>::__bound_at(lroot.clone()).replace(1, RecA { n: 2 }))
+        });
+        // rolling forward works: B removes its own record and its child
         testing::begin_call();
-        let b: Map<u32, RecB> = Map::__bound_at(root());
-        assert_eq!(b.get(&1).map(|r| r.n), Some(2), "this is the new record");
-        assert_eq!(b.at(&1).kids.get(&5), Some(&50), "HAZARD: the new record sees the old record's child");
-        assert_eq!(b.at(&1).kids.len(), 1);
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        assert_eq!(b.remove(&1).map(|r| r.n), Some(1));
+        testing::flush();
+        assert!(testing::store().keys().all(|k| !k.starts_with(&rec_key)), "B's remove left keys");
+    }
+
+    /// Fails closed, not open: a record whose collection tags are all known removes as before,
+    /// and so does a record carrying an unknown SCALAR tag (C wrote tag 3 = u32; A drops it on
+    /// removal, as unknown scalars always were dropped with their record).
+    #[test]
+    fn a3_known_collections_and_unknown_scalars_still_remove() {
+        write_b();
+        testing::begin_call();
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        b.try_insert(2, RecB { n: 2, ..Default::default() }).unwrap();
+        b.at_mut(&2).unwrap().kids.insert(1, 1);
+        testing::flush();
+        testing::begin_call();
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        assert!(b.remove(&1).is_some());
+        assert!(b.discard(&2));
+        testing::flush();
+        assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "known collections cleared");
+
+        // C writes record 3 with an unknown-to-A scalar at tag 3; A removes it (all three paths)
+        for how in 0..3 {
+            testing::begin_call();
+            let mut c: Map<u32, RecC> = Map::__bound_at(root());
+            c.insert(3, RecC { n: 3, note: 0x0102_0304 });
+            testing::flush();
+            testing::begin_call();
+            let mut a: Map<u32, RecA> = Map::__bound_at(root());
+            match how {
+                0 => assert_eq!(a.remove(&3).map(|r| r.n), Some(3)),
+                1 => assert!(a.discard(&3)),
+                _ => assert_eq!(a.remove_step(&3, 3), near_sdk::state::Removal::Done),
+            }
+            testing::flush();
+            assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).entry(&3u32).as_bytes())), "how={how}");
+        }
+    }
+
+    /// `reserved(2)` makes tag 2 known-and-empty: removal proceeds. It is the developer's
+    /// statement that the version that owned the collection cleared it; if it did not (as
+    /// here, deliberately), the child keys are orphaned exactly as before round 5. Documented.
+    #[test]
+    fn a3_reserved_collection_tag_is_known_and_empty() {
+        write_b();
+        testing::begin_call();
+        let mut a: Map<u32, RecAReserved> = Map::__bound_at(root());
+        assert_eq!(a.remove(&1).map(|r| r.n), Some(1));
+        testing::flush();
+        assert!(testing::store().contains_key(&kid_key()), "reserved(2) trusts that B cleared tag 2; it did not, so kids[5] is left");
+    }
+
+    /// Nested records: a nested record's own collection fields leave markers inside its bytes.
+    /// (1) The outer record knows the nested field, but as a type that does not declare the
+    /// nested collection: refused, tag path `2 > 2`. (2) The outer record does not declare the
+    /// nested field at all: the unknown value parses as a record holding a marker, refused,
+    /// tag path `2 > 2` (the heuristic for unknown nested records, spec Records).
+    #[test]
+    fn a3_nested_record_collections_are_checked_at_any_depth() {
+        testing::use_mock();
+        let mut b: Map<u32, OuterB> = Map::__bound_at(root());
+        b.try_insert(1, OuterB { n: 1, ..Default::default() }).unwrap();
+        b.at_mut(&1).unwrap().inner.kids.insert(5, 50);
+        testing::flush();
+        for which in 0..2 {
+            testing::begin_call();
+            let before = testing::store();
+            let e = quiet(|| {
+                if which == 0 {
+                    drop(Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&1));
+                } else {
+                    drop(Map::<u32, OuterA>::__bound_at(root()).discard(&1));
+                }
+            })
+            .expect_err("nested removal accepted");
+            assert!(msg(e).contains("carry tag 2 > 2, a `Map` field"), "which={which}");
+            testing::begin_call();
+            assert_eq!(testing::store(), before);
+        }
+        testing::begin_call();
+        let mut b: Map<u32, OuterB> = Map::__bound_at(root());
+        assert!(b.remove(&1).is_some());
+        testing::flush();
+        assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "OuterB removes its nested collection");
     }
 }
 

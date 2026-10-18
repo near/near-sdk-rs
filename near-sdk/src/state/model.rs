@@ -141,6 +141,10 @@ pub const REC2_NOTE: u32 = 3;
 pub const REC2_NOTE_DEFAULT: u32 = 7;
 /// The D9 flag segment: a record being cleared is stored at its key plus this byte.
 pub const FLAG_SEGMENT: u8 = 0x00;
+/// API round 5 (A3): the kind marker a `Map` field leaves under its tag in its record
+/// (spec, Records: `tag 01 kind`, `Map` = `0x81`). Both `Rec` and `RecV2` declare `items` (tag
+/// 2), so every record the code writes carries `02 01 81`.
+pub const KIND_MAP: u8 = 0x81;
 
 pub fn root_key() -> Vec<u8> {
     spec_key::encode(&[])
@@ -238,9 +242,12 @@ impl RecM {
             .get(&REC2_NOTE)
             .map_or(REC2_NOTE_DEFAULT, |b| u32::from_le_bytes(b[..].try_into().unwrap()))
     }
-    /// The record's bytes, wherever they are stored (the flag carries no bytes of its own).
+    /// The record's bytes, wherever they are stored (the flag carries no bytes of its own):
+    /// its inline fields plus the `items` kind marker (API round 5).
     pub fn bytes(&self) -> Vec<u8> {
-        enc_record(&self.fields)
+        let mut f = self.fields.clone();
+        f.insert(REC_ITEMS, vec![KIND_MAP]);
+        enc_record(&f)
     }
 }
 

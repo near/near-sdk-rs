@@ -80,6 +80,25 @@ pub trait Value: Sized + 'static {
     /// stored at. Zero exactly when the value owns no storage of its own. Summed along the
     /// schema so the root can refuse one that could exceed the 2,048-byte protocol limit.
     const MAX_SUBPATH: usize = 0;
+    /// The kind marker byte ([`record::marker`](super::record::marker)) a non-inline value
+    /// (a collection or `Lazy`) leaves under its tag in its parent record (API round 5). Unused
+    /// for inline values.
+    #[doc(hidden)]
+    const KIND: u8 = 0;
+    /// Whether this is a tagged record (`#[near(storage)]`), whose stored bytes removal checks
+    /// for unknown collection tags (API round 5, hazard A3).
+    #[doc(hidden)]
+    const __RECORD: bool = false;
+
+    /// For a tagged record: the first tag in `bytes` (the stored record) that this type does
+    /// not know and whose value is a collection kind marker, or a nested record holding one;
+    /// as the tag trail from this record down and the marker. Known nested records are checked
+    /// by their own type, known collection tags and `reserved(n)` tags are skipped. `None` for
+    /// leaves and collections.
+    #[doc(hidden)]
+    fn __unknown_collection(_bytes: &[u8]) -> Option<(std::vec::Vec<u32>, u8)> {
+        None
+    }
 
     /// Encodes the value. `orig` is what is currently stored at the same key or field, so a
     /// record can preserve tags it does not know (`None` for a whole-value replacement).
@@ -211,6 +230,29 @@ impl<T: BorshLeaf> Leaf for T {}
 /// Not removable: `LookupMap`, `LookupSet` and `GroupedMap` (they do not track their keys), and
 /// any record holding one. v1 collections are not values at all (T7), so no record holding one
 /// compiles and `remove` can never orphan one.
+///
+/// # Removal fails closed on unknown collection tags (API round 5, hazard A3)
+///
+/// `clear_children` clears the collections the CURRENT schema declares. A collection field
+/// declared by another version of the contract (a rollback target that predates it, or a later
+/// version rolled back from) is not in that schema, so its keys would be left behind and a new
+/// record at the same key would inherit them. Every collection or `Lazy` field therefore leaves
+/// a one-byte kind marker under its tag in the record (`tag 01 kind`, see
+/// [`record::marker`](super::record::marker)), and every removal of a record (`remove`,
+/// `discard`, `replace`, `remove_step`, a bulk `clear` of a map, `Vector` or `Lazy` holding
+/// records) checks the stored bytes first: a tag the record does not declare, is not listed in
+/// `reserved(n)`, and whose value is a kind marker (or a nested record holding one) makes the
+/// removal panic, naming the tag, before anything is removed. Roll forward to the version that
+/// declares the tag, or list it in `reserved(n)`: a reserved tag is known-and-empty, a
+/// statement that the version that owned the collection cleared it. Unknown scalar tags are
+/// unaffected (dropped with the record, as before). A one-byte `u8`/`i8` scalar left under an
+/// unknown tag whose value is `0x81..=0x87` looks like a marker and fails closed the same way.
+///
+/// The check reads the record; `remove`, `replace` and `remove_step` read it anyway, and
+/// `discard` and bulk clears now pay 1 read per record. Not covered: a blind `insert` of a
+/// `Leaf` record (or `Lazy::set` of one) over stored bytes that carry an unknown collection tag
+/// replaces them without reading, and records written before round 5 carry no markers until
+/// they are next rewritten (`get_mut` or `entry` rewrite them; `at_mut` does not).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`, which does not track its keys",
     label = "not `Removable`",

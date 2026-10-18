@@ -163,7 +163,8 @@ pub mod __private {
         w.push(tag, borsh::to_vec(v).expect("borsh serialization cannot fail"));
     }
 
-    /// Encodes field `tag` into `w` if it is stored inline.
+    /// Encodes field `tag` into `w` if it is stored inline; a collection or `Lazy` field leaves
+    /// its one-byte kind marker instead (API round 5), unless `w` is a root's writer.
     pub fn encode_field<T: Value>(
         w: &mut RecordWriter,
         orig: Option<&Fields<'_>>,
@@ -173,7 +174,17 @@ pub mod __private {
         if T::INLINE {
             let o = orig.and_then(|f| find(f, tag));
             w.push(tag, v.encode_value(o));
+        } else {
+            // API round 5 (A3): a collection field leaves `tag 01 kind` (not in a root's writer).
+            w.push_marker(tag, T::KIND);
         }
+    }
+
+    /// The value of a field the record does not know (not declared, not reserved): whether it
+    /// is a collection kind marker or a nested record holding one. See
+    /// [`record::unknown_value_collection`].
+    pub fn unknown_field_collection(body: &[u8]) -> Option<(std::vec::Vec<u32>, u8)> {
+        record::unknown_value_collection(body)
     }
 
     pub fn parse_orig(orig: Option<&[u8]>) -> Option<Fields<'_>> {

@@ -182,6 +182,42 @@ unsafe fn arena_mut<'a, C: core::any::Any>(c: C) -> &'a mut C {
     unsafe { &mut *cache::arena(c).as_ptr() }
 }
 
+/// API round 5 (hazard A3), "removal fails closed on unknown collection tags": before the
+/// record stored at `path` is removed, checks its stored bytes for a tag this code does not
+/// declare (and does not list in `reserved(n)`) whose value is a collection kind marker, or a
+/// nested record holding one. Such a tag is a collection another version of the contract
+/// declared; removing the record would orphan its keys, and a new record at the same key would
+/// inherit them. Panics naming the tag. Only for tagged records (`V::__RECORD`); costs 1 read
+/// when this call has not read the record yet (`discard`, a bulk clear), nothing otherwise.
+#[track_caller]
+fn guard_removal<V: Value>(path: &Path, entry: bool) {
+    if !V::__RECORD {
+        return;
+    }
+    let Some(bytes) = cache::stored_bytes(path, entry && V::MAX_SUBPATH > 0) else { return };
+    if let Some((trail, k)) = V::__unknown_collection(&bytes) {
+        unknown_collection_panic(path, &trail, k);
+    }
+}
+
+#[track_caller]
+fn unknown_collection_panic(path: &Path, trail: &[u32], k: u8) -> ! {
+    let tag = trail.iter().map(u32::to_string).collect::<std::vec::Vec<_>>().join(" > ");
+    let fix = match trail {
+        [t] => format!("`#[near(storage, reserved({t}))]`"),
+        _ => format!("`reserved(n)` on the record that dropped it (tag path {tag})"),
+    };
+    crate::env::panic_str(&format!(
+        "state: refusing to remove the record at {path:?}: its stored bytes carry tag {tag}, a \
+         `{}` field this version of the record does not declare (another version of the \
+         contract wrote it). Removing the record would leave that collection's keys behind, \
+         and a new record at this key would inherit them. Roll forward to the version that \
+         declares tag {tag} and remove the record there, or, if that version cleared the \
+         collection before the field was dropped, list the tag in {fix}",
+        super::record::marker::name(k)
+    ))
+}
+
 /// Panics if `V` owns collections and a value already exists at `path`.
 #[track_caller]
 fn assert_insert_new<V: Value>(path: &Path) {
@@ -417,6 +453,7 @@ collection_value!(LookupMap<K, V>);
 
 impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::LOOKUP_MAP;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
     not_inline_value!();
 }
@@ -522,7 +559,9 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         Ok(unsafe { m(cache::put(&path, v)) })
     }
 
-    /// 1 read, 1 write. The old value comes back detached, its collections cleared.
+    /// 1 read, 1 write. The old value comes back detached, its collections cleared. Panics if
+    /// the stored record carries a collection tag this code does not declare (see
+    /// [`Removable`], API round 5).
     #[track_caller]
     pub fn replace(&mut self, k: K, mut v: V) -> Option<V>
     where
@@ -532,6 +571,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         let path = self.entry_path(&k);
         let mut old = None;
         if cache::get_entry::<V>(&path).is_some() {
+            guard_removal::<V>(&path, true);
             V::clear_children(&path);
             let mut o = cache::take_entry::<V>(&path).expect("value was just read");
             o.detach();
@@ -542,7 +582,9 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         old
     }
 
-    /// 1 read, 1 remove, plus clearing the value's collections. The returned record is
+    /// 1 read, 1 remove, plus clearing the value's collections. Panics, changing nothing, if the
+    /// stored record carries a collection tag this code does not declare (see [`Removable`]).
+    /// The returned record is
     /// detached: its collections panic on use.
     #[track_caller]
     pub fn remove(&mut self, k: &K) -> Option<V>
@@ -552,6 +594,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let path = self.entry_path(k);
         cache::get_entry::<V>(&path)?;
+        guard_removal::<V>(&path, true);
         V::clear_children(&path);
         let mut v = cache::take_entry::<V>(&path).expect("value was just read");
         v.detach();
@@ -560,8 +603,13 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
 
     /// 1 remove, no read, plus clearing the value's collections. The remove is blind: it is
     /// issued even when the key is absent (unless this call already read it as absent), since
-    /// nothing tells `discard` whether the key exists. For a value that owns collections it is
-    /// 2 removes, the record key and its D9 flag key, since a record being cleared lives there.
+    /// nothing tells `discard` whether the key exists.
+    ///
+    /// A `#[near(storage)]` record value is read first (API round 5): 1 read, then 1 remove,
+    /// none if absent. The read checks the stored record for a collection tag this code does
+    /// not declare and panics if there is one (see [`Removable`]); it also says which key holds
+    /// a record that owns collections, so that is 1 remove, not the blind 2 (record key and D9
+    /// flag key) of earlier rounds.
     #[track_caller]
     pub fn discard(&mut self, k: &K)
     where
@@ -569,6 +617,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     {
         self.path.live();
         let path = self.entry_path(k);
+        guard_removal::<V>(&path, true);
         V::clear_children(&path);
         cache::delete_entry::<V>(&path);
     }
@@ -602,6 +651,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
         }
+        guard_removal::<V>(&path, true);
         let mut budget = n;
         if V::clear_children_some(&path, &mut budget) {
             self.discard(k);
@@ -715,6 +765,7 @@ collection_value!(Map<K, V>);
 
 impl<K: StorageKey + Clone + 'static, V: Value> Value for Map<K, V> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::MAP;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
     not_inline_value!();
 }
@@ -878,6 +929,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             cache::get_entry::<V>(&path)?;
         }
         let i = unsafe { *r(cache::get::<u32>(&idx_path)?) };
+        guard_removal::<V>(&path, true);
         let len = self.len();
         V::clear_children(&path);
         if read_value || core::mem::size_of::<V>() == 0 {
@@ -929,7 +981,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         self.remove_inner(k, true).flatten()
     }
 
-    /// As `remove` without the entry read.
+    /// As `remove` without the entry read. For a `#[near(storage)]` record value the entry is
+    /// read anyway (the unknown-collection check, API round 5; see [`Removable`]), so `discard`
+    /// then differs from `remove` only by the decode, and a record that owns collections is 1
+    /// remove instead of the blind 2.
     #[track_caller]
     pub fn discard(&mut self, k: &K) -> bool
     where
@@ -1035,7 +1090,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
 
     /// Removes everything: 1 header read, then per entry 1 slot read and 3 removes (entry,
     /// index, slot), plus clearing each value's own collections; then 1 header write that keeps
-    /// the revision (T4; nothing if the map was already empty).
+    /// the revision (T4; nothing if the map was already empty). A `#[near(storage)]` record
+    /// value adds 1 read per entry (the unknown-collection check, API round 5; panics if one
+    /// carries an undeclared collection tag), and its entry is then 1 remove even when it owns
+    /// collections (was 2 blind: record key and flag key).
     pub fn clear(&mut self)
     where
         V: Removable,
@@ -1060,6 +1118,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             let slot = self.slot_path(i);
             let k: K = unsafe { r(cache::get::<K>(&slot).expect("dense key vector")) }.clone();
             let path = self.entry_path(&k);
+            guard_removal::<V>(&path, true);
             V::clear_children(&path);
             cache::delete_entry::<V>(&path);
             cache::delete::<u32>(&self.index_path(&k));
@@ -1096,6 +1155,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             let slot = self.slot_path(i);
             let k: K = unsafe { r(cache::get::<K>(&slot).expect("dense key vector")) }.clone();
             let path = self.entry_path(&k);
+            guard_removal::<V>(&path, true);
             if !V::clear_children_some(&path, budget) || *budget == 0 {
                 return false;
             }
@@ -1120,6 +1180,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         if cache::get_entry::<V>(&path).is_none() {
             return Removal::Done;
         }
+        guard_removal::<V>(&path, true);
         let mut budget = n;
         if V::clear_children_some(&path, &mut budget) {
             self.remove_inner(k, false);
@@ -1275,6 +1336,7 @@ collection_value!(Vector<T>);
 
 impl<T: Value> Value for Vector<T> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::VECTOR;
     const MAX_SUBPATH: usize = 1 + 4 + T::MAX_SUBPATH;
     not_inline_value!();
 }
@@ -1291,6 +1353,7 @@ impl<T: Removable> Removable for Vector<T> {
                 return true;
             }
             let slot = v.slot(len - 1);
+            guard_removal::<T>(&slot, false);
             if !T::clear_children_some(&slot, budget) || *budget == 0 {
                 return false;
             }
@@ -1363,6 +1426,7 @@ impl<T: Value> Vector<T> {
         }
         let path = self.slot(len - 1);
         cache::get::<T>(&path);
+        guard_removal::<T>(&path, false);
         T::clear_children(&path);
         let mut v = cache::take::<T>(&path);
         if let Some(v) = v.as_mut() {
@@ -1383,6 +1447,7 @@ impl<T: Value> Vector<T> {
         assert!(i < len, "state::Vector index {i} out of bounds (len {len})");
         let path = self.slot(i);
         cache::get::<T>(&path).expect("dense");
+        guard_removal::<T>(&path, false);
         let v = cache::take::<T>(&path).expect("just read");
         let last = len - 1;
         if i != last {
@@ -1395,7 +1460,8 @@ impl<T: Value> Vector<T> {
         v
     }
 
-    /// 1 header read, then 1 remove per element (no element reads), plus clearing each
+    /// 1 header read, then 1 remove per element (no element reads; a `#[near(storage)]` record
+    /// element is read, the unknown-collection check of API round 5), plus clearing each
     /// element's own collections; 1 header remove.
     pub fn clear(&mut self)
     where
@@ -1405,6 +1471,7 @@ impl<T: Value> Vector<T> {
         let len = self.len();
         for i in 0..len {
             let path = self.slot(i);
+            guard_removal::<T>(&path, false);
             T::clear_children(&path);
             cache::delete::<T>(&path);
         }
@@ -1488,6 +1555,7 @@ impl<T> Lazy<T> {
 
 impl<T: Value> Value for Lazy<T> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::LAZY;
     const MAX_SUBPATH: usize = T::MAX_SUBPATH;
     fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
         unreachable!("collections are not stored inline")
@@ -1520,11 +1588,13 @@ impl<T: Value> Value for Lazy<T> {
 
 impl<T: Removable> Removable for Lazy<T> {
     fn clear_children(path: &Path) {
+        guard_removal::<T>(path, false);
         T::clear_children(path);
         cache::delete::<T>(path);
     }
     /// The `Lazy` value's own collections count against the budget; the value is not.
     fn clear_children_some(path: &Path, budget: &mut u32) -> bool {
+        guard_removal::<T>(path, false);
         if !T::clear_children_some(path, budget) {
             return false;
         }
@@ -1558,7 +1628,8 @@ impl<T: Value> Lazy<T> {
         cache::put(&path, v);
     }
     /// 1 remove, no read. The remove is blind: it is issued even when the `Lazy` is empty
-    /// (unless this call already read it as empty).
+    /// (unless this call already read it as empty). A `#[near(storage)]` record value is read
+    /// first (the unknown-collection check of API round 5, see [`Removable`]).
     #[track_caller]
     pub fn remove(&mut self)
     where
@@ -1566,6 +1637,7 @@ impl<T: Value> Lazy<T> {
     {
         self.path.live();
         let path = bound(&self.path).clone();
+        guard_removal::<T>(&path, false);
         T::clear_children(&path);
         cache::delete::<T>(&path);
     }
@@ -1597,6 +1669,7 @@ impl<K> Default for LookupSet<K> {
 }
 impl<K: StorageKey + 'static> Value for LookupSet<K> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::LOOKUP_SET;
     const MAX_SUBPATH: usize = <LookupMap<K, ()> as Value>::MAX_SUBPATH;
     fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
         unreachable!()
@@ -1646,6 +1719,7 @@ impl<K> Default for Set<K> {
 }
 impl<K: StorageKey + Clone + 'static> Value for Set<K> {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::SET;
     const MAX_SUBPATH: usize = <Map<K, ()> as Value>::MAX_SUBPATH;
     fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
         unreachable!()
@@ -1762,6 +1836,7 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
     for GroupedMap<G, K, V>
 {
     const INLINE: bool = false;
+    const KIND: u8 = super::record::marker::GROUPED_MAP;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <Map<K, V> as Value>::MAX_SUBPATH;
     not_inline_value!();
 }
