@@ -1729,3 +1729,46 @@ than covers them.
 - Not re-measured: h8, the `ext` rows and the 1k/100k sizes. They run the same code paths.
 - Not re-run: the Kani / bolero harnesses. Long Kani runs are in other worktrees, and this round
   changes no state transition, only how the ops are handed to the host.
+
+## Merge of the perf branch (Oct 18)
+
+`proto/storage-v2` at `63d62e86` (verification round 2) merged with `proto/storage-v2-perf` at
+`2096f6e3`, which holds the Oct 18 gas re-measurement (`6c622757`, `cb867b4f`), the flush fix
+(`19050adb`) and API round 6. Merge commit `40124811`.
+
+**Conflicts.**
+- **`near-sdk/src/state/cache.rs`: none.** `proto/storage-v2` has not touched cache.rs since the merge base
+  `5030854b`. The kind-marker and wire-type work is in record.rs, and the gap tests are in
+  `tests_gaps_cache.rs`. So the merged cache.rs is byte-identical to the perf branch's, with its
+  single-lookup, no-copy `load(key, flaggable)`, the `for_each_flush_op` visitor and the in-place
+  flush. The verification-round tests use only the cache's crate API (`pending_removes`,
+  `delete_cost`, `put`, `delete_entry`, ...), whose signatures the fix did not change, so they compile
+  unchanged.
+- **PROTOTYPE_NOTES.md:** both sides appended after API round 5. Kept in order: Verification
+  round 2, then API round 6.
+- **proto-gas, GAS_MEASUREMENTS.md:** only the perf side changed them, so they merged clean.
+- **Follow-up edits in the merge commit:** the mutant-kill comments in `tests_gaps_cache.rs` cite cache.rs
+  line numbers. The fix shifted them by 9 to 12 lines, so they were re-pointed using a line-diff
+  map (all 13 references land on the same source line). They and the `c5_remove_some` doc also
+  name `for_each_flush_op` now, instead of `flush_ops`. The unsafe-block line list in the Audit round stays as is,
+  as a historical snapshot.
+
+**Confirmation.**
+- **Tests:** exactly the round-2 counts. Lib 705 passed, 1 ignored. Doctests 348 passed, 7 ignored, plus 7 standalone.
+  `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15,
+  `state_v2_migrate` 17, `state_v2_verify` 17. ft-v2 16 plus 2 doctests. near-sdk-macros 49 plus 1 doctest. The
+  `proto-wasm-check` wasm32 check passes. `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
+  No op-log assertion was changed.
+- **Harnesses** (random engine, default iterations, which are the bounds recorded in the round-5 table): all 50 lib
+  `verify::` tests pass, including G3's 3 × 10,000 ops and both differential models, and so do the 17 `state_v2_verify`
+  tests.
+- **Gas** (`perf_rows`, 10k keys, on the merged code): every one of the six write-path rows is within 0.4 Ggas of the perf
+  branch's "after" column, with ops unchanged. Wasm `v2_h16` is 163,398 B (+37 B). Table in
+  GAS_MEASUREMENTS.md, "Flush regression fix", "After merge (63d62e86 + perf)".
+- **Miri** (nightly, `-Zmiri-ignore-leaks`), on the 10 A1/A2 audit tests plus the 14 `tests_gaps_cache` tests,
+  is 24/24 under Stacked Borrows (254 s) and 24/24 under Tree Borrows (279 s). No UB. One
+  integer-to-pointer-cast warning comes from the unit-test mock's host ABI
+  (`mocked_blockchain.rs:284`, `Mem::copy_in` on `panic_utf8`), not from `state/`.
+
+**Not done here:** Kani (long runs still going in their own worktrees, and the fix changes no
+state transition). No new mutants sweep. h8, `ext` and the 1k/100k gas sizes were not re-measured.
