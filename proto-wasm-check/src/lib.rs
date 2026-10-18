@@ -27,8 +27,11 @@ pub struct Metadata {
 }
 
 // ---------------- revised spec text from here, verbatim ----------------
+// API round (Oct 17): D3 replaces `orders: GroupedMap<..>` with `markets: Map<MarketId, Market>`,
+// D7 makes `at_mut` return `Option`, D8 makes `page` return `Result<Page, CursorGone>`. The
+// same text is `near-sdk/tests/state_v2_exchange.rs`'s contract.
 
-use near_sdk::state::{Map, GroupedMap, Lazy, Page};
+use near_sdk::state::{CursorGone, Lazy, Map, Page};
 use near_sdk::{env, near, AccountId};
 use near_sdk::json_types::U128;
 
@@ -37,7 +40,7 @@ pub struct Exchange {
     #[key(1, required)] owner: AccountId,   // no Default, so a missing tag is an error
     #[key(2)] fee_bps: u16,
     #[key(3)] accounts: Map<AccountId, Account>,
-    #[key(4)] orders: GroupedMap<MarketId, OrderId, Order>,
+    #[key(4)] markets: Map<MarketId, Market>,
     #[key(5)] metadata: Lazy<Metadata>,          // large, loaded only when touched
 }
 
@@ -45,6 +48,13 @@ pub struct Exchange {
 pub struct Account {
     #[key(1)] nonce: u64,
     #[key(2)] balances: Map<TokenId, u128>,      // lives at 3/<account>/2/<token>
+}
+
+#[near(storage)]
+pub struct Market {
+    #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
+    #[key(2)] tick_size: u128,
+    #[key(3)] next_order_id: OrderId,
 }
 
 #[near]
@@ -64,12 +74,17 @@ impl Exchange {
         self.accounts.at(&id).balances.get(&token).copied().unwrap_or(0).into()
     }
 
-    // cursor pagination; offset pagination stays available and cheap
-    pub fn balances(&self, id: AccountId, after: Option<TokenId>) -> Page<TokenId, u128> {
-        self.accounts.at(&id).balances.page(after.as_ref(), 50).unwrap()
+    // cursor pagination; a cursor removed since the last page is `Err(CursorGone)`
+    #[handle_result]
+    pub fn balances(
+        &self,
+        id: AccountId,
+        after: Option<TokenId>,
+    ) -> Result<Page<TokenId, u128>, CursorGone> {
+        self.accounts.at(&id).balances.page(after.as_ref(), 50)
     }
 
     pub fn cancel(&mut self, market: MarketId, order: OrderId) {
-        self.orders.group_mut(&market).remove(&order);
+        self.markets.at_mut(&market).expect("no such market").orders.remove(&order);
     }
 }

@@ -6,14 +6,13 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};
-use near_sdk::state::{ContractState, GroupedMap, Map, Lazy, LookupMap, Page};
+use near_sdk::state::{ContractState, CursorGone, Lazy, LookupMap, Map, Page};
 use near_sdk::{AccountId, env, near};
 
 pub type TokenId = String;
 pub type MarketId = u32;
 pub type OrderId = u64;
 
-// Revision 1: no `removable_leaf!` needed, every Borsh leaf is Removable.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Order {
@@ -28,28 +27,30 @@ pub struct Metadata {
     pub blob: Vec<u8>,
 }
 
-// `owner: AccountId` has no `Default`: `required` is the one edit to the spec's struct.
-// Revision 1: no `PanicOnDefault` (the derive emits `Default`), no `#[derive(Default)]` on Account.
+// D3 (Oct 17): `GroupedMap` is deferred. The order books are `markets: Map<MarketId, Market>`,
+// with `Market` a record holding its `orders` map and its scalars. The struct and the five
+// spec methods (`deposit`, `set_balance`, `balance_of`, `balances`, `cancel`) are the shape the
+// revised doc prints.
 #[near(contract_state(layout = v2))]
 pub struct Exchange {
-    #[key(1, required)]
-    owner: AccountId,
-    #[key(2)]
-    fee_bps: u16,
-    #[key(3)]
-    accounts: LookupMap<AccountId, Account>,
-    #[key(4)]
-    orders: GroupedMap<MarketId, OrderId, Order>,
-    #[key(5)]
-    metadata: Lazy<Metadata>, // large, loaded only when touched
+    #[key(1, required)] owner: AccountId,   // no Default, so a missing tag is an error
+    #[key(2)] fee_bps: u16,
+    #[key(3)] accounts: Map<AccountId, Account>,
+    #[key(4)] markets: Map<MarketId, Market>,
+    #[key(5)] metadata: Lazy<Metadata>,          // large, loaded only when touched
 }
 
 #[near(storage)]
 pub struct Account {
-    #[key(1)]
-    nonce: u64,
-    #[key(2)]
-    balances: Map<TokenId, u128>, // lives at 3/<account>/2/<token>
+    #[key(1)] nonce: u64,
+    #[key(2)] balances: Map<TokenId, u128>,      // lives at 3/<account>/2/<token>
+}
+
+#[near(storage)]
+pub struct Market {
+    #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
+    #[key(2)] tick_size: u128,
+    #[key(3)] next_order_id: OrderId,
 }
 
 #[near]
@@ -60,7 +61,7 @@ impl Exchange {
             owner,
             fee_bps: 0,
             accounts: Default::default(),
-            orders: Default::default(),
+            markets: Default::default(),
             metadata: Default::default(),
         }
     }
@@ -72,7 +73,7 @@ impl Exchange {
             owner: owner.clone(),
             fee_bps: 0,
             accounts: Default::default(),
-            orders: Default::default(),
+            markets: Default::default(),
             metadata: Default::default(),
         }
         .bind();
@@ -80,36 +81,64 @@ impl Exchange {
         this
     }
 
-    // ---- the spec's four methods, verbatim except for `place` and `set_fee` ----
+    // ---- the spec's five methods ----
 
     pub fn deposit(&mut self, token: TokenId, amount: U128) {
         let acct = self.accounts.entry(env::predecessor_account_id()).or_default();
         *acct.balances.entry(token).or_default() += amount.0;
     }
 
-    // one storage read; the Account record is never loaded
+    // writes below the record without reading it: one existence check, no decode
+    pub fn set_balance(&mut self, id: AccountId, token: TokenId, amount: U128) {
+        self.accounts.at_mut(&id).expect("no such account").balances.insert(token, amount.0);
+    }
+
+    // one read below the root; the Account record is never loaded
     pub fn balance_of(&self, id: AccountId, token: TokenId) -> U128 {
         self.accounts.at(&id).balances.get(&token).copied().unwrap_or(0).into()
     }
 
-    // cursor pagination; offset pagination stays available and cheap
-    pub fn balances(&self, id: AccountId, after: Option<TokenId>) -> Page<TokenId, u128> {
-        self.accounts.at(&id).balances.page(after.as_ref(), 50).unwrap()
+    // cursor pagination; a cursor removed since the last page is `Err(CursorGone)`
+    #[handle_result]
+    pub fn balances(
+        &self,
+        id: AccountId,
+        after: Option<TokenId>,
+    ) -> Result<Page<TokenId, u128>, CursorGone> {
+        self.accounts.at(&id).balances.page(after.as_ref(), 50)
     }
 
     pub fn cancel(&mut self, market: MarketId, order: OrderId) {
-        self.orders.group_mut(&market).remove(&order);
+        self.markets.at_mut(&market).expect("no such market").orders.remove(&order);
     }
 
     // ---- extra methods for the tests ----
 
-    pub fn place(&mut self, market: MarketId, id: OrderId, order: Order) {
-        self.orders.group_mut(&market).insert(id, order);
+    /// D6: a record that owns collections goes in with `insert_new` (plain `insert` does not
+    /// compile for `Market`).
+    pub fn open_market(&mut self, market: MarketId, tick_size: U128) {
+        self.markets.insert_new(market, Market { tick_size: tick_size.0, ..Default::default() });
     }
 
-    // Revision 2 item 1: the reference outlives the `group_mut` temporary (E0716 before).
+    /// Scalars and collections of one record together: `get_mut` reads the record.
+    pub fn place(&mut self, market: MarketId, order: Order) -> OrderId {
+        let m = self.markets.get_mut(&market).expect("no such market");
+        assert_eq!(order.price % m.tick_size, 0, "price off tick");
+        let id = m.next_order_id;
+        m.next_order_id += 1;
+        m.orders.insert(id, order);
+        id
+    }
+
+    /// The reference outlives the `at_mut` view temporary.
     pub fn fill(&mut self, market: MarketId, order: OrderId, qty: U128) -> U128 {
-        let o = self.orders.group_mut(&market).get_mut(&order).expect("no such order");
+        let o = self
+            .markets
+            .at_mut(&market)
+            .expect("no such market")
+            .orders
+            .get_mut(&order)
+            .expect("no such order");
         o.qty -= qty.0;
         o.qty.into()
     }
@@ -185,8 +214,9 @@ fn deposit_balance_of_and_pagination() {
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(
         r.rwd(),
-        (4, 5, 0),
-        "root, account, usdt entry, header reads; account record + entry, index, slot, header writes"
+        (5, 8, 0),
+        "root, account entry + header, usdt entry + header reads; account entry, index, slot, \\
+         header and usdt entry, index, slot, header writes (`accounts` is a `Map` since D3)"
     );
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(r.rwd(), (3, 1, 0));
@@ -202,13 +232,13 @@ fn deposit_balance_of_and_pagination() {
     for i in 0..120 {
         call("alice.near", |c| c.deposit(format!("t{i:03}"), U128(1)));
     }
-    let (p1, r) = view(|c| c.balances(alice(), None));
+    let (p1, r) = view(|c| c.balances(alice(), None).unwrap());
     assert_eq!(p1.items.len(), 50);
     assert_eq!(p1.items[0], ("usdt".to_string(), 10));
     assert_eq!(r.reads(), 1 + 1 + 2 * 50, "root + header + 2 per item");
-    let (p2, r) = view(|c| c.balances(alice(), p1.next.clone()));
+    let (p2, r) = view(|c| c.balances(alice(), p1.next.clone()).unwrap());
     assert_eq!(r.reads(), 1 + 2 + 2 * 50, "root + cursor index + header + 2 per item");
-    let (p3, _) = view(|c| c.balances(alice(), p2.next.clone()));
+    let (p3, _) = view(|c| c.balances(alice(), p2.next.clone()).unwrap());
     assert_eq!(p3.items.len(), 21);
     assert_eq!(p3.next, None);
     // Page serializes to JSON as the spec says
@@ -217,43 +247,98 @@ fn deposit_balance_of_and_pagination() {
 }
 
 #[test]
-fn cancel_through_grouped_map() {
+fn markets_place_and_cancel() {
     init("owner.near");
-    for id in 0..3 {
-        call("alice.near", |c| c.place(7, id, Order { price: 1, qty: id as u128 }));
+    let (_, r) = call("owner.near", |c| c.open_market(7, U128(1)));
+    assert_eq!(r.rwd(), (3, 4, 0), "root, index, header reads; market entry, index, slot, header");
+    for i in 0..3 {
+        let (id, _) = call("alice.near", |c| c.place(7, Order { price: 1, qty: i }));
+        assert_eq!(id, i as u64);
     }
     let (_, r) = call("alice.near", |c| c.cancel(7, 0));
-    // root; entry, index, header, last slot reads; moved slot + index + header writes; 3 removes
+    // root; orders entry, index, header, last slot reads; moved slot + index + header writes;
+    // 3 removes. The Market record is not read: 1 existence check.
     assert_eq!(r.rwd(), (5, 3, 3));
+    assert_eq!(r.has_keys(), 1);
     let (_, r) = call("alice.near", |c| c.cancel(7, 99));
     assert_eq!(r.rwd(), (2, 0, 0), "cancelling an unknown order: root + entry read");
+    let (n, _) = view(|c| c.markets.at(&7).orders.len());
+    assert_eq!(n, 2);
 }
 
-/// Revision 2 item 1: `group_mut(&m).get_mut(&k)` bound to a `let`, and a named group handle
-/// used for several operations, compile and cost what the plain `Map` costs.
 #[test]
-fn group_mut_references_outlive_the_temporary() {
+#[should_panic(expected = "no such market")]
+fn cancel_in_an_absent_market_panics() {
     init("owner.near");
+    call("alice.near", |c| c.cancel(9, 0));
+}
+
+/// The `at_mut(..).orders.get_mut(..)` reference outlives the view temporary, and a record's
+/// scalars and its collection change together through `get_mut`.
+#[test]
+fn market_record_scalars_and_orders() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(5)));
     call("alice.near", |c| {
-        c.place(7, 1, Order { price: 1, qty: 10 });
-        c.place(7, 2, Order { price: 1, qty: 20 });
+        c.place(7, Order { price: 5, qty: 10 });
+        c.place(7, Order { price: 10, qty: 20 });
     });
     let (left, r) = call("alice.near", |c| c.fill(7, 1, U128(4)));
-    assert_eq!(left.0, 6);
-    assert_eq!(r.rwd(), (2, 1, 0), "root + order read, order write");
-
-    let (sum, _) = call("alice.near", |c| {
-        let g = c.orders.group_mut(&7);
-        g.get_mut(&1).unwrap().qty += 1;
-        let b = g.get_mut(&2).unwrap();
-        b.qty += 1;
-        let total = b.qty + g.get(&1).unwrap().qty;
-        g.insert(3, Order { price: 2, qty: 0 });
-        total
+    assert_eq!(left.0, 16);
+    assert_eq!(r.rwd(), (2, 1, 0), "root + order read, order write; market not read");
+    let (m, _) = view(|c| {
+        let m = c.markets.get(&7).unwrap();
+        (m.tick_size, m.next_order_id)
     });
-    assert_eq!(sum, 21 + 7);
-    let (n, _) = view(|c| c.orders.group(&7).len());
-    assert_eq!(n, 3);
+    assert_eq!(m, (5, 2));
+}
+
+#[test]
+#[should_panic(expected = "price off tick")]
+fn place_off_tick_panics() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(5)));
+    call("alice.near", |c| c.place(7, Order { price: 3, qty: 1 }));
+}
+
+#[test]
+#[should_panic(expected = "record exists")]
+fn opening_a_market_twice_panics() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(5)));
+    call("owner.near", |c| c.open_market(7, U128(5)));
+}
+
+/// D7: `set_balance` writes below the account without reading it, and an absent account is
+/// the `expect` message, not a created orphan.
+#[test]
+fn set_balance_writes_below_without_reading_the_record() {
+    init("owner.near");
+    call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
+    let (_, r) = call("owner.near", |c| c.set_balance(alice(), "usdt".into(), U128(9)));
+    assert_eq!(r.has_keys(), 1, "account existence check");
+    assert_eq!(r.rwd(), (2, 1, 0), "root + balances index read, entry write");
+    assert_eq!(view(|c| c.balance_of(alice(), "usdt".into())).0.0, 9);
+}
+
+#[test]
+#[should_panic(expected = "no such account")]
+fn set_balance_on_an_absent_account_panics() {
+    init("owner.near");
+    call("owner.near", |c| c.set_balance(alice(), "usdt".into(), U128(9)));
+}
+
+/// D8: the `balances` view returns `Err(CursorGone)` for a removed cursor.
+#[test]
+fn balances_with_a_removed_cursor_is_cursor_gone() {
+    init("owner.near");
+    call("alice.near", |c| c.deposit("a".into(), U128(1)));
+    call("alice.near", |c| c.deposit("b".into(), U128(1)));
+    call("alice.near", |c| {
+        c.accounts.get_mut(&alice()).unwrap().balances.remove(&"a".to_string());
+    });
+    let (p, _) = view(|c| c.balances(alice(), Some("a".into())));
+    assert_eq!(p, Err(CursorGone));
 }
 
 /// Revision 2 item 3: a key over its declared `MAX_LEN` panics at the map hop, naming the
@@ -322,8 +407,9 @@ fn init_with_bind_seeds_collections() {
     let c = Exchange::new_seeded("owner.near".parse().unwrap());
     c.state_write();
     let r = testing::receipt();
-    // has_key? no: or_default reads the record (1 read), then record write + root write
-    assert_eq!(r.rwd(), (1, 2, 0));
+    // or_default reads the entry and (absent) the header: 2 reads; entry, index, slot, header
+    // and root writes (`accounts` is a `Map` since D3)
+    assert_eq!(r.rwd(), (2, 5, 0));
     assert_eq!(r.ops.last().unwrap().key, vec![0xF0], "root last");
     let (n, _) = view(|c| c.accounts.get(&"owner.near".parse().unwrap()).map(|a| a.nonce));
     assert_eq!(n, Some(1));

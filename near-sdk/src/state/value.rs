@@ -112,7 +112,7 @@ impl<T: BorshSerialize + BorshDeserialize + 'static> Leaf for T {}
 /// though they own storage. v1 collections belong at the root; `remove` does not clear a
 /// nested one.
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`/`GroupedMap`, which does not track its keys",
+    message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`, which does not track its keys",
     label = "not `Removable`",
     note = "use `Map`/`Set` for collections inside records you remove, or keep the record and clear its fields by hand"
 )]

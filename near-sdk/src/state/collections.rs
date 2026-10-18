@@ -285,7 +285,7 @@ impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
 }
 
 impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
-    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; use GroupedMap");
+    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; put it in a `#[near(storage)]` record");
 
     #[track_caller]
     fn entry_path(&self, k: &K) -> Path {
@@ -527,7 +527,7 @@ impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
 }
 
 impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
-    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; use GroupedMap");
+    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; put it in a `#[near(storage)]` record");
 
     #[track_caller]
     fn p(&self) -> &Path {
@@ -1366,8 +1366,14 @@ impl<'a, K: StorageKey + Clone + 'static> At<'a, Set<K>> {
 // GroupedMap
 // ---------------------------------------------------------------------------------------
 
+/// **Deferred out of the first release (D3, Oct 17): hidden from docs, kept compiling for the
+/// prototype's NFT test. Do not use in new code.** Write `Map<G, R>` where `R` is a
+/// `#[near(storage)]` record holding `Map<K, V>` (and the group's scalars). An alternative to
+/// revisit later: allow a collection directly as a map value.
+///
 /// One `Map` per group, at `path ++ 00 ++ h16(g) ++ borsh(g)`. Groups are not iterated, so a
 /// `GroupedMap` is not `Removable`.
+#[doc(hidden)]
 ///
 /// `GroupedMap<G, K, ()>` is a grouped set (tokens per owner, members per role) at no extra
 /// cost: `Map::remove` on a zero-sized value skips the entry read, and `group(&g).keys()` /
@@ -1390,11 +1396,13 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
 }
 
 /// A group's `Map`, read-only, with reads living as long as the `GroupedMap` borrow.
+#[doc(hidden)]
 pub type Group<'a, K, V> = At<'a, Map<K, V>>;
 
 /// A group's `Map`, mutably borrowed from the `GroupedMap` for `'a`. A plain `&mut`, so
 /// `let o = orders.group_mut(&m).get_mut(&k);` borrows from the `GroupedMap`, not a
 /// temporary. The handle lives in the per-call cache arena until the flush (invariant 4).
+#[doc(hidden)]
 pub type GroupMut<'a, K, V> = &'a mut Map<K, V>;
 
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> GroupedMap<G, K, V> {

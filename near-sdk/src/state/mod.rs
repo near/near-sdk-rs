@@ -18,8 +18,9 @@
 //!
 //! - `impl Default`, unless a field is `required` or you derive one.
 //! - `impl Removable` when every field is removable: leaves, `Map`, `Set`, `Vector`, `Lazy`,
-//!   and records built from them. A `LookupMap`/`LookupSet`/`GroupedMap` field makes the
-//!   record non-removable (they do not track their keys).
+//!   and records built from them. A `LookupMap`/`LookupSet` field makes the record
+//!   non-removable (they do not track their keys).
+//! - `impl Leaf` when no field owns storage (D6): only then is plain `insert` available.
 //! - `NameAt<'a>` (from `at`) and `NameAtMut<'a>` (from `at_mut`): views whose collection
 //!   fields are handles and whose scalars are unavailable.
 //! - On the root: `Exchange::bind(self) -> Self`, for an `#[init]` body that seeds collections.
@@ -28,8 +29,10 @@
 //!
 //! `Map` / `Set` are iterable, pageable and removable (4 writes on a new key); `LookupMap` /
 //! `LookupSet` are the opt-in for 1 write per insert. `Vector` is dense slots. `Lazy` is one
-//! value at its own key, read only when touched. `GroupedMap` is one `Map` per group key. A map
-//! value cannot itself be a collection: put it in a record, or use `GroupedMap`.
+//! value at its own key, read only when touched. A map value cannot itself be a collection: put
+//! it in a record (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order>, .. }`).
+//! (`GroupedMap` is deferred out of the first release, D3; it is `#[doc(hidden)]` and kept only
+//! so the prototype's NFT test compiles.)
 //!
 //! - `map.get(&k)` reads and decodes the record. `map.at(&k)` walks to it without reading
 //!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 `storage_has_key`, and
@@ -158,9 +161,13 @@ mod tests;
 
 #[cfg(feature = "unstable")]
 pub use collections::{
-    At, CursorGone, Group, GroupMut, GroupedMap, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry,
-    LookupSet, Map, MapEntry, Page, Set, Vector, ViewIsReadOnly,
+    At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet, Map, MapEntry,
+    Page, Set, Vector, ViewIsReadOnly,
 };
+/// Deferred out of the first release (D3); hidden, kept compiling for the prototype.
+#[cfg(feature = "unstable")]
+#[doc(hidden)]
+pub use collections::{Group, GroupMut, GroupedMap};
 #[cfg(feature = "unstable")]
 pub use key::{Path, StorageKey};
 #[cfg(feature = "unstable")]

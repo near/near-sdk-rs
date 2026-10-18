@@ -209,8 +209,8 @@ pub fn expand(
         {
             return Err(syn::Error::new(
                 span,
-                "a map value cannot be a collection; put it in a `#[near(storage)]` record, or \
-                 use `GroupedMap`",
+                "a map value cannot be a collection; put it in a `#[near(storage)]` record \
+                 (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order> }`)",
             ));
         }
         fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), tag, required });
