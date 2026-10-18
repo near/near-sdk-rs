@@ -730,3 +730,136 @@ mod unordered {
         assert!(testing::env_store().keys().all(|k| k[0] == ROOT), "no v1 keys left");
     }
 }
+
+// ---------------------------------------------------------------------------------------
+// Migrate hooks reading the stored root (`raw_root`, ft-v2's `migrate`), and a rollback that
+// rewrites the root while a nested record carries a newer field.
+// ---------------------------------------------------------------------------------------
+
+mod raw_root_hook {
+    use super::*;
+    use near_sdk::state::raw_root;
+
+    #[near(contract_state(layout = v2))]
+    pub struct Old {
+        #[key(1)]
+        pub a: u64,
+        #[key(2)]
+        pub name: String,
+    }
+
+    mod newer {
+        use super::*;
+        /// Tags 1 and 2 dropped from the code (left as unknown tags), tag 3 new.
+        #[near(contract_state(layout = v2))]
+        pub struct New {
+            #[key(3)]
+            pub total: u64,
+        }
+        impl New {
+            /// The ft-v2 `migrate` pattern: no `state_read`, the old fields come from
+            /// `raw_root`.
+            pub fn migrate() -> Self {
+                let f = raw_root::<Self>().expect("no v2 root");
+                let a = f.iter().find(|(t, _)| *t == 1).map(|(_, b)| near_sdk::borsh::from_slice::<u64>(b).unwrap());
+                Self { total: a.expect("tag 1") * 10 }
+            }
+        }
+    }
+    use newer::New;
+
+    fn want() -> Vec<(u32, Vec<u8>)> {
+        vec![(1, 7u64.to_le_bytes().to_vec()), (2, near_sdk::borsh::to_vec(&"x".to_string()).unwrap())]
+    }
+
+    #[test]
+    fn raw_root_returns_the_stored_root_fields_before_and_after_the_root_is_loaded() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        testing::begin_call();
+        assert_eq!(raw_root::<Old>(), None, "no root stored yet");
+
+        init(|| Old { a: 7, name: "x".into() });
+
+        // After the wrapper loaded the root (the cached original bytes are the source).
+        let (v, r) = call::<Old, _>(|c| (c.a, raw_root::<Old>(), raw_root::<Old>()));
+        assert_eq!(v, (7, Some(want()), Some(want())));
+        assert_eq!(r.reads(), 1, "the root is read once; raw_root reuses it");
+
+        // Without a load (an `#[init(ignore_state)]` migrate): raw_root reads the root itself.
+        ctx();
+        testing::begin_call();
+        assert_eq!(raw_root::<New>(), Some(want()));
+        init(New::migrate);
+        let (v, _) = call::<New, _>(|c| (c.total, raw_root::<New>()));
+        assert_eq!(v.0, 70);
+        let mut all = want();
+        all.push((3, 70u64.to_le_bytes().to_vec()));
+        assert_eq!(v.1, Some(all), "tags 1 and 2 kept as unknown, tag 3 added");
+    }
+}
+
+/// A rollback rewrites the root while a nested record holds a field only the newer code knows.
+/// The nested record's unknown tag survives: the root encoder hands each inline field its
+/// original bytes (`__private::parse_orig`), so the nested encoder can keep its unknown tags.
+mod nested_unknown_tag {
+    use super::*;
+
+    mod newer {
+        use super::*;
+        #[near(storage)]
+        pub struct Inner {
+            #[key(1)]
+            pub a: u64,
+            #[key(3)]
+            pub b: u64,
+        }
+        #[near(contract_state(layout = v2))]
+        pub struct App {
+            #[key(1)]
+            pub inner: Inner,
+            #[key(2)]
+            pub n: u64,
+        }
+    }
+
+    mod older {
+        use super::*;
+        #[near(storage)]
+        pub struct Inner {
+            #[key(1)]
+            pub a: u64,
+        }
+        #[near(contract_state(layout = v2))]
+        pub struct App {
+            #[key(1)]
+            pub inner: Inner,
+            #[key(2)]
+            pub n: u64,
+        }
+    }
+
+    #[test]
+    fn rollback_root_rewrite_keeps_a_nested_records_unknown_tag() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        init(|| newer::App { inner: newer::Inner { a: 1, b: 7 }, n: 0 });
+
+        // The older code bumps a root scalar and the nested record's known field.
+        let (_, r) = call::<older::App, _>(|c| {
+            c.n = 5;
+            c.inner.a = 2;
+        });
+        assert_eq!(r.writes(), 1, "the root is rewritten");
+        let root = &testing::env_store()[&vec![ROOT]];
+        let fields = near_sdk::state::record::parse(root).unwrap();
+        let inner = near_sdk::state::record::find(&fields, 1).unwrap();
+        let tags: Vec<u32> = near_sdk::state::record::parse(inner).unwrap().iter().map(|(t, _, _)| *t).collect();
+        assert_eq!(tags, vec![1, 3], "the nested unknown tag 3 is kept");
+
+        let (v, _) = call::<newer::App, _>(|c| (c.inner.a, c.inner.b, c.n));
+        assert_eq!(v, (2, 7, 5));
+    }
+}
