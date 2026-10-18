@@ -17,7 +17,7 @@
 //! and reserved up front, finishing 3), every call issues at most `n` removes and at least 1,
 //! and the removes over the whole clear add up to exactly `3m + 1 + 3` plus the move. Before
 //! every flush the cache's predicted remove count (`cache::pending_removes`, which also asserts
-//! it equals `flush_ops`) must equal the receipt's.
+//! it equals `for_each_flush_op`) must equal the receipt's.
 
 use super::c2_orphans::assert_no_orphans;
 use super::fixture::{MRoot, Rec};

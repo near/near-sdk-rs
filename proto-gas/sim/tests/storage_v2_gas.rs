@@ -27,6 +27,8 @@ enum Variant {
     V1,
     V2H16,
     V2H8,
+    /// v2 h16 with the Oct 18 methods (`ext` feature); used only for the rows added then.
+    V2H16X,
 }
 use Variant::*;
 
@@ -36,8 +38,14 @@ impl Variant {
             V1 => "v1",
             V2H16 => "v2_h16",
             V2H8 => "v2_h8",
+            V2H16X => "v2_h16_ext",
         };
-        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../res/{name}.wasm"));
+        // `GAS_RES_DIR` points at another build's wasms (the per-commit bisection in
+        // GAS_MEASUREMENTS.md, Oct 18); default `../res`.
+        let dir = std::env::var("GAS_RES_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../res"));
+        let p = dir.join(format!("{name}.wasm"));
         std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e} (run proto-gas/build.sh)", p.display()))
     }
     fn label(self, which: &str) -> String {
@@ -45,7 +53,7 @@ impl Variant {
             (V1, "map") => "v1 store::IterableMap".into(),
             (V1, "lookup") => "v1 store::LookupMap".into(),
             (V1, "blobs") => "v1 store::IterableMap".into(),
-            (V2H16, w) => format!("v2 {} (h16)", if w == "lookup" { "LookupMap" } else { "Map" }),
+            (V2H16 | V2H16X, w) => format!("v2 {} (h16)", if w == "lookup" { "LookupMap" } else { "Map" }),
             (V2H8, w) => format!("v2 {} (h8)", if w == "lookup" { "LookupMap" } else { "Map" }),
             _ => unreachable!(),
         }
@@ -237,11 +245,24 @@ fn layout(v: Variant, which: &str, range: std::ops::Range<u32>, len: u32) -> Vec
                 let h = &sha(&kb)[..v.h()];
                 out.push(([&[V2_ROOT, 4, 0][..], h, &kb].concat(), val));
             }
+            (V2H16X, "accounts") => {
+                // `Account { nonce: i, balances }`: tag 1 len 8 nonce, then tag 2 len 1 and the
+                // `Map` kind marker 0x81 (API round 5); the empty map writes no keys.
+                let rec = [&[1u8, 8][..], &(i as u64).to_le_bytes(), &[2, 1, 0x81]].concat();
+                let h = &sha(&kb)[..v.h()];
+                let base = [V2_ROOT, 6];
+                out.push(([&base[..], &[0], h, &kb].concat(), rec));
+                out.push(([&base[..], &[1], h, &kb].concat(), i.to_le_bytes().to_vec()));
+                out.push(([&base[..], &[2], &i.to_le_bytes()].concat(), kb));
+            }
             _ => unreachable!(),
         }
     }
     if v != V1 && which == "map" {
         out.push((vec![V2_ROOT, 3, 3], len.to_le_bytes().to_vec()));
+    }
+    if which == "accounts" {
+        out.push((vec![V2_ROOT, 6, 3], len.to_le_bytes().to_vec()));
     }
     out
 }
@@ -281,7 +302,14 @@ fn populate(sim: &mut Sim, v: Variant, which: &str, n: u32) {
     if which == "map" {
         assert_eq!(sim.view(C, "map_len", json!({})).json::<u32>(), n);
     }
-    let getter = if which == "map" { "map_get" } else { "lookup_get" };
+    if which == "accounts" {
+        assert_eq!(sim.view(C, "accounts_len", json!({})).json::<u32>(), n);
+    }
+    let getter = match which {
+        "map" => "map_get",
+        "accounts" => "account_nonce",
+        _ => "lookup_get",
+    };
     let got: Option<String> = sim.view(C, getter, json!({"id": gen_id(n - 1)})).json();
     assert_eq!(got, Some((n - 1).to_string()), "{v:?} {which}: last flooded key");
 }
@@ -310,6 +338,80 @@ fn ops(v: Variant, which: &str, n: u32) -> Vec<(&'static str, Vec<Cost>)> {
     vec![("insert new", new), ("update existing", upd), ("remove (non-last)", del)]
 }
 
+/// Rows added on Oct 18, on the `ext` wasm (h16): `page_with(after, 50)` of `map` holding `n`
+/// keys; `Map::try_insert` of a collection-owning record into `accounts` holding `n` records;
+/// `LookupMap::try_insert` of the same record (beside those `n` records); `remove_step` of a
+/// record owning a 10-entry map, at the minimum budget (first and finishing call) and in one
+/// call. K distinct keys each.
+fn ext_ops(n: u32) -> Vec<(String, Vec<Cost>)> {
+    let v = V2H16X;
+    let mut out = vec![];
+    {
+        let mut sim = world(v);
+        populate(&mut sim, v, "map", n);
+        let mut pg = vec![];
+        for j in 0..K {
+            let i = (j * 7919 + 3) % (n - 60);
+            let o = call(&mut sim, "map_page", json!({"after": gen_id(i), "limit": 50}));
+            let page: Value = o.json();
+            assert_eq!(page["items"].as_array().unwrap().len(), 50);
+            assert_eq!(page["items"][0][0].as_str().unwrap(), gen_id(i + 1));
+            assert_eq!(page["next"].as_str().unwrap(), gen_id(i + 50));
+            pg.push(cost(&o));
+        }
+        out.push(("page_with(after, 50) of Map<AccountId, u128>".to_string(), pg));
+        out.push(("ping (same wasm)".to_string(), vec![cost(&call(&mut sim, "ping", json!({})))]));
+    }
+    let mut sim = world(v);
+    populate(&mut sim, v, "accounts", n);
+    let mut ti = vec![];
+    for j in 0..K {
+        ti.push(cost(&call(&mut sim, "account_try_insert", json!({"id": gen_id(n + 1000 + j), "nonce": 5}))));
+    }
+    out.push(("Map::try_insert record owning a Map (new key)".to_string(), ti));
+    let mut lti = vec![];
+    for j in 0..K {
+        lti.push(cost(&call(&mut sim, "laccount_try_insert", json!({"id": gen_id(n + 4000 + j), "nonce": 5}))));
+    }
+    out.push(("LookupMap::try_insert record owning a Map (new key)".to_string(), lti));
+    const BAL: u32 = 10;
+    let (mut first, mut last, mut whole, mut calls, mut totals) = (vec![], vec![], vec![], vec![], vec![]);
+    for j in 0..K {
+        let id = gen_id(n + 2000 + j);
+        call(&mut sim, "account_fill", json!({"id": id, "n": BAL})).assert_success();
+        let mut cs = vec![];
+        loop {
+            let o = call(&mut sim, "account_remove_step", json!({"id": id, "n": 3}));
+            let done: bool = o.json();
+            let c = cost(&o);
+            assert!(c.removes <= 3, "remove_step(3) made {} removes", c.removes);
+            cs.push(c);
+            if done {
+                break;
+            }
+            assert!(cs.len() < 100);
+        }
+        assert!(sim.view(C, "account_nonce", json!({"id": id})).json::<Option<String>>().is_none());
+        calls.push(cs.len());
+        totals.push(Cost { total: cs.iter().map(|c| c.total).sum(), removes: cs.iter().map(|c| c.removes).sum(), ..Default::default() });
+        first.push(cs[0]);
+        last.push(*cs.last().unwrap());
+        let id = gen_id(n + 3000 + j);
+        call(&mut sim, "account_fill", json!({"id": id, "n": BAL})).assert_success();
+        let o = call(&mut sim, "account_remove_step", json!({"id": id, "n": 64}));
+        assert!(o.json::<bool>(), "n = 64 finishes a 10-entry record in one call");
+        whole.push(cost(&o));
+    }
+    calls.sort();
+    out.push((format!("remove_step(n=3), first call (Pending), record + {BAL}-entry Map"), first));
+    out.push((format!("remove_step(n=3), finishing call (Done); calls to finish {}-{}", calls[0], calls[calls.len() - 1]), last));
+    totals.sort_by_key(|c| c.total);
+    let m = totals[totals.len() / 2];
+    out.push((format!("remove_step(n=3), whole sequence: total {} Tgas, {} removes", t(m.total), m.removes), vec![]));
+    out.push((format!("remove_step(n=64), one call (Done), record + {BAL}-entry Map"), whole));
+    out
+}
+
 /// Remove a small non-last key whose last neighbor holds `neighbor` bytes.
 fn remove_beside(v: Variant, neighbor: u32) -> Cost {
     let mut sim = world(v);
@@ -335,6 +437,8 @@ fn layouts_match_contract_writes() {
             populate(&mut sim, v, which, 200);
         }
     }
+    let mut sim = world(V2H16X);
+    populate(&mut sim, V2H16X, "accounts", 200);
 }
 
 #[test]
@@ -366,6 +470,21 @@ fn gas_report() {
         }
     }
 
+    // Oct 18 rows (ext wasm).
+    println!("\n### Oct 18 rows: page, try_insert of a collection-owning record, remove_step (v2 h16, ext wasm)\n");
+    println!("{HEADER}");
+    for n in sizes() {
+        let start = std::time::Instant::now();
+        for (op, cs) in ext_ops(n) {
+            if cs.is_empty() {
+                println!("| v2 (h16, ext) | {n} | {op} | | | | | | | | | |");
+            } else {
+                println!("{}", row("v2 (h16, ext)", n, &op, &cs));
+            }
+        }
+        eprintln!("ext {n}: {:?}", start.elapsed());
+    }
+
     // 4: root read and nested read.
     println!("\n### Per-call root cost and the nested read\n");
     println!("{HEADER}");
@@ -383,6 +502,66 @@ fn gas_report() {
             let c = cost(&o);
             println!("{}", row(&label, 1, "balance_of (2 hops)", &[c]));
             eprintln!("{v:?} balance_of SHA256_BASE gas {} (= {} calls at 4.540993500 Ggas)", c.sha_base, c.sha_base as f64 / 4_540_993_500.0);
+        }
+    }
+}
+
+/// Compact rows for bisecting a gas change across SDK commits: v2 h16 only, 1k keys.
+/// `GAS_RES_DIR=<dir with v2_h16.wasm> cargo test --test storage_v2_gas bisect_rows -- --include-ignored --nocapture`
+#[test]
+#[ignore = "bisection helper; needs GAS_RES_DIR"]
+fn bisect_rows() {
+    let v = V2H16;
+    let mut line = vec![];
+    for which in ["map", "lookup"] {
+        for (op, cs) in ops(v, which, 1000) {
+            let mut c = cs.clone();
+            c.sort_by_key(|c| c.total);
+            let m = c[c.len() / 2];
+            line.push(format!("{which} {op}: {} (wasm {} load {} bytes {} ops {}/{}/{}/{})", t(m.total), gg(m.wasm), gg(m.load), gg(m.bytes), m.reads, m.writes, m.removes, m.has_keys));
+        }
+    }
+    let c = remove_beside(v, 1);
+    line.push(format!("blob remove: {} (wasm {})", t(c.total), gg(c.wasm)));
+    let mut sim = world(v);
+    for m in ["ping", "noop_view", "noop_mut"] {
+        let c = cost(&call(&mut sim, m, json!({})));
+        line.push(format!("{m}: {} (wasm {})", t(c.total), gg(c.wasm)));
+    }
+    call(&mut sim, "deposit", json!({"token": "usdt", "amount": "5"})).assert_success();
+    let c = cost(&call(&mut sim, "balance_of", json!({"id": ALICE, "token": "usdt"})));
+    line.push(format!("balance_of: {} (wasm {})", t(c.total), gg(c.wasm)));
+    println!("BISECT {}", line.join(" | "));
+}
+
+/// The six write-path rows (v2 h16 `Map` and `LookupMap` insert/update/remove) at `GAS_SIZES`
+/// (default 10k), with the same wasm's `ping` for the op-only figure. Used for the Oct 18
+/// flush-regression fix. `GAS_RES_DIR` selects the wasm directory as in `bisect_rows`.
+#[test]
+#[ignore = "flush-perf helper; run with --nocapture"]
+fn perf_rows() {
+    let v = V2H16;
+    let size = std::fs::metadata(
+        std::env::var("GAS_RES_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../res"))
+            .join("v2_h16.wasm"),
+    )
+    .map(|m| m.len())
+    .unwrap_or(0);
+    let mut sim = world(v);
+    let ping = cost(&call(&mut sim, "ping", json!({})));
+    println!("\nv2_h16.wasm {size} B; ping {} Tgas (load {})\n", t(ping.total), gg(ping.load));
+    println!("{HEADER}");
+    for n in std::env::var("GAS_SIZES").map(|_| sizes()).unwrap_or_else(|_| vec![10_000]) {
+        for which in ["map", "lookup"] {
+            for (op, cs) in ops(v, which, n) {
+                println!("{}", row(&v.label(which), n, op, &cs));
+                let mut c = cs.clone();
+                c.sort_by_key(|c| c.total);
+                let m = c[c.len() / 2];
+                println!("PERF {which} {op} n={n}: total {} op-only {} wasm {}", t(m.total), gg(m.total - ping.total), gg(m.wasm));
+            }
         }
     }
 }

@@ -1,0 +1,26 @@
+   Compiling proto-gas-sim v0.0.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/storage-v2-gas2/proto-gas/sim)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.79s
+     Running tests/storage_v2_gas.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_gas-35b56779510caae9)
+V1 map 1000: 2.653942958s
+V2H16 map 1000: 2.072388125s
+V2H8 map 1000: 2.3422975s
+V1 lookup 1000: 257.339292ms
+V2H16 lookup 1000: 278.059792ms
+V2H8 lookup 1000: 244.429792ms
+V1 map 10000: 822.7595ms
+V2H16 map 10000: 1.255541791s
+V2H8 map 10000: 1.280431208s
+V1 lookup 10000: 670.586916ms
+V2H16 lookup 10000: 591.524458ms
+V2H8 lookup 10000: 623.326417ms
+V1 map 100000: 7.715260291s
+V2H16 map 100000: 11.531529833s
+V2H8 map 100000: 12.148498s
+V1 lookup 100000: 4.690978291s
+V2H16 lookup 100000: 4.289278666s
+V2H8 lookup 100000: 4.55309275s
+ext 1000: 3.789461708s
+ext 10000: 5.196324375s
+ext 100000: 45.287871416s
+V2H16 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)
+V2H8 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)

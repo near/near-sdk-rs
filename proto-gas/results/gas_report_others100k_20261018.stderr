@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.50s
+     Running tests/storage_v2_gas.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_gas-35b56779510caae9)
+V1 map 100000: 19.865760875s
+V2H16 map 100000: 25.294594459s
+V2H8 map 100000: 24.046110666s
+V1 lookup 100000: 16.002059208s
+V2H16 lookup 100000: 15.245535792s
+V2H8 lookup 100000: 14.331113125s
+ext 100000: 63.140414s
+V2H16 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)
+V2H8 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)

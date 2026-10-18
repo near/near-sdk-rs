@@ -16,6 +16,8 @@ crate-type = ["cdylib", "rlib"]
 v1 = []
 v2 = ["near-sdk/unstable"]
 h8 = ["v2", "near-sdk/unstable-state-hash8"]
+# Methods for the Oct 18 rows (page, remove_step, try_insert of records).
+ext = ["v2"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk" }

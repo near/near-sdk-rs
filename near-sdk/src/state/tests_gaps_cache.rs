@@ -35,8 +35,8 @@ fn account(nonce: u64, path: &Path) -> Account {
 // ---------------------------------------------------------------------------------------
 
 /// No slot yet: a blind delete of a map entry that owns storage removes its record key and
-/// its flag key (2), anything else 1. Kills `delete_cost`: `> -> <` (line 642, `flaggable`
-/// never set) and `+ -> -` (line 644).
+/// its flag key (2), anything else 1. Kills `delete_cost`: `> -> <` (line 652, `flaggable`
+/// never set) and `+ -> -` (line 654).
 #[test]
 fn gaps_cache_delete_cost_of_an_uncached_flaggable_entry_is_two() {
     testing::use_mock();
@@ -50,7 +50,7 @@ fn gaps_cache_delete_cost_of_an_uncached_flaggable_entry_is_two() {
 
 /// A slot made by a blind `put` (not flaggable, `orig` unknown): deleting it as a map entry
 /// marks it flaggable and blind, so the flush removes both keys, 2 more removes than now.
-/// Kills `delete_cost`: `== -> !=` (line 649) and `+= -> -=` / `+= -> *=` (line 650).
+/// Kills `delete_cost`: `== -> !=` (line 659) and `+= -> -=` / `+= -> *=` (line 660).
 #[test]
 fn gaps_cache_delete_cost_after_blind_put_counts_the_flag_key() {
     testing::use_mock();
@@ -66,8 +66,8 @@ fn gaps_cache_delete_cost_after_blind_put_counts_the_flag_key() {
 /// A blind delete then a reinsert of a flaggable entry (review F1): the flush writes the
 /// record key and removes the flag key, which may still hold the old record. So 1 pending
 /// remove now, and deleting again costs 1 more (2 in all). Kills `remove_count_as`
-/// `== -> !=` (line 243): the F1 branch never taken counts 0 removes now (and `pending_removes`
-/// then disagrees with `flush_ops`), and `delete_cost` says 2.
+/// `== -> !=` (line 252): the F1 branch never taken counts 0 removes now (and `pending_removes`
+/// then disagrees with `for_each_flush_op`), and `delete_cost` says 2.
 #[test]
 fn gaps_cache_remove_count_after_blind_delete_then_put() {
     testing::use_mock();
@@ -83,8 +83,8 @@ fn gaps_cache_remove_count_after_blind_delete_then_put() {
 
 /// A record found at its flag key (being cleared, `Clearing::FromOrig`) and handed out as
 /// `&mut`: still clearing, so the flush leaves its record key alone (0 removes) and deleting
-/// it costs 1 (its flag key). Kills `remove_count_as` `!= -> ==` (line 249): not clearing, it
-/// counts the flag-key remove as pending (`pending_removes` disagrees with `flush_ops`) and
+/// it costs 1 (its flag key). Kills `remove_count_as` `!= -> ==` (line 258): not clearing, it
+/// counts the flag-key remove as pending (`pending_removes` disagrees with `for_each_flush_op`) and
 /// `delete_cost` says 0.
 #[test]
 fn gaps_cache_remove_count_of_a_touched_record_read_at_its_flag_key() {
@@ -163,7 +163,7 @@ fn gaps_cache_unknown_map_tag_trips_the_removal_guard() {
 
 /// After a read and a blind `insert` (a whole replace), `discard` checks nothing: the old
 /// bytes are not what it removes. Kills `stored_bytes` guard `!s.merge -> false` and the
-/// deleted `!` (line 630): either returns the old bytes and the guard panics.
+/// deleted `!` (line 640): either returns the old bytes and the guard panics.
 #[test]
 fn gaps_cache_discard_after_whole_replace_skips_the_old_bytes() {
     testing::use_mock();
@@ -177,7 +177,7 @@ fn gaps_cache_discard_after_whole_replace_skips_the_old_bytes() {
 }
 
 /// A second `discard` of a key already deleted in this call checks nothing either. Kills the
-/// deleted `Mode::Deleted` arm of `stored_bytes` (line 629): the deleted slot falls through to
+/// deleted `Mode::Deleted` arm of `stored_bytes` (line 639): the deleted slot falls through to
 /// its original bytes and the guard panics.
 #[test]
 fn gaps_cache_second_discard_after_delete_skips_the_old_bytes() {
@@ -196,8 +196,8 @@ fn gaps_cache_second_discard_after_delete_skips_the_old_bytes() {
 // ---------------------------------------------------------------------------------------
 
 /// `take_entry` and `delete_entry` of an unread map entry that owns storage are blind: the
-/// flush removes its record key and its flag key. Kills `> -> <` in `take_entry` (line 741)
-/// and in `delete_entry` (line 757): not flaggable, the flag key is left behind.
+/// flush removes its record key and its flag key. Kills `> -> <` in `take_entry` (line 750)
+/// and in `delete_entry` (line 766): not flaggable, the flag key is left behind.
 #[test]
 fn gaps_cache_blind_take_and_delete_entry_remove_the_flag_key() {
     testing::use_mock();
@@ -220,7 +220,7 @@ fn gaps_cache_blind_take_and_delete_entry_remove_the_flag_key() {
 
 /// Only removals of values that own storage bump the removal epoch (audit A2); a leaf removal
 /// leaves every handle on `check_live`'s one-compare fast path and logs nothing. Kills
-/// `> -> >=` in `delete_impl` (line 770).
+/// `> -> >=` in `delete_impl` (line 779).
 #[test]
 fn gaps_cache_leaf_removal_does_not_bump_the_epoch() {
     testing::use_mock();
@@ -296,7 +296,7 @@ fn gaps_cache_buried_value_is_dropped_at_the_flush() {
 
 /// A record removed and re-inserted at the same key: the new record's handles are stamped
 /// with that removal's epoch, so a later unrelated removal makes them scan only newer
-/// removals and they stay writable. Kills `> -> >=` in `check_live`'s `take_while` (line 446):
+/// removals and they stay writable. Kills `> -> >=` in `check_live`'s `take_while` (line 458):
 /// it rescans the removal the handle was made at and panics.
 #[test]
 fn gaps_cache_reinserted_record_survives_a_later_unrelated_removal() {
@@ -316,7 +316,7 @@ fn gaps_cache_reinserted_record_survives_a_later_unrelated_removal() {
 
 /// A `Lazy` holding a record that owns storage: removing the value logs the `Lazy`'s own path
 /// as gone, and the `Lazy` handle (at that path, not strictly below it) may set a new value.
-/// Kills `> -> >=` in `check_live`'s length check (line 447): it treats the handle as stale.
+/// Kills `> -> >=` in `check_live`'s length check (line 459): it treats the handle as stale.
 #[test]
 fn gaps_cache_lazy_record_set_after_remove() {
     testing::use_mock();
@@ -331,7 +331,7 @@ fn gaps_cache_lazy_record_set_after_remove() {
 
 /// After an in-place `get_mut` (the slot is `Touched`, and the stored unknown tags survive the
 /// flush), `discard` still checks the stored bytes and refuses the record. Pins the behaviour
-/// behind the equivalent `stored_bytes` mutant `!s.merge -> true` (line 630): `Dirty` is only
+/// behind the equivalent `stored_bytes` mutant `!s.merge -> true` (line 640): `Dirty` is only
 /// ever set by a whole `put`, which clears `merge` at the same time, so a merging slot is never
 /// `Dirty` and the guard is always true.
 #[test]

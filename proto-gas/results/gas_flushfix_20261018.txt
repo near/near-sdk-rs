@@ -1,0 +1,104 @@
+# Oct 18 2026 flush-regression fix: perf_rows (v2 h16, 10k keys, K=7 keys per row, median) on each variant wasm.
+# 9382156c = Oct 17 head rebuilt; base = 5030854b+gas harness (cb867b4f); a = read path only; b = flush-op visitor only; c = flush keys walked in place only; final = a+b+c as committed.
+
+## 9382156c  sha256 7860a07f189d2b14…
+v2_h16.wasm 158806 B; ping 1.061 Tgas (load 173.0)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.794 (1.789-1.798) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 96.4 | 173.0 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.794 op-only 732.7 wasm 96.4
+| v2 Map (h16) | 10000 | update existing | 1.419 (1.417-1.419) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 70.9 | 173.0 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.419 op-only 358.3 wasm 70.9
+| v2 Map (h16) | 10000 | remove (non-last) | 2.145 (2.139-2.147) | 634.8 | 13.5 | 155.0 (68) | 15.4 | 117.1 | 173.0 | 1036.5 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.145 op-only 1084.2 wasm 117.1
+| v2 LookupMap (h16) | 10000 | insert new | 1.312 (1.310-1.314) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 59.7 | 173.0 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.312 op-only 250.8 wasm 59.7
+| v2 LookupMap (h16) | 10000 | update existing | 1.320 (1.318-1.320) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 60.0 | 173.0 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.320 op-only 259.1 wasm 60.0
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.374 (1.372-1.374) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 59.9 | 173.0 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.374 op-only 312.9 wasm 59.9
+
+## base  sha256 bee1090280b3067d…
+v2_h16.wasm 164513 B; ping 1.067 Tgas (load 179.2)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.813 (1.808-1.817) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 109.1 | 179.2 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.813 op-only 745.3 wasm 109.1
+| v2 Map (h16) | 10000 | update existing | 1.431 (1.428-1.431) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 76.0 | 179.2 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.431 op-only 363.3 wasm 76.0
+| v2 Map (h16) | 10000 | remove (non-last) | 2.175 (2.169-2.178) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 140.2 | 179.2 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.175 op-only 1107.9 wasm 140.2
+| v2 LookupMap (h16) | 10000 | insert new | 1.321 (1.319-1.324) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 63.0 | 179.2 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.321 op-only 254.0 wasm 63.0
+| v2 LookupMap (h16) | 10000 | update existing | 1.330 (1.327-1.330) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 63.3 | 179.2 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.330 op-only 262.3 wasm 63.3
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.385 (1.383-1.385) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 65.1 | 179.2 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.385 op-only 318.1 wasm 65.1
+
+## a  sha256 23be5ad9e153f7b8…
+v2_h16.wasm 164509 B; ping 1.067 Tgas (load 179.2)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.809 (1.804-1.813) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 105.1 | 179.2 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.809 op-only 741.3 wasm 105.1
+| v2 Map (h16) | 10000 | update existing | 1.428 (1.426-1.428) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 73.7 | 179.2 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.428 op-only 361.0 wasm 73.7
+| v2 Map (h16) | 10000 | remove (non-last) | 2.167 (2.160-2.169) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 131.9 | 179.2 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.167 op-only 1099.6 wasm 131.9
+| v2 LookupMap (h16) | 10000 | insert new | 1.321 (1.318-1.323) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 62.3 | 179.2 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.321 op-only 253.3 wasm 62.3
+| v2 LookupMap (h16) | 10000 | update existing | 1.329 (1.327-1.329) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 62.6 | 179.2 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.329 op-only 261.6 wasm 62.6
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.383 (1.381-1.383) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 62.5 | 179.2 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.383 op-only 315.5 wasm 62.5
+
+## b  sha256 f3aa687a1c33234b…
+v2_h16.wasm 164050 B; ping 1.067 Tgas (load 178.7)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.806 (1.801-1.810) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 102.8 | 178.7 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.806 op-only 739.0 wasm 102.8
+| v2 Map (h16) | 10000 | update existing | 1.429 (1.426-1.429) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 74.4 | 178.7 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.429 op-only 361.8 wasm 74.4
+| v2 Map (h16) | 10000 | remove (non-last) | 2.166 (2.159-2.168) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 131.2 | 178.7 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.166 op-only 1099.0 wasm 131.2
+| v2 LookupMap (h16) | 10000 | insert new | 1.319 (1.317-1.322) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 61.6 | 178.7 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.319 op-only 252.6 wasm 61.6
+| v2 LookupMap (h16) | 10000 | update existing | 1.328 (1.325-1.328) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 61.8 | 178.7 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.328 op-only 260.9 wasm 61.8
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.383 (1.381-1.383) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 63.6 | 178.7 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.383 op-only 316.6 wasm 63.6
+
+## c  sha256 91cc16bbf15aea46…
+v2_h16.wasm 163834 B; ping 1.067 Tgas (load 178.5)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.806 (1.802-1.811) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 103.3 | 178.5 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.806 op-only 739.6 wasm 103.3
+| v2 Map (h16) | 10000 | update existing | 1.426 (1.424-1.426) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 72.2 | 178.5 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.426 op-only 359.5 wasm 72.2
+| v2 Map (h16) | 10000 | remove (non-last) | 2.168 (2.161-2.170) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 133.4 | 178.5 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.168 op-only 1101.2 wasm 133.4
+| v2 LookupMap (h16) | 10000 | insert new | 1.318 (1.315-1.320) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 60.0 | 178.5 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.318 op-only 251.0 wasm 60.0
+| v2 LookupMap (h16) | 10000 | update existing | 1.326 (1.324-1.326) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 60.3 | 178.5 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.326 op-only 259.3 wasm 60.3
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.382 (1.379-1.382) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 62.1 | 178.5 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.382 op-only 315.1 wasm 62.1
+
+## final  sha256 f7f663d06abf62f3…
+v2_h16.wasm 163361 B; ping 1.066 Tgas (load 178.0)
+| collection | keys | op | Tgas median (min-max) | storage base | per-byte | trie nodes (n) | sha256 | wasm | load | other | r/w/d/h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| v2 Map (h16) | 10000 | insert new | 1.796 (1.791-1.800) | 425.9 | 10.2 | 86.6 (38) | 15.4 | 93.5 | 178.0 | 986.3 | 3/4/0/0 |
+PERF map insert new n=10000: total 1.796 op-only 729.8 wasm 93.5
+| v2 Map (h16) | 10000 | update existing | 1.422 (1.419-1.422) | 176.9 | 5.6 | 27.4 (12) | 10.3 | 68.2 | 178.0 | 955.3 | 2/1/0/0 |
+PERF map update existing n=10000: total 1.422 op-only 355.6 wasm 68.2
+| v2 Map (h16) | 10000 | remove (non-last) | 2.150 (2.143-2.152) | 634.8 | 14.0 | 155.0 (68) | 15.4 | 116.1 | 178.0 | 1036.6 | 5/3/3/0 |
+PERF map remove (non-last) n=10000: total 2.150 op-only 1083.8 wasm 116.1
+| v2 LookupMap (h16) | 10000 | insert new | 1.315 (1.313-1.317) | 120.6 | 3.7 | 20.5 (9) | 5.1 | 57.7 | 178.0 | 929.2 | 1/1/0/0 |
+PERF lookup insert new n=10000: total 1.315 op-only 248.7 wasm 57.7
+| v2 LookupMap (h16) | 10000 | update existing | 1.323 (1.321-1.323) | 120.6 | 4.3 | 25.1 (11) | 5.1 | 58.0 | 178.0 | 932.1 | 1/1/0/0 |
+PERF lookup update existing n=10000: total 1.323 op-only 257.0 wasm 58.0
+| v2 LookupMap (h16) | 10000 | remove (non-last) | 1.377 (1.375-1.377) | 166.2 | 3.5 | 25.1 (11) | 5.1 | 57.9 | 178.0 | 941.3 | 2/0/1/0 |
+PERF lookup remove (non-last) n=10000: total 1.377 op-only 310.9 wasm 57.9

@@ -1651,3 +1651,81 @@ The G1 run in `storage-v2-kani` was left alone.
 - near-sdk-macros: 49, plus 1 doctest.
 - `proto-wasm-check`: wasm32 check passes.
 - `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reasons as before.
+
+## API round 6 (Oct 18, flush perf)
+
+A performance-only round, with no API or format change. The Oct 18 gas re-measurement bisected a
+wasm-instruction regression to the D9 flag-key commit (`d4f2846c`): +10.4 Ggas on `Map` insert,
++3.9 on update, +16.2 on remove and +2 to +4 on `LookupMap` ops, all leaf rows with no extra host
+call. Branch `proto/storage-v2-perf` from `5030854b` plus the gas harness. Code commit
+`19050adb`. Evidence and tables are in GAS_MEASUREMENTS.md, "Flush regression fix (Oct 18, 2026)".
+
+### Cause (measured, one variant per suspect on the real runtime)
+
+- `Cache::load` copied the key before every host read (`key.to_vec()`, even when not at the flag
+  key), and every read looked up its slot twice (`entry_slot`, then `load`). This one is on the
+  read path, which is why `balance_of` (no writes) also moved at D9.
+- `Slot::flush_ops` returned a `Vec<FlushOp>` per slot, with a copied key in every op.
+- These two together reproduce the D9 delta on all six write-path rows (within 0.1 Ggas on five,
+  1.1 Ggas past it on `Map` remove). The earlier "re-encodes every dirty slot" reading does not
+  hold for contracts: the flush encodes each Touched/Dirty slot once, as before D9. The second
+  encode is in `has_pending_writes`, which only `state::testing` calls.
+- Also removed: the flush cloned every slot key before its loop. That cost predates D9 (3.0-6.8
+  Ggas per row).
+
+### Change (`near-sdk/src/state/cache.rs` only)
+
+- `Cache::load(key, flaggable)` replaces `entry_slot` + `load`. One slot lookup. The key goes to
+  the host as is, and the flag key is built only for a slot known to be at it. Callers:
+  `get_impl`, `stored_bytes`, `read_root` (`flaggable = false`).
+- `Slot::flush_ops(key) -> Vec<FlushOp>` becomes `Slot::for_each_flush_op(f)`. `FlushOp<'_>` is
+  `Write(At, &[u8])` / `Remove(At)` with `At::{Key, Flag}`, so emitting an op copies nothing. The
+  flush resolves `At::Flag` to `flag_key(key)` only when such an op occurs (a clearing move, or a
+  blind delete of a record). A verbatim clearing move (review F3) borrows `orig` through a `Cow`
+  instead of copying it. `has_pending_writes` and the `pending_removes` debug assert count
+  through the visitor.
+- `flush` destructures the cache (`host`, `slots`, `root`) and walks `slots` in place. The root
+  key is compared as a slice. Nothing in the loop inserts a slot, and a host call cannot reach
+  the cache (its `RefCell` is borrowed for the whole flush, as before).
+
+### What did not change
+
+- Op order: still key order, the record key before its flag key (review F4), the root last.
+  Every op-log assertion keeps its exact numbers. No storage op, byte or trie-node count moved
+  in any measured row.
+- `remove_count` / `remove_count_as` are untouched and still agree with the visitor.
+- No new `unsafe`. The flush keeps its existing `sp.as_ref()` deref under invariant 1, and
+  `has_pending_writes` keeps its existing one.
+
+### Result (v2 h16, 10k keys; Tgas whole receipt, op-only in Ggas)
+
+| row | Oct 17 | before | after | op-only after − Oct 17 |
+|---|---:|---:|---:|---:|
+| `Map` insert new | 1.794 | 1.813 | 1.796 | −2.9 |
+| `Map` update existing | 1.419 | 1.431 | 1.422 | −2.7 |
+| `Map` remove non-last | 2.145 | 2.175 | 2.150 | −0.4 |
+| `LookupMap` insert new | 1.312 | 1.321 | 1.315 | −2.1 |
+| `LookupMap` update | 1.320 | 1.330 | 1.323 | −2.1 |
+| `LookupMap` remove | 1.374 | 1.385 | 1.377 | −2.0 |
+
+`v2_h16.wasm` is 164,513 → 163,361 B (−1,152 B; Oct 17 158,806 B). The T4 revision and A2 stamp
+instruction costs (+1 to +6 Ggas per row) are still there. Removing the pre-D9 key clone more
+than covers them.
+
+### Test counts (end of round 6)
+
+- Lib: 639 passed, 1 ignored. Doctests: 348 passed, 7 ignored, plus 6 standalone.
+- `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15,
+  `state_v2_migrate` 9, `state_v2_verify` 16.
+- ft-v2 example: 16, plus 2 doctests. near-sdk-macros: 49, plus 1 doctest.
+- `proto-wasm-check`: wasm32 check passes. `ext` and h8 gas contracts build.
+- `abi_tests` and `deny_unknown_arguments_tests` fail for the same environment reason as before
+  (the example crates believe they are in the outer workspace).
+
+### Deliberately not done
+
+- No change to T4 (revision header) or A2 (generation stamps). They are outside this regression.
+- `free_slots` still collects the slots into a `Vec` (one allocation per call, not per key).
+- Not re-measured: h8, the `ext` rows and the 1k/100k sizes. They run the same code paths.
+- Not re-run: the Kani / bolero harnesses. Long Kani runs are in other worktrees, and this round
+  changes no state transition, only how the ops are handed to the host.
