@@ -720,3 +720,46 @@ Alternatives:
 - The deployed-ABI `storage diff` checks: D2's hard fail on a newly added `required` tag, and D4's build error on tag reuse.
 - An on-chain `env::storage_delta()`.
 - A trybuild `.stderr` snapshot for D6. The doctest checks E0277 only; the message text is quoted in the doctest's comments.
+
+## Audit round (Oct 17, Codex claims)
+
+Four claims from the Codex design review (`/tmp/storage-v2-review/codex-design-review.md`, A1, A2,
+A4, B) checked with executable tests on `proto/storage-v2-audit`, from `1661f6b5` (`77f63c76` plus
+the verify skeleton, which touches none of `cache`, `collections`, `record`, `migrating`). Behaviour
+is pinned, not fixed.
+
+Miri (nightly 2026-10-15) runs the UB traces. They are `#[cfg_attr(not(miri), ignore)]`, so plain
+`cargo test` skips them:
+
+```sh
+NEAR_SANDBOX_BIN_PATH=/usr/bin/true MIRIFLAGS="-Zmiri-ignore-leaks [-Zmiri-tree-borrows]" \
+  cargo +nightly miri test -p near-sdk --lib --features unstable,unit-testing -- state::tests::<name> --exact
+```
+
+`-Zmiri-ignore-leaks` is needed because slots are `Box::leak`ed until the flush. Miri stops at the first UB, so run one test at a time.
+
+| Claim | Verdict | Tests (commit) | Observed |
+|---|---|---|---|
+| A1 `cache::get` makes `&mut` on a shared lookup | **PARTIAL**: UB under Stacked Borrows, accepted under Tree Borrows; the "reallocate" part is refuted | `audit_a1_shared_ref_held_across_second_get_of_same_key`, `audit_a1_iter_refs_then_get_of_same_key`, `audit_a1_shared_ref_held_across_gets_of_other_keys` (`62978ddd`) | The traces compile: `Map::get(&self) -> Option<&V>`, so borrowck allows two overlapping lookups and there is no compile error to show. SB: "tag does not exist in the borrow stack" at the later use of the first `&V` (tests.rs:1306, and :1335 for `iter`). The tag was "invalidated by a Unique function-entry retag" at cache.rs:297, `(*p.as_ptr()).as_any_mut()`. TB: both pass, because nothing is written through the `&mut`. A `&V` held across 199 gets of *other* keys is clean under both models: slots and values are separate boxes, and the `BTreeMap` moves only `NonNull`s. |
+| A2 `mem::take` of a collection field: lost writes, no rebind panic | **PARTIAL**: the mechanism is wrong (no write is lost), but the class is real (UAF, orphans, D9 bypass) | `audit_a2_taken_field_handle_and_recreated_handle_stay_coherent`, `audit_a2_ref_from_taken_handle_dangles_after_overwrite_through_recreated_handle` (Miri), `audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect`, `audit_a2_taken_handle_bypasses_remove_some_clearing_guard` (`e0b7486b`) | Collections are `Default` (`Unbound`), so `mem::take(&mut rec.balances)` compiles via `get_mut`, and via `at_mut` too (its fields are `&mut` handles in the arena). The taken handle stays `Bound`, and no panic fires. Both handles route through the same path-keyed cache slots, so each sees the other's writes and the flush writes all of them: **no lost write.** What breaks: (1) a `&V` from the taken handle, then an overwrite through the recreated one (`put` → `drop_value`, cache.rs:160), then a read of the `&V`. Miri reports use-after-free under SB and TB. (2) After `accounts.remove(&alice)`, the taken handle is not detached (only the left-behind one is), so `taken.insert` writes 4 orphan keys (entry, index, slot, header) under the removed path. A later `insert_new(alice, ..)` inherits them (`len 1`, `z = 9`). (3) After `remove_some(&alice, 0)` flags the record, `taken.insert` below it is accepted. The D9 guard checks the record path only in `get_mut`/`entry`/`at_mut`. Later `remove_some` calls still clear the added entry. Nothing blocks the escape at the type level: invariant 3 in cache.rs says single-handle-per-key is not type-enforced, and `__bound_at` is a public (doc-hidden) constructor. |
+| A4 `new_side()`/`old_side()` break the one-side invariant | **CONFIRMED** | `audit_a4_new_side_write_is_overwritten_by_migrate_batch`, `audit_a4_remove_after_new_side_write_resurrects_the_old_value`, `audit_a4_old_side_write_overwrites_the_new_value_at_the_next_batch` (`90fcc10c`, `state_v2_migrate`) | (1) `new_side().insert(tok0, buyer)` while v1 holds tok0: reads return `buyer` until the batch, then `owner(0)`, a lost update. (2) Same setup, then `remove(tok1)` returns `buyer`, and the next `get(tok1)` is `owner(1)`, resurrected through the fallback; the batch then makes it permanent. (3) Mirror: a stale value put back through `old_side()` after the key moved replaces the new value at the next batch. `migrate_batch`'s doc relies on exactly the invariant these accessors let a caller break. |
+| B gas and storage arithmetic | **CONFIRMED**, with one refinement | none (arithmetic from GAS_MEASUREMENTS.md, the spec and key.rs) | See below. |
+
+### B, the arithmetic
+
+- **(i) 138 Ggas "nested read".** It is `balance_of` − `noop_view` = 1.288 − 1.150 Tgas, a workload delta. By column: base 112.7 − 56.4 = 56.3, per-byte 2.1 − 0.1 = 2.0, sha256 9.6, wasm 44.5 − 20.4 = 24.1, other 946.4 − 899.8 = 46.6; total 138.6. The 46.6 of "other" is mostly the JSON argument and return value of the method, so it is a property of the method, not of the read. The read itself is ≈ 56.3 + 2.0 + 9.6 ≈ 68 Ggas plus ≈ 24 Ggas of wasm decode. The 89 Ggas "root read" is likewise `noop_view` − `ping`. Table 4 has no trie-node or load column; its residual equals the 172.9 Ggas load exactly, so reads there show 0 trie-node gas, consistent with flat storage.
+- **(ii) 0.527 Tgas `Map` premium** (100k keys + 100k accounts) = 1.855 − 1.328 Tgas. By column: storage base 425.9 − 120.6 = 305.3 (2 reads × 56.4 + 3 writes × 64.2 = 112.7 + 192.6), trie 148.2 − 36.5 = 111.7 (49 nodes), per-byte 6.5, sha256 10.3, wasm 36.7, other 57.1, load 0; total 527.6. So 0.305 + 0.112 + ~0.110 holds. The refinement: the ~0.110 remainder is mostly "other" (57, register/memory/exec) and wasm (37), and only 10 is hashing. The file's own one-line breakdown (line 97) omits the 6.5 Ggas per-byte term and sums to 522.
+- **Hash width, bytes.** key.rs puts one hash per `entry()` hop: `kind ++ h(k) ++ borsh(k)`. Slots are `kind ++ u32 LE` with no hash. Per `accounts[alice].balances[usdt]` entry: value key 59 B (2 hashes), index key 59 B (2 hashes), slot key 39 B (1 hash, the outer one). At 8 bytes instead of 16 that saves 16 + 16 + 8 = **40 B per entry**: staked bytes go from 115/103/87 = 305 to 99/87/79 = 265 (−13%). The header (35 B key, 1 hash) saves 8 B once per map, and the record key 8 B once per account. Cost: 40 B × 10⁶ entries × 10¹⁹ yoctoNEAR/B = 4 × 10²⁶ yocto = **400 NEAR per million entries**. For `LookupMap` (the value key only) it is 16 B, 160 NEAR per million. The GAS_MEASUREMENTS verdict "doesn't matter; keep 16" is a gas verdict only; the storage-stake side is not weighed anywhere.
+
+### Smallest fixes (not implemented)
+
+- **A1.** In `cache::get`, never form `&mut` for a lookup. Type-check through a shared borrow (`(&*p.as_ptr() as &dyn Any).type_id() == TypeId::of::<V>()`, or an `as_any(&self)` method) and return `p.cast::<V>()`. Every `&V` and `&mut V` then derives from the slot's raw pointer. `get_mut`'s `m(p)` stays sound, since it is still raw-derived. Do not use `NonNull::from(downcast_ref())`: that would make `get_mut` write through a shared-derived pointer.
+- **A2.** The escape cannot be closed at the type level while records hold owned handles: `mem::replace` and `mem::swap` work even without `Default`. Two runtime fixes, in order:
+  - Defer frees: `drop_value` in `put`/`delete` moves the old box to a per-call graveyard freed at the flush. That closes the UAF with no API change. A `&V` vs `&mut V` overlap across two handles is still an aliasing violation, though not a dangling read.
+  - The cache keeps the set of record paths removed or flagged clearing in this call, and `put`/`touch` under such a prefix panics. That closes the orphan writes and the D9 bypass within a call. An escaped handle cannot outlive the call except by deliberate statics.
+  - Longer term: `&mut Record` should not expose collection fields as owned values (`get_mut` returns a view, as `at_mut` does). Also make `__bound_at` crate-private, or rename it to say it is unsafe.
+- **A4.** `new_side()`/`old_side()` return `&V2`/`&V1`, or are removed. As defence in depth, `migrate_batch` skips keys already on the new side (1 extra read per moved key), and `remove` deletes from both sides (1 extra old-side remove).
+
+### Unsafe inventory
+
+The cache uses `unsafe` throughout, by design. cache.rs has 23 `unsafe` blocks, every slot or value deref (lines 146, 160, 198, 230, 235, 279, 287, 297, 314, 340, 356, 366, 380, 392, 401, 409, 414, 425, 435, 454, 474, 495, 515). collections.rs has 37 `unsafe` sites: the `r`/`m`/`arena_mut` helpers and their call sites. root.rs has one `unsafe fn get_record`. record.rs, migrating.rs, key.rs and value.rs have none.
