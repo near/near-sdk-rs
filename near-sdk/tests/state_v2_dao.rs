@@ -388,14 +388,13 @@ fn vote_op_counts() {
     // (`at_mut` reuses them from the cache). writes: 4 for the votes Map entry, 4 for the
     // member's Set entry. Before revision 3: (7, 8, 0) + 1 has_key, reading both records.
     //
-    // API round D9: `at_mut` must see the clearing flag, which lives in the record bytes, so
-    // it reads the record (no decode) instead of `storage_has_key`. The vote now reads both
-    // records again: (7, 8, 0), 1 has_key (the `members.contains_key` check), and the
-    // proposal's 2,000-byte description is back in the read bytes. This is the cost the
-    // in-record flag buys; see PROTOTYPE_NOTES "API round (Oct 17)".
-    assert_eq!(r.rwd(), (7, 8, 0));
-    assert_eq!(r.has_keys(), 1);
-    assert!(r.read_bytes() > 2_000, "read {} bytes", r.read_bytes());
+    // API round 2 (D9, flag key): a record being cleared lives at its flag key with its record
+    // key absent, so `at_mut` on a present record stays 1 `storage_has_key` and reads nothing.
+    // (The in-record `00 00` flag had made this (7, 8, 0) + 1 has_key, rereading the 2,000-byte
+    // description.) Back to the revision-3 numbers.
+    assert_eq!(r.rwd(), (5, 8, 0));
+    assert_eq!(r.has_keys(), 2);
+    assert!(r.read_bytes() < 2_000, "read {} bytes: the proposal is not read", r.read_bytes());
 }
 
 /// D7: `at_mut` on an absent record is `None` instead of creating orphan children.

@@ -706,7 +706,9 @@ fn insert_of_new_record_costs_a_has_key_and_a_write() {
     ex2.accounts.insert_new(alice(), Account::default());
     flush_root(&ex2);
     let r = receipt();
-    assert_eq!(r.has_keys() - before.has_keys(), 1);
+    // D9 flag key: a miss at the record key also checks the flag key (a record being cleared
+    // lives there), so a new record costs 2 existence checks.
+    assert_eq!(r.has_keys() - before.has_keys(), 2);
     assert_eq!(r.writes() - before.writes(), 1);
     let _ = &mut ex;
 }
@@ -758,7 +760,7 @@ fn missing_tag_reads_as_default() {
 #[should_panic(expected = "TagZero")]
 fn tag_zero_in_stored_record_panics() {
     testing::use_mock();
-    // `00 00` alone is now the D9 clearing flag; a tag 0 with a body is still rejected.
+    // tag 0 is never a field (the D9 clearing flag is a separate key, not record bytes)
     seed(&alice_record_key(), &[0x00, 0x01, 0x05]);
     let ex: Ex = load_root();
     ex.accounts.get(&alice());
@@ -827,8 +829,9 @@ fn deposit_costs_and_parent_write_rule() {
     deposit(&mut ex, alice(), "usdt", 5);
     flush_root(&ex);
     let r = receipt();
-    // root read, account read, usdt entry read, header read; account record write, 4 writes
-    assert_eq!(r.rwd(), (4, 6, 0), "the 6th write is the root itself: absent before the first call, so it is created");
+    // root read, account read, account flag-key read (D9: a miss consults it), usdt entry read,
+    // header read; account record write, 4 writes
+    assert_eq!(r.rwd(), (5, 6, 0), "the 6th write is the root itself: absent before the first call, so it is created");
 
     testing::begin_call();
     let mut ex: Ex = load_root();
@@ -933,7 +936,11 @@ fn insert_new_returns_the_bound_record() {
     let mut lm: LookupMap<u32, Account> = at(12);
     lm.insert_new(1, Account::default()).nonce = 2;
     let r = end_call();
-    assert_eq!((r.has_keys(), r.writes()), (1, 1), "LookupMap: 1 existence check, 1 write");
+    assert_eq!(
+        (r.has_keys(), r.writes()),
+        (2, 1),
+        "LookupMap: 2 existence checks (record key, then its D9 flag key on the miss), 1 write"
+    );
 }
 
 /// D6: `insert` always overwrites a `Leaf` value, including a scalar-only record, and
@@ -1211,20 +1218,19 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     end_call();
     m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
     let r = end_call();
-    assert_eq!(r.has_keys(), 0);
+    assert_eq!(r.has_keys(), 1, "the record's existence; D9's flag key is not checked on a hit");
     assert_eq!(
         r.rwd(),
-        (3, 4, 0),
-        "D9: record bytes read (not decoded) for the clearing flag; balances index + header \
-         reads, 4 writes; the record is not rewritten"
+        (2, 4, 0),
+        "balances index + header reads, 4 writes; the record is neither read nor rewritten"
     );
     assert_eq!(m.get(&1).unwrap().balances.get(&"usdt".to_string()), Some(&5));
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
 
 /// D9: `remove_some` budgets entries across nested maps: a record whose `balances` holds 5
-/// entries takes 3 calls at n = 2, the flag sits in the record until the last, and the outer
-/// map's key vector drops the key only then.
+/// entries takes 3 calls at n = 2, the record sits at its flag key (record key absent) until
+/// the last, and the outer map's key vector drops the key only then.
 #[test]
 fn remove_some_budgets_across_calls() {
     testing::use_mock();
@@ -1236,10 +1242,14 @@ fn remove_some_budgets_across_calls() {
     m.entry(2).or_default().nonce = 1;
     end_call();
     let rec = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
+    let flag = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).flag();
+    let before = store()[&rec].clone();
     assert!(m.remove_some(&1, 2));
     end_call();
-    assert!(record::is_clearing(&store()[&rec]));
+    assert!(!store().contains_key(&rec), "the record key is absent while clearing");
+    assert_eq!(store()[flag.as_bytes()], before, "the record's bytes, unchanged, at the flag key");
     assert_eq!(m.len(), 2, "still indexed while clearing");
+    assert!(m.contains_key(&1) && m.get(&1).is_some(), "a record being cleared still reads");
     end_call();
     assert!(m.remove_some(&1, 2));
     end_call();
@@ -1259,6 +1269,84 @@ fn remove_some_budgets_across_calls() {
     assert!(lm.get(&1).is_none());
 }
 
+/// D9 flag key: every path that ends a clear early (`replace`, `remove`, `discard`) removes
+/// the flag key; `insert_new` over a record being cleared panics; iteration and `get` still
+/// see the record; a flag key never outlives its clear.
+#[test]
+fn flag_key_is_dropped_by_replace_remove_and_discard() {
+    fn flagged_lookup(tag: u32) -> (LookupMap<u32, Account>, StdVec<u8>, StdVec<u8>) {
+        let mut lm: LookupMap<u32, Account> = at(tag);
+        let a = lm.entry(1).or_default();
+        a.nonce = 4;
+        a.balances.insert("a".into(), 1);
+        a.balances.insert("b".into(), 1);
+        end_call();
+        assert!(lm.remove_some(&1, 1));
+        end_call();
+        let rec = Path::root(DEFAULT_ROOT).field(tag).kind(kind::ENTRIES).entry(&1u32);
+        let (rec, flag) = (rec.as_bytes().to_vec(), rec.flag().as_bytes().to_vec());
+        assert!(!store().contains_key(&rec) && store().contains_key(&flag));
+        (lm, rec, flag)
+    }
+    testing::use_mock();
+
+    // replace: clears without a bound, the new record goes to the record key
+    let (mut lm, rec, flag) = flagged_lookup(20);
+    let old = lm.replace(1, Account { nonce: 9, ..Default::default() }).expect("was present");
+    assert_eq!(old.nonce, 4);
+    end_call();
+    assert!(store().contains_key(&rec) && !store().contains_key(&flag));
+    assert_eq!(lm.get(&1).unwrap().nonce, 9);
+    assert_eq!(lm.at(&1).balances.len(), 0);
+    end_call();
+
+    // remove: finds the record at its flag key and removes it there
+    let (mut lm, rec, flag) = flagged_lookup(21);
+    assert_eq!(lm.remove(&1).map(|a| a.nonce), Some(4));
+    end_call();
+    assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
+    let _ = flag;
+
+    // discard (blind): removes both keys, since it cannot know which one holds the record
+    let (mut lm, rec, _) = flagged_lookup(22);
+    lm.discard(&1);
+    let r = end_call();
+    assert_eq!(store().keys().filter(|k| k.starts_with(&rec)).count(), 0);
+    assert_eq!(
+        r.rwd().2,
+        6,
+        "the remaining balance's entry, index, slot and the balances header; then the record \
+         key and the flag key"
+    );
+
+    // insert_new over a record being cleared panics, and so does `entry`
+    let (mut lm, _, _) = flagged_lookup(23);
+    let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lm.insert_new(1, Account::default());
+    }))
+    .expect_err("insert_new over a clearing record");
+    assert!(e.downcast_ref::<String>().is_some_and(|m| m.contains("is being cleared")));
+    testing::begin_call();
+    let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lm.entry(1).or_default();
+    }))
+    .expect_err("entry over a clearing record");
+    assert!(e.downcast_ref::<String>().is_some_and(|m| m.contains("is being cleared")));
+    testing::begin_call();
+
+    // Map: iteration still yields a record being cleared (its key stays indexed)
+    let mut m: Map<u32, Account> = at(24);
+    let a = m.entry(1).or_default();
+    a.nonce = 5;
+    a.balances.insert("a".into(), 1);
+    a.balances.insert("b".into(), 1);
+    end_call();
+    assert!(m.remove_some(&1, 1));
+    end_call();
+    assert_eq!(m.iter().map(|(k, v)| (k, v.nonce)).collect::<StdVec<_>>(), vec![(1, 5)]);
+    end_call();
+}
+
 /// D7: `at_mut` on an absent record is `None` (std convention), and creates nothing.
 #[test]
 fn at_mut_on_an_absent_record_is_none() {
@@ -1268,6 +1356,7 @@ fn at_mut_on_an_absent_record_is_none() {
     let mut lm: LookupMap<u32, Account> = at(10);
     assert!(lm.at_mut(&9).is_none());
     let r = end_call();
-    assert_eq!(r.reads(), 2, "D9: at_mut reads the record bytes (absent: 0 bytes)");
+    assert_eq!(r.reads(), 0, "at_mut reads nothing");
+    assert_eq!(r.has_keys(), 4, "per map: the record key, then (a miss) its D9 flag key");
     assert_eq!(r.keys_written().len(), 0, "nothing created");
 }

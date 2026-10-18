@@ -45,22 +45,25 @@
 //! so the prototype's NFT test compiles.)
 //!
 //! - `map.get(&k)` reads and decodes the record. `map.at(&k)` walks to it without reading
-//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 read of the record's bytes,
-//!   not decoded (D9: it must see the clearing flag; it was 1 `storage_has_key` before), and
-//!   `None` if absent (D7: named accessors return `Option`; only `Index` would panic).
+//!   (read-only). `map.at_mut(&k)` walks to it to write below it: 1 `storage_has_key`, no read,
+//!   no decode, and `None` if absent (D7: named accessors return `Option`; only `Index` would
+//!   panic). An absent record costs a 2nd check, of its D9 flag key.
 //!   `entry(k).or_default()` / `get_mut(&k)` give the decoded record to change.
 //! - Each key is read at most once per call, and written once at the end, in key order, with the
 //!   root last. A record is rewritten only if its encoding changed. `contains_key` is a
 //!   `storage_has_key` and does not warm the cache for a later `get`.
 //! - `remove` clears the value's collections and returns it detached. `remove_some(&k, n)`
 //!   (D9) removes a record in bounded steps across calls: at most `n` entries of what it owns
-//!   per call, then the record; `true` while entries remain. Meanwhile the record carries the
-//!   clearing flag and `get_mut`, `entry` and `at_mut` on it panic, so nothing can be added
-//!   below it faster than it is cleared (`get` / `at` still read).
-//! - FORMAT DECISION (D9): the clearing flag is the field `00 00` (tag 0, length 0) at the front
-//!   of the record bytes. Two bytes is the smallest field the grammar allows; tag 0 is never a
-//!   user tag, so it cannot collide, and tags ascend, so it can only be first. A decoder that
-//!   predates it rejects the record with `TagZero` (fails closed). See `record::CLEARING_FLAG`.
+//!   per call, then the record; `true` while entries remain. Meanwhile the record is flagged and
+//!   `get_mut`, `entry` and `at_mut` on it panic, so nothing can be added below it faster than
+//!   it is cleared (`get` / `at` still read).
+//! - FORMAT DECISION (D9, flag key): the clearing flag is a separate key, the record's key plus
+//!   one `00` byte (`Path::flag`; tag 0, which no field may use). While a record is being
+//!   cleared its bytes live at the flag key and its record key is absent; the call that
+//!   finishes removes the flag key. So presence of the record key means "present and not
+//!   being cleared": `at_mut`, `get_mut` and `entry` on a present record pay nothing for D9,
+//!   and only a miss on a map value that owns storage consults the flag key (1 more host
+//!   call). Record bytes carry no flag; tag 0 in a record is always `TagZero`.
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
 //!   the index read); `LookupMap::insert` returns `()` (no existence read). It requires
 //!   `V: Leaf`, a value that owns no collections, so for a record that owns one plain `insert`

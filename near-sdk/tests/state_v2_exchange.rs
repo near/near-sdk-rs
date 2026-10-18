@@ -220,9 +220,10 @@ fn deposit_balance_of_and_pagination() {
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(
         r.rwd(),
-        (5, 8, 0),
-        "root, account entry + header, usdt entry + header reads; account entry, index, slot, \\
-         header and usdt entry, index, slot, header writes (`accounts` is a `Map` since D3)"
+        (6, 8, 0),
+        "root, account entry + flag key (D9: a miss consults it) + header, usdt entry + header \\
+         reads; account entry, index, slot, header and usdt entry, index, slot, header writes \\
+         (`accounts` is a `Map` since D3)"
     );
     let (_, r) = call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     assert_eq!(r.rwd(), (3, 1, 0));
@@ -262,13 +263,14 @@ fn markets_place_and_cancel() {
         assert_eq!(id, i as u64);
     }
     let (_, r) = call("alice.near", |c| c.cancel(7, 0));
-    // root, market record (D9: `at_mut` reads its bytes for the clearing flag, no decode);
-    // orders entry, index, header, last slot reads; moved slot + index + header writes;
-    // 3 removes.
-    assert_eq!(r.rwd(), (6, 3, 3));
-    assert_eq!(r.has_keys(), 0);
+    // root; orders entry, index, header, last slot reads; moved slot + index + header writes;
+    // 3 removes. The market is 1 existence check (`at_mut`), not read: a record being cleared
+    // (D9) lives at its flag key, so a present record key means "not being cleared".
+    assert_eq!(r.rwd(), (5, 3, 3));
+    assert_eq!(r.has_keys(), 1);
     let (_, r) = call("alice.near", |c| c.cancel(7, 99));
-    assert_eq!(r.rwd(), (3, 0, 0), "cancelling an unknown order: root, market bytes, entry read");
+    assert_eq!(r.rwd(), (2, 0, 0), "cancelling an unknown order: root, entry read");
+    assert_eq!(r.has_keys(), 1, "the market's existence");
     let (n, _) = view(|c| c.markets.at(&7).orders.len());
     assert_eq!(n, 2);
 }
@@ -292,7 +294,8 @@ fn market_record_scalars_and_orders() {
     });
     let (left, r) = call("alice.near", |c| c.fill(7, 1, U128(4)));
     assert_eq!(left.0, 16);
-    assert_eq!(r.rwd(), (3, 1, 0), "root, market bytes (D9, not decoded), order; order write");
+    assert_eq!(r.rwd(), (2, 1, 0), "root, order; order write (the market is not read)");
+    assert_eq!(r.has_keys(), 1, "the market's existence");
     let (m, _) = view(|c| {
         let m = c.markets.get(&7).unwrap();
         (m.tick_size, m.next_order_id)
@@ -324,6 +327,11 @@ fn market_key(m: MarketId) -> Vec<u8> {
     near_sdk::state::Path::root(0xF0).field(4).kind(0).entry(&m).as_bytes().to_vec()
 }
 
+/// D9: the market's clearing flag key, its record key plus one `00` byte.
+fn market_flag_key(m: MarketId) -> Vec<u8> {
+    near_sdk::state::Path::root(0xF0).field(4).kind(0).entry(&m).flag().as_bytes().to_vec()
+}
+
 fn keys_under(prefix: &[u8]) -> usize {
     testing::store().keys().filter(|k| k.starts_with(prefix)).count()
 }
@@ -343,8 +351,8 @@ fn market_with_orders(n: u64) {
     });
 }
 
-/// D9: a two-call clear with an interleaved insert. Call 1 clears 2 of 4 orders and leaves
-/// the clearing flag (`00 00`) at the front of the market record. Between the two clear calls,
+/// D9: a two-call clear with an interleaved insert. Call 1 clears 2 of 4 orders and moves the
+/// market record to its clearing flag key (record key + `00`). Between the two clear calls,
 /// every write path into the market panics (`get_mut` via `place`, `at_mut` via `cancel`,
 /// `entry`), while `get` still reads it. Call 2 finishes: the market and all its keys are gone,
 /// and a new market at the same id starts clean.
@@ -352,16 +360,18 @@ fn market_with_orders(n: u64) {
 fn clear_across_two_calls_refuses_an_interleaved_insert() {
     market_with_orders(4);
     let key = market_key(7);
+    let flag = market_flag_key(7);
+    assert_eq!(flag.len(), key.len() + 1);
     let before = testing::store()[&key].clone();
-    assert!(!near_sdk::state::record::is_clearing(&before));
+    assert!(!testing::store().contains_key(&flag));
 
     let (more, r) = call("owner.near", |c| c.close_market(7, 2));
     assert!(more, "2 orders remain");
-    let flagged = testing::store()[&key].clone();
-    assert_eq!(&flagged[..2], &[0x00, 0x00], "clearing flag first");
-    assert_eq!(&flagged[2..], &before[..], "the rest of the record is unchanged");
-    assert_eq!(flagged.len(), before.len() + 2, "the flag costs 2 bytes");
-    assert!(r.keys_written().contains(&key));
+    assert!(!testing::store().contains_key(&key), "the record key is absent while clearing");
+    let flagged = testing::store()[&flag].clone();
+    assert_eq!(flagged, before, "the record's bytes, unchanged, now at the flag key");
+    assert!(r.keys_written().contains(&flag));
+    assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::Remove && o.key == key));
     assert_eq!(view(|c| c.markets.at(&7).orders.len()).0, 2);
 
     // interleaved writes: all refused
@@ -381,15 +391,16 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
     assert!(msg.contains("is being cleared"), "{msg}");
     // reads still work, and nothing was written by the refused calls
     assert_eq!(view(|c| c.markets.get(&7).map(|m| m.tick_size)).0, Some(1));
-    assert_eq!(testing::store()[&key], flagged);
+    assert_eq!(testing::store()[&flag], flagged);
+    assert!(!testing::store().contains_key(&key));
 
     let (more, _) = call("owner.near", |c| c.close_market(7, 2));
     assert!(!more, "finished");
-    assert_eq!(keys_under(&key), 0, "market record and every order key removed");
+    assert_eq!(keys_under(&key), 0, "market record, flag key and every order key removed");
     assert_eq!(view(|c| c.markets.len()).0, 0);
 
     call("owner.near", |c| c.open_market(7, U128(3)));
-    assert!(!near_sdk::state::record::is_clearing(&testing::store()[&key]));
+    assert!(testing::store().contains_key(&key) && !testing::store().contains_key(&flag));
     call("alice.near", |c| c.place(7, Order { price: 3, qty: 1 }));
 }
 
@@ -398,9 +409,11 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
 fn clear_that_fits_in_one_call_writes_no_flag() {
     market_with_orders(3);
     let key = market_key(7);
+    let flag = market_flag_key(7);
     let (more, r) = call("owner.near", |c| c.close_market(7, 3));
     assert!(!more);
     assert_eq!(keys_under(&key), 0);
+    assert!(r.ops.iter().all(|o| o.key != flag), "the flag key is never touched");
     assert!(r.ops.iter().all(|o| o.kind != testing::OpKind::Write || o.key != key));
     assert!(!call("owner.near", |c| c.close_market(7, 3)).0, "absent: done");
 }
@@ -424,13 +437,8 @@ fn set_balance_writes_below_without_decoding_the_record() {
     init("owner.near");
     call("alice.near", |c| c.deposit("usdt".into(), U128(5)));
     let (_, r) = call("owner.near", |c| c.set_balance(alice(), "usdt".into(), U128(9)));
-    assert_eq!(r.has_keys(), 0);
-    assert_eq!(
-        r.rwd(),
-        (3, 1, 0),
-        "root, account bytes (D9: read for the clearing flag, not decoded), balances index; \\
-         entry write"
-    );
+    assert_eq!(r.has_keys(), 1, "the account's existence; the D9 flag key is not checked");
+    assert_eq!(r.rwd(), (2, 1, 0), "root, balances index; entry write (the account is not read)");
     assert_eq!(view(|c| c.balance_of(alice(), "usdt".into())).0.0, 9);
 }
 
@@ -520,9 +528,9 @@ fn init_with_bind_seeds_collections() {
     let c = Exchange::new_seeded("owner.near".parse().unwrap());
     c.state_write();
     let r = testing::receipt();
-    // or_default reads the entry and (absent) the header: 2 reads; entry, index, slot, header
-    // and root writes (`accounts` is a `Map` since D3)
-    assert_eq!(r.rwd(), (2, 5, 0));
+    // or_default reads the entry, its D9 flag key (the entry missed) and (absent) the header:
+    // 3 reads; entry, index, slot, header and root writes (`accounts` is a `Map` since D3)
+    assert_eq!(r.rwd(), (3, 5, 0));
     assert_eq!(r.ops.last().unwrap().key, vec![0xF0], "root last");
     let (n, _) = view(|c| c.accounts.get(&"owner.near".parse().unwrap()).map(|a| a.nonce));
     assert_eq!(n, Some(1));

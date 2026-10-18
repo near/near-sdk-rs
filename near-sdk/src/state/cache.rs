@@ -60,8 +60,6 @@ impl Host for EnvHost {
 trait Erased: Any {
     fn encode(&self, orig: Option<&[u8]>) -> Vec<u8>;
     fn as_any_mut(&mut self) -> &mut dyn Any;
-    /// Whether the value owns storage below its key (so it may carry the clearing flag).
-    fn owns_storage(&self) -> bool;
 }
 
 impl<V: Value> Erased for V {
@@ -71,19 +69,22 @@ impl<V: Value> Erased for V {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    fn owns_storage(&self) -> bool {
-        V::MAX_SUBPATH > 0
-    }
 }
 
 /// D9 clearing state of a record slot.
+///
+/// A record that `remove_some` is clearing across calls is stored at its FLAG KEY
+/// ([`Path::flag`], the record path plus one `00` byte) and its own key is absent. So the
+/// record key's existence alone says "present and not clearing", and `at_mut` stays one
+/// `storage_has_key`; only a miss at the record key consults the flag key.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Clearing {
-    /// Whatever the stored bytes say (flag present or not).
+    /// Whatever storage says: clearing iff the bytes were found at the flag key.
     FromOrig,
-    /// `remove_some` started or continued clearing in this call: the flush writes the flag.
+    /// `remove_some` started or continued clearing in this call: the flush stores the record
+    /// at the flag key (and removes the record key).
     Set,
-    /// Replaced or removed in this call: not clearing, whatever the stored bytes said.
+    /// Replaced or removed in this call: not clearing, whatever storage said.
     Cleared,
 }
 
@@ -126,6 +127,17 @@ struct Slot {
     /// whole, so it clears this; read-modify-write keeps it.
     merge: bool,
     clearing: Clearing,
+    /// A map entry whose value owns storage, so it may be stored at its flag key (D9). Only
+    /// such slots consult the flag key, and only after a miss at the record key.
+    flaggable: bool,
+    /// `orig` describes the flag key, not the record key (which is then known absent).
+    at_flag: bool,
+}
+
+/// What a flush does for one slot: the writes and removes, by key.
+enum FlushOp {
+    Write(Vec<u8>, Vec<u8>),
+    Remove(Vec<u8>),
 }
 
 impl Slot {
@@ -133,25 +145,61 @@ impl Slot {
         match self.clearing {
             Clearing::Set => true,
             Clearing::Cleared => false,
-            Clearing::FromOrig => self.orig.bytes().is_some_and(super::record::is_clearing),
+            Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
         }
     }
 
-    /// The bytes the flush would write for a Touched/Dirty slot. A record being cleared gets
-    /// the flag prepended (the record encoder never merges it from `orig`).
+    /// The bytes the flush would write for a Touched/Dirty slot.
     fn encode(&self) -> Vec<u8> {
         let p = self.value.expect("dirty slot has a value");
         let merge_from = if self.merge { self.orig.bytes() } else { None };
         // SAFETY: invariant 1.
-        let v = unsafe { p.as_ref() };
-        let enc = v.encode(merge_from);
-        if v.owns_storage() && self.is_clearing() {
-            let mut out = super::record::CLEARING_FLAG.to_vec();
-            out.extend_from_slice(&enc);
-            out
-        } else {
-            enc
+        unsafe { p.as_ref() }.encode(merge_from)
+    }
+
+    /// The host operations a flush performs for this slot at `key`. A record being cleared
+    /// goes to its flag key and leaves its record key; a record no longer being cleared goes
+    /// back to its record key and leaves the flag key. Unchanged bytes at the same key are
+    /// not rewritten.
+    fn flush_ops(&self, key: &[u8]) -> std::vec::Vec<FlushOp> {
+        let mut ops = std::vec::Vec::new();
+        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
+        let (at_key, at_flag) = (present && !self.at_flag, present && self.at_flag);
+        match self.mode {
+            Mode::Clean => {}
+            Mode::Touched | Mode::Dirty => {
+                let enc = self.encode();
+                let same = self.orig.bytes() == Some(&enc[..]);
+                if self.is_clearing() {
+                    if !(at_flag && same) {
+                        ops.push(FlushOp::Write(flag_key(key), enc));
+                    }
+                    if at_key {
+                        ops.push(FlushOp::Remove(key.to_vec()));
+                    }
+                } else {
+                    if !(at_key && same) {
+                        ops.push(FlushOp::Write(key.to_vec(), enc));
+                    }
+                    if at_flag {
+                        ops.push(FlushOp::Remove(flag_key(key)));
+                    }
+                }
+            }
+            Mode::Deleted => match self.orig {
+                Orig::Absent => {}
+                // A blind delete (`discard`, a bulk clear): the record may be at either key.
+                Orig::Unknown => {
+                    ops.push(FlushOp::Remove(key.to_vec()));
+                    if self.flaggable {
+                        ops.push(FlushOp::Remove(flag_key(key)));
+                    }
+                }
+                _ if self.at_flag => ops.push(FlushOp::Remove(flag_key(key))),
+                _ => ops.push(FlushOp::Remove(key.to_vec())),
+            },
         }
+        ops
     }
 
     fn drop_value(&mut self) {
@@ -186,20 +234,41 @@ impl Cache {
             mode: Mode::Clean,
             merge: true,
             clearing: Clearing::FromOrig,
+            flaggable: false,
+            at_flag: false,
         })));
         self.slots.insert(key.to_vec(), s);
         s
     }
 
+    /// The slot for `key`, marked as a map entry that owns storage when `flaggable`.
+    fn entry_slot(&mut self, key: &[u8], flaggable: bool) -> NonNull<Slot> {
+        let mut sp = self.slot(key);
+        if flaggable {
+            // SAFETY: invariant 1.
+            unsafe { sp.as_mut() }.flaggable = true;
+        }
+        sp
+    }
+
     /// Ensures the slot's original bytes are known, reading the host at most once per call.
+    /// A flaggable slot that misses at its key reads its flag key (D9).
     fn load(&mut self, key: &[u8]) -> NonNull<Slot> {
         let mut sp = self.slot(key);
         // SAFETY: slots are only accessed inside cache operations (invariant 1).
         let s = unsafe { sp.as_mut() };
         let unread = matches!(s.orig, Orig::Unknown | Orig::PresentUnread);
         if unread && s.value.is_none() && s.mode == Mode::Clean {
-            s.orig = match self.host.read(key) {
+            let at = if s.at_flag { flag_key(key) } else { key.to_vec() };
+            s.orig = match self.host.read(&at) {
                 Some(b) => Orig::Present(b),
+                None if s.flaggable && !s.at_flag => match self.host.read(&flag_key(key)) {
+                    Some(b) => {
+                        s.at_flag = true;
+                        Orig::Present(b)
+                    }
+                    None => Orig::Absent,
+                },
                 None => Orig::Absent,
             };
         }
@@ -269,11 +338,31 @@ pub(crate) fn slot_count() -> usize {
     with(|c| c.slots.len())
 }
 
+/// The flag key of the record whose key is `key`: one more byte, `00` (see [`Path::flag`]).
+fn flag_key(key: &[u8]) -> Vec<u8> {
+    let mut k = key.to_vec();
+    k.push(super::key::FLAG_SEGMENT);
+    k
+}
+
 /// Reads and decodes the value at `path`, once per call. `None` if absent or deleted.
 #[track_caller]
 pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
+    get_impl::<V>(path, false)
+}
+
+/// [`get`] for a map entry. If `V` owns storage, a miss at the record key reads the flag key,
+/// where a record being cleared lives (D9): 1 more read on a miss, none on a hit.
+#[track_caller]
+pub(crate) fn get_entry<V: Value>(path: &Path) -> Option<NonNull<V>> {
+    get_impl::<V>(path, V::MAX_SUBPATH > 0)
+}
+
+#[track_caller]
+fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
     let key = path.as_bytes();
     let (mut sp, bytes) = with(|c| {
+        c.entry_slot(key, flaggable);
         let mut sp = c.load(key);
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_mut() };
@@ -307,9 +396,19 @@ pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
 /// Whether a value exists at `path`: answered from the cache, else one `storage_has_key`
 /// (no value bytes moved).
 pub(crate) fn exists(path: &Path) -> bool {
+    exists_impl(path, false)
+}
+
+/// [`exists`] for a map entry. If `V` owns storage, a miss at the record key checks the flag
+/// key (D9): 1 more `storage_has_key` on a miss, none on a hit. A record being cleared exists.
+pub(crate) fn exists_entry<V: Value>(path: &Path) -> bool {
+    exists_impl(path, V::MAX_SUBPATH > 0)
+}
+
+fn exists_impl(path: &Path, flaggable: bool) -> bool {
     with(|c| {
         let key = path.as_bytes();
-        let mut sp = c.slot(key);
+        let mut sp = c.entry_slot(key, flaggable);
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_mut() };
         if s.value.is_some() {
@@ -322,7 +421,11 @@ pub(crate) fn exists(path: &Path) -> bool {
             Orig::Absent => false,
             Orig::Present(_) | Orig::PresentUnread => true,
             Orig::Unknown => {
-                let present = c.host.has_key(key);
+                let mut present = c.host.has_key(key);
+                if !present && s.flaggable {
+                    present = c.host.has_key(&flag_key(key));
+                    s.at_flag = present;
+                }
                 s.orig = if present { Orig::PresentUnread } else { Orig::Absent };
                 present
             }
@@ -331,21 +434,14 @@ pub(crate) fn exists(path: &Path) -> bool {
 }
 
 /// D9, for `at_mut`: `None` if no record is stored at `path`, else whether it is being
-/// cleared. Reads the record's bytes (1 read, no decode) unless this call already has them:
-/// the flag lives in the record, so `storage_has_key` cannot see it.
-pub(crate) fn record_state(path: &Path) -> Option<bool> {
-    with(|c| {
-        let sp = c.load(path.as_bytes());
-        // SAFETY: invariant 1.
-        let s = unsafe { sp.as_ref() };
-        if s.mode == Mode::Deleted {
-            return None;
-        }
-        if s.value.is_none() && s.orig.bytes().is_none() {
-            return None;
-        }
-        Some(s.is_clearing())
-    })
+/// cleared. 1 `storage_has_key` on the record key unless cached; the record is not read. Only
+/// a miss checks the flag key (a 2nd `storage_has_key`), since a record being cleared is
+/// stored there and its record key is absent.
+pub(crate) fn record_state<V: Value>(path: &Path) -> Option<bool> {
+    if !exists_entry::<V>(path) {
+        return None;
+    }
+    Some(is_clearing(path))
 }
 
 /// D9: whether the (already loaded) record at `path` is being cleared.
@@ -358,7 +454,8 @@ pub(crate) fn is_clearing(path: &Path) -> bool {
     })
 }
 
-/// D9: marks the (decoded) record at `path` as being cleared; the flush writes the flag.
+/// D9: marks the (decoded) record at `path` as being cleared; the flush moves it to its flag
+/// key.
 pub(crate) fn set_clearing(path: &Path) {
     with(|c| {
         let mut sp = c.slot(path.as_bytes());
@@ -404,7 +501,17 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
 
 /// Removes the value at `path`, returning it if it was decoded. No host read.
 pub(crate) fn delete<V: Value>(path: &Path) -> Option<V> {
-    let mut sp = with(|c| c.slot(path.as_bytes()));
+    delete_impl::<V>(path, false)
+}
+
+/// [`delete`] for a map entry. If `V` owns storage and the entry was not read in this call,
+/// the flush also removes its flag key, since the record may be mid-clear (D9): 1 more remove.
+pub(crate) fn delete_entry<V: Value>(path: &Path) -> Option<V> {
+    delete_impl::<V>(path, V::MAX_SUBPATH > 0)
+}
+
+fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
+    let mut sp = with(|c| c.entry_slot(path.as_bytes(), flaggable));
     // SAFETY: invariants 1 and 2.
     let s = unsafe { sp.as_mut() };
     s.mode = Mode::Deleted;
@@ -446,24 +553,18 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
         let root_key = root.map(|(p, _)| p.as_bytes().to_vec()).or_else(|| c.root.clone());
         let keys: std::vec::Vec<(std::vec::Vec<u8>, NonNull<Slot>)> =
             c.slots.iter().map(|(k, s)| (k.clone(), *s)).collect();
-        for (key, mut sp) in keys {
+        for (key, sp) in keys {
             if Some(&key) == root_key.as_ref() {
                 continue;
             }
             // SAFETY: flush runs after the method body; invariant 1.
-            let s = unsafe { sp.as_mut() };
-            match s.mode {
-                Mode::Clean => {}
-                Mode::Touched | Mode::Dirty => {
-                    let enc = s.encode();
-                    if s.orig.bytes() != Some(&enc[..]) {
-                        c.host.write(&key, &enc);
-                    }
-                }
-                Mode::Deleted => {
-                    if s.orig != Orig::Absent {
-                        c.host.remove(&key);
-                    }
+            let s = unsafe { sp.as_ref() };
+            // A flag key sorts right after its record key and before every child of the
+            // record, so writing it here keeps the flush in key order.
+            for op in s.flush_ops(&key) {
+                match op {
+                    FlushOp::Write(k, v) => c.host.write(&k, &v),
+                    FlushOp::Remove(k) => c.host.remove(&k),
                 }
             }
         }
@@ -492,15 +593,7 @@ pub(crate) fn has_pending_writes() -> bool {
                 return false;
             }
             // SAFETY: invariant 1.
-            let s = unsafe { s.as_ref() };
-            match s.mode {
-                Mode::Clean => false,
-                Mode::Deleted => s.orig != Orig::Absent,
-                Mode::Touched | Mode::Dirty => {
-                    let enc = s.encode();
-                    s.orig.bytes() != Some(&enc[..])
-                }
-            }
+            !unsafe { s.as_ref() }.flush_ops(k).is_empty()
         })
     })
 }
