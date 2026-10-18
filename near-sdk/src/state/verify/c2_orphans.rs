@@ -126,3 +126,54 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
         }
     });
 }
+
+/// `insert_new` on an existing record panics, in a fresh call and in the same call, instead
+/// of overwriting it (an overwrite would orphan the old record's children), for `Map` and
+/// `LookupMap` of records. The model skips this op as a predicted panic, so nothing else
+/// asserted it. (The surviving `assert_insert_new` mutant is a different path: `Lazy::set` of
+/// a record over an existing one, still uncovered.)
+#[test]
+fn c2_insert_new_on_an_existing_record_panics() {
+    let q = |f: &mut dyn FnMut()| {
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+        std::panic::set_hook(hook);
+        r
+    };
+    testing::use_mock();
+    let mut root = load_root::<MRoot>();
+    root.recs.insert_new(1, Rec::default());
+    root.recs.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    assert!(q(&mut || { let _ = root.recs.insert_new(1, Rec::default()); }).is_err(), "same call: overwrote");
+    drop(root);
+    testing::begin_call();
+    let mut root = load_root::<MRoot>();
+    root.recs.insert_new(1, Rec::default());
+    root.recs.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    flush_root(&root);
+    drop(root);
+    testing::begin_call();
+    let before = testing::store();
+    let mut root = load_root::<MRoot>();
+    assert!(q(&mut || { let _ = root.recs.insert_new(1, Rec::default()); }).is_err(), "later call: overwrote");
+    drop(root);
+    testing::begin_call();
+    assert_eq!(testing::store(), before);
+    // the same through a LookupMap of records (its own guard, `assert_insert_new`)
+    let path = crate::state::key::Path::root(crate::state::key::DEFAULT_ROOT).field(20);
+    let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path.clone());
+    lm.insert_new(1, Rec::default());
+    lm.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    assert!(q(&mut || { let _ = lm.insert_new(1, Rec::default()); }).is_err(), "LookupMap same call: overwrote");
+    drop(lm);
+    testing::begin_call();
+    let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path.clone());
+    lm.insert_new(1, Rec::default());
+    lm.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    testing::flush();
+    drop(lm);
+    testing::begin_call();
+    let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path);
+    assert!(q(&mut || { let _ = lm.insert_new(1, Rec::default()); }).is_err(), "LookupMap later call: overwrote");
+}
