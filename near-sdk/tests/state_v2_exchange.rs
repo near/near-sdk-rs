@@ -325,7 +325,7 @@ fn market_open_defaults_to_true_for_an_old_record() {
     let key = market_key(7);
     let stored = testing::store()[&key].clone();
     let fields = near_sdk::state::record::parse(&stored).unwrap();
-    assert!(fields.iter().any(|(t, _)| *t == 4), "a new market writes tag 4");
+    assert!(fields.iter().any(|(t, _, _)| *t == 4), "a new market writes tag 4");
     // a record from before tag 4: tick_size only
     let mut w = near_sdk::state::record::RecordWriter::new();
     w.push(2, borsh::to_vec(&1u128).unwrap());
@@ -588,11 +588,11 @@ fn lazy_metadata_is_not_read_unless_touched() {
 fn unknown_root_tag_survives_rollback() {
     init("owner.near");
     let mut root = testing::store()[&vec![0xF0]].clone();
-    root.extend_from_slice(&[0x09, 0x02, 0xAA, 0xBB]); // tag 9 > every known tag, so still sorted
+    root.extend_from_slice(&[0x24, 0x02, 0xAA, 0xBB]); // tag 9 scalar (9 << 2 = 0x24) > every known tag, so still sorted
     testing::seed(&[0xF0], &root);
     call("owner.near", |c| c.set_fee(5));
     let stored = testing::store()[&vec![0xF0]].clone();
-    assert!(stored.ends_with(&[0x09, 0x02, 0xAA, 0xBB]));
+    assert!(stored.ends_with(&[0x24, 0x02, 0xAA, 0xBB]));
 }
 
 #[test]
@@ -854,7 +854,7 @@ fn legacy_root_field_is_its_borsh_bytes_and_required() {
     let root = testing::env_store()[&vec![0xF1u8]].clone();
     let prefix = near_sdk::borsh::to_vec(&near_sdk::store::LookupMap::<u32, u32>::new(b"o".to_vec())).unwrap();
     let fields = near_sdk::state::record::parse(&root).unwrap();
-    assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(prefix));
+    assert_eq!(fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()), Some(prefix));
     env::storage_write(&[0xF1], &[]);
     testing::begin_call();
     let r = std::panic::catch_unwind(|| drop(Legacy::state_read()));
@@ -892,7 +892,7 @@ fn reserved_tag_is_dropped_on_rewrite_unknown_tag_is_kept() {
     let tags: Vec<u32> = record::parse(&testing::store()[key.as_bytes()])
         .unwrap()
         .into_iter()
-        .map(|(t, _)| t)
+        .map(|(t, _, _)| t)
         .collect();
     assert_eq!(tags, vec![1, 4]);
 }
@@ -925,7 +925,7 @@ fn unknown_tags_survive_get_mut_and_entry_reserved_tags_are_dropped() {
         let tags: Vec<u32> = record::parse(&testing::store()[k.as_bytes()])
             .unwrap()
             .into_iter()
-            .map(|(t, _)| t)
+            .map(|(t, _, _)| t)
             .collect();
         assert_eq!(tags, vec![1, 4], "unknown 4 kept, reserved 3 dropped");
     }

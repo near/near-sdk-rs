@@ -108,7 +108,7 @@ fn no_writes() {
 }
 
 fn tags() -> Vec<u32> {
-    record::parse(&testing::store()[key().as_bytes()]).unwrap().into_iter().map(|(t, _)| t).collect()
+    record::parse(&testing::store()[key().as_bytes()]).unwrap().into_iter().map(|(t, _, _)| t).collect()
 }
 
 fn vals() -> impl bolero::ValueGenerator<Output = Vals> {
@@ -402,6 +402,18 @@ mod a3 {
         note: u32,
     }
 
+    /// Version D: A plus two scalars whose bytes look like markers. Unknown to A.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct RecD {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        small: u8,
+        #[key(3)]
+        shaped: [u8; 3],
+    }
+
     /// A nested record that owns a collection, and its rollback shape.
     #[near(storage)]
     #[derive(Default)]
@@ -490,7 +502,7 @@ mod a3 {
     }
 
     /// The A3 pin, flipped. Version B gives record 1 a child map (tag 2, stored with its kind
-    /// marker `02 01 81`); the contract rolls back to version A, which does not declare tag 2.
+    /// marker `09 01 81`, wire 1); the contract rolls back to version A, which does not declare tag 2.
     /// Every way A can remove the record (`remove`, `discard`, `remove_step`, a `LookupMap`
     /// `remove` / `replace` / `discard`, a bulk `clear` of the map) panics naming tag 2 and
     /// changes nothing, so A can never recreate record 1 over B's children. (Before round 5 A's
@@ -503,7 +515,7 @@ mod a3 {
         let stored = testing::store()[&rec_key].clone();
         assert_eq!(
             record::parse(&stored).unwrap(),
-            vec![(1, &1u64.to_le_bytes()[..]), (2, &[record::marker::MAP][..])],
+            vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..]), (2, record::Wire::Marker, &[record::marker::MAP][..])],
             "B's record carries the kids marker"
         );
         let nz = std::num::NonZeroU32::new(3).unwrap();
@@ -573,6 +585,51 @@ mod a3 {
     /// `reserved(2)` makes tag 2 known-and-empty: removal proceeds. It is the developer's
     /// statement that the version that owned the collection cleared it; if it did not (as
     /// here, deliberately), the child keys are orphaned exactly as before round 5. Documented.
+    /// Verification round 2, the round-5 false positive fixed by the wire type. Version D writes
+    /// two scalars A does not know: a `u8` with a marker value (`0x81..=0x87`, which round 5
+    /// mistook for a kind marker) and a `[u8; 3]` whose bytes parse as a record holding a
+    /// marker (`09 01 81` in the new format, `02 01 81` in the round-5 one, which round 5's
+    /// nested-record search matched). Both are wire-0 scalars, so A's `remove`, `discard`,
+    /// `remove_step` and a `LookupMap` `remove` all succeed and leave no key behind.
+    #[test]
+    fn a3_scalars_with_marker_bytes_never_block_removal() {
+        testing::use_mock();
+        let mut case = 0u32;
+        for small in 0x81u8..=0x87 {
+            for shaped in [[0x09, 0x01, small], [0x02, 0x01, small]] {
+                for how in 0..4 {
+                    case += 1;
+                    testing::begin_call();
+                    if how < 3 {
+                        Map::<u32, RecD>::__bound_at(root()).insert(case, RecD { n: 1, small, shaped });
+                    } else {
+                        LookupMap::<u32, RecD>::__bound_at(root().field(1)).insert(case, RecD { n: 1, small, shaped });
+                    }
+                    testing::flush();
+                    testing::begin_call();
+                    let r = quiet(|| match how {
+                        0 => assert_eq!(Map::<u32, RecA>::__bound_at(root()).remove(&case).map(|r| r.n), Some(1)),
+                        1 => assert!(Map::<u32, RecA>::__bound_at(root()).discard(&case)),
+                        2 => assert_eq!(
+                            Map::<u32, RecA>::__bound_at(root()).remove_step(&case, std::num::NonZeroU32::new(3).unwrap()),
+                            near_sdk::state::Removal::Done
+                        ),
+                        _ => assert_eq!(LookupMap::<u32, RecA>::__bound_at(root().field(1)).remove(&case).map(|r| r.n), Some(1)),
+                    });
+                    assert!(r.is_ok(), "small={small:#x} shaped={shaped:02x?} how={how}: {}", r.err().map(msg).unwrap_or_default());
+                    testing::flush();
+                }
+            }
+        }
+        // only the two maps' own bookkeeping is left (headers), no record key
+        let rec_prefix = |p: Path| p.kind(0).as_bytes().to_vec();
+        for k in testing::store().keys() {
+            for p in [rec_prefix(root()), rec_prefix(root().field(1))] {
+                assert!(!k.starts_with(&p) || k.len() <= p.len() + 1, "left behind: {k:02x?}");
+            }
+        }
+    }
+
     #[test]
     fn a3_reserved_collection_tag_is_known_and_empty() {
         write_b();

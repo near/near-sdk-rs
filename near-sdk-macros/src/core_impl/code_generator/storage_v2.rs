@@ -8,9 +8,10 @@
 //!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), a call of the `fn() -> T` of
 //!   `#[key(n, default_fn = path)]` (API round 4), or an error for `#[key(n, required)]`),
 //!   bind / detach, and `MAX_SUBPATH` summed over fields; since API round 5 each collection
-//!   field leaves its kind marker (`tag 01 kind`) in the record (a root's writer leaves none),
-//!   `__RECORD = true`, and `__unknown_collection` (the removal check: an undeclared,
-//!   unreserved tag holding a marker, at any depth);
+//!   field leaves its kind marker (a wire-1 field, `tag << 2 | 1, 01, kind`) in the record (a
+//!   root's writer leaves none), a nested record field is wire 2, `__RECORD = true`, and
+//!   `__unknown_collection` (the removal check: an undeclared, unreserved tag of wire 1, or a
+//!   wire-2 nested record holding one at any depth; a wire-0 scalar never matches);
 //! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
 //!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
 //!   `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested view for
@@ -358,7 +359,7 @@ pub fn expand(
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
         // a declared field: a nested record checks its own bytes, anything else is known
-        unknown_arms.push(quote! { #t => <#ty as #s::Value>::__unknown_collection(b), });
+        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
         // Spanned at the field type, so a missing `Default` points at the field.
         if *required {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
@@ -425,11 +426,11 @@ pub fn expand(
         .collect();
     let unknown_collection_body = quote! {
         let f = #p::parse(bytes).ok()?;
-        for &(t, b) in f.iter() {
+        for &(t, w, b) in f.iter() {
             let hit = match t {
                 #(#reserved_unknown_arms)*
                 #(#unknown_arms)*
-                _ => #p::unknown_field_collection(b),
+                _ => #p::unknown_field_collection(w, b),
             };
             if let ::core::option::Option::Some((mut trail, k)) = hit {
                 trail.insert(0, t);

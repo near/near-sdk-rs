@@ -140,9 +140,10 @@
 //!   and only a miss on a map value that owns storage consults the flag key (1 more host
 //!   call). Record bytes carry no flag; tag 0 in a record is always `TagZero`.
 //! - FORMAT DECISION (API round 5, A3): a collection or `Lazy` field of a `#[near(storage)]`
-//!   record leaves a kind marker `tag 01 kind` in the record (3 bytes for tags below 128; a
-//!   root leaves none), and removing a record whose stored bytes carry an undeclared,
-//!   unreserved tag holding a marker panics naming the tag (see [`Removable`]).
+//!   record leaves a kind marker in the record (3 bytes for tags up to 31; a root leaves none),
+//!   and removing a record whose stored bytes carry an undeclared, unreserved marker field
+//!   panics naming the tag (see [`Removable`]). Since Verification round 2 every field key is
+//!   `tag << 2 | wire` (0 scalar, 1 marker, 2 nested record), so no scalar reads as a marker.
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
 //!   the index read; `#[must_use]`, round 3 T1); `LookupMap::insert` returns `()` (no existence
 //!   read). It requires `V: Leaf`, a value that owns no collections, so for a record that owns

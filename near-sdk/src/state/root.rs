@@ -70,16 +70,16 @@ pub fn flush_root<T: Root>(root: &T) -> bool {
 pub fn raw_root<T: Root>() -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>> {
     let p = T::root_path();
     let bytes = cache::root_orig(&p).or_else(|| cache::read_root(&p))?;
-    Some(record::parse(&bytes).ok()?.into_iter().map(|(t, b)| (t, b.to_vec())).collect())
+    Some(record::parse(&bytes).ok()?.into_iter().map(|(t, _, b)| (t, b.to_vec())).collect())
 }
 
 /// Helpers the derive expands to. Not a stable API.
 #[doc(hidden)]
 pub mod __private {
     use super::*;
-    pub use crate::state::record::{RecordWriter, find, parse};
+    pub use crate::state::record::{RecordWriter, Wire, find, parse};
 
-    pub type Fields<'a> = std::vec::Vec<(u32, &'a [u8])>;
+    pub type Fields<'a> = std::vec::Vec<crate::state::record::Field<'a>>;
 
     /// Decodes field `tag`, or its `Default` if missing. With a path, the value is bound at
     /// `path ++ tag`; without one (the generated `Default`), it stays unbound. The generated
@@ -163,8 +163,9 @@ pub mod __private {
         w.push(tag, borsh::to_vec(v).expect("borsh serialization cannot fail"));
     }
 
-    /// Encodes field `tag` into `w` if it is stored inline; a collection or `Lazy` field leaves
-    /// its one-byte kind marker instead (API round 5), unless `w` is a root's writer.
+    /// Encodes field `tag` into `w` if it is stored inline: a nested record as wire 2, any other
+    /// inline value as a wire-0 scalar. A collection or `Lazy` field leaves its one-byte kind
+    /// marker (wire 1) instead (API round 5), unless `w` is a root's writer.
     pub fn encode_field<T: Value>(
         w: &mut RecordWriter,
         orig: Option<&Fields<'_>>,
@@ -173,18 +174,29 @@ pub mod __private {
     ) {
         if T::INLINE {
             let o = orig.and_then(|f| find(f, tag));
-            w.push(tag, v.encode_value(o));
+            let bytes = v.encode_value(o);
+            if T::__RECORD { w.push_record(tag, bytes) } else { w.push(tag, bytes) }
         } else {
-            // API round 5 (A3): a collection field leaves `tag 01 kind` (not in a root's writer).
+            // API round 5 (A3): a collection field leaves a wire-1 marker (not in a root's writer).
             w.push_marker(tag, T::KIND);
         }
     }
 
     /// The value of a field the record does not know (not declared, not reserved): whether it
-    /// is a collection kind marker or a nested record holding one. See
-    /// [`record::unknown_value_collection`].
-    pub fn unknown_field_collection(body: &[u8]) -> Option<(std::vec::Vec<u32>, u8)> {
-        record::unknown_value_collection(body)
+    /// is a wire-1 kind marker or a wire-2 nested record holding one. A wire-0 scalar never is.
+    /// See [`record::unknown_value_collection`].
+    pub fn unknown_field_collection(wire: Wire, body: &[u8]) -> Option<(std::vec::Vec<u32>, u8)> {
+        record::unknown_value_collection(wire, body)
+    }
+
+    /// The value of a field the record declares as `T`: a nested record stored as one (wire 2)
+    /// checks its own bytes for unknown collection tags; anything else holds none the SDK would
+    /// orphan (a declared collection is cleared by the removal itself).
+    pub fn declared_field_collection<T: Value>(
+        wire: Wire,
+        body: &[u8],
+    ) -> Option<(std::vec::Vec<u32>, u8)> {
+        if wire == Wire::Record { T::__unknown_collection(body) } else { None }
     }
 
     pub fn parse_orig(orig: Option<&[u8]>) -> Option<Fields<'_>> {

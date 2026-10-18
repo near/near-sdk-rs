@@ -237,16 +237,16 @@ impl<T: BorshLeaf> Leaf for T {}
 /// declared by another version of the contract (a rollback target that predates it, or a later
 /// version rolled back from) is not in that schema, so its keys would be left behind and a new
 /// record at the same key would inherit them. Every collection or `Lazy` field therefore leaves
-/// a one-byte kind marker under its tag in the record (`tag 01 kind`, see
+/// a one-byte kind marker under its tag in the record (a wire-1 field, see
 /// [`record::marker`](super::record::marker)), and every removal of a record (`remove`,
 /// `discard`, `replace`, `remove_step`, a bulk `clear` of a map, `Vector` or `Lazy` holding
 /// records) checks the stored bytes first: a tag the record does not declare, is not listed in
-/// `reserved(n)`, and whose value is a kind marker (or a nested record holding one) makes the
+/// `reserved(n)`, and that is a kind marker (or a nested record holding one) makes the
 /// removal panic, naming the tag, before anything is removed. Roll forward to the version that
 /// declares the tag, or list it in `reserved(n)`: a reserved tag is known-and-empty, a
 /// statement that the version that owned the collection cleared it. Unknown scalar tags are
-/// unaffected (dropped with the record, as before). A one-byte `u8`/`i8` scalar left under an
-/// unknown tag whose value is `0x81..=0x87` looks like a marker and fails closed the same way.
+/// unaffected (dropped with the record, as before): the field key's wire type says a field is
+/// a scalar, so no scalar is mistaken for a marker, whatever its bytes.
 ///
 /// The check reads the record; `remove`, `replace` and `remove_step` read it anyway, and
 /// `discard` and bulk clears now pay 1 read per record. Not covered: a blind `insert` of a

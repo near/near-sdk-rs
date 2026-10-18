@@ -164,7 +164,7 @@ fn migrate_batch_drains_iterable_v1_maps_and_the_wrapper_comes_off() {
     // stored tag the code knows as non-inline. It is never rewritten while no root scalar
     // changes, and kept (merged) when one does.
     let root = &testing::env_store()[&vec![ROOT]];
-    let tags: Vec<u32> = near_sdk::state::record::parse(root).unwrap().iter().map(|(t, _)| *t).collect();
+    let tags: Vec<u32> = near_sdk::state::record::parse(root).unwrap().iter().map(|(t, _, _)| *t).collect();
     println!("root after the wrapper came off: {} bytes, tags {tags:?}", root.len());
     assert_eq!(tags, vec![1, 2], "stale v1 prefix bytes stay in the root");
 }

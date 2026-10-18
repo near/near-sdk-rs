@@ -13,7 +13,8 @@
 //!     #[key(5)] vec: Vector<Vec<u8>>,
 //! }
 //! #[near(storage)] struct Rec   { #[key(1)] n: u64, #[key(2)] items: Map<u8, Vec<u8>> }
-//! // Stored as `01 08 n(8)  02 01 81`: since API round 5 `items` leaves its kind marker.
+//! // Stored as `04 08 n(8)  09 01 81`: field keys are `tag << 2 | wire`; since API round 5
+//! // `items` leaves its kind marker (wire 1).
 //! // Rec re-typed by a later deploy: tag 1 removed, tag 3 added with `default = 7`.
 //! #[near(storage)] struct RecV2 { #[key(2)] items: Map<u8, Vec<u8>>, #[key(3, default = 7)] note: u32 }
 //! ```
@@ -53,11 +54,11 @@ impl Value for Rec {
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
-        for &(t, b) in f.iter() {
+        for &(t, w, b) in f.iter() {
             let hit = match t {
-                REC_N => <u64 as Value>::__unknown_collection(b),
-                REC_ITEMS => <Map<u8, StdVec<u8>> as Value>::__unknown_collection(b),
-                _ => p::unknown_field_collection(b),
+                REC_N => p::declared_field_collection::<u64>(w, b),
+                REC_ITEMS => p::declared_field_collection::<Map<u8, StdVec<u8>>>(w, b),
+                _ => p::unknown_field_collection(w, b),
             };
             if let Some((mut trail, k)) = hit {
                 trail.insert(0, t);
@@ -170,11 +171,11 @@ impl Value for RecV2 {
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
-        for &(t, b) in f.iter() {
+        for &(t, w, b) in f.iter() {
             let hit = match t {
-                REC_ITEMS => <Map<u8, StdVec<u8>> as Value>::__unknown_collection(b),
-                REC2_NOTE => <u32 as Value>::__unknown_collection(b),
-                _ => p::unknown_field_collection(b),
+                REC_ITEMS => p::declared_field_collection::<Map<u8, StdVec<u8>>>(w, b),
+                REC2_NOTE => p::declared_field_collection::<u32>(w, b),
+                _ => p::unknown_field_collection(w, b),
             };
             if let Some((mut trail, k)) = hit {
                 trail.insert(0, t);

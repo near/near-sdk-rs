@@ -37,11 +37,11 @@ impl Value for Account {
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
-        for &(t, b) in f.iter() {
+        for &(t, w, b) in f.iter() {
             let hit = match t {
-                1 => <u64 as Value>::__unknown_collection(b),
-                2 => <Map<String, u128> as Value>::__unknown_collection(b),
-                _ => p::unknown_field_collection(b),
+                1 => p::declared_field_collection::<u64>(w, b),
+                2 => p::declared_field_collection::<Map<String, u128>>(w, b),
+                _ => p::unknown_field_collection(w, b),
             };
             if let Some((mut trail, k)) = hit {
                 trail.insert(0, t);
@@ -661,7 +661,11 @@ fn unknown_tags_survive_a_rewrite() {
     // API round 5: the rewrite also adds the `balances` kind marker the old bytes lacked.
     assert_eq!(
         f,
-        vec![(1, &borsh::to_vec(&2u64).unwrap()[..]), (2, &[record::marker::MAP][..]), (9, &[0xAA, 0xBB][..])]
+        vec![
+            (1, record::Wire::Scalar, &borsh::to_vec(&2u64).unwrap()[..]),
+            (2, record::Wire::Marker, &[record::marker::MAP][..]),
+            (9, record::Wire::Scalar, &[0xAA, 0xBB][..])
+        ]
     );
 }
 
@@ -697,7 +701,7 @@ fn blind_insert_drops_unknown_tags_get_mut_keeps_them() {
     };
     let key = Path::root(DEFAULT_ROOT).field(7).kind(kind::ENTRIES).entry(&1u32);
     let tags = || {
-        record::parse(&store()[key.as_bytes()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>()
+        record::parse(&store()[key.as_bytes()]).unwrap().into_iter().map(|(t, _, _)| t).collect::<StdVec<_>>()
     };
 
     for read_first in [false, true] {
@@ -826,7 +830,7 @@ fn scalar_to_collection_swap_is_silent() {
     assert_eq!(a.balances.len(), 0);
     a.nonce = 1;
     flush_root(&ex);
-    let f = record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _)| t).collect::<StdVec<_>>();
+    let f = record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _, _)| t).collect::<StdVec<_>>();
     assert_eq!(f, vec![1, 2], "the old scalar bytes are carried forward as unknown");
 }
 
@@ -1625,7 +1629,7 @@ fn replaced_then_flagged_record_relocates_the_new_value() {
     let flag = Path::root(DEFAULT_ROOT).field(44).kind(kind::ENTRIES).entry(&1u32).flag();
     let stored = store()[flag.as_bytes()].clone();
     let fields = record::parse(&stored).unwrap();
-    assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(borsh::to_vec(&9u64).unwrap()));
+    assert_eq!(fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()), Some(borsh::to_vec(&9u64).unwrap()));
 }
 
 /// T4: clearing an empty map that never had a header costs no header op: the header read

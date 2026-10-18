@@ -224,7 +224,7 @@ fn migrate_moves_only_the_root() {
     // The root record: tag 1 = borsh(FungibleToken), tag 2 = borsh(LazyOption); tag 3 (a
     // collection) writes nothing inline.
     let fields = near_sdk::state::record::parse(&after[&vec![ROOT]]).unwrap();
-    let tags: Vec<u32> = fields.iter().map(|(t, _)| *t).collect();
+    let tags: Vec<u32> = fields.iter().map(|(t, _, _)| *t).collect();
     assert_eq!(tags, vec![1, 2]);
     println!("root record: {} bytes; STATE was {} bytes", after[&vec![ROOT]].len(), before[b"STATE".as_slice()].len());
 
@@ -478,7 +478,7 @@ fn upgrade_to_v3() {
 fn v3_migrate_rewrites_the_root_only_and_drops_the_retired_tag() {
     upgrade_to_v3();
     let store = testing::env_store();
-    let tags: Vec<u32> = near_sdk::state::record::parse(&store[&vec![ROOT]]).unwrap().iter().map(|(t, _)| *t).collect();
+    let tags: Vec<u32> = near_sdk::state::record::parse(&store[&vec![ROOT]]).unwrap().iter().map(|(t, _, _)| *t).collect();
     assert_eq!(tags, vec![2, 4, 5, 6], "tag 1 (reserved) dropped; 4 holds the v1 prefix inline");
     let (n, _) = v2_view::<v3::Contract, _>(|c| c.transfers_sent_by(user(9)));
     assert_eq!(n, 1, "the v2 field at tag 3 carried over untouched");

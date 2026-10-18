@@ -142,8 +142,8 @@ pub const REC2_NOTE_DEFAULT: u32 = 7;
 /// The D9 flag segment: a record being cleared is stored at its key plus this byte.
 pub const FLAG_SEGMENT: u8 = 0x00;
 /// API round 5 (A3): the kind marker a `Map` field leaves under its tag in its record
-/// (spec, Records: `tag 01 kind`, `Map` = `0x81`). Both `Rec` and `RecV2` declare `items` (tag
-/// 2), so every record the code writes carries `02 01 81`.
+/// (spec, Records: a wire-1 field `varint(tag << 2 | 1) 01 kind`, `Map` = `0x81`). Both `Rec`
+/// and `RecV2` declare `items` (tag 2), so every record the code writes carries `09 01 81`.
 pub const KIND_MAP: u8 = 0x81;
 
 pub fn root_key() -> Vec<u8> {
@@ -177,7 +177,7 @@ pub fn vect() -> MapKeys {
 }
 
 // ---------------------------------------------------------------------------------------
-// Value encodings (spec: leaves are Borsh, records are tag/len/bytes in ascending tag order)
+// Value encodings (spec: leaves are Borsh, records are key/len/bytes in ascending tag order)
 // ---------------------------------------------------------------------------------------
 
 pub fn enc_bytes(v: &[u8]) -> Vec<u8> {
@@ -201,10 +201,20 @@ pub fn enc_header(len: u32, rev: u64) -> Vec<u8> {
 pub fn header_stored(len: u32, rev: u64) -> Option<Vec<u8>> {
     (len != 0 || rev != 0).then(|| enc_header(len, rev))
 }
-pub fn enc_record(fields: &BTreeMap<u32, Vec<u8>>) -> Vec<u8> {
+/// Spec, Records: `varint(tag << 2 | wire) varint(len) bytes[len]` in ascending tag order, wire
+/// 0 for a scalar (`scalars`) and 1 for a collection's kind marker (`markers`, one byte). A tag
+/// is in at most one of the two.
+pub fn enc_record(scalars: &BTreeMap<u32, Vec<u8>>, markers: &BTreeMap<u32, u8>) -> Vec<u8> {
+    let mut all: BTreeMap<u32, (u64, Vec<u8>)> = BTreeMap::new();
+    for (t, b) in scalars {
+        all.insert(*t, (0, b.clone()));
+    }
+    for (t, k) in markers {
+        assert!(all.insert(*t, (1, vec![*k])).is_none(), "MODEL BUG: tag {t} is a scalar and a marker");
+    }
     let mut out = Vec::new();
-    for (t, b) in fields {
-        spec_key::leb128(*t as u64, &mut out);
+    for (t, (wire, b)) in &all {
+        spec_key::leb128((*t as u64) << 2 | wire, &mut out);
         spec_key::leb128(b.len() as u64, &mut out);
         out.extend_from_slice(b);
     }
@@ -245,9 +255,7 @@ impl RecM {
     /// The record's bytes, wherever they are stored (the flag carries no bytes of its own):
     /// its inline fields plus the `items` kind marker (API round 5).
     pub fn bytes(&self) -> Vec<u8> {
-        let mut f = self.fields.clone();
-        f.insert(REC_ITEMS, vec![KIND_MAP]);
-        enc_record(&f)
+        enc_record(&self.fields, &BTreeMap::from([(REC_ITEMS, KIND_MAP)]))
     }
 }
 
@@ -285,7 +293,7 @@ impl MState {
     pub fn root_bytes(&self) -> Vec<u8> {
         let mut f = BTreeMap::new();
         f.insert(TAG_COUNTER, self.counter.to_le_bytes().to_vec());
-        enc_record(&f)
+        enc_record(&f, &BTreeMap::new())
     }
 
     /// The storage this state occupies, per the spec's key grammar and value encodings.
