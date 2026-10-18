@@ -341,6 +341,37 @@ mod store_lookup {
         let (v, _) = call::<V2, _>(|c| (c.scores.get(&"alice".into()), c.scores.get(&"bob".into())));
         assert_eq!(v, (Some(8), Some(1)));
     }
+
+    /// `Value::bind` on `Migrating` binds the v2 half: an `#[init]`-style body that calls the
+    /// root's `.bind()` can write through the wrapper before the flush (the v2 half of a
+    /// `Migrating::new` is unbound until then, and an unbound map panics on use).
+    #[test]
+    fn root_bind_binds_the_v2_half_so_an_init_body_can_write_through_the_wrapper() {
+        ctx();
+        testing::use_env_host();
+        testing::env_log_start();
+        let mut c = V1 { scores: V1LookupMap::new(K::Scores) };
+        c.scores.insert("alice".into(), 7);
+        env::state_write(&c);
+        drop(c);
+        init(|| {
+            let old: V1 = env::state_read().unwrap();
+            env::storage_remove(b"STATE");
+            let mut this = V2 { scores: Migrating::new(old.scores), writes: 0 }.bind();
+            this.scores.insert("carol".into(), 3);
+            assert_eq!(this.scores.get(&"carol".into()), Some(3));
+            this
+        });
+        let (v, _) = call::<V2, _>(|c| {
+            (
+                c.scores.get(&"carol".into()),
+                c.scores.new_side().get(&String::from("carol")).copied(),
+                c.scores.old_side().get(&String::from("carol")).copied(),
+                c.scores.get(&"alice".into()),
+            )
+        });
+        assert_eq!(v, (Some(3), Some(3), None, Some(7)), "carol on the new side only; alice still on the old");
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -452,4 +483,24 @@ fn remove_of_a_moved_key_also_removes_on_the_old_side() {
     assert_eq!(before.rwd(), (4, 1, 3), "the round-3 path: read, then remove on the new side only");
     assert_eq!(after.rwd(), (5, 1, 3), "+1 read: the v1 TreeMap's contains_key, which misses");
     assert_eq!((before.has_keys(), after.has_keys()), (0, 0));
+}
+
+/// `contains_key` answers for both sides: a moved key, a key still on the old side, and a key
+/// on neither.
+#[test]
+fn contains_key_sees_both_sides_and_misses_absent_keys() {
+    populate();
+    init(NftV2::migrate);
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    call::<NftV2, _>(|c| c.owner_by_id.insert(tok(0), buyer));
+    let (v, _) = call::<NftV2, _>(|c| {
+        (
+            c.owner_by_id.new_side().contains_key(&tok(0)),
+            c.owner_by_id.contains_key(&tok(0)),
+            c.owner_by_id.new_side().contains_key(&tok(5)),
+            c.owner_by_id.contains_key(&tok(5)),
+            c.owner_by_id.contains_key(&tok(N + 1)),
+        )
+    });
+    assert_eq!(v, (true, true, false, true, false), "moved, old side only, neither");
 }
