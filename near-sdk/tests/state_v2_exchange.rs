@@ -51,6 +51,7 @@ pub struct Market {
     #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
     #[key(2)] tick_size: u128,
     #[key(3)] next_order_id: OrderId,
+    #[key(4, default = true)] open: bool,        // added later; older records read as open
 }
 
 #[near]
@@ -123,6 +124,7 @@ impl Exchange {
     /// Scalars and collections of one record together: `get_mut` reads the record.
     pub fn place(&mut self, market: MarketId, order: Order) -> OrderId {
         let m = self.markets.get_mut(&market).expect("no such market");
+        assert!(m.open, "market closed");
         assert_eq!(order.price % m.tick_size, 0, "price off tick");
         let id = m.next_order_id;
         m.next_order_id += 1;
@@ -147,6 +149,11 @@ impl Exchange {
     /// remain; meanwhile the market refuses new orders.
     pub fn close_market(&mut self, market: MarketId, n: u32) -> bool {
         self.markets.remove_some(&market, n)
+    }
+
+    /// Stops new orders in a market without removing it.
+    pub fn halt_market(&mut self, market: MarketId) {
+        self.markets.get_mut(&market).expect("no such market").open = false;
     }
 
     pub fn set_fee(&mut self, fee_bps: u16) {
@@ -303,6 +310,30 @@ fn market_record_scalars_and_orders() {
     assert_eq!(m, (5, 2));
 }
 
+/// D2: `#[key(4, default = true)] open` on `Market`. A market record written before the field
+/// existed (no tag 4) reads as open; a halted market refuses orders.
+#[test]
+fn market_open_defaults_to_true_for_an_old_record() {
+    init("owner.near");
+    call("owner.near", |c| c.open_market(7, U128(1)));
+    let key = market_key(7);
+    let stored = testing::store()[&key].clone();
+    let fields = near_sdk::state::record::parse(&stored).unwrap();
+    assert!(fields.iter().any(|(t, _)| *t == 4), "a new market writes tag 4");
+    // a record from before tag 4: tick_size only
+    let mut w = near_sdk::state::record::RecordWriter::new();
+    w.push(2, borsh::to_vec(&1u128).unwrap());
+    testing::seed(&key, &w.finish(None, |_| true));
+    assert!(view(|c| c.markets.get(&7).unwrap().open).0, "missing tag 4 reads as `true`");
+    call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+
+    call("owner.near", |c| c.halt_market(7));
+    let msg = panics(|| {
+        call("alice.near", |c| c.place(7, Order { price: 1, qty: 1 }));
+    });
+    assert!(msg.contains("market closed"), "{msg}");
+}
+
 #[test]
 #[should_panic(expected = "price off tick")]
 fn place_off_tick_panics() {
@@ -338,7 +369,10 @@ fn keys_under(prefix: &[u8]) -> usize {
 
 fn panics(f: impl FnOnce()) -> String {
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).expect_err("should panic");
-    e.downcast_ref::<String>().cloned().unwrap_or_default()
+    e.downcast_ref::<String>()
+        .cloned()
+        .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default()
 }
 
 fn market_with_orders(n: u64) {

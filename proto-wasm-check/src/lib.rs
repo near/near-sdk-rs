@@ -55,6 +55,7 @@ pub struct Market {
     #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
     #[key(2)] tick_size: u128,
     #[key(3)] next_order_id: OrderId,
+    #[key(4, default = true)] open: bool,        // added later; older records read as open
 }
 
 #[near]
