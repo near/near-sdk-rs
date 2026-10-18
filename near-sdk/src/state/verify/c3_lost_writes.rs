@@ -47,7 +47,7 @@ fn c3_fixed_shapes_write_flush_read_write() {
     assert_eq!(root.flat.get(&1), Some(&vec![1]), "read-back after the flush");
     root.flat.insert(1, vec![2]);
     root.counter = 2;
-    root.recs.insert_new(0, Rec::default());
+    root.recs.try_insert(0, Rec::default()).unwrap();
     flush_root(&root);
     root.recs.get_mut(&0).unwrap().n = 5;
     root.recs.at_mut(&0).unwrap().items.insert(3, vec![3]);

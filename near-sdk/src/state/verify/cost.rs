@@ -35,14 +35,16 @@ pub enum At {
     Inner,
     /// Present, last, and not the only entry.
     Last,
-    /// The only entry (removing it empties the collection and removes the header).
+    /// The only entry (removing it empties the collection; since T4 a `Map` header is then
+    /// written with length 0 and the bumped revision, not removed).
     Only,
 }
 
 /// `Map` / `Set` swap-remove tail after the index read, given where the key sits.
 /// Spec: "1 index read, 1 header read, 2 removes for entry and index, 1 read and 1 remove of
-/// the last slot, 2 writes for the moved key and its index, 1 header write. Removing the last
-/// key skips the moved-key writes; emptying the map removes the header."
+/// the last slot, 2 writes for the moved key and its index, 1 header write (also when the map
+/// empties: the header keeps the revision, T4). Removing the last key skips the moved-key
+/// writes."
 pub fn map_unlink(at: At) -> Cost {
     match at {
         At::Absent => c(0, 0, 0, 0),
@@ -50,7 +52,8 @@ pub fn map_unlink(at: At) -> Cost {
         At::Inner => c(3, 3, 3, 0),
         // the last key: no moved key, so no slot read either (DOC_DIFFS[0])
         At::Last => c(2, 1, 3, 0),
-        At::Only => c(2, 0, 4, 0),
+        // T4: the emptied map's header is written (len 0, revision + 1), not removed
+        At::Only => c(2, 1, 3, 0),
     }
 }
 
@@ -88,6 +91,9 @@ pub trait Facts {
     fn recs(&self) -> std::vec::Vec<u8>;
     /// Keys of record `k`'s items map (empty if absent).
     fn items(&self, k: u8) -> std::vec::Vec<u8>;
+    /// Whether record `k`'s items map has a header key: it has entries, or had a removal
+    /// (T4: an emptied map keeps its header until its record is removed).
+    fn items_header(&self, k: u8) -> bool;
     fn clearing(&self, k: u8) -> bool;
     fn vec_len(&self) -> u32;
     /// Element `i` of the vector, when its bytes matter (an identical rewrite is elided).
@@ -116,6 +122,9 @@ impl Facts for crate::state::model::MState {
     }
     fn items(&self, k: u8) -> std::vec::Vec<u8> {
         self.recs.iter().find(|(x, _)| *x == k).map_or(vec![], |(_, r)| r.items.iter().map(|(k, _)| *k).collect())
+    }
+    fn items_header(&self, k: u8) -> bool {
+        self.recs.iter().any(|(x, r)| *x == k && (!r.items.is_empty() || r.items_rev != 0))
     }
     fn clearing(&self, k: u8) -> bool {
         self.recs.iter().any(|(x, r)| *x == k && r.clearing)

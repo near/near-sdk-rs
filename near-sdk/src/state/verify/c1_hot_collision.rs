@@ -75,7 +75,7 @@ fn c1_spliced_keys_never_collide_across_collections() {
         }
         let val = |i: usize| vec![i as u8, 0xAA];
         let (mut m0, mut m1, mut l2, mut r3) = maps();
-        r3.insert_new(vec![0], Rec::default());
+        r3.try_insert(vec![0], Rec::default()).unwrap();
         for (i, (c, k)) in chosen.iter().enumerate() {
             match c {
                 0 => drop(m0.insert(k.clone(), val(i))),

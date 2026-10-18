@@ -79,7 +79,7 @@ impl Setup {
             v.push(val.clone());
             s.insert(k);
             ls.insert(k);
-            let rec = r.insert_new(k, Rec { n: k as u64, ..Default::default() });
+            let rec = r.try_insert(k, Rec { n: k as u64, ..Default::default() }).unwrap();
             if k == NB {
                 rec.items.insert(0, nbv.clone());
             } else {
@@ -128,7 +128,7 @@ pub enum CostOp {
     LazyRemove,
     RecGet(K),
     RecContains(K),
-    RecInsertNew(K),
+    RecTryInsert(K),
     RecEntryDefault(K),
     RecGetMut(K),
     RecAtMutInsert(K, K),
@@ -154,6 +154,9 @@ impl super::cost::Facts for Setup {
             _ => vec![],
         }
     }
+    fn items_header(&self, k: u8) -> bool {
+        !self.items(k).is_empty()
+    }
     fn clearing(&self, _: u8) -> bool {
         false
     }
@@ -169,34 +172,44 @@ impl super::cost::Facts for Setup {
 }
 
 /// The formula from the spec's table for `op`, from facts about its own key, or `None` if the
-/// op would panic (insert_new on an existing record, swap_remove out of bounds, a write below
-/// a clearing record): those are not cost rows.
+/// op would panic (swap_remove out of bounds, a write to or below a clearing record): those
+/// are not cost rows.
+///
+/// D9 (API round 2): the record map's values own storage, so a record that misses at its key
+/// is looked for at its flag key: a read for `get`/`get_mut`/`entry`/`remove`/`remove_step`, a
+/// `storage_has_key` for `contains_key` and `at_mut`. A record being cleared lives there, so it
+/// pays the same second lookup.
 pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
     let flat = f.flat();
     let recs = f.recs();
     let present = |k: u8| flat.contains(&k);
     let rec_present = |k: u8| recs.contains(&k);
+    // record-key lookups: 1 on a live record, 2 on a miss or a record being cleared (flag key)
+    let rec_lookups = |k: u8| if rec_present(k) && !f.clearing(k) { 1 } else { 2 };
     let len = flat.len() as u32;
     let vlen = f.vec_len();
     let idx = |k: u8| flat.iter().position(|x| *x == k).map(|i| i as u32);
     Some(match op {
-        CostOp::MapGet(_) | CostOp::LookGet(_) | CostOp::RecGet(_) | CostOp::VecGet(_) | CostOp::LazyGet => c(1, 0, 0, 0),
-        CostOp::MapContains(_) | CostOp::LookContains(_) | CostOp::SetContains(_) | CostOp::LSetContains(_) | CostOp::RecContains(_) => c(0, 0, 0, 1),
+        CostOp::MapGet(_) | CostOp::LookGet(_) | CostOp::VecGet(_) | CostOp::LazyGet => c(1, 0, 0, 0),
+        CostOp::RecGet(K(k)) => c(rec_lookups(k), 0, 0, 0),
+        CostOp::MapContains(_) | CostOp::LookContains(_) | CostOp::SetContains(_) | CostOp::LSetContains(_) => c(0, 0, 0, 1),
+        CostOp::RecContains(K(k)) => c(0, 0, 0, rec_lookups(k)),
         // new: index read, header read, 4 writes; existing: index read, 1 write
         CostOp::MapInsert(K(k), _) => if present(k) { c(1, 1, 0, 0) } else { c(2, 4, 0, 0) },
         // existing: 1 read; new: entry read, header read, 4 writes (no index read)
         CostOp::MapEntry(K(k), _) => if present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        // a new record: record key, flag key, header; 4 writes
         CostOp::RecEntryDefault(K(k)) => match (rec_present(k), f.clearing(k)) {
             (true, true) => return None,
             (true, false) => c(1, 0, 0, 0),
-            (false, _) => c(2, 4, 0, 0),
+            (false, _) => c(3, 4, 0, 0),
         },
         CostOp::MapGetMut(K(k)) => if present(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
         CostOp::LookGetMut(K(k)) => if f.look_has(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
         CostOp::RecGetMut(K(k)) => match (rec_present(k), f.clearing(k)) {
             (true, true) => return None,
             (true, false) => c(1, 1, 0, 0),
-            (false, _) => c(1, 0, 0, 0),
+            (false, _) => c(2, 0, 0, 0),
         },
         CostOp::MapRemove(K(k)) => add(c(1, 0, 0, 0), map_unlink(at_of(&flat, k))),
         CostOp::MapDiscard(K(k)) => if present(k) { map_unlink(at_of(&flat, k)) } else { c(1, 0, 0, 0) },
@@ -244,41 +257,50 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
             }
         }
         CostOp::SetInsert(K(k)) => if f.set().contains(&k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
-        CostOp::RecInsertNew(K(k)) => if rec_present(k) { return None } else { c(2, 4, 0, 0) },
-        // at_mut: 1 read of the record (no decode, D9); then the items map insert:
+        // T1: `Map::try_insert` = `insert`: the index read decides; an existing record (also one
+        // being cleared) is `Occupied` after that read alone
+        CostOp::RecTryInsert(K(k)) => if rec_present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        // at_mut: 1 `storage_has_key` on a live record, 2 on an absent one (the flag key), no
+        // read, no decode (D9); then the items map insert:
         // new: index read, header read, 4 writes; existing: index read, 1 write
         CostOp::RecAtMutInsert(K(k), K(k2)) => {
             if !rec_present(k) {
-                c(1, 0, 0, 0)
+                c(0, 0, 0, 2)
             } else if f.clearing(k) {
                 return None;
             } else if f.items(k).contains(&k2) {
-                c(2, 1, 0, 0)
+                c(1, 1, 0, 1)
             } else {
-                c(3, 4, 0, 0)
+                c(2, 4, 0, 1)
             }
         }
-        // entry read, then clearing the record's map (header read, per item 1 slot read and 3
-        // removes, the header removed if it existed), then the outer swap-remove
+        // record read(s), then clearing the record's map (header read, per item 1 slot read and
+        // 3 removes, the header removed if it exists: T4 keeps an emptied map's header), then
+        // the outer swap-remove (the record's own remove is at its flag key if being cleared)
         CostOp::RecRemove(K(k)) => {
             if !rec_present(k) {
-                return Some(c(1, 0, 0, 0));
+                return Some(c(2, 0, 0, 0));
             }
             let m = f.items(k).len();
-            add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(at_of(&recs, k)))
+            let hdr = f.items_header(k) as usize;
+            add(c(rec_lookups(k) + 1 + m, 0, 3 * m + hdr, 0), map_unlink(at_of(&recs, k)))
         }
         CostOp::RecRemoveSome(K(k), n) => {
             if !rec_present(k) {
-                return Some(c(1, 0, 0, 0));
+                return Some(c(2, 0, 0, 0));
             }
             let m = f.items(k).len();
             let n = n as usize;
             if n >= m {
-                add(c(2 + m, 0, 3 * m + (m > 0) as usize, 0), map_unlink(at_of(&recs, k)))
+                let hdr = f.items_header(k) as usize;
+                add(c(rec_lookups(k) + 1 + m, 0, 3 * m + hdr, 0), map_unlink(at_of(&recs, k)))
             } else {
-                // DOC_DIFFS[3]: one extra slot read. DOC_DIFFS[4]: the record (flag) is
-                // written only if it was not already clearing.
-                c(2 + n + 1, (n > 0) as usize + (!f.clearing(k)) as usize, 3 * n, 0)
+                // DOC_DIFFS[3]: one extra slot read. A call that leaves entries writes the
+                // items header (revision + 1) if it removed any. Only the FIRST such call
+                // moves the record: 1 remove (record key) then 1 write (flag key); later ones
+                // find it at the flag key with the same bytes and write nothing (DOC_DIFFS[4]).
+                let first = !f.clearing(k) as usize;
+                c(rec_lookups(k) + 1 + n + 1, (n > 0) as usize + first, 3 * n + first, 0)
             }
         }
     })
@@ -319,7 +341,7 @@ pub fn run_op(op: CostOp) -> Receipt {
         CostOp::LazyRemove => lazy().remove(),
         CostOp::RecGet(k) => drop(recs().get(&k.0).map(|r| r.n)),
         CostOp::RecContains(k) => drop(recs().contains_key(&k.0)),
-        CostOp::RecInsertNew(k) => drop(recs().insert_new(k.0, Rec::default()).n),
+        CostOp::RecTryInsert(k) => drop(recs().try_insert(k.0, Rec::default()).map(|r| r.n)),
         CostOp::RecEntryDefault(k) => drop(recs().entry(k.0).or_default().n),
         CostOp::RecGetMut(k) => drop(recs().get_mut(&k.0).map(|r| r.n += 1)),
         CostOp::RecAtMutInsert(k, k2) => {
@@ -330,7 +352,7 @@ pub fn run_op(op: CostOp) -> Receipt {
         }
         CostOp::RecAtLen(k) => drop(recs().at(&k.0).items.len()),
         CostOp::RecRemove(k) => drop(recs().remove(&k.0).map(|r| r.n)),
-        CostOp::RecRemoveSome(k, n) => drop(recs().remove_some(&k.0, n as u32)),
+        CostOp::RecRemoveSome(k, n) => drop(recs().remove_step(&k.0, n as u32)),
     }
     testing::end_call()
 }
@@ -392,19 +414,26 @@ fn g7_swap_remove_moves_a_large_last_element_stated_exception() {
     assert!(r.read_bytes() >= BIG && r.max_value_bytes() >= BIG);
 }
 
-/// D9, measured: `at_mut` is 1 read of the record's bytes (not a `storage_has_key`) and pays
-/// the record's size. This row is in flux pending a design decision; this pins the current
-/// shape: (reads, writes, removes, has_keys) = (3, 4, 0, 0) for an insert of a new key below
-/// an existing record.
+/// D9 after API round 2 (the flag key): `at_mut` is one existence check on the record key and
+/// never reads or decodes the record, so it pays nothing for the record's size. Pinned shape
+/// (reads, writes, removes, has_keys) for an insert of a new key below an existing record:
+/// (2, 4, 0, 1), the 2 reads and 4 writes being the items map's. An absent record costs a 2nd
+/// `storage_has_key`, of its flag key, and nothing else. (Before the merge this pin was
+/// `g7_at_mut_reads_the_record_current_shape`, (3, 4, 0, 0) with a read of the record.)
 #[test]
-fn g7_at_mut_reads_the_record_current_shape() {
+fn g7_at_mut_is_one_existence_check_current_shape() {
     let s = Setup { n: 3, nb_pos: 0, m: 0 };
     s.seed(BIG);
     let r = run_op(CostOp::RecAtMutInsert(K(1), K(4)));
-    assert_eq!(Cost::of(&r), c(3, 4, 0, 0));
-    assert_eq!(r.has_keys(), 0);
+    assert_eq!(Cost::of(&r), c(2, 4, 0, 1));
     let rec_key = recs_entry_key(1);
-    assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::Read && o.key == rec_key));
+    assert!(!r.ops.iter().any(|o| o.kind == testing::OpKind::Read && o.key == rec_key), "at_mut read the record");
+    assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::HasKey && o.key == rec_key));
+    s.seed(BIG);
+    let r = run_op(CostOp::RecAtMutInsert(K(4), K(4)));
+    let flag = crate::state::model::rec_flag(4);
+    let checks: StdVec<_> = r.ops.iter().map(|o| (o.kind, o.key.clone())).collect();
+    assert_eq!(checks, vec![(testing::OpKind::HasKey, recs_entry_key(4)), (testing::OpKind::HasKey, flag)]);
 }
 
 fn recs_entry_key(k: u8) -> StdVec<u8> {

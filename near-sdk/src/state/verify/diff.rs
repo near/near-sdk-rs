@@ -34,6 +34,7 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
             Ret::Unit
         }
         Op::FlatInsert(k, v) => Ret::Bool(root.flat.insert(k.0, v.bytes())),
+        Op::FlatTryInsert(k, v) => Ret::Bool(root.flat.try_insert(k.0, v.bytes()).is_ok()),
         Op::FlatGet(k) => Ret::Bytes(root.flat.get(&k.0).cloned()),
         Op::FlatContains(k) => Ret::Bool(root.flat.contains_key(&k.0)),
         Op::FlatGetMut(k, x) => Ret::Bytes(root.flat.get_mut(&k.0).map(|v| {
@@ -48,13 +49,13 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
         Op::FlatPage(after, limit) => Ret::Page(
             root.flat
                 .page(after.map(|k| k.0).as_ref(), limit as u32)
-                .map(|p| (p.items, p.next))
+                .map(|p| (p.items, p.next, p.revision))
                 .map_err(|_| ()),
         ),
         Op::FlatKeysPage(after, limit) => Ret::KeyPage(
             root.flat
                 .keys_page(after.map(|k| k.0).as_ref(), limit as u32)
-                .map(|p| (p.keys, p.next))
+                .map(|p| (p.keys, p.next, p.revision))
                 .map_err(|_| ()),
         ),
         Op::FlatIter(skip, take) => Ret::Items(
@@ -65,6 +66,7 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
             root.look.insert(k.0, v.bytes());
             Ret::Unit
         }
+        Op::LookTryInsert(k, v) => Ret::Bool(root.look.try_insert(k.0, v.bytes()).is_ok()),
         Op::LookGet(k) => Ret::Bytes(root.look.get(&k.0).cloned()),
         Op::LookContains(k) => Ret::Bool(root.look.contains_key(&k.0)),
         Op::LookGetMut(k, x) => Ret::Bytes(root.look.get_mut(&k.0).map(|v| {
@@ -79,9 +81,8 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
             root.look.discard(&k.0);
             Ret::Unit
         }
-        Op::RecInsertNew(k, n) => {
-            root.recs.insert_new(k.0, super::fixture::Rec { n: n as u64, ..Default::default() });
-            Ret::Unit
+        Op::RecTryInsert(k, n) => {
+            Ret::Bool(root.recs.try_insert(k.0, super::fixture::Rec { n: n as u64, ..Default::default() }).is_ok())
         }
         Op::RecEntryDefault(k) => Ret::U64(root.recs.entry(k.0).or_default().n),
         Op::RecGetMut(k, x) => Ret::OptU64(root.recs.get_mut(&k.0).map(|r| {
@@ -100,11 +101,11 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
         },
         Op::RecAtLen(k) => Ret::U32(root.recs.at(&k.0).items.len()),
         Op::RecRemove(k) => Ret::OptU64(root.recs.remove(&k.0).map(|r| r.n)),
-        Op::RecRemoveSome(k, n) => Ret::Bool(root.recs.remove_some(&k.0, n as u32)),
+        Op::RecRemoveSome(k, n) => Ret::Bool(root.recs.remove_step(&k.0, n as u32) == crate::state::Removal::Pending),
         Op::RecPage(after, limit) => Ret::RecPage(
             root.recs
                 .page_with(after.map(|k| k.0).as_ref(), limit as u32, |_, r| r.n)
-                .map(|p| (p.items, p.next))
+                .map(|p| (p.items, p.next, p.revision))
                 .map_err(|_| ()),
         ),
         Op::VecPush(v) => {
@@ -292,7 +293,7 @@ fn differential_fixed_sequences() {
         Op::FlatPage(Some(K(1)), 2),
         Op::FlatKeysPage(None, 3),
         Op::FlatIter(1, 3),
-        Op::RecInsertNew(K(0), 2),
+        Op::RecTryInsert(K(0), 2),
         Op::RecAtMutInsert(K(0), K(1), v(2, 1)),
         Op::RecAtMutInsert(K(0), K(2), v(2, 1)),
         Op::RecAtMutInsert(K(0), K(3), v(2, 1)),

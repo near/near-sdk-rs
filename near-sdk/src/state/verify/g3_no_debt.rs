@@ -13,11 +13,15 @@ use crate::state::model::{K, MState};
 use crate::state::testing::{self, Receipt};
 
 /// Read and written-or-replaced bytes for an operation on the leaf map at tag 2, from its own
-/// key's value, the moved key (1 byte: `u8` keys) and the 4-byte index and header values.
+/// key's value, the moved key (1 byte: `u8` keys), the 4-byte index and the header: 4 bytes
+/// while the map never had a removal, 12 (`len ++ revision`) after one, absent for a map that
+/// is empty and never had one (T4). A removal always writes the 12-byte form, also when the
+/// map empties (the header is kept, not removed).
 fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
     let order = st.flat();
     let val = |k: u8| st.flat.iter().find(|(x, _)| *x == k).map(|(_, v)| 4 + v.len());
-    let header = if order.is_empty() { 0 } else { 4 };
+    let header = crate::state::model::header_stored(order.len() as u32, st.flat_rev).map_or(0, |h| h.len());
+    let header_after_insert = if st.flat_rev == 0 { 4 } else { 12 };
     Some(match op {
         CostOp::MapGet(K(k)) => (val(k).unwrap_or(0), 0),
         CostOp::MapInsert(K(k), v) => {
@@ -25,7 +29,7 @@ fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
             match val(k) {
                 Some(old) => (4, new + old),
                 // index (absent), header; entry, index, slot, header (+ replaced header)
-                None => (header, new + 4 + 1 + 4 + header),
+                None => (header, new + 4 + 1 + header_after_insert + header),
             }
         }
         CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => {
@@ -34,9 +38,9 @@ fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
             let old = val(k).unwrap();
             match at_of(&order, k) {
                 // entry?, index, header, last slot | moved slot, moved index, header | removes
-                super::cost::At::Inner => (e + 4 + 4 + 1, (1 + 1) + (4 + 4) + (4 + 4) + old + 4 + 1),
-                super::cost::At::Last => (e + 4 + 4, (4 + 4) + old + 4 + 1),
-                super::cost::At::Only => (e + 4 + 4, old + 4 + 1 + 4),
+                super::cost::At::Inner => (e + 4 + header + 1, (1 + 1) + (4 + 4) + (12 + header) + old + 4 + 1),
+                // T4: the last key and the only key are the same shape now (header written)
+                super::cost::At::Last | super::cost::At::Only => (e + 4 + header, (12 + header) + old + 4 + 1),
                 super::cost::At::Absent => unreachable!(),
             }
         }

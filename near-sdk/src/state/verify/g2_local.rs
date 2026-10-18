@@ -33,7 +33,7 @@ fn allowed(op: CostOp, flat: &[u8], recs: &[u8], vlen: u32) -> Box<dyn Fn(&[u8])
         | CostOp::MapGetMut(K(k)) | CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => set(map_keys(model::flat(), flat, k)),
         CostOp::LookGet(K(k)) | CostOp::LookContains(K(k)) | CostOp::LookInsert(K(k), _) | CostOp::LookGetMut(K(k))
         | CostOp::LookRemove(K(k)) | CostOp::LookDiscard(K(k)) => set(vec![model::look().entry(k)]),
-        CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecInsertNew(K(k)) | CostOp::RecEntryDefault(K(k))
+        CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecTryInsert(K(k)) | CostOp::RecEntryDefault(K(k))
         | CostOp::RecGetMut(K(k)) | CostOp::RecAtMutInsert(K(k), _) | CostOp::RecAtLen(K(k)) | CostOp::RecRemove(K(k))
         | CostOp::RecRemoveSome(K(k), _) => {
             let v = map_keys(model::recs(), recs, k);
@@ -71,7 +71,7 @@ fn g2_local_op_touches_only_its_own_path_and_bookkeeping() {
         root.flat.insert(NB, vec![0xBB; BIG]);
         root.look.insert(NB, vec![0xBB; BIG]);
         if !root.recs.contains_key(&NB) {
-            root.recs.insert_new(NB, Rec::default());
+            root.recs.try_insert(NB, Rec::default()).unwrap();
         }
         root.recs.at_mut(&NB).unwrap().items.insert(0, vec![0xBB; BIG]);
         flush_root(&root);
@@ -100,7 +100,7 @@ fn g2_local_op_touches_only_its_own_path_and_bookkeeping() {
             let own = match op {
                 CostOp::MapGet(K(k)) | CostOp::MapContains(K(k)) | CostOp::MapInsert(K(k), _) | CostOp::MapEntry(K(k), _) | CostOp::MapGetMut(K(k)) | CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => Some(model::flat().entry(*k)),
                 CostOp::LookGet(K(k)) | CostOp::LookContains(K(k)) | CostOp::LookInsert(K(k), _) | CostOp::LookGetMut(K(k)) | CostOp::LookRemove(K(k)) | CostOp::LookDiscard(K(k)) => Some(model::look().entry(*k)),
-                CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecInsertNew(K(k)) | CostOp::RecEntryDefault(K(k)) | CostOp::RecGetMut(K(k)) | CostOp::RecAtMutInsert(K(k), _) | CostOp::RecAtLen(K(k)) | CostOp::RecRemove(K(k)) | CostOp::RecRemoveSome(K(k), _) => Some(model::recs().entry(*k)),
+                CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecTryInsert(K(k)) | CostOp::RecEntryDefault(K(k)) | CostOp::RecGetMut(K(k)) | CostOp::RecAtMutInsert(K(k), _) | CostOp::RecAtLen(K(k)) | CostOp::RecRemove(K(k)) | CostOp::RecRemoveSome(K(k), _) => Some(model::recs().entry(*k)),
                 _ => None,
             };
             if let Some(own) = own {

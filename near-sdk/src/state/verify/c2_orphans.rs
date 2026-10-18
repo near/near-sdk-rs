@@ -1,7 +1,9 @@
 //! Bug class C2, orphaned children. Removing a record (by `remove`, `discard`, or
-//! `remove_some` to completion) leaves no key under its path; and at every point of every
+//! `remove_step` to completion) leaves no key under its path; and at every point of every
 //! history, each stored key under the record map is bookkeeping of a LIVE record, never of a
-//! removed one. An invariant over the real store, read through the real API (independent of
+//! removed one. Live bookkeeping includes, since API rounds 2 to 4, a record's D9 flag key
+//! (`record_key ++ 00`, where a record being cleared lives; exactly one of the two keys is
+//! stored) and an emptied map's header (T4: it stays, `len` 0, until its record goes). An invariant over the real store, read through the real API (independent of
 //! the model). The v1-nested exception (a v1 collection inside a v2 record is not cleared by
 //! the record's removal) is pinned in `tests/state_v2_exchange.rs`,
 //! `legacy::removing_a_record_with_a_nested_v1_field_orphans_its_entries`.
@@ -36,9 +38,14 @@ pub fn assert_no_orphans() -> usize {
     let rk = model::recs();
     let under = field_prefix(&rk);
     let mut n = 0;
-    for key in testing::store().keys().filter(|k| k.starts_with(&under)) {
+    let store = testing::store();
+    for k in &live {
+        let (at_key, at_flag) = (store.contains_key(&rk.entry(*k)), store.contains_key(&model::rec_flag(*k)));
+        assert!(at_key != at_flag, "live record {k}: record key stored {at_key}, flag key stored {at_flag}");
+    }
+    for key in store.keys().filter(|k| k.starts_with(&under)) {
         n += 1;
-        if map_key(&rk, &live, key) {
+        if map_key(&rk, &live, key) || live.iter().any(|k| *key == model::rec_flag(*k)) {
             continue;
         }
         let owner = items.iter().find(|(k, _)| key.starts_with(&rk.entry(*k)));
@@ -50,8 +57,8 @@ pub fn assert_no_orphans() -> usize {
     n
 }
 
-/// Random engine, 2,000 histories of up to 60 operations (the Part A generator: insert_new,
-/// at_mut inserts and removes, remove, remove_some with budgets 0..=3, retyped rewrites,
+/// Random engine, 2,000 histories of up to 60 operations (the Part A generator: try_insert,
+/// at_mut inserts and removes, remove, remove_step with budgets 0..=3, retyped rewrites,
 /// mid-call flushes, spread over calls): after the history no stored key under the record map
 /// is orphaned.
 #[test]
@@ -71,7 +78,7 @@ pub enum How {
 }
 
 /// Random engine, 2,000 cases: neighbour records 0..=2 and target record 3 with 0..=7 items
-/// (written over 1..=3 calls), the target removed by `remove`, `discard` or `remove_some(n)`
+/// (written over 1..=3 calls), the target removed by `remove`, `discard` or `remove_step(n)`
 /// repeated until it returns false (one call each). Afterwards NO stored key starts with the
 /// target's entry key, the neighbours' items are intact, and the invariant holds.
 #[test]
@@ -81,12 +88,12 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
         testing::use_mock();
         let mut root = load_root::<MRoot>();
         for (i, c) in nb.iter().enumerate() {
-            root.recs.insert_new(i as u8, Rec::default());
+            root.recs.try_insert(i as u8, Rec::default()).unwrap();
             for j in 0..c % 4 {
                 root.recs.at_mut(&(i as u8)).unwrap().items.insert(j, vec![i as u8, j]);
             }
         }
-        root.recs.insert_new(3, Rec { n: 9, ..Default::default() });
+        root.recs.try_insert(3, Rec { n: 9, ..Default::default() }).unwrap();
         for j in 0..*m {
             if j % (*m / *calls as usize).max(1) == 0 {
                 flush_root(&root);
@@ -105,7 +112,7 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
             let again = match how {
                 How::Remove => root.recs.remove(&3).map(|r| r.n) != Some(9),
                 How::Discard => !root.recs.discard(&3),
-                How::RemoveSome(n) => root.recs.remove_some(&3, *n as u32),
+                How::RemoveSome(n) => root.recs.remove_step(&3, *n as u32) == crate::state::Removal::Pending,
             };
             flush_root(&root);
             drop(root);
@@ -127,53 +134,49 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
     });
 }
 
-/// `insert_new` on an existing record panics, in a fresh call and in the same call, instead
-/// of overwriting it (an overwrite would orphan the old record's children), for `Map` and
-/// `LookupMap` of records. The model skips this op as a predicted panic, so nothing else
-/// asserted it. (The surviving `assert_insert_new` mutant is a different path: `Lazy::set` of
-/// a record over an existing one, still uncovered.)
+/// `try_insert` on an existing record is refused (`Err(Occupied)`, API round 3; it was an
+/// `insert_new` panic before), in the same call and in a later call, instead of overwriting it
+/// (an overwrite would orphan the old record's children), for `Map` and `LookupMap` of
+/// records: nothing is written and the record keeps its child. The model also drives this op
+/// (`RecTryInsert`), but only this test checks the children survive. (The surviving
+/// `assert_insert_new` mutant is a different path: `Lazy::set` of a record over an existing
+/// one, still uncovered.)
 #[test]
-fn c2_insert_new_on_an_existing_record_panics() {
-    let q = |f: &mut dyn FnMut()| {
-        let hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(|_| {}));
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-        std::panic::set_hook(hook);
-        r
-    };
+fn c2_try_insert_on_an_existing_record_is_refused() {
+    use crate::state::Occupied;
     testing::use_mock();
     let mut root = load_root::<MRoot>();
-    root.recs.insert_new(1, Rec::default());
+    root.recs.try_insert(1, Rec { n: 5, ..Default::default() }).unwrap();
     root.recs.at_mut(&1).unwrap().items.insert(7, vec![7]);
-    assert!(q(&mut || { let _ = root.recs.insert_new(1, Rec::default()); }).is_err(), "same call: overwrote");
-    drop(root);
-    testing::begin_call();
-    let mut root = load_root::<MRoot>();
-    root.recs.insert_new(1, Rec::default());
-    root.recs.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    assert!(matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)), "same call: overwrote");
+    assert_eq!(root.recs.get(&1).map(|r| r.n), Some(5), "same call: record replaced");
+    assert_eq!(root.recs.at(&1).items.get(&7), Some(&vec![7]), "same call: child lost");
     flush_root(&root);
     drop(root);
     testing::begin_call();
     let before = testing::store();
     let mut root = load_root::<MRoot>();
-    assert!(q(&mut || { let _ = root.recs.insert_new(1, Rec::default()); }).is_err(), "later call: overwrote");
+    assert!(matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)), "later call: overwrote");
+    flush_root(&root);
     drop(root);
     testing::begin_call();
-    assert_eq!(testing::store(), before);
-    // the same through a LookupMap of records (its own guard, `assert_insert_new`)
+    assert_eq!(testing::store(), before, "a refused try_insert changed storage");
+    // the same through a LookupMap of records (its own existence check)
     let path = crate::state::key::Path::root(crate::state::key::DEFAULT_ROOT).field(20);
     let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path.clone());
-    lm.insert_new(1, Rec::default());
+    lm.try_insert(1, Rec { n: 5, ..Default::default() }).unwrap();
     lm.at_mut(&1).unwrap().items.insert(7, vec![7]);
-    assert!(q(&mut || { let _ = lm.insert_new(1, Rec::default()); }).is_err(), "LookupMap same call: overwrote");
-    drop(lm);
-    testing::begin_call();
-    let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path.clone());
-    lm.insert_new(1, Rec::default());
-    lm.at_mut(&1).unwrap().items.insert(7, vec![7]);
+    assert!(matches!(lm.try_insert(1, Rec::default()), Err(Occupied)), "LookupMap same call: overwrote");
+    assert_eq!(lm.get(&1).map(|r| r.n), Some(5), "LookupMap same call: record replaced");
     testing::flush();
     drop(lm);
     testing::begin_call();
+    let before = testing::store();
     let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path);
-    assert!(q(&mut || { let _ = lm.insert_new(1, Rec::default()); }).is_err(), "LookupMap later call: overwrote");
+    assert!(matches!(lm.try_insert(1, Rec::default()), Err(Occupied)), "LookupMap later call: overwrote");
+    assert_eq!(lm.at(&1).items.get(&7), Some(&vec![7]), "LookupMap later call: child lost");
+    testing::flush();
+    drop(lm);
+    testing::begin_call();
+    assert_eq!(testing::store(), before, "LookupMap: a refused try_insert changed storage");
 }

@@ -20,6 +20,18 @@
 //! The one rule taken from the prototype rather than the spec: "encoding changed" is decided
 //! against the old bytes only when this call read them (a blind `insert` always writes). The
 //! existing test `rewriting_the_same_value_is_elided_only_when_the_old_bytes_are_known` states it.
+//!
+//! Since the merge with API rounds 2 to 4 (Oct 18) the model follows the D9 flag key, T4 and T1
+//! as the spec states them: a record being cleared lives at `record_key ++ 00` with its record
+//! key absent ([`RSlot`]), a miss on a record that owns storage consults the flag key (a read
+//! for `get`/`entry`/`remove`/`remove_step`/pages, a `storage_has_key` for `contains_key` and
+//! `at_mut`), `at_mut` checks existence and never reads, a `Map` header carries a removal
+//! revision and survives emptying (it goes only with the record owning the map), and
+//! `try_insert` is first-write-wins on every value type.
+//!
+//! Generation-stamped handles (API round 4) need no case here: every operation below takes a
+//! fresh handle from the root (`root.recs.at_mut(&k)`), so none is ever stale. The escaped-handle
+//! panic is checked by `verify::c5_remove_some` (the `Escaped` attempt).
 
 use crate::state::testing::OpKind;
 use bolero::generator::TypeGenerator;
@@ -127,7 +139,8 @@ pub const REC_N: u32 = 1;
 pub const REC_ITEMS: u32 = 2;
 pub const REC2_NOTE: u32 = 3;
 pub const REC2_NOTE_DEFAULT: u32 = 7;
-pub const CLEARING_FLAG: [u8; 2] = [0, 0];
+/// The D9 flag segment: a record being cleared is stored at its key plus this byte.
+pub const FLAG_SEGMENT: u8 = 0x00;
 
 pub fn root_key() -> Vec<u8> {
     spec_key::encode(&[])
@@ -140,6 +153,15 @@ pub fn look() -> MapKeys {
 }
 pub fn recs() -> MapKeys {
     MapKeys(vec![Seg::Field(TAG_RECS)])
+}
+/// Where record `k` lives while `remove_step` is clearing it: its key plus `00`.
+pub fn rec_flag(k: u8) -> Vec<u8> {
+    flag_of(&recs().entry(k))
+}
+pub fn flag_of(record_key: &[u8]) -> Vec<u8> {
+    let mut f = record_key.to_vec();
+    f.push(FLAG_SEGMENT);
+    f
 }
 pub fn items(k: u8) -> MapKeys {
     let mut s = recs().entry_segs(k);
@@ -162,8 +184,21 @@ pub fn enc_bytes(v: &[u8]) -> Vec<u8> {
 pub fn enc_u32(v: u32) -> Vec<u8> {
     v.to_le_bytes().to_vec()
 }
-pub fn enc_record(fields: &BTreeMap<u32, Vec<u8>>, clearing: bool) -> Vec<u8> {
-    let mut out = if clearing { CLEARING_FLAG.to_vec() } else { Vec::new() };
+/// A `Map` header (T4): the bare `u32` length while the revision is 0, `len ++ revision` (12
+/// bytes) after the first removal.
+pub fn enc_header(len: u32, rev: u64) -> Vec<u8> {
+    let mut out = enc_u32(len);
+    if rev != 0 {
+        out.extend_from_slice(&rev.to_le_bytes());
+    }
+    out
+}
+/// Whether a `Map` header key exists: an empty map that never had a removal has none.
+pub fn header_stored(len: u32, rev: u64) -> Option<Vec<u8>> {
+    (len != 0 || rev != 0).then(|| enc_header(len, rev))
+}
+pub fn enc_record(fields: &BTreeMap<u32, Vec<u8>>) -> Vec<u8> {
+    let mut out = Vec::new();
     for (t, b) in fields {
         spec_key::leb128(*t as u64, &mut out);
         spec_key::leb128(b.len() as u64, &mut out);
@@ -177,18 +212,20 @@ pub fn enc_record(fields: &BTreeMap<u32, Vec<u8>>, clearing: bool) -> Vec<u8> {
 // ---------------------------------------------------------------------------------------
 
 /// A `Rec`: its inline fields by tag (known or not to the code that reads it), the map it owns
-/// in key-vector order, and the D9 clearing flag.
+/// in key-vector order with that map's removal revision, and whether `remove_step` is clearing
+/// it (D9: then its bytes live at the flag key and its record key is absent).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RecM {
     pub fields: BTreeMap<u32, Vec<u8>>,
     pub items: Vec<(u8, Vec<u8>)>,
+    pub items_rev: u64,
     pub clearing: bool,
 }
 impl RecM {
     pub fn new(n: u64) -> Self {
         let mut fields = BTreeMap::new();
         fields.insert(REC_N, n.to_le_bytes().to_vec());
-        RecM { fields, items: Vec::new(), clearing: false }
+        RecM { fields, items: Vec::new(), items_rev: 0, clearing: false }
     }
     pub fn n(&self) -> u64 {
         self.fields.get(&REC_N).map_or(0, |b| u64::from_le_bytes(b[..].try_into().unwrap()))
@@ -201,8 +238,9 @@ impl RecM {
             .get(&REC2_NOTE)
             .map_or(REC2_NOTE_DEFAULT, |b| u32::from_le_bytes(b[..].try_into().unwrap()))
     }
+    /// The record's bytes, wherever they are stored (the flag carries no bytes of its own).
     pub fn bytes(&self) -> Vec<u8> {
-        enc_record(&self.fields, self.clearing)
+        enc_record(&self.fields)
     }
 }
 
@@ -213,8 +251,11 @@ pub struct MState {
     /// `Map<u8, Vec<u8>>` in key-vector order (insertion order until a remove moves the last
     /// key into the hole).
     pub flat: Vec<(u8, Vec<u8>)>,
+    /// `flat`'s header revision (T4): bumped by every removal, never reset.
+    pub flat_rev: u64,
     pub look: BTreeMap<u8, Vec<u8>>,
     pub recs: Vec<(u8, RecM)>,
+    pub recs_rev: u64,
     pub vec: Vec<Vec<u8>>,
 }
 
@@ -222,14 +263,14 @@ fn pos<V>(v: &[(u8, V)], k: u8) -> Option<usize> {
     v.iter().position(|(x, _)| *x == k)
 }
 
-fn concretize_map(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, Vec<u8>)]) {
+fn concretize_map(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, Vec<u8>)], rev: u64) {
     for (i, (k, val)) in v.iter().enumerate() {
         out.insert(mk.entry(*k), enc_bytes(val));
         out.insert(mk.index(*k), enc_u32(i as u32));
         out.insert(mk.slot(i as u32), vec![*k]);
     }
-    if !v.is_empty() {
-        out.insert(mk.header(), enc_u32(v.len() as u32));
+    if let Some(h) = header_stored(v.len() as u32, rev) {
+        out.insert(mk.header(), h);
     }
 }
 
@@ -237,7 +278,7 @@ impl MState {
     pub fn root_bytes(&self) -> Vec<u8> {
         let mut f = BTreeMap::new();
         f.insert(TAG_COUNTER, self.counter.to_le_bytes().to_vec());
-        enc_record(&f, false)
+        enc_record(&f)
     }
 
     /// The storage this state occupies, per the spec's key grammar and value encodings.
@@ -246,19 +287,20 @@ impl MState {
         if self.root_written {
             out.insert(root_key(), self.root_bytes());
         }
-        concretize_map(&mut out, &flat(), &self.flat);
+        concretize_map(&mut out, &flat(), &self.flat, self.flat_rev);
         for (k, v) in &self.look {
             out.insert(look().entry(*k), enc_bytes(v));
         }
         let r = recs();
         for (i, (k, rec)) in self.recs.iter().enumerate() {
-            out.insert(r.entry(*k), rec.bytes());
+            let at = if rec.clearing { rec_flag(*k) } else { r.entry(*k) };
+            out.insert(at, rec.bytes());
             out.insert(r.index(*k), enc_u32(i as u32));
             out.insert(r.slot(i as u32), vec![*k]);
-            concretize_map(&mut out, &items(*k), &rec.items);
+            concretize_map(&mut out, &items(*k), &rec.items, rec.items_rev);
         }
-        if !self.recs.is_empty() {
-            out.insert(r.header(), enc_u32(self.recs.len() as u32));
+        if let Some(h) = header_stored(self.recs.len() as u32, self.recs_rev) {
+            out.insert(r.header(), h);
         }
         let vk = vect();
         for (i, v) in self.vec.iter().enumerate() {
@@ -290,6 +332,80 @@ struct MSlot {
     pending: Option<Option<Vec<u8>>>,
 }
 
+/// What the call knows about a record of a map whose value owns storage (D9). The record is
+/// at its record key, or (while `remove_step` is clearing it) at its flag key, never both.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ROrig {
+    Unknown,
+    Absent,
+    /// Known present from `storage_has_key`, bytes not read; `bool`: at the flag key.
+    PresentUnread(bool),
+    Present(Vec<u8>, bool),
+}
+
+/// One record's slot. Spec, "Bounded clearing" and API round 2 "Flush": a record being
+/// cleared is written to its flag key and its record key removed; a record no longer being
+/// cleared is written to its record key and its flag key removed; a delete removes whichever
+/// key holds it; the record key's op comes before the flag key's (key order).
+#[derive(Clone, Debug)]
+pub struct RSlot {
+    orig: ROrig,
+    /// `None`: unchanged. `Some(None)`: removed. `Some(Some((bytes, clearing)))`.
+    pending: Option<Option<(Vec<u8>, bool)>>,
+    /// Review F1 (API round 3): a delete happened while the call did not know where (or
+    /// whether) the record was stored, so a later write must also remove the other key.
+    blind_delete: bool,
+}
+
+impl RSlot {
+    fn location(&self) -> Option<bool> {
+        match self.orig {
+            ROrig::PresentUnread(f) | ROrig::Present(_, f) => Some(f),
+            _ => None,
+        }
+    }
+
+    /// The flush's writes and removes for this record, as `(key, Some(bytes) | None)`.
+    fn flush_ops(&self, key: &[u8]) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
+        let mut ops = Vec::new();
+        let at = self.location();
+        let (mut at_key, mut at_flag) = (at == Some(false), at == Some(true));
+        if self.blind_delete && self.orig == ROrig::Unknown {
+            (at_key, at_flag) = (true, true);
+        }
+        let same = |b: &[u8]| matches!(&self.orig, ROrig::Present(o, _) if o == b);
+        match &self.pending {
+            None => {}
+            Some(Some((b, true))) => {
+                if at_key {
+                    ops.push((key.to_vec(), None));
+                }
+                if !(at_flag && same(b)) {
+                    ops.push((flag_of(key), Some(b.clone())));
+                }
+            }
+            Some(Some((b, false))) => {
+                if !(at_key && same(b)) {
+                    ops.push((key.to_vec(), Some(b.clone())));
+                }
+                if at_flag {
+                    ops.push((flag_of(key), None));
+                }
+            }
+            Some(None) => match self.orig {
+                ROrig::Absent => {}
+                ROrig::Unknown => {
+                    ops.push((key.to_vec(), None));
+                    ops.push((flag_of(key), None));
+                }
+                _ if at_flag => ops.push((flag_of(key), None)),
+                _ => ops.push((key.to_vec(), None)),
+            },
+        }
+        ops
+    }
+}
+
 /// Host calls the model predicts for one call.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Predicted {
@@ -303,12 +419,101 @@ pub struct CacheModel {
     /// The host's storage (committed state). Changes only at a flush.
     pub host: BTreeMap<Vec<u8>, Vec<u8>>,
     slots: BTreeMap<Vec<u8>, MSlot>,
+    /// Records of maps whose values own storage, by record key (D9).
+    rslots: BTreeMap<Vec<u8>, RSlot>,
     pub predicted: Predicted,
 }
 
 impl CacheModel {
     pub fn new(host: BTreeMap<Vec<u8>, Vec<u8>>) -> Self {
-        CacheModel { host, slots: BTreeMap::new(), predicted: Predicted::default() }
+        CacheModel { host, slots: BTreeMap::new(), rslots: BTreeMap::new(), predicted: Predicted::default() }
+    }
+
+    fn lookup(&mut self, kind: OpKind, key: &[u8]) -> Option<Vec<u8>> {
+        let v = self.host.get(key).cloned();
+        let len = if kind == OpKind::Read { v.as_ref().map_or(0, Vec::len) } else { 0 };
+        self.predicted.lookups.push((kind, key.to_vec(), len));
+        v
+    }
+
+    fn rslot(&mut self, key: &[u8]) -> &mut RSlot {
+        self.rslots.entry(key.to_vec()).or_insert(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false })
+    }
+
+    /// A record's current `(bytes, clearing)`: 1 read of the record key unless known; a miss
+    /// reads the flag key (D9). A record known present from `storage_has_key` is read at the
+    /// key that holds it (1 read).
+    pub fn rec_read(&mut self, key: &[u8]) -> Option<(Vec<u8>, bool)> {
+        let orig = self.rslot(key).orig.clone();
+        if let Some(p) = &self.rslot(key).pending {
+            return p.clone();
+        }
+        let flag = flag_of(key);
+        let now = match orig {
+            ROrig::Present(b, f) => return Some((b, f)),
+            ROrig::Absent => return None,
+            ROrig::PresentUnread(f) => {
+                let b = self.lookup(OpKind::Read, if f { &flag } else { key }).expect("present");
+                ROrig::Present(b, f)
+            }
+            ROrig::Unknown => match self.lookup(OpKind::Read, key) {
+                Some(b) => ROrig::Present(b, false),
+                None => match self.lookup(OpKind::Read, &flag) {
+                    Some(b) => ROrig::Present(b, true),
+                    None => ROrig::Absent,
+                },
+            },
+        };
+        self.rslot(key).orig = now.clone();
+        match now {
+            ROrig::Present(b, f) => Some((b, f)),
+            _ => None,
+        }
+    }
+
+    /// `None` if no record is stored, else whether it is being cleared: 1 `storage_has_key` on
+    /// the record key unless known; a miss checks the flag key (D9).
+    pub fn rec_exists(&mut self, key: &[u8]) -> Option<bool> {
+        if let Some(p) = &self.rslot(key).pending {
+            return p.as_ref().map(|(_, c)| *c);
+        }
+        match self.rslot(key).orig.clone() {
+            ROrig::Present(_, f) | ROrig::PresentUnread(f) => Some(f),
+            ROrig::Absent => None,
+            ROrig::Unknown => {
+                let now = if self.lookup(OpKind::HasKey, key).is_some() {
+                    ROrig::PresentUnread(false)
+                } else if self.lookup(OpKind::HasKey, &flag_of(key)).is_some() {
+                    ROrig::PresentUnread(true)
+                } else {
+                    ROrig::Absent
+                };
+                let r = match now {
+                    ROrig::PresentUnread(f) => Some(f),
+                    _ => None,
+                };
+                self.rslot(key).orig = now;
+                r
+            }
+        }
+    }
+
+    /// Writes a record that is not being cleared (an insert, or a rewrite of a live record).
+    pub fn rec_write(&mut self, key: &[u8], bytes: Vec<u8>) {
+        self.rslot(key).pending = Some(Some((bytes, false)));
+    }
+
+    /// `remove_step` returned `Pending`: the record (with these bytes) goes to its flag key.
+    pub fn rec_set_clearing(&mut self, key: &[u8], bytes: Vec<u8>) {
+        self.rslot(key).pending = Some(Some((bytes, true)));
+    }
+
+    pub fn rec_delete(&mut self, key: &[u8]) {
+        let s = self.rslot(key);
+        if s.orig == ROrig::Unknown {
+            s.blind_delete = true;
+        }
+        s.pending = Some(None);
     }
 
     fn slot(&mut self, key: &[u8]) -> &mut MSlot {
@@ -372,11 +577,24 @@ impl CacheModel {
         self.predicted.mutations.push((OpKind::Write, key.to_vec(), b.len(), old.map(|o| o.len())));
     }
 
-    /// Every changed key once, in key order, then the root last (written iff its bytes differ
-    /// from the bytes this call read for it); then the cache is empty.
+    fn host_remove(&mut self, key: &[u8]) {
+        let old = self.host.remove(key);
+        self.predicted.mutations.push((
+            OpKind::Remove,
+            key.to_vec(),
+            old.as_ref().map_or(0, Vec::len),
+            old.map(|o| o.len()),
+        ));
+    }
+
+    /// Every changed key once, in key order (record and flag keys included), then the root
+    /// last (written iff its bytes differ from the bytes this call read for it); then the
+    /// cache is empty.
     pub fn flush(&mut self, root: Option<Vec<u8>>) {
         let rk = root_key();
         let slots = core::mem::take(&mut self.slots);
+        let rslots = core::mem::take(&mut self.rslots);
+        let mut ops: Vec<(Vec<u8>, Option<Vec<u8>>)> = Vec::new();
         for (key, s) in &slots {
             if *key == rk {
                 continue;
@@ -385,20 +603,28 @@ impl CacheModel {
                 None => {}
                 Some(Some(b)) => {
                     if s.orig != Orig::Present(b.clone()) {
-                        self.host_write(key, b.clone());
+                        ops.push((key.clone(), Some(b.clone())));
                     }
                 }
                 Some(None) => {
                     if s.orig != Orig::Absent {
-                        let old = self.host.remove(key);
-                        self.predicted.mutations.push((
-                            OpKind::Remove,
-                            key.clone(),
-                            old.as_ref().map_or(0, Vec::len),
-                            old.map(|o| o.len()),
-                        ));
+                        ops.push((key.clone(), None));
                     }
                 }
+            }
+        }
+        for (key, r) in &rslots {
+            assert!(!slots.contains_key(key), "MODEL BUG: a record key used as a plain key");
+            ops.extend(r.flush_ops(key));
+        }
+        ops.sort_by(|a, b| a.0.cmp(&b.0));
+        for w in ops.windows(2) {
+            assert!(w[0].0 != w[1].0, "MODEL BUG: two flush ops for one key");
+        }
+        for (key, op) in ops {
+            match op {
+                Some(b) => self.host_write(&key, b),
+                None => self.host_remove(&key),
             }
         }
         if let Some(b) = root {
@@ -412,6 +638,7 @@ impl CacheModel {
     /// Drops the cache without flushing (an aborted call).
     pub fn abort(&mut self) {
         self.slots.clear();
+        self.rslots.clear();
     }
 
     pub fn take_predicted(&mut self) -> Predicted {
@@ -452,6 +679,8 @@ pub enum Op {
     View(K),
     Counter(#[generator(0..3)] u8),
     FlatInsert(K, Val),
+    /// `try_insert` (T1): first write wins; `Ret::Bool(inserted)`.
+    FlatTryInsert(K, Val),
     FlatGet(K),
     FlatContains(K),
     FlatGetMut(K, Option<u8>),
@@ -463,13 +692,16 @@ pub enum Op {
     FlatIter(#[generator(0..4)] u8, #[generator(0..4)] u8),
     FlatLen,
     LookInsert(K, Val),
+    LookTryInsert(K, Val),
     LookGet(K),
     LookContains(K),
     LookGetMut(K, Option<u8>),
     LookEntry(K, Val),
     LookRemove(K),
     LookDiscard(K),
-    RecInsertNew(K, #[generator(0..3)] u8),
+    /// `Map::try_insert` of a record (was `insert_new`): `Ret::Bool(inserted)`; an existing
+    /// record (also one being cleared: its index is there) is `Occupied`, not a panic.
+    RecTryInsert(K, #[generator(0..3)] u8),
     RecEntryDefault(K),
     RecGetMut(K, #[generator(0..3)] u8),
     RecGet(K),
@@ -478,6 +710,7 @@ pub enum Op {
     RecAtMutRemove(K, K),
     RecAtLen(K),
     RecRemove(K),
+    /// `remove_step(k, n)`: `Ret::Bool(true)` for `Removal::Pending`.
     RecRemoveSome(K, #[generator(0..4)] u8),
     RecPage(Option<K>, #[generator(0..4)] u8),
     /// In a call of its own: the record map read as `Map<u8, RecV2>` (tag 1 removed, tag 3
@@ -500,10 +733,10 @@ pub enum Ret {
     U64(u64),
     Bytes(Option<Vec<u8>>),
     OptU64(Option<u64>),
-    /// `Ok((items, next))` or `Err(CursorGone)`.
-    Page(Result<(Vec<(u8, Vec<u8>)>, Option<u8>), ()>),
-    KeyPage(Result<(Vec<u8>, Option<u8>), ()>),
-    RecPage(Result<(Vec<(u8, u64)>, Option<u8>), ()>),
+    /// `Ok((items, next, revision))` or `Err(CursorGone)`.
+    Page(Result<(Vec<(u8, Vec<u8>)>, Option<u8>, u64), ()>),
+    KeyPage(Result<(Vec<u8>, Option<u8>, u64), ()>),
+    RecPage(Result<(Vec<(u8, u64)>, Option<u8>, u64), ()>),
     Items(Vec<(u8, Vec<u8>)>),
     View(Option<Vec<u8>>, Option<Vec<u8>>, Option<u64>, u32),
 }
@@ -518,21 +751,35 @@ fn agree(what: &str, cache: Option<Vec<u8>>, abs: Option<Vec<u8>>) {
     assert_eq!(cache, abs, "MODEL BUG: cache view and abstract state disagree on {what}");
 }
 
-/// Map key-vector operations shared by `flat`, `recs` and every `items` map.
+/// Map key-vector operations shared by `flat`, `recs` and every `items` map. `rev` is the
+/// map's header revision (T4); `records` says the values own storage (D9: their entries are
+/// record slots).
 struct KV<'a, V> {
     mk: MapKeys,
     v: &'a mut Vec<(u8, V)>,
+    rev: &'a mut u64,
+    records: bool,
 }
 
 impl<V: Clone> KV<'_, V> {
     fn len(&self, c: &mut CacheModel) -> u32 {
         let h = c.read(&self.mk.header());
         let n = self.v.len() as u32;
-        agree("map header", h, if n == 0 { None } else { Some(enc_u32(n)) });
+        agree("map header", h, header_stored(n, *self.rev));
         n
     }
+    /// The header after an insert: length changes, revision kept.
     fn set_len(&self, c: &mut CacheModel, n: u32) {
-        if n == 0 { c.delete(&self.mk.header()) } else { c.write(&self.mk.header(), enc_u32(n)) }
+        match header_stored(n, *self.rev) {
+            Some(h) => c.write(&self.mk.header(), h),
+            None => c.delete(&self.mk.header()),
+        }
+    }
+    /// The header after a removal (or a batch of removals): the revision goes up by one and
+    /// the header is written, also at length 0 (T4: it never resets while the map's owner lives).
+    fn set_len_after_removal(&mut self, c: &mut CacheModel, n: u32) {
+        *self.rev += 1;
+        self.set_len(c, n);
     }
     fn index(&self, c: &mut CacheModel, k: u8) -> Option<u32> {
         let r = c.read(&self.mk.index(k));
@@ -545,6 +792,9 @@ impl<V: Clone> KV<'_, V> {
         let k = self.v[i as usize].0;
         agree("key slot", r, Some(vec![k]));
         k
+    }
+    fn delete_entry(&self, c: &mut CacheModel, k: u8) {
+        if self.records { c.rec_delete(&self.mk.entry(k)) } else { c.delete(&self.mk.entry(k)) }
     }
     /// Appends `k` (its value is written by the caller): header read, index, slot, header.
     fn push_key(&mut self, c: &mut CacheModel, k: u8, v: V) {
@@ -559,7 +809,7 @@ impl<V: Clone> KV<'_, V> {
     fn unlink(&mut self, c: &mut CacheModel, k: u8) {
         let i = self.index(c, k).expect("present");
         let n = self.len(c);
-        c.delete(&self.mk.entry(k));
+        self.delete_entry(c, k);
         c.delete(&self.mk.index(k));
         let last = n - 1;
         if i != last {
@@ -568,27 +818,35 @@ impl<V: Clone> KV<'_, V> {
             c.write(&self.mk.index(moved), enc_u32(i));
         }
         c.delete(&self.mk.slot(last));
-        self.set_len(c, last);
+        self.set_len_after_removal(c, last);
         self.v.swap_remove(i as usize);
     }
-    /// `clear()`: header read, then per entry from the end a slot read and three removes.
-    fn clear(&mut self, c: &mut CacheModel) {
+    /// Clearing a map whose owner is being removed: header read, then (if not empty) per entry
+    /// from the end a slot read and three removes, then the header goes, revision and all.
+    fn clear_owned(&mut self, c: &mut CacheModel) {
         let n = self.len(c);
-        for i in (0..n).rev() {
-            let k = self.slot_key(c, i);
-            c.delete(&self.mk.entry(k));
-            c.delete(&self.mk.index(k));
-            c.delete(&self.mk.slot(i));
+        if n > 0 {
+            for i in (0..n).rev() {
+                let k = self.slot_key(c, i);
+                self.delete_entry(c, k);
+                c.delete(&self.mk.index(k));
+                c.delete(&self.mk.slot(i));
+            }
+            self.set_len_after_removal(c, 0);
         }
-        self.set_len(c, 0);
+        c.delete(&self.mk.header());
         self.v.clear();
+        *self.rev = 0;
     }
-    /// Bounded clear from the end (D9). Returns whether the map is now empty. When the budget
-    /// runs out with entries left, the next slot has already been read.
+    /// Bounded clear from the end (D9) for a map whose owner is being removed. Returns whether
+    /// the map is now empty, in which case its header is gone. When the budget runs out with
+    /// entries left, the next slot has already been read. One revision bump per entry.
     fn clear_budgeted(&mut self, c: &mut CacheModel, budget: &mut u32) -> bool {
         loop {
             let n = self.len(c);
             if n == 0 {
+                c.delete(&self.mk.header());
+                *self.rev = 0;
                 return true;
             }
             let k = self.slot_key(c, n - 1);
@@ -596,21 +854,22 @@ impl<V: Clone> KV<'_, V> {
                 return false;
             }
             *budget -= 1;
-            c.delete(&self.mk.entry(k));
+            self.delete_entry(c, k);
             c.delete(&self.mk.index(k));
             c.delete(&self.mk.slot(n - 1));
-            self.set_len(c, n - 1);
+            self.set_len_after_removal(c, n - 1);
             self.v.pop();
         }
     }
-    fn page_bounds(&self, c: &mut CacheModel, after: Option<u8>, limit: u8) -> Result<(u32, u32, u32), ()> {
+    /// Cursor index (if any), then the header (length and revision).
+    fn page_bounds(&self, c: &mut CacheModel, after: Option<u8>, limit: u8) -> Result<(u32, u32, u32, u64), ()> {
         let start = match after {
             None => 0,
             Some(k) => self.index(c, k).ok_or(())? + 1,
         };
         let n = self.len(c);
         let end = start.saturating_add(limit as u32).min(n);
-        Ok((start, end, n))
+        Ok((start, end, n, *self.rev))
     }
 }
 
@@ -633,6 +892,15 @@ impl KV<'_, Vec<u8>> {
         }
         new
     }
+    /// T1: the index read decides; an existing key writes nothing and reads no value.
+    fn try_insert(&mut self, c: &mut CacheModel, k: u8, val: Vec<u8>) -> bool {
+        if self.index(c, k).is_some() {
+            return false;
+        }
+        c.write(&self.mk.entry(k), enc_bytes(&val));
+        self.push_key(c, k, val);
+        true
+    }
     fn remove(&mut self, c: &mut CacheModel, k: u8, read_value: bool) -> Option<Vec<u8>> {
         if read_value {
             self.get(c, k)?;
@@ -643,8 +911,9 @@ impl KV<'_, Vec<u8>> {
         self.unlink(c, k);
         Some(v)
     }
-    fn page(&self, c: &mut CacheModel, after: Option<u8>, limit: u8, keys_only: bool) -> Result<(Vec<(u8, Vec<u8>)>, Option<u8>), ()> {
-        let (start, end, n) = self.page_bounds(c, after, limit)?;
+    #[allow(clippy::type_complexity)]
+    fn page(&self, c: &mut CacheModel, after: Option<u8>, limit: u8, keys_only: bool) -> Result<(Vec<(u8, Vec<u8>)>, Option<u8>, u64), ()> {
+        let (start, end, n, rev) = self.page_bounds(c, after, limit)?;
         let mut items = Vec::new();
         for i in start..end {
             let k = self.slot_key(c, i);
@@ -652,7 +921,7 @@ impl KV<'_, Vec<u8>> {
             items.push((k, v));
         }
         let next = if end < n { items.last().map(|(k, _)| *k) } else { None };
-        Ok((items, next))
+        Ok((items, next, rev))
     }
 }
 
@@ -667,6 +936,23 @@ impl Default for Model {
     fn default() -> Self {
         Model { committed: MState::default(), cur: MState::default(), cache: CacheModel::new(BTreeMap::new()) }
     }
+}
+
+macro_rules! flat_kv {
+    ($s:expr) => {
+        KV { mk: flat(), v: &mut $s.cur.flat, rev: &mut $s.cur.flat_rev, records: false }
+    };
+}
+macro_rules! recs_kv {
+    ($s:expr) => {
+        KV { mk: recs(), v: &mut $s.cur.recs, rev: &mut $s.cur.recs_rev, records: true }
+    };
+}
+macro_rules! items_kv {
+    ($s:expr, $k:expr, $i:expr) => {{
+        let r = &mut $s.cur.recs[$i].1;
+        KV { mk: items($k), v: &mut r.items, rev: &mut r.items_rev, records: false }
+    }};
 }
 
 impl Model {
@@ -717,11 +1003,11 @@ impl Model {
     }
 
     /// Whether the implementation is expected to panic on `op` (the harness then skips it;
-    /// dedicated harnesses check the panics).
+    /// dedicated harnesses check the panics). Since T1, `try_insert` of an existing record is
+    /// `Occupied`, not a panic; only writes to or below a record being cleared panic.
     pub fn would_panic(&self, op: &Op) -> bool {
         let clearing = |k: u8| self.rec_pos(k).is_some_and(|i| self.cur.recs[i].1.clearing);
         match *op {
-            Op::RecInsertNew(K(k), _) => self.rec_pos(k).is_some(),
             Op::RecEntryDefault(K(k)) | Op::RecGetMut(K(k), _) | Op::RecRetyped(K(k), _) => clearing(k),
             Op::RecAtMutInsert(K(k), ..) | Op::RecAtMutRemove(K(k), _) => clearing(k),
             Op::VecSwapRemove(i) => i as usize >= self.cur.vec.len(),
@@ -729,16 +1015,26 @@ impl Model {
         }
     }
 
+    /// The record at `k` (1 read, 2 on a miss: the flag key), checked against the abstract
+    /// state: its bytes and where they live.
     fn rec_get(&mut self, k: u8) -> Option<usize> {
-        let r = self.cache.read(&recs().entry(k));
+        let r = self.cache.rec_read(&recs().entry(k));
         let i = self.rec_pos(k);
-        agree("record", r, i.map(|i| self.cur.recs[i].1.bytes()));
+        let want = i.map(|i| (self.cur.recs[i].1.bytes(), self.cur.recs[i].1.clearing));
+        assert_eq!(r, want, "MODEL BUG: cache view and abstract state disagree on record {k}");
+        i
+    }
+
+    /// `at_mut`'s existence check: 1 `storage_has_key`, 2 on a miss (the flag key).
+    fn rec_exists(&mut self, k: u8) -> Option<usize> {
+        let r = self.cache.rec_exists(&recs().entry(k));
+        let i = self.rec_pos(k);
+        assert_eq!(r, i.map(|i| self.cur.recs[i].1.clearing), "MODEL BUG: record {k} existence");
         i
     }
 
     /// Applies `op` inside the current call. Call-boundary ops are handled by the driver.
     pub fn apply(&mut self, op: &Op) -> Ret {
-        let c = &mut self.cache;
         match *op {
             Op::EndCall | Op::MidFlush | Op::View(_) | Op::RecRetyped(..) => {
                 unreachable!("driver handles call boundaries")
@@ -747,16 +1043,17 @@ impl Model {
                 self.cur.counter = self.cur.counter.wrapping_add(x as u64);
                 Ret::Unit
             }
-            Op::FlatInsert(K(k), v) => Ret::Bool(KV { mk: flat(), v: &mut self.cur.flat }.insert(c, k, v.bytes())),
-            Op::FlatGet(K(k)) => Ret::Bytes(KV { mk: flat(), v: &mut self.cur.flat }.get(c, k)),
+            Op::FlatInsert(K(k), v) => Ret::Bool(flat_kv!(self).insert(&mut self.cache, k, v.bytes())),
+            Op::FlatTryInsert(K(k), v) => Ret::Bool(flat_kv!(self).try_insert(&mut self.cache, k, v.bytes())),
+            Op::FlatGet(K(k)) => Ret::Bytes(flat_kv!(self).get(&mut self.cache, k)),
             Op::FlatContains(K(k)) => {
-                let e = c.exists(&flat().entry(k));
+                let e = self.cache.exists(&flat().entry(k));
                 assert_eq!(e, pos(&self.cur.flat, k).is_some(), "MODEL BUG: contains");
                 Ret::Bool(e)
             }
             Op::FlatGetMut(K(k), x) => {
-                let m = KV { mk: flat(), v: &mut self.cur.flat };
-                match m.get(c, k) {
+                let c = &mut self.cache;
+                match flat_kv!(self).get(c, k) {
                     None => Ret::Bytes(None),
                     Some(mut v) => {
                         if let Some(b) = x {
@@ -770,7 +1067,8 @@ impl Model {
                 }
             }
             Op::FlatEntry(K(k), v) => {
-                let mut m = KV { mk: flat(), v: &mut self.cur.flat };
+                let c = &mut self.cache;
+                let mut m = flat_kv!(self);
                 match m.get(c, k) {
                     Some(old) => Ret::Bytes(Some(old)),
                     None => {
@@ -780,20 +1078,19 @@ impl Model {
                     }
                 }
             }
-            Op::FlatRemove(K(k)) => Ret::Bytes(KV { mk: flat(), v: &mut self.cur.flat }.remove(c, k, true)),
-            Op::FlatDiscard(K(k)) => {
-                Ret::Bool(KV { mk: flat(), v: &mut self.cur.flat }.remove(c, k, false).is_some())
-            }
+            Op::FlatRemove(K(k)) => Ret::Bytes(flat_kv!(self).remove(&mut self.cache, k, true)),
+            Op::FlatDiscard(K(k)) => Ret::Bool(flat_kv!(self).remove(&mut self.cache, k, false).is_some()),
             Op::FlatPage(after, limit) => {
-                Ret::Page(KV { mk: flat(), v: &mut self.cur.flat }.page(c, after.map(|k| k.0), limit, false))
+                Ret::Page(flat_kv!(self).page(&mut self.cache, after.map(|k| k.0), limit, false))
             }
             Op::FlatKeysPage(after, limit) => Ret::KeyPage(
-                KV { mk: flat(), v: &mut self.cur.flat }
-                    .page(c, after.map(|k| k.0), limit, true)
-                    .map(|(items, next)| (items.into_iter().map(|(k, _)| k).collect(), next)),
+                flat_kv!(self)
+                    .page(&mut self.cache, after.map(|k| k.0), limit, true)
+                    .map(|(items, next, rev)| (items.into_iter().map(|(k, _)| k).collect(), next, rev)),
             ),
             Op::FlatIter(skip, take) => {
-                let m = KV { mk: flat(), v: &mut self.cur.flat };
+                let c = &mut self.cache;
+                let m = flat_kv!(self);
                 let n = m.len(c);
                 let mut out = Vec::new();
                 for i in (skip as u32)..n.min(skip as u32 + take as u32) {
@@ -802,24 +1099,37 @@ impl Model {
                 }
                 Ret::Items(out)
             }
-            Op::FlatLen => Ret::U32(KV { mk: flat(), v: &mut self.cur.flat }.len(c)),
+            Op::FlatLen => Ret::U32(flat_kv!(self).len(&mut self.cache)),
             Op::LookInsert(K(k), v) => {
-                c.write(&look().entry(k), enc_bytes(&v.bytes()));
+                self.cache.write(&look().entry(k), enc_bytes(&v.bytes()));
                 self.cur.look.insert(k, v.bytes());
                 Ret::Unit
             }
+            Op::LookTryInsert(K(k), v) => {
+                // T1, a leaf: 1 `storage_has_key`; absent: 1 write.
+                let c = &mut self.cache;
+                let e = c.exists(&look().entry(k));
+                assert_eq!(e, self.cur.look.contains_key(&k), "MODEL BUG: lookup contains");
+                if e {
+                    return Ret::Bool(false);
+                }
+                c.write(&look().entry(k), enc_bytes(&v.bytes()));
+                self.cur.look.insert(k, v.bytes());
+                Ret::Bool(true)
+            }
             Op::LookGet(K(k)) => {
-                let r = c.read(&look().entry(k));
+                let r = self.cache.read(&look().entry(k));
                 let v = self.cur.look.get(&k).cloned();
                 agree("lookup entry", r, v.as_deref().map(enc_bytes));
                 Ret::Bytes(v)
             }
             Op::LookContains(K(k)) => {
-                let e = c.exists(&look().entry(k));
+                let e = self.cache.exists(&look().entry(k));
                 assert_eq!(e, self.cur.look.contains_key(&k), "MODEL BUG: lookup contains");
                 Ret::Bool(e)
             }
             Op::LookGetMut(K(k), x) => {
+                let c = &mut self.cache;
                 let r = c.read(&look().entry(k));
                 agree("lookup entry", r, self.cur.look.get(&k).map(|v| enc_bytes(v)));
                 match self.cur.look.get_mut(&k) {
@@ -834,6 +1144,7 @@ impl Model {
                 }
             }
             Op::LookEntry(K(k), v) => {
+                let c = &mut self.cache;
                 let r = c.read(&look().entry(k));
                 agree("lookup entry", r, self.cur.look.get(&k).map(|v| enc_bytes(v)));
                 match self.cur.look.get(&k) {
@@ -846,6 +1157,7 @@ impl Model {
                 }
             }
             Op::LookRemove(K(k)) => {
+                let c = &mut self.cache;
                 let r = c.read(&look().entry(k));
                 agree("lookup entry", r, self.cur.look.get(&k).map(|v| enc_bytes(v)));
                 let old = self.cur.look.remove(&k);
@@ -855,25 +1167,32 @@ impl Model {
                 Ret::Bytes(old)
             }
             Op::LookDiscard(K(k)) => {
-                c.delete(&look().entry(k));
+                self.cache.delete(&look().entry(k));
                 self.cur.look.remove(&k);
                 Ret::Unit
             }
-            Op::RecInsertNew(K(k), n) => {
-                let mut m = KV { mk: recs(), v: &mut self.cur.recs };
-                assert!(m.index(c, k).is_none(), "skipped by would_panic");
+            Op::RecTryInsert(K(k), n) => {
+                // T1: `Map::try_insert` = `insert`: the index read decides, so a record being
+                // cleared (its index is still there) is `Occupied` too. The record key is
+                // written blind.
+                let c = &mut self.cache;
+                let mut m = recs_kv!(self);
+                if m.index(c, k).is_some() {
+                    return Ret::Bool(false);
+                }
                 let rec = RecM::new(n as u64);
-                c.write(&recs().entry(k), rec.bytes());
+                c.rec_write(&recs().entry(k), rec.bytes());
                 m.push_key(c, k, rec);
-                Ret::Unit
+                Ret::Bool(true)
             }
             Op::RecEntryDefault(K(k)) => match self.rec_get(k) {
                 Some(i) => Ret::U64(self.cur.recs[i].1.n()),
                 None => {
+                    // the record and flag keys both missed; no index read
                     let rec = RecM::new(0);
                     let c = &mut self.cache;
-                    c.write(&recs().entry(k), rec.bytes());
-                    KV { mk: recs(), v: &mut self.cur.recs }.push_key(c, k, rec);
+                    c.rec_write(&recs().entry(k), rec.bytes());
+                    recs_kv!(self).push_key(c, k, rec);
                     Ret::U64(0)
                 }
             },
@@ -884,7 +1203,7 @@ impl Model {
                     let n = r.n().wrapping_add(x as u64);
                     r.set_n(n);
                     let b = r.bytes();
-                    self.cache.write(&recs().entry(k), b);
+                    self.cache.rec_write(&recs().entry(k), b);
                     Ret::OptU64(Some(n))
                 }
             },
@@ -892,65 +1211,60 @@ impl Model {
                 let i = self.rec_get(k);
                 Ret::OptU64(i.map(|i| self.cur.recs[i].1.n()))
             }
-            Op::RecContains(K(k)) => {
-                let e = c.exists(&recs().entry(k));
-                assert_eq!(e, self.rec_pos(k).is_some(), "MODEL BUG: record contains");
-                Ret::Bool(e)
-            }
+            Op::RecContains(K(k)) => Ret::Bool(self.rec_exists(k).is_some()),
             Op::RecAtMutInsert(K(k), K(k2), v) => {
-                // `at_mut`: 1 read of the record bytes (no decode), `None` if absent.
-                let Some(i) = self.rec_get(k) else { return Ret::OptU64(None) };
-                let c = &mut self.cache;
-                let new = KV { mk: items(k), v: &mut self.cur.recs[i].1.items }.insert(c, k2, v.bytes());
+                // `at_mut`: an existence check, no read, no decode; `None` if absent.
+                let Some(i) = self.rec_exists(k) else { return Ret::OptU64(None) };
+                let new = items_kv!(self, k, i).insert(&mut self.cache, k2, v.bytes());
                 Ret::Bool(new)
             }
             Op::RecAtMutRemove(K(k), K(k2)) => {
-                let Some(i) = self.rec_get(k) else { return Ret::OptU64(None) };
-                let c = &mut self.cache;
-                Ret::Bytes(KV { mk: items(k), v: &mut self.cur.recs[i].1.items }.remove(c, k2, true))
+                let Some(i) = self.rec_exists(k) else { return Ret::OptU64(None) };
+                Ret::Bytes(items_kv!(self, k, i).remove(&mut self.cache, k2, true))
             }
             // `at(&k)` reads nothing; `.items.len()` reads the header (absent record: 0).
             Op::RecAtLen(K(k)) => Ret::U32(self.rec_items_len(k)),
             Op::RecRemove(K(k)) => {
+                // also allowed on a record being cleared: removes it (from its flag key) whole
                 let Some(i) = self.rec_get(k) else { return Ret::OptU64(None) };
                 let n = self.cur.recs[i].1.n();
-                let c = &mut self.cache;
-                KV { mk: items(k), v: &mut self.cur.recs[i].1.items }.clear(c);
-                KV { mk: recs(), v: &mut self.cur.recs }.unlink(c, k);
+                items_kv!(self, k, i).clear_owned(&mut self.cache);
+                recs_kv!(self).unlink(&mut self.cache, k);
                 Ret::OptU64(Some(n))
             }
             Op::RecRemoveSome(K(k), n) => {
                 let Some(i) = self.rec_get(k) else { return Ret::Bool(false) };
-                let c = &mut self.cache;
                 let mut budget = n as u32;
-                let done = KV { mk: items(k), v: &mut self.cur.recs[i].1.items }.clear_budgeted(c, &mut budget);
+                let done = items_kv!(self, k, i).clear_budgeted(&mut self.cache, &mut budget);
                 if done {
                     // `remove_inner(k, false)`: clear_children again (the header, already
-                    // known), then unlink.
-                    KV { mk: items(k), v: &mut self.cur.recs[i].1.items }.clear(c);
-                    KV { mk: recs(), v: &mut self.cur.recs }.unlink(c, k);
+                    // gone), then unlink.
+                    items_kv!(self, k, i).clear_owned(&mut self.cache);
+                    recs_kv!(self).unlink(&mut self.cache, k);
                     Ret::Bool(false)
                 } else {
+                    // `Pending`: the record moves to its flag key (unchanged bytes, F3)
                     let r = &mut self.cur.recs[i].1;
                     r.clearing = true;
                     let b = r.bytes();
-                    c.write(&recs().entry(k), b);
+                    self.cache.rec_set_clearing(&recs().entry(k), b);
                     Ret::Bool(true)
                 }
             }
             Op::RecPage(after, limit) => {
-                let m = KV { mk: recs(), v: &mut self.cur.recs };
-                let r = m.page_bounds(c, after.map(|k| k.0), limit).map(|(start, end, n)| {
+                let c = &mut self.cache;
+                let m = recs_kv!(self);
+                let r = m.page_bounds(c, after.map(|k| k.0), limit).map(|(start, end, n, rev)| {
                     let mut out = Vec::new();
                     for i in start..end {
                         let k = m.slot_key(c, i);
-                        let rb = c.read(&recs().entry(k));
+                        let rb = c.rec_read(&recs().entry(k));
                         let rec = &m.v[i as usize].1;
-                        agree("record", rb, Some(rec.bytes()));
+                        assert_eq!(rb, Some((rec.bytes(), rec.clearing)), "MODEL BUG: paged record");
                         out.push((k, rec.n()));
                     }
                     let next = if end < n { out.last().map(|(k, _)| *k) } else { None };
-                    (out, next)
+                    (out, next, rev)
                 });
                 Ret::RecPage(r)
             }
@@ -970,6 +1284,7 @@ impl Model {
                 let v = self.vec_get(n - 1).expect("dense");
                 let c = &mut self.cache;
                 c.delete(&vect().vslot(n - 1));
+                // `Vector` keeps the bare `u32` header, removed at 0 (no T4 revision)
                 if n == 1 { c.delete(&vect().header()) } else { c.write(&vect().header(), enc_u32(n - 1)) }
                 self.cur.vec.pop();
                 Ret::Bytes(Some(v))
@@ -1024,9 +1339,8 @@ impl Model {
     /// A view call over the current committed state (own call: begin, reads, no flush).
     pub fn view(&mut self, k: u8) -> (Ret, Predicted) {
         self.begin_call();
-        let a = KV { mk: flat(), v: &mut self.cur.flat }.get(&mut self.cache, k);
-        let c = &mut self.cache;
-        let r = c.read(&look().entry(k));
+        let a = flat_kv!(self).get(&mut self.cache, k);
+        let r = self.cache.read(&look().entry(k));
         let b = self.cur.look.get(&k).cloned();
         agree("lookup entry", r, b.as_deref().map(enc_bytes));
         let n = self.rec_get(k).map(|i| self.cur.recs[i].1.n());
@@ -1036,12 +1350,15 @@ impl Model {
 
     fn rec_items_len(&mut self, k: u8) -> u32 {
         let i = self.rec_pos(k);
-        let mut empty = Vec::new();
-        let v = match i {
-            Some(i) => &mut self.cur.recs[i].1.items,
-            None => &mut empty,
+        let (mut empty, mut zero) = (Vec::new(), 0u64);
+        let (v, rev) = match i {
+            Some(i) => {
+                let r = &mut self.cur.recs[i].1;
+                (&mut r.items, &mut r.items_rev)
+            }
+            None => (&mut empty, &mut zero),
         };
-        KV { mk: items(k), v }.len(&mut self.cache)
+        KV { mk: items(k), v, rev, records: false }.len(&mut self.cache)
     }
 
     /// The re-typed call: `Map<u8, RecV2>::get_mut(k)`, `note += x`. Own call.
@@ -1054,7 +1371,7 @@ impl Model {
                 let note = r.note().wrapping_add(x as u32);
                 r.fields.insert(REC2_NOTE, note.to_le_bytes().to_vec());
                 let b = r.bytes();
-                self.cache.write(&recs().entry(k), b);
+                self.cache.rec_write(&recs().entry(k), b);
                 Ret::OptU64(Some(note as u64))
             }
         };

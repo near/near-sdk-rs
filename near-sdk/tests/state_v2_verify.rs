@@ -266,21 +266,37 @@ mod m4 {
         assert!(msg(r.expect_err("loaded an aliasing layout")).contains("can alias v2 keys"));
     }
 
-    /// The stated exception, pinned as a hazard: a v1 map NOT wrapped in `Migrating` (a v1
-    /// field kept beside the v2 root) is not checked. With an empty prefix and a `[u8; 1]`
-    /// key, a caller-chosen key `[0xF0]` overwrites the v2 root record.
+    /// A v1 map kept beside the v2 root without `Migrating`. Since T7 (API round 3) that is
+    /// only possible as a `#[key(n, legacy)]` root field (a bare v1 type at the root is a
+    /// derive error), so the fixture uses one.
+    mod unwrapped {
+        use super::*;
+        #[near(contract_state(layout = v2))]
+        pub struct L {
+            #[key(1, legacy)]
+            pub bare: V1LookupMap<[u8; 1], u8>,
+            #[key(2)]
+            pub n: u64,
+        }
+    }
+    use unwrapped::L;
+
+    /// The stated exception, pinned as a hazard: a v1 map NOT wrapped in `Migrating` (a
+    /// `#[key(n, legacy)]` field kept beside the v2 root) is not checked: `legacy` stores its
+    /// Borsh bytes and nothing runs `check_v1_prefix` on them. With an empty prefix and a
+    /// `[u8; 1]` key, a caller-chosen key `[0xF0]` overwrites the v2 root record.
     #[test]
     fn hazard_an_unwrapped_empty_prefix_v1_map_overwrites_the_v2_root() {
         fresh();
-        let c = C { m: Migrating::new(V1LookupMap::new(b"s".to_vec())), n: 7 };
-        c.state_write();
-        drop(c);
-        let mut bare: V1LookupMap<[u8; 1], u8> = V1LookupMap::new(vec![]);
-        bare.set([0xF0], Some(0)); // `set` writes without reading the old value
-        bare.flush();
+        let mut l = L { bare: V1LookupMap::new(vec![]), n: 7 };
+        l.state_write();
+        assert_eq!(L::state_read().map(|l| l.n), Some(7), "the legacy field with an empty prefix loads unchecked");
+        l.bare.set([0xF0], Some(0)); // `set` writes without reading the old value
+        l.bare.flush();
+        drop(l);
         assert_eq!(env::storage_read(&[0xF0]).unwrap(), vec![0], "HAZARD: the v2 root was overwritten by a v1 entry");
         testing::begin_call();
-        assert!(std::panic::catch_unwind(|| C::state_read().map(|c| c.n)).is_err(), "the contract no longer loads");
+        assert!(std::panic::catch_unwind(|| L::state_read().map(|l| l.n)).is_err(), "the contract no longer loads");
     }
 
     mod composite {
@@ -384,7 +400,7 @@ mod a3 {
         testing::use_mock();
         // version B
         let mut b: Map<u32, RecB> = Map::__bound_at(root());
-        b.insert_new(1, RecB { n: 1, ..Default::default() });
+        b.try_insert(1, RecB { n: 1, ..Default::default() }).unwrap();
         b.at_mut(&1).unwrap().kids.insert(5, 50);
         testing::flush();
         drop(b);
@@ -392,7 +408,7 @@ mod a3 {
         testing::begin_call();
         let mut a: Map<u32, RecA> = Map::__bound_at(root());
         assert!(a.remove(&1).is_some());
-        a.insert_new(1, RecA { n: 2 });
+        a.try_insert(1, RecA { n: 2 }).unwrap();
         testing::flush();
         drop(a);
         let kid_key = root().kind(0).entry(&1u32).field(2).kind(0).entry(&5u8);
@@ -447,7 +463,7 @@ mod a5 {
     }
 
     /// HAZARD (A5), pinned with byte counts. A record with 4 Lazy values of 64 KiB and a map
-    /// of 3 entries, cleared with `remove_some(k, 1)`: the FIRST attempt removes all 4 Lazy
+    /// of 3 entries, cleared with `remove_step(k, 1)`: the FIRST attempt removes all 4 Lazy
     /// values (256 KiB, 4 removes) plus 1 map entry, because a Lazy value's own deletion is
     /// not counted against `n`. Per-attempt work is bounded by n only for map entries, not
     /// for Lazy bytes (storage_remove gas scales with the removed value), so "bounded
@@ -457,7 +473,7 @@ mod a5 {
         testing::use_mock();
         let root = Path::root(0xF0).field(9);
         let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
-        m.insert_new(1, Heavy::default());
+        m.try_insert(1, Heavy::default()).unwrap();
         {
             let h = m.get_mut(&1).unwrap();
             for l in [&mut h.a, &mut h.b, &mut h.c, &mut h.d] {
@@ -472,7 +488,7 @@ mod a5 {
         loop {
             testing::begin_call();
             let mut m: Map<u32, Heavy> = Map::__bound_at(root.clone());
-            let again = m.remove_some(&1, 1);
+            let again = m.remove_step(&1, 1) == near_sdk::state::Removal::Pending;
             testing::flush();
             per_attempt.push(removed(&testing::receipt()));
             if !again {
@@ -484,19 +500,19 @@ mod a5 {
         assert!(per_attempt[1..].iter().all(|(_, bytes)| *bytes < BIG));
     }
 
-    /// The extreme: a record of only Lazy values is removed whole by `remove_some(k, 0)`.
+    /// The extreme: a record of only Lazy values is removed whole by `remove_step(k, 0)`.
     #[test]
     fn hazard_lazy_only_record_cleared_with_budget_zero() {
         testing::use_mock();
         let root = Path::root(0xF0).field(9);
         let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
-        m.insert_new(1, LazyOnly::default());
+        m.try_insert(1, LazyOnly::default()).unwrap();
         m.get_mut(&1).unwrap().a.set(vec![1; BIG]);
         m.get_mut(&1).unwrap().b.set(vec![1; BIG]);
         testing::flush();
         testing::begin_call();
         let mut m: Map<u32, LazyOnly> = Map::__bound_at(root.clone());
-        assert!(!m.remove_some(&1, 0), "finished in one attempt with n = 0");
+        assert_eq!(m.remove_step(&1, 0), near_sdk::state::Removal::Done, "finished in one attempt with n = 0");
         testing::flush();
         assert!(removed(&testing::receipt()).1 >= 2 * BIG);
     }
@@ -528,7 +544,7 @@ mod c2_nested {
 
     /// Random engine, 1,000 cases: records 0 (neighbour) and 1 each hold a Vector, a Set, a
     /// Lazy and a Map with 0..=5 entries; record 1 is removed by `remove`, `discard` or
-    /// `remove_some(n)` (n = 1..=3, repeated until done). No stored key starts with record 1's
+    /// `remove_step(n)` (n = 1..=3, repeated until done). No stored key starts with record 1's
     /// path afterwards, and record 0's collections are intact.
     #[test]
     fn c2_every_nested_collection_type_is_cleared_with_its_record() {
@@ -538,7 +554,7 @@ mod c2_nested {
             let root = Path::root(0xF0).field(9);
             let mut m: Map<u32, Deep> = Map::__bound_at(root.clone());
             for r in 0..2u32 {
-                m.insert_new(r, Deep { n: 1, ..Default::default() });
+                m.try_insert(r, Deep { n: 1, ..Default::default() }).unwrap();
                 let d = m.get_mut(&r).unwrap();
                 for i in 0..sizes[0] % 6 {
                     d.v.push(i);
@@ -561,13 +577,13 @@ mod c2_nested {
                 let again = match how {
                     0 => m.remove(&1).is_some() && false,
                     1 => m.discard(&1) && false,
-                    _ => m.remove_some(&1, *n),
+                    _ => m.remove_step(&1, *n) == near_sdk::state::Removal::Pending,
                 };
                 testing::flush();
                 if !again {
                     break;
                 }
-                assert!(round < 20, "remove_some did not finish");
+                assert!(round < 20, "remove_step did not finish");
             }
             let gone = root.kind(0).entry(&1u32);
             let left: Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(gone.as_bytes())).collect();

@@ -66,8 +66,9 @@ fn g6_record_encode_then_parse_is_identity() {
     });
 }
 
-/// Canonical form: any byte string that parses re-encodes to exactly itself (after the
-/// optional leading clearing flag), so a record has one encoding. Bound (Kani): every byte
+/// Canonical form: any byte string that parses re-encodes to exactly itself, so a record has
+/// one encoding. (Since API round 2 the D9 clearing flag is a separate key, not a leading
+/// `00 00` in the record, and tag 0 is rejected, so there is no prefix to skip.) Bound (Kani): every byte
 /// string of length 0..=4. NOT VERIFIED: 6 bytes (about 27 min), 4 bytes as a symbolic Vec
 /// (15 min) and 4 bytes as a fixed array (20 min) did not finish. Random engine: 50,000 strings of up to 64 bytes.
 #[test]
@@ -83,8 +84,7 @@ fn g6_record_parse_accepts_only_canonical_encodings() {
                 w.push(*t, body.to_vec());
             }
             let enc = w.finish(None, |_| true);
-            let start = if record::is_clearing(b) { 2 } else { 0 };
-            assert_eq!(&enc[..], &b[start..], "two encodings of one record");
+            assert_eq!(&enc[..], b, "two encodings of one record");
         }
     });
 }
