@@ -9,6 +9,7 @@ use near_sdk::{AccountId, NearToken, env, near, require};
 pub type ProposalId = u64;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vote {
     Yes,

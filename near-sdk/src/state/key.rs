@@ -20,7 +20,6 @@
 //!
 //! Only [`Path`]'s builder methods can produce key bytes: there is no `Path::from_bytes`.
 
-use borsh::{BorshDeserialize, BorshSerialize};
 use near_digest::Digest;
 
 /// Default root byte. Outside the range small `BorshStorageKey` enums and ASCII prefixes produce.
@@ -171,7 +170,7 @@ mod private {
 ///
 /// `MAX_LEN` is the maximum length of `borsh(k)`; it is enforced at runtime on every
 /// `Path::entry` and summed along paths at compile time via `Value::MAX_SUBPATH`.
-pub trait StorageKey: BorshSerialize + BorshDeserialize + private::Sealed {
+pub trait StorageKey: super::value::BorshLeaf + private::Sealed {
     const MAX_LEN: usize;
 }
 

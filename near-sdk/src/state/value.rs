@@ -7,10 +7,72 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Anything that can sit at a storage key or in a record field.
 ///
-/// - Borsh types get a blanket impl: an opaque leaf, written as its Borsh bytes.
-/// - `#[near(storage)]` structs get a generated impl: a tagged record.
-/// - Collections and `Lazy` implement it with `INLINE = false`: they write nothing into
+/// Implemented only on purpose (T7); there is no blanket impl over Borsh:
+/// - opaque leaves, written as their Borsh bytes: every [`BorshLeaf`] (primitives, `bool`,
+///   `()`, `String`, `AccountId`, `Vec<T>`, `Option<T>`, arrays and tuples of leaves, a few
+///   `near_sdk` types, and any struct or enum with `#[derive(Leaf)]`);
+/// - `#[near(storage)]` structs get a generated impl: a tagged record;
+/// - collections and `Lazy` implement it with `INLINE = false`: they write nothing into
 ///   their parent record and live under `parent_path ++ tag`.
+///
+/// v1 collections (`near_sdk::store::*`, `near_sdk::collections::*`) implement none of these,
+/// so one inside a record does not compile. They are allowed only as root fields marked
+/// `#[key(n, legacy)]`, which are stored as their Borsh bytes without this trait.
+///
+/// ```compile_fail,E0277
+/// use near_sdk::near;
+/// use near_sdk::state::*;
+/// use near_sdk::store::LookupMap; // shadows `state::LookupMap` from the glob
+///
+/// #[near(storage)]
+/// pub struct Profile {
+///     // error[E0277]: `near_sdk::store::LookupMap<u32, u32>` is not a storage v2 value
+///     #[key(1)] notes: LookupMap<u32, u32>,
+/// }
+/// ```
+///
+/// The same holds for a standards type that holds a v1 collection, such as
+/// `near_contract_standards::fungible_token::FungibleToken` (its `accounts` is a
+/// `collections::LookupMap`), and for any plain Borsh struct that has not opted in:
+///
+/// ```compile_fail,E0277
+/// use near_sdk::near;
+/// use near_sdk::state::Map;
+///
+/// #[near(serializers = [borsh])]
+/// pub struct Token {
+///     accounts: near_sdk::collections::LookupMap<near_sdk::AccountId, u128>,
+/// }
+///
+/// #[near(storage)]
+/// pub struct Pool {
+///     // error[E0277]: `Token` is not a storage v2 value
+///     #[key(1, required)] token: Token,
+///     #[key(2)] shares: Map<u32, u128>,
+/// }
+/// ```
+///
+/// A plain Borsh struct opts in with `#[derive(Leaf)]`:
+///
+/// ```
+/// use near_sdk::near;
+/// use near_sdk::state::{Leaf, Map};
+///
+/// #[near(serializers = [borsh])]
+/// #[derive(Leaf, Clone)]
+/// pub struct Order { pub price: u128, pub qty: u128 }
+///
+/// #[near(storage)]
+/// pub struct Market {
+///     #[key(1)] orders: Map<u64, Order>,
+/// }
+/// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a storage v2 value",
+    label = "not a `near_sdk::state::Value`",
+    note = "a field of a `#[near(storage)]` record or v2 root must be a primitive, `String`, `AccountId`, `Vec`/`Option`/tuple of those, a `near_sdk::state` collection, or a `#[near(storage)]` record; a plain Borsh struct opts in with `#[derive(near_sdk::state::Leaf)]`",
+    note = "v1 collections (`near_sdk::store::*`, `near_sdk::collections::*`, and standards types holding one, like `FungibleToken`) are not values: they are allowed only as root fields marked `#[key(n, legacy)]`; inside a record use the `near_sdk::state` type (check for a `use near_sdk::store::..` shadowing a glob import)"
+)]
 pub trait Value: Sized + 'static {
     /// Whether this value is stored inline in its parent record.
     const INLINE: bool = true;
@@ -39,7 +101,27 @@ pub trait Value: Sized + 'static {
     fn __write_pending(&self, _path: &Path) {}
 }
 
-impl<T: BorshSerialize + BorshDeserialize + 'static> Value for T {
+/// An opaque leaf: a value stored as its Borsh bytes that owns no storage (T7).
+///
+/// The opt-in to [`Value`] (and to [`Leaf`], [`Removable`] and the view traits) for Borsh
+/// types. Implemented for the integers, `bool`, `()`, `String`, `AccountId`, `Vec<T>`,
+/// `Option<T>`, `[T; N]`, `BTreeMap`/`BTreeSet` and tuples up to four of leaves, and
+/// `NearToken`, `Gas`, `PublicKey` and the `json_types` integers and `Base64VecU8`. A user type
+/// opts in with `#[derive(Leaf)]` (from `near_sdk::state`), which emits this impl.
+///
+/// Not implemented for v1 collections or anything holding one: they own storage under a
+/// prefix, which a leaf cannot clear or move, so a record holding one is a compile error.
+/// (A hand-written `impl BorshLeaf` or `#[derive(Leaf)]` on a struct that holds a v1
+/// collection gets past this; don't.)
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a storage v2 value",
+    label = "not a `near_sdk::state::Value` (no `BorshLeaf` opt-in)",
+    note = "a field of a `#[near(storage)]` record or v2 root must be a primitive, `String`, `AccountId`, `Vec`/`Option`/tuple of those, a `near_sdk::state` collection, or a `#[near(storage)]` record; a plain Borsh struct opts in with `#[derive(near_sdk::state::Leaf)]`",
+    note = "v1 collections (`near_sdk::store::*`, `near_sdk::collections::*`, and standards types holding one, like `FungibleToken`) are not values: they are allowed only as root fields marked `#[key(n, legacy)]`; inside a record use the `near_sdk::state` type (check for a `use near_sdk::store::..` shadowing a glob import)"
+)]
+pub trait BorshLeaf: BorshSerialize + BorshDeserialize + 'static {}
+
+impl<T: BorshLeaf> Value for T {
     fn encode_value(&self, _orig: Option<&[u8]>) -> Vec<u8> {
         borsh::to_vec(self).expect("borsh serialization cannot fail")
     }
@@ -48,6 +130,27 @@ impl<T: BorshSerialize + BorshDeserialize + 'static> Value for T {
         borsh::from_slice(bytes).map_err(|e| RecordError::Leaf(e.to_string()))
     }
 }
+
+macro_rules! borsh_leaf {
+    ($($t:ty),* $(,)?) => { $(impl BorshLeaf for $t {})* };
+}
+borsh_leaf!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool, (), String);
+borsh_leaf!(crate::AccountId, crate::NearToken, crate::Gas, crate::PublicKey);
+borsh_leaf!(
+    crate::json_types::U64,
+    crate::json_types::U128,
+    crate::json_types::I64,
+    crate::json_types::I128,
+    crate::json_types::Base64VecU8,
+);
+impl<T: BorshLeaf> BorshLeaf for Vec<T> {}
+impl<T: BorshLeaf> BorshLeaf for Option<T> {}
+impl<T: BorshLeaf, const N: usize> BorshLeaf for [T; N] {}
+impl<K: BorshLeaf + Ord, V: BorshLeaf> BorshLeaf for std::collections::BTreeMap<K, V> {}
+impl<T: BorshLeaf + Ord> BorshLeaf for std::collections::BTreeSet<T> {}
+impl<A: BorshLeaf, B: BorshLeaf> BorshLeaf for (A, B) {}
+impl<A: BorshLeaf, B: BorshLeaf, C: BorshLeaf> BorshLeaf for (A, B, C) {}
+impl<A: BorshLeaf, B: BorshLeaf, C: BorshLeaf, D: BorshLeaf> BorshLeaf for (A, B, C, D) {}
 
 /// The value of a field missing from a stored record.
 ///
@@ -82,7 +185,7 @@ pub trait Record: Value {
     fn __view_mut<'a>(path: Path) -> Self::ViewMut<'a>;
 }
 
-/// A value that owns no storage below its own key: every Borsh type (blanket impl), and every
+/// A value that owns no storage below its own key: every [`BorshLeaf`] (blanket impl), and every
 /// `#[near(storage)]` record whose fields are all `Leaf` (derived). Collections and `Lazy` are
 /// not, and neither is a record holding one.
 ///
@@ -97,20 +200,17 @@ pub trait Record: Value {
 )]
 pub trait Leaf: Value {}
 
-impl<T: BorshSerialize + BorshDeserialize + 'static> Leaf for T {}
+impl<T: BorshLeaf> Leaf for T {}
 
 /// A value that can be removed from a map without orphaning storage.
 ///
-/// Automatic for every Borsh leaf (blanket impl), implemented for the iterable collections,
+/// Automatic for every [`BorshLeaf`] (blanket impl), implemented for the iterable collections,
 /// and derived for records whose fields are all `Removable`. `clear_children` removes every
 /// key below `path` that this value owns, without reading the value itself.
 ///
 /// Not removable: `LookupMap`, `LookupSet` and `GroupedMap` (they do not track their keys), and
-/// any record holding one.
-///
-/// Caveat: v1 collections are Borsh leaves too, so they are `Removable` by this rule even
-/// though they own storage. v1 collections belong at the root; `remove` does not clear a
-/// nested one.
+/// any record holding one. v1 collections are not values at all (T7), so no record holding one
+/// compiles and `remove` can never orphan one.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`, which does not track its keys",
     label = "not `Removable`",
@@ -129,7 +229,7 @@ pub trait Removable: Value {
     }
 }
 
-impl<T: BorshSerialize + BorshDeserialize + 'static> Removable for T {}
+impl<T: BorshLeaf> Removable for T {}
 
 /// How a field of a record appears in that record's `View`.
 ///
@@ -151,7 +251,7 @@ pub trait ViewField<'a, R: Value>: Value {
 #[derive(Clone, Copy, Debug)]
 pub struct UseGetForScalars;
 
-impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewField<'a, R> for T {
+impl<'a, R: Value, T: BorshLeaf> ViewField<'a, R> for T {
     type Out = UseGetForScalars;
     fn __view_field(_field_path: Path) -> UseGetForScalars {
         UseGetForScalars
@@ -172,7 +272,7 @@ pub trait ViewFieldMut<'a, R: Value>: Value {
 #[derive(Clone, Copy, Debug)]
 pub struct UseGetMutForScalars;
 
-impl<'a, R: Value, T: BorshSerialize + BorshDeserialize + 'static> ViewFieldMut<'a, R> for T {
+impl<'a, R: Value, T: BorshLeaf> ViewFieldMut<'a, R> for T {
     type Out = UseGetMutForScalars;
     fn __view_field_mut(_field_path: Path) -> UseGetMutForScalars {
         UseGetMutForScalars

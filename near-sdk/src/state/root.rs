@@ -144,6 +144,25 @@ pub mod __private {
         }
     }
 
+    /// Decodes a `#[key(n, legacy)]` root field (T7): a v1 collection, or any Borsh value kept
+    /// at the root, stored as its Borsh bytes. Not a `Value`; missing is an error, as for
+    /// `required`.
+    pub fn legacy_field<T: borsh::BorshDeserialize>(
+        fields: &Fields<'_>,
+        tag: u32,
+    ) -> Result<T, RecordError> {
+        match find(fields, tag) {
+            Some(b) => borsh::from_slice(b)
+                .map_err(|e| RecordError::Field { tag, msg: e.to_string() }),
+            None => Err(RecordError::Missing { tag }),
+        }
+    }
+
+    /// Encodes a `#[key(n, legacy)]` root field as its Borsh bytes.
+    pub fn encode_legacy_field<T: borsh::BorshSerialize>(w: &mut RecordWriter, tag: u32, v: &T) {
+        w.push(tag, borsh::to_vec(v).expect("borsh serialization cannot fail"));
+    }
+
     /// Encodes field `tag` into `w` if it is stored inline.
     pub fn encode_field<T: Value>(
         w: &mut RecordWriter,

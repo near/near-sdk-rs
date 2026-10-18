@@ -14,6 +14,7 @@ pub type MarketId = u32;
 pub type OrderId = u64;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq)]
 pub struct Order {
     pub price: u128,
@@ -21,6 +22,7 @@ pub struct Order {
 }
 
 #[near(serializers = [borsh])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Default)]
 pub struct Metadata {
     pub name: String,
@@ -732,7 +734,7 @@ fn field_added_as_required_fails_an_old_record_naming_the_tag() {
 }
 
 // ---------------------------------------------------------------------------------------
-// v1 collections as leaf fields (item 9)
+// v1 collections at the root (item 9; T7: `#[key(n, legacy)]`)
 // ---------------------------------------------------------------------------------------
 
 mod legacy {
@@ -740,22 +742,16 @@ use super::*;
 
 #[near(contract_state(layout = v2, root = 0xF1))]
 pub struct Legacy {
-    #[key(1, required)]
+    // T7: a v1 collection is not a `Value`; at the root it is allowed only as `legacy`,
+    // stored as its Borsh bytes (the prefix). Nested in a record it no longer compiles: the
+    // round-2 tests `v1_leaf_nested_in_a_cached_record_writes_late_not_lost` and
+    // `removing_a_record_with_a_nested_v1_field_orphans_its_entries` (a `store::LookupMap`
+    // behind a type alias, past the name check) are now the `compile_fail` doctests on
+    // `near_sdk::state::Value`.
+    #[key(1, legacy)]
     old: near_sdk::store::LookupMap<u32, u32>,
     #[key(2)]
-    users: LookupMap<u32, User>,
-}
-
-// `notes: near_sdk::store::LookupMap<u32, u32>` is now rejected by the derive ("v1 collection
-// `LookupMap` inside a storage record"). A type alias slips past the name check: this is the
-// "best effort" hole, used here on purpose to exercise the drop-after-flush safety net.
-type Notes = near_sdk::store::LookupMap<u32, u32>;
-
-#[near(storage)]
-pub struct User {
-    // LookupMap has no Default, so the field must be `required`.
-    #[key(1, required)]
-    notes: Notes,
+    users: LookupMap<u32, u64>,
 }
 
 fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
@@ -780,6 +776,7 @@ fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
     testing::begin_call();
     let mut c = Legacy::state_read().unwrap();
     c.old.insert(1, 11);
+    c.users.insert(1, 5);
     c.state_write();
     let k = v1_key(b"o", 1);
     assert!(!env::storage_has_key(&k), "nothing written by the v2 flush");
@@ -787,49 +784,19 @@ fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
     assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
 }
 
-/// Item 9: nested in a record held by the v2 cache, a v1 field's write-on-drop now runs when
-/// the flush frees the cache slots: late (after the root) but not lost. Round 1: lost.
+/// T7: a legacy root field is encoded as its Borsh bytes, exactly as before `legacy` existed
+/// (the root bytes are unchanged), and a root without it is a decode error naming the tag.
 #[test]
-fn v1_leaf_nested_in_a_cached_record_writes_late_not_lost() {
+fn legacy_root_field_is_its_borsh_bytes_and_required() {
     setup();
+    let root = testing::env_store()[&vec![0xF1u8]].clone();
+    let prefix = near_sdk::borsh::to_vec(&near_sdk::store::LookupMap::<u32, u32>::new(b"o".to_vec())).unwrap();
+    let fields = near_sdk::state::record::parse(&root).unwrap();
+    assert_eq!(fields.iter().find(|(t, _)| *t == 1).map(|(_, b)| b.to_vec()), Some(prefix));
+    env::storage_write(&[0xF1], &[]);
     testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    c.users.insert(1, User { notes: near_sdk::store::LookupMap::new(b"n1".to_vec()) });
-    c.state_write();
-    drop(c);
-
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    c.users.get_mut(&1).unwrap().notes.insert(5, 55);
-    let k = v1_key(b"n1", 5);
-    assert!(!env::storage_has_key(&k));
-    c.state_write();
-    assert!(env::storage_has_key(&k), "written when the flush dropped the cached record");
-    drop(c);
-}
-
-/// Against revision item 6 ("no leaf can orphan anything"): a nested v1 collection that slips
-/// past the name check is Borsh, hence blanket-`Removable`, so `remove` compiles and leaves
-/// the v1 entries behind with nothing pointing at them.
-#[test]
-fn removing_a_record_with_a_nested_v1_field_orphans_its_entries() {
-    setup();
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    let mut u = User { notes: near_sdk::store::LookupMap::new(b"n2".to_vec()) };
-    u.notes.insert(7, 77);
-    c.users.insert(2, u);
-    c.state_write();
-    drop(c);
-    let k = v1_key(b"n2", 7);
-    assert!(env::storage_has_key(&k));
-
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    assert!(c.users.remove(&2).is_some());
-    c.state_write();
-    drop(c);
-    assert!(env::storage_has_key(&k), "orphaned: the record is gone, its v1 entry is not");
+    let r = std::panic::catch_unwind(|| drop(Legacy::state_read()));
+    assert!(r.is_err(), "missing legacy tag 1 is an error, as `required`");
 }
 
 } // mod legacy

@@ -14,6 +14,7 @@ pub type MarketId = u32;
 pub type OrderId = u64;
 
 #[near_sdk::near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone)]
 pub struct Order {
     pub price: u128,
@@ -21,6 +22,7 @@ pub struct Order {
 }
 
 #[near_sdk::near(serializers = [borsh])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Default)]
 pub struct Metadata {
     pub name: String,

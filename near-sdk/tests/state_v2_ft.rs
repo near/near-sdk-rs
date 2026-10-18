@@ -17,6 +17,7 @@ fn storage_bond() -> NearToken {
 }
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct FtMetadata {
     pub spec: String,

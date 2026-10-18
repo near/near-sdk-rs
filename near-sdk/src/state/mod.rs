@@ -20,6 +20,15 @@
 //!   a `Default` type, or `Option`; never forced `Option`). `required` and `default` are
 //!   exclusive. The deployed-ABI `storage diff` check that hard-fails a newly added `required`
 //!   tag is not built in the prototype.
+//! - Field types (T7): every field type must implement [`Value`]. There is no blanket impl
+//!   for Borsh types: primitives, `String`, `AccountId`, `Vec`/`Option`/arrays/tuples of
+//!   those, `state` collections and `#[near(storage)]` records are values, and a plain Borsh
+//!   struct opts in with `#[derive(Leaf)]` ([`BorshLeaf`]). v1 collections (`store::*`,
+//!   `collections::*`, and standards types holding one) implement nothing, so inside a record
+//!   they are E0277 "is not a storage v2 value", a shadowing `use near_sdk::store::LookupMap`
+//!   included. At the root they are allowed as `#[key(n, legacy)]`: stored as their Borsh
+//!   bytes (the prefix) outside the trait, required, never bound; `legacy` anywhere else is a
+//!   derive error.
 //! - Unknown tags (D4): a tag the code does not know is PRESERVED through `get_mut` / `entry`
 //!   (a blind `insert` replaces the record whole). A removed field's bytes therefore persist
 //!   until its tag is listed in `reserved(n)`, which drops them on the next rewrite. Reusing a
@@ -238,6 +247,10 @@ pub use record::RecordError;
 pub use root::{Root, __private, flush_root, load_root, raw_root, root_exists};
 #[cfg(feature = "unstable")]
 pub use value::{
-    FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value, ViewField,
-    ViewFieldMut,
+    BorshLeaf, FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value,
+    ViewField, ViewFieldMut,
 };
+/// `#[derive(Leaf)]`: opts a plain Borsh struct or enum into storage v2 as an opaque leaf
+/// (implements [`BorshLeaf`], hence [`Value`], [`Leaf`] and [`Removable`]). T7.
+#[cfg(feature = "unstable")]
+pub use near_sdk_macros::Leaf;

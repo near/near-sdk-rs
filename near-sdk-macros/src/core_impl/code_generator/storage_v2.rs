@@ -15,6 +15,10 @@
 //!   handles from the cache arena, `UseGetMutForScalars` for scalars);
 //! - `__write_pending` walks, so a root struct literal's `Lazy::new` values are written by
 //!   the flush without `.bind()`;
+//! - `#[key(n, legacy)]` root fields (T7): encoded and decoded as plain Borsh outside `Value`
+//!   (a v1 collection's bytes are its prefix), required, no binding; rejected outside a root;
+//! - every other field's type must implement `Value` (T7): the decode and encode helpers bound
+//!   it, so a v1 collection or an un-opted Borsh struct is E0277 with `Value`'s message;
 //! - rejections: a missing `#[key]`, a reused or reserved tag, a v1 collection in a record
 //!   (v1-only names, or `store::`/`collections::`-qualified shared names), and a collection
 //!   as a map value (`Map<_, Set<_>>` and friends) at the field;
@@ -46,6 +50,16 @@ struct KeyedField {
     required: bool,
     /// `#[key(n, default = expr)]`: evaluated when the tag is missing from a stored record.
     default: Option<syn::Expr>,
+    /// `#[key(n, legacy)]` (T7): a v1 collection (or any opaque Borsh value) kept at the root,
+    /// stored inline as its Borsh bytes without the `Value` trait. Root only; implies required.
+    legacy: bool,
+}
+
+struct KeyAttr {
+    tag: u32,
+    required: bool,
+    default: Option<syn::Expr>,
+    legacy: bool,
 }
 
 /// Collection names that exist only in v1 (`near_sdk::store` / `near_sdk::collections`). A
@@ -121,8 +135,8 @@ fn derives(item: &ItemStruct, names: &[&str]) -> bool {
     })
 }
 
-fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool, Option<syn::Expr>)> {
-    // `#[key(3)]` / `#[key(3, required)]` / `#[key(3, default = expr)]`
+fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
+    // `#[key(3)]` / `#[key(3, required)]` / `#[key(3, default = expr)]` / `#[key(3, legacy)]`
     let args = attr.parse_args_with(
         syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
     )?;
@@ -138,9 +152,11 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool, Option<syn::
     };
     let mut required = false;
     let mut default = None;
+    let mut legacy = false;
     for e in it {
         match e {
             syn::Expr::Path(p) if p.path.is_ident("required") => required = true,
+            syn::Expr::Path(p) if p.path.is_ident("legacy") => legacy = true,
             syn::Expr::Assign(a)
                 if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default")) =>
             {
@@ -149,7 +165,7 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool, Option<syn::
             _ => {
                 return Err(syn::Error::new(
                     e.span(),
-                    "expected `required` or `default = expr`",
+                    "expected `required`, `legacy` or `default = expr`",
                 ));
             }
         }
@@ -161,10 +177,16 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<(u32, bool, Option<syn::
              `default` fills it",
         ));
     }
+    if legacy && default.is_some() {
+        return Err(syn::Error::new(
+            attr.span(),
+            "`legacy` and `default = ..` are exclusive: a legacy (v1) field is required",
+        ));
+    }
     if tag == 0 {
         return Err(syn::Error::new(attr.span(), "tag 0 is reserved; tags start at 1"));
     }
-    Ok((tag, required, default))
+    Ok(KeyAttr { tag, required, default, legacy })
 }
 
 pub fn expand(
@@ -202,7 +224,7 @@ pub fn expand(
             return Err(e);
         }
         let ident = f.ident.clone().expect("named");
-        let Some((tag, required, default)) = found else {
+        let Some(KeyAttr { tag, required, default, legacy }) = found else {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("field `{ident}` needs a `#[key(n)]` tag: the tags are the storage layout"),
@@ -217,12 +239,29 @@ pub fn expand(
                 format!("tag {tag} is already used by `{}`", prev.ident),
             ));
         }
+        if legacy && !is_root {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`#[key(n, legacy)]` is only for fields of a `contract_state(layout = v2)` root: \
+                 v1 collections cannot live inside a storage record",
+            ));
+        }
         if !is_root && let Some(n) = v1_name(&f.ty) {
             return Err(syn::Error::new(
                 f.ty.span(),
                 format!(
-                    "v1 collection `{n}` inside a storage record: v1 collections belong at the \
-                     contract root (their write-on-drop and removal do not compose with records)"
+                    "v1 collection `{n}` inside a storage record: v1 collections are allowed only \
+                     as root fields marked `#[key(n, legacy)]` (their write-on-drop and removal do \
+                     not compose with records); use the `near_sdk::state` type here"
+                ),
+            ));
+        }
+        if is_root && !legacy && let Some(n) = v1_name(&f.ty) {
+            return Err(syn::Error::new(
+                f.ty.span(),
+                format!(
+                    "v1 collection `{n}` at the root needs `#[key({tag}, legacy)]`: v1 collections \
+                     are not storage v2 values and are kept as their Borsh bytes (their prefix)"
                 ),
             ));
         }
@@ -240,8 +279,9 @@ pub fn expand(
             ty: f.ty.clone(),
             vis: f.vis.clone(),
             tag,
-            required,
+            required: required || legacy,
             default,
+            legacy,
         });
     }
 
@@ -269,8 +309,16 @@ pub fn expand(
     let mut clear = Vec::new();
     let mut clear_some = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, tag, required, default } in &fields {
+    for KeyedField { ident, ty, vis: fvis, tag, required, default, legacy } in &fields {
         let t = tag_lit(*tag);
+        if *legacy {
+            // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
+            // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
+            enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
+            known_arms.push(quote! { #t => false, });
+            dec.push(quote_spanned! {ty.span()=> #ident: #p::legacy_field::<#ty>(f, #t)?, });
+            continue;
+        }
         max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });

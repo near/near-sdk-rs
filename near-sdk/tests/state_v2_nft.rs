@@ -12,6 +12,7 @@ use near_sdk::{AccountId, NearToken, env, near, require};
 pub type TokenId = String;
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct NftContractMetadata {
     pub spec: String,
@@ -20,6 +21,7 @@ pub struct NftContractMetadata {
 }
 
 #[near(serializers = [borsh, json])]
+#[derive(near_sdk::state::Leaf)] // T7: opt in as an opaque storage v2 leaf
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct TokenMetadata {
     pub title: Option<String>,

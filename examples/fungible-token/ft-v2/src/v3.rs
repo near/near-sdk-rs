@@ -17,7 +17,7 @@ pub type Accounts = Migrating<V1LookupMap<AccountId, u128>, LookupMap<AccountId,
 #[near(contract_state(layout = v2), reserved(1))]
 pub struct Contract {
     // tag 1 was `token: FungibleToken` in v2; retired.
-    #[key(2, required)]
+    #[key(2, legacy)]
     pub metadata: LazyOption<FungibleTokenMetadata>,
     #[key(3)]
     pub transfers_sent: Map<AccountId, u64>,

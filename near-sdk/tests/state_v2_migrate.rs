@@ -216,7 +216,7 @@ mod root_byte {
         #[key(1)]
         pub balances: near_sdk::state::LookupMap<String, u128>,
         /// v1, empty prefix, caller-chosen byte keys and values (a guestbook, a registry).
-        #[key(2, required)]
+        #[key(2, legacy)]
         pub notes: V1LookupMap<Vec<u8>, Vec<u8>>,
     }
 
