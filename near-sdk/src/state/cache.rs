@@ -505,6 +505,18 @@ pub(crate) fn has_pending_writes() -> bool {
     })
 }
 
+/// Whether this call has changes the flush has not written yet (any slot written, removed or
+/// handed out as `&mut`). The D5 `storage_usage` guard keys on this. A change to a root scalar
+/// alone is not seen (the root is encoded only at the flush).
+pub(crate) fn has_unflushed_changes() -> bool {
+    with(|c| {
+        c.slots.values().any(|s| {
+            // SAFETY: invariant 1.
+            unsafe { s.as_ref() }.mode != Mode::Clean
+        })
+    })
+}
+
 /// `storage_has_key` through the host, for `ContractState::state_exists` on a v2 root.
 pub(crate) fn host_has_key(key: &[u8]) -> bool {
     with(|c| c.host.has_key(key))

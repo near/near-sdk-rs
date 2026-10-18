@@ -421,6 +421,10 @@ pub fn epoch_height() -> u64 {
 /// assert_eq!(storage_usage(), 307200);
 /// ```
 pub fn storage_usage() -> StorageUsage {
+    // storage v2 prototype (D5): inside a v2 mutating method this measures nothing (writes land
+    // at the flush), so the mock makes it an error pointing at `storage_delta`.
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    crate::state::testing::__guard_storage_usage();
     unsafe { sys::storage_usage() }
 }
 
@@ -2915,8 +2919,13 @@ pub fn storage_remove(key: &[u8]) -> bool {
     };
     #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
     if crate::state::testing::__env_log_on() {
-        let old = if r { read_register(EVICTED_REGISTER).map_or(0, |v| v.len()) } else { 0 };
-        crate::state::testing::__env_log(crate::state::testing::OpKind::Remove, key, old, None);
+        let old = if r { read_register(EVICTED_REGISTER).map(|v| v.len()) } else { None };
+        crate::state::testing::__env_log(
+            crate::state::testing::OpKind::Remove,
+            key,
+            old.unwrap_or(0),
+            old,
+        );
     }
     r
 }

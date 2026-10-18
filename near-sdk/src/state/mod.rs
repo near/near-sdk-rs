@@ -74,6 +74,12 @@
 //!   never fails but can skip a key after a removal behind the offset. An on-chain batch job
 //!   must not page a map that changes between its calls.
 //!
+//! - Storage accounting (D5): v2 writes land at the flush, after the method body, so
+//!   `env::storage_usage()` read inside a v2 mutating method after its first write measures
+//!   zero change. Under `unit-testing` that read panics, pointing at `storage_delta()`; the
+//!   post-flush value is `Receipt::storage_delta()` / `testing::storage_delta()` (key + value +
+//!   40 bytes per new record). The on-chain `env::storage_delta()` is not built.
+//!
 //! See `state::testing` for the counting mock host and a call harness.
 
 use borsh::{BorshDeserialize, BorshSerialize};

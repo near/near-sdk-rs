@@ -37,9 +37,14 @@ pub struct Op {
     pub key: Vec<u8>,
     /// Bytes read, written, or (for remove) the size of the value removed.
     pub value_len: usize,
-    /// For a write, the size of the value it overwrote (the host charges for it).
+    /// For a write, the size of the value it overwrote (the host charges for it). For a
+    /// remove, `Some(size)` if the key existed, `None` if it did not.
     pub replaced_len: Option<usize>,
 }
+
+/// Bytes the runtime charges per stored record on top of key and value
+/// (`num_extra_bytes_record`). Used by [`Receipt::storage_delta`].
+pub const STORAGE_RECORD_OVERHEAD: i64 = 40;
 
 /// Host calls made in one call, in order.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -77,8 +82,30 @@ impl Receipt {
     pub fn written_and_replaced_bytes(&self) -> usize {
         self.ops
             .iter()
-            .filter(|o| o.kind != OpKind::Read)
-            .map(|o| o.value_len + o.replaced_len.unwrap_or(0))
+            .map(|o| match o.kind {
+                OpKind::Write => o.value_len + o.replaced_len.unwrap_or(0),
+                OpKind::Remove => o.value_len,
+                OpKind::Read | OpKind::HasKey => 0,
+            })
+            .sum()
+    }
+    /// D5: the change in storage usage (bytes staked) these ops made, by the runtime's rule:
+    /// a new key adds key + value + 40, an overwrite adds the value-length difference, a
+    /// remove of an existing key subtracts key + old value + 40. A receipt is taken after the
+    /// flush, so this is the post-flush value that `env::storage_usage()` inside a v2 method
+    /// cannot give (it runs before the flush and measures zero).
+    pub fn storage_delta(&self) -> i64 {
+        self.ops
+            .iter()
+            .map(|o| {
+                let k = o.key.len() as i64;
+                match (o.kind, o.replaced_len) {
+                    (OpKind::Write, Some(old)) => o.value_len as i64 - old as i64,
+                    (OpKind::Write, None) => STORAGE_RECORD_OVERHEAD + k + o.value_len as i64,
+                    (OpKind::Remove, Some(old)) => -(STORAGE_RECORD_OVERHEAD + k + old as i64),
+                    _ => 0,
+                }
+            })
             .sum()
     }
     /// Largest value any single host call moved or replaced. The "local" guarantee says this
@@ -150,8 +177,8 @@ impl Host for MockHost {
             m.receipt.ops.push(Op {
                 kind: OpKind::Remove,
                 key: key.to_vec(),
-                value_len: old.map_or(0, |o| o.len()),
-                replaced_len: None,
+                value_len: old.as_ref().map_or(0, |o| o.len()),
+                replaced_len: old.map(|o| o.len()),
             });
         })
     }
@@ -200,6 +227,30 @@ pub fn end_call() -> Receipt {
     let r = receipt();
     begin_call();
     r
+}
+
+/// D5: the storage-usage change of the current call so far, `receipt().storage_delta()`.
+/// After [`end_call`] or a [`Harness::call`], use the returned receipt's `storage_delta()`:
+/// that is the post-flush value.
+pub fn storage_delta() -> i64 {
+    receipt().storage_delta()
+}
+
+const STORAGE_USAGE_IN_V2_METHOD: &str = "state: env::storage_usage() inside a v2 mutating \
+    method measures nothing: v2 writes land at the flush after the method returns, so a \
+    before/after difference here is zero (NEP-145 deposit math would charge nothing, and \
+    register-for-1-yocto drains the contract). Use the post-flush `storage_delta()` instead \
+    (`state::testing::storage_delta()` / `Receipt::storage_delta()` in tests; on chain \
+    `env::storage_delta()`, not built in the prototype)";
+
+/// D5: called by `env::storage_usage()` under `unit-testing`. Panics if this call has v2
+/// changes not yet flushed, i.e. inside a v2 mutating method after its first write.
+#[doc(hidden)]
+#[track_caller]
+pub fn __guard_storage_usage() {
+    if cache::has_unflushed_changes() {
+        panic!("{STORAGE_USAGE_IN_V2_METHOD}");
+    }
 }
 
 /// Panics if the current call has anything to write (the view-call rule).

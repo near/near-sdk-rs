@@ -343,3 +343,64 @@ fn storage_bond_covers_one_account() {
         "one registration used {used} bytes, bond covers {ACCOUNT_STORAGE_BYTES}"
     );
 }
+
+// ---------------------------------------------------------------------------------------
+// D5: `storage_usage()` inside a v2 mutating method is an error; `storage_delta()` is the
+// post-flush value
+// ---------------------------------------------------------------------------------------
+
+/// The NEP-145 before/after pattern inside a v2 method: the "after" read panics, pointing at
+/// `storage_delta`, instead of returning the unchanged pre-flush value.
+#[test]
+#[should_panic(expected = "Use the post-flush `storage_delta()` instead")]
+fn storage_usage_inside_a_v2_mutating_method_panics() {
+    init();
+    call_with("alice.near", storage_bond(), |c| {
+        let before = env::storage_usage(); // nothing written yet: allowed
+        c.storage_deposit(None);
+        env::storage_usage() - before // after a write, before the flush: error
+    });
+}
+
+/// `Receipt::storage_delta()` (from a harness call, so after the flush) equals what the
+/// mocked blockchain's `storage_usage` says the same registration used, and a removal gives
+/// it back.
+#[test]
+fn storage_delta_is_the_post_flush_storage_change() {
+    init();
+    let (_, r) = call_with("alice.near", storage_bond(), |c| c.storage_deposit(None));
+    let mock_delta = r.storage_delta();
+    assert!(mock_delta > 0);
+
+    // the same call through the mocked blockchain, measured with storage_usage between calls
+    testing::set_context("owner.near", NearToken::from_yoctonear(0));
+    testing::use_env_host();
+    let c = Ft::new(id("owner.near"), U128(1_000), meta());
+    c.state_write();
+    drop(c);
+    testing::set_context("alice.near", storage_bond());
+    let before = env::storage_usage();
+    testing::env_log_start();
+    testing::begin_call();
+    let mut c = Ft::state_read().unwrap();
+    c.storage_deposit(None);
+    c.state_write();
+    drop(c);
+    let used = env::storage_usage() as i64 - before as i64;
+    let logged = testing::env_log_take().storage_delta();
+    testing::env_log_stop();
+    assert_eq!(used, mock_delta, "mock receipt agrees with the mocked blockchain");
+    assert_eq!(logged, used, "env op log agrees too");
+
+    // unregistering returns the bytes
+    testing::set_context("alice.near", NearToken::from_yoctonear(1));
+    testing::env_log_start();
+    testing::begin_call();
+    let mut c = Ft::state_read().unwrap();
+    c.storage_unregister(None);
+    c.state_write();
+    drop(c);
+    let freed = testing::env_log_take().storage_delta();
+    testing::env_log_stop();
+    assert_eq!(freed, -used);
+}
