@@ -21,6 +21,8 @@ pub struct Field {
     pub present: bool,
 }
 
+const NF: usize = if cfg!(kani) { 2 } else { 4 };
+
 fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>> {
     let mut v: std::vec::Vec<(u32, std::vec::Vec<u8>)> = std::vec::Vec::new();
     for f in fields.iter().filter(|f| f.present) {
@@ -33,13 +35,17 @@ fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>>
 }
 
 /// Encode then parse is the identity (fields come back sorted by tag), whatever order they
-/// were pushed in. Bound (Kani): up to 4 fields, tags in 1..300 (one- and two-byte LEB128),
-/// bodies of 0..=16 bytes. Random engine: 20,000 records.
+/// were pushed in. Bound (Kani): up to 2 fields, tags in 1..300 (one- and two-byte LEB128),
+/// bodies of 0..=4 bytes (4 fields x 16 bytes did not finish symbolic execution in 15 min).
+/// Random engine: up to 4 fields, bodies 0..=16, 20,000 records.
 #[test]
 #[cfg_attr(kani, kani::proof)]
-#[cfg_attr(kani, kani::unwind(18))]
+#[cfg_attr(kani, kani::unwind(8))]
 fn g6_record_encode_then_parse_is_identity() {
-    bolero::check!().with_type::<[Field; 4]>().with_iterations(20_000).for_each(|fields| {
+    bolero::check!().with_type::<[Field; NF]>().with_iterations(20_000).for_each(|fields| {
+        if cfg!(kani) && fields.iter().any(|f| f.len > 4) {
+            return;
+        }
         let Some(v) = distinct(fields) else { return };
         let mut w = RecordWriter::new();
         for (t, b) in &v {
@@ -58,12 +64,12 @@ fn g6_record_encode_then_parse_is_identity() {
 
 /// Canonical form: any byte string that parses re-encodes to exactly itself (after the
 /// optional leading clearing flag), so a record has one encoding. Bound (Kani): every byte
-/// string of length 0..=10. Random engine: 50,000 strings of up to 64 bytes.
+/// string of length 0..=6. Random engine: 50,000 strings of up to 64 bytes.
 #[test]
 #[cfg_attr(kani, kani::proof)]
-#[cfg_attr(kani, kani::unwind(12))]
+#[cfg_attr(kani, kani::unwind(9))]
 fn g6_record_parse_accepts_only_canonical_encodings() {
-    let max = if cfg!(kani) { 10 } else { 64 };
+    let max = if cfg!(kani) { 6 } else { 64 };
     bolero::check!().with_generator(bolero::produce::<std::vec::Vec<u8>>().with().len(0usize..=max)).with_iterations(50_000).for_each(|b| {
         if let Ok(fields) = record::parse(b) {
             let mut w = RecordWriter::new();
@@ -92,7 +98,9 @@ pub enum Decl {
     Reserved,
 }
 
-const TAGS: usize = 4;
+/// Tags in the schema-evolution harness: 4 (random engine), 3 (Kani; 4 did not finish
+/// symbolic execution in 15 min).
+const TAGS: usize = if cfg!(kani) { 3 } else { 4 };
 
 /// Schema evolution, the kernel the derive expands to. A record written by schema S1 (any
 /// subset of tags 1..=4, `u8` fields) is read by schema S2 (each tag Unknown, Default,
@@ -101,7 +109,7 @@ const TAGS: usize = 4;
 /// rewrites the record (every known value + 1) merging the original bytes: unknown tags keep
 /// their exact bytes, reserved tags are dropped, known tags carry the new values. Reading the
 /// rewrite back with S1 (a rollback) sees its own unknown-to-S2 fields intact. Bound (Kani):
-/// all 2^4 written subsets x 5^4 schemas x u8 values. Random engine: 20,000 cases.
+/// all 2^3 written subsets x 5^3 schemas x u8 values (tags 1..=3). Random engine: 20,000 cases.
 #[test]
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(10))]

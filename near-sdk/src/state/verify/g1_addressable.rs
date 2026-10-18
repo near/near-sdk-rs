@@ -52,7 +52,9 @@ pub struct Hop {
     pub hash: [u8; ENTRY_HASH_LEN],
 }
 
-pub const DEPTH: usize = 4;
+/// Path depth: 4 under the random engine; 2 under Kani (depth 4 did not finish CBMC
+/// symbolic execution in 40 minutes).
+pub const DEPTH: usize = if cfg!(kani) { 2 } else { 4 };
 
 #[derive(Clone, Copy, Debug, TypeGenerator)]
 pub struct SPath {
@@ -218,7 +220,8 @@ fn share_prefix(a: &SPath, b: &SPath, share: u8) -> SPath {
     b
 }
 
-/// G1 core claim, model-checked. Bound (Kani): two symbolic paths of depth <= 4, tags in
+/// G1 core claim, model-checked. Bound (Kani): two symbolic paths of depth <= 2 (depth 4
+/// was attempted and did not complete in 40 min), tags in
 /// 1..2^14 (one- and two-byte LEB128), map keys of width 0..=8 or length-prefixed with
 /// 0..=8 bytes, every collection and table kind, and the 16-byte placement hash as FREE
 /// symbolic bytes per hop (so the claim holds even if sha256 collides). Random engine: the
