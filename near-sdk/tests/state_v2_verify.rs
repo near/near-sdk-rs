@@ -297,10 +297,17 @@ mod m4 {
             pub b: Migrating<UnorderedMap<u8, u8>, Map<u8, u8>>,
             #[key(3, required)]
             pub c: Migrating<IterableMap<u8, u8, Identity>, Map<u8, u8>>,
+            #[key(4, required)]
+            pub d: Migrating<near_sdk::collections::LookupMap<u8, u8>, Map<u8, u8>>,
         }
 
         fn build(pa: &[u8], pb: &[u8], pc: &[u8]) -> T {
-            T { a: Migrating::new(TreeMap::new(pa.to_vec())), b: Migrating::new(UnorderedMap::new(pb.to_vec())), c: Migrating::new(IterableMap::with_hasher(pc.to_vec())) }
+            T {
+                a: Migrating::new(TreeMap::new(pa.to_vec())),
+                b: Migrating::new(UnorderedMap::new(pb.to_vec())),
+                c: Migrating::new(IterableMap::with_hasher(pc.to_vec())),
+                d: Migrating::new(near_sdk::collections::LookupMap::new(b"d".to_vec())),
+            }
         }
 
         /// The guard covers the iterable v1 maps (every derived prefix: `i`/`k`/`v`, `v`/`n`,
@@ -319,6 +326,16 @@ mod m4 {
             build(&[], &[], &[]).state_write();
             testing::begin_call();
             assert!(T::state_read().is_some());
+            // collections::LookupMap: an empty prefix and a root-byte prefix are rejected
+            for bad in [vec![], vec![0xF0, 7]] {
+                fresh();
+                let r = std::panic::catch_unwind(|| {
+                    let mut t = build(b"a", b"b", b"c");
+                    t.d = Migrating::new(near_sdk::collections::LookupMap::new(bad.clone()));
+                    t.state_write()
+                });
+                assert!(msg(r.expect_err("collections::LookupMap prefix accepted")).contains("can alias v2 keys"), "{bad:02x?}");
+            }
         }
     }
 }
