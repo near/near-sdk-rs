@@ -859,16 +859,34 @@ Breakdown of the 65 missed:
   - `Migrating::{contains_key, remove, new_side, bind, detach}` (6), which no test calls;
   - `EnvHost::has_key` (1), `Path::is_empty` (2), the `Path` `Debug` impl (1).
 
-**collections.rs** (331 mutants), after pass 1 and one full-test iterate:
+**collections.rs** (331 mutants), after pass 1 and two full-test iterates (the second includes the nested-collection C2 test):
 
 | | Count |
 |---|---|
-| Caught | 139 |
+| Caught | 144 |
 | Timeouts (also caught) | 5 |
 | Unviable | 107 |
-| Missed | 80 |
+| Missed | 75 |
 
-A second iterate, which includes the nested-collection C2 test added after the first, is still running at the time of writing; see the commit that follows this one.
+Breakdown of the 75 missed:
+
+- **Unobservable, 3:** the `Display` impl of `CursorGone` and the `Debug` impl of `Lazy`, among others.
+- **Nested Lazy / Set / LookupSet / Vector inside a record, about 35.** No reference-model or invariant coverage for:
+  - inline `encode_value` / `decode_value`, `detach`, `__write_pending`;
+  - `Lazy::{path, __bound_at, get_mut}`;
+  - the `At<..>` view accessors.
+
+  The lib fixture nests only a `Map`; the derive tests reach these types but assert only on the final store.
+- **Per-attempt budget accounting of nested Vector/Set in `remove_some`** (`clear_children_some` returning true early, or its arithmetic). This is unobservable in the final store, because the finishing call's unbudgeted clear still removes everything, but it breaks the per-attempt bound: the A5 pattern again.
+- **API surface no harness calls:**
+  - `IndexIter::{size_hint, next_back, nth_back}`;
+  - `len` / `is_empty` of Map, Set and Vector;
+  - `At<LookupMap>::{get, contains_key}`.
+- **`MAX_SUBPATH` arithmetic** (collections.rs:1059, 1533). The runtime 2,048-byte check still backs it up.
+- **`assert_insert_new`**: it guards `Lazy::set` of a record over an existing record. Uncovered.
+- **`record_at_mut`'s `>` to `>=`.**
+
+`insert_new` on an existing Map/LookupMap record (a separate guard) is now asserted by `c2_insert_new_on_an_existing_record_panics`.
 
 ### Not done / skipped
 
@@ -885,10 +903,11 @@ A second iterate, which includes the nested-collection C2 test added after the f
 - F3, legacy `store::*` drop-write positions: not injected. On chain a panic traps without unwinding, so a drop write never runs in a failed receipt. In the unwinding mock the drop runs during the unwind and the simulated revert restores the snapshot anyway.
 - A1, A2, A4 and the gas notes: another agent's scope, not duplicated.
 - The ft-v2 example workspace (`examples/fungible-token`) was not part of the mutation test command, so the migration paths only it uses show up as missed mutants.
+- `quiet()` in c4/c5/f3 swaps the process-global panic hook. Under the parallel test runner, interleaved calls can leave the silent hook installed for the rest of the binary, which hides panic *messages* (not failures) from unrelated tests. Not changed.
 
 ### Test counts (end of round)
 
-- Lib: 616 (572 at the start of the round).
+- Lib: 617 (572 at the start of the round).
 - `state_v2_verify`: 13 (new).
 - Doctests: 344.
 - `state_v2_exchange` 34, `state_v2_ft` 16, `state_v2_nft` 17, `state_v2_dao` 15, `state_v2_migrate` 5: all unchanged and passing.
