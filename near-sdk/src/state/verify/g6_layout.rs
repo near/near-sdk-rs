@@ -39,8 +39,8 @@ fn distinct(fields: &[Field]) -> Option<std::vec::Vec<(u32, std::vec::Vec<u8>)>>
 
 /// Encode then parse is the identity (fields come back sorted by tag), whatever order they
 /// were pushed in. Bound (Kani): up to 2 fields, tags in 1..300 (one- and two-byte LEB128),
-/// bodies of 0..=4 bytes. NOT VERIFIED: 4 fields x 16 bytes did not finish in 15 min, 2 fields
-/// x 4 bytes did not finish in 20 min (Kani 0.68, CPU shared with cargo-mutants).
+/// bodies of 0..=4 bytes. NOT VERIFIED: the only bound attempted, 2 fields x 4 bytes, did not
+/// finish in 20 min (Kani 0.68, CPU shared with cargo-mutants).
 /// Random engine: up to 4 fields, bodies 0..=16, 20,000 records.
 #[test]
 #[cfg_attr(kani, kani::proof)]
@@ -68,8 +68,8 @@ fn g6_record_encode_then_parse_is_identity() {
 
 /// Canonical form: any byte string that parses re-encodes to exactly itself (after the
 /// optional leading clearing flag), so a record has one encoding. Bound (Kani): every byte
-/// string of length 0..=4. NOT VERIFIED: 10 bytes (15 min), 6 bytes (27 min), 4 bytes as a
-/// symbolic Vec (15 min) and 4 bytes as a fixed array (20 min) did not finish. Random engine: 50,000 strings of up to 64 bytes.
+/// string of length 0..=4. NOT VERIFIED: 6 bytes (about 27 min), 4 bytes as a symbolic Vec
+/// (15 min) and 4 bytes as a fixed array (20 min) did not finish. Random engine: 50,000 strings of up to 64 bytes.
 #[test]
 #[cfg_attr(kani, kani::proof)]
 #[cfg_attr(kani, kani::unwind(7))]

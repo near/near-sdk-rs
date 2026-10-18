@@ -770,8 +770,8 @@ It also asserts that no write happens before the flush. The oracle was validated
 | G4 One write | `g4_one_write_per_key_per_call_in_key_order_root_last`, `g4_nothing_happens_in_drop`, `g4_root_is_last...` | each key written at most once per call, in key order, root last; views never write; no writes from Drop | random 2,000 each | pass | inv |
 | G4 | `g4_cache_flush_writes_each_key_once_in_order_root_last` | the same, on the cache directly with a recording host (also F2 slot states) | random 20,000; **Kani not run**: Kani 0.68 ICEs on any reachable `catch_unwind` | pass | inv |
 | G5 Linear iteration | `g5_page_costs_two_reads_plus_two_per_entry`, `g5_page_of_64_on_an_aged_map` | 2+2n reads (keys only: 2+n), exact window, CursorGone in 1 read | random 5,000; maps of 0..=200 after 80 removals | pass | diff (mirror) |
-| G6 Permanent layout | `g6_record_encode_then_parse_is_identity` | encode then parse is the identity | Kani not verified: 4 fields x 16 bytes (15 min) and 2 fields x 4 bytes (20 min) did not finish; random 20,000 (4 fields, 16 bytes) | random pass | inv |
-| G6 | `g6_record_parse_accepts_only_canonical_encodings` | one encoding per record | Kani not verified: strings of 10/6/4 bytes did not finish (15-27 min); random 50,000 strings of up to 64 bytes | random pass | inv |
+| G6 Permanent layout | `g6_record_encode_then_parse_is_identity` | encode then parse is the identity | Kani not verified: the only bound attempted, 2 fields x 4 bytes, did not finish in 20 min; random 20,000 (4 fields, 16 bytes) | random pass | inv |
+| G6 | `g6_record_parse_accepts_only_canonical_encodings` | one encoding per record | Kani not verified: strings of 6 bytes (about 27 min) and 4 bytes (15 and 20 min) did not finish; random 50,000 strings of up to 64 bytes | random pass | inv |
 | G6/D2/D4 | `g6_schema_evolution_defaults_required_unknown_reserved` | defaults, `default = expr`, required fails naming the tag, unknown tags byte-preserved through a rewrite, reserved tags dropped | Kani not verified: 4/3/2 tags did not finish (15-30 min); random 20,000 (4 tags x 5 decls) | random pass | diff (oracle) |
 | G6/D2 derive | `tests/state_v2_verify.rs` `g6_derive_*`, `d2_derive_required_*` | S1 to S2 through the real derive: added (Default / `default =`), removed, reordered (byte-identical), required ("Missing { tag: 4 }"), reserved; zero writes on decode | random 2,000 (500 for required) | pass | diff |
 | G7 Stated cost | `g7_stated_cost_beside_a_100kib_neighbour` (+ 3 pinned) | every op's receipt equals the spec formula, and is identical beside a 1-byte neighbour; `at_mut` measured = (3 reads, 4 sha); sha256 per op measured | random 20,000 | pass (deviations in DOC_DIFFS) | diff (formula) |
@@ -876,7 +876,8 @@ A second iterate, which includes the nested-collection C2 test added after the f
 - Kani, harnesses that did not finish under the stated time caps (Kani 0.68, CBMC 6.11, cadical; CPU shared with cargo-mutants `-j 2`):
   - G1 distinct paths: depth 4 (40 min), depth 2 (30 min).
   - G6 schema evolution: 4 tags (15 min), 3 tags (30 min), 2 tags (30 min).
-  - G6 canonical, as a symbolic `Vec`: 10 bytes (15 min), 6 bytes (27 min), 4 bytes (15 min).
+  - G6 canonical: 6 bytes as a symbolic `Vec` (about 27 min), 4 bytes as a `Vec` (15 min), 4 bytes as a fixed array (20 min).
+  - G6 identity: 2 fields x 4 bytes (20 min; the first attempt also hit an unwinding bound).
 
   The likely cause is CBMC unrolling the varint writer and `Vec` growth at every call site. These claims are random-engine only until a run completes; the attempted bounds are recorded in the harness rustdoc.
 - Kani on G4 cache: not run. Kani 0.68 ICEs on any reachable `catch_unwind` (intrinsic signature check). The `unit-testing` mock, which is reachable from the cache's `dyn` values, contains one. Minimal repro: a harness calling `std::panic::catch_unwind(|| 1)`.
