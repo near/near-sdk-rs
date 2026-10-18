@@ -23,3 +23,5 @@ pub mod g4_one_write;
 pub mod g5_linear_iteration;
 #[cfg(test)]
 pub mod g2_local;
+#[cfg(test)]
+pub mod g6_layout;
