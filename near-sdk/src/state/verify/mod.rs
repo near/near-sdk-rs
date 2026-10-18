@@ -39,3 +39,5 @@ pub mod c1_hot_collision;
 pub mod c6_paging_churn;
 #[cfg(test)]
 pub mod c4_storage_delta;
+#[cfg(test)]
+pub mod f3_atomicity;
