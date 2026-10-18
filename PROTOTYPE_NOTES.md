@@ -691,6 +691,8 @@ This round brings the prototype in line with the settled decisions in `decisions
 
 ### Cost change the designer must see (D9)
 
+Superseded by "API round 2 (Oct 17, flag key)" below: the flag moved to its own key and these costs are reverted.
+
 The flag lives in the record bytes, which `storage_has_key` cannot see. So `at_mut` now does 1 read of the record (no decode) instead of 1 `storage_has_key`. Every `at_mut` path has +1 read and −1 has_key, and pays the record's bytes:
 
 - `set_balance`: (2,1,0) + 1 has_key → (3,1,0).
@@ -720,3 +722,94 @@ Alternatives:
 - The deployed-ABI `storage diff` checks: D2's hard fail on a newly added `required` tag, and D4's build error on tag reuse.
 - An on-chain `env::storage_delta()`.
 - A trybuild `.stderr` snapshot for D6. The doctest checks E0277 only; the message text is quoted in the doctest's comments.
+
+## API round 2 (Oct 17, flag key)
+
+The designer's decision: the `remove_some` clearing flag leaves the record's bytes and becomes a separate key beside the record, checked by existence, so that `at_mut` is back to one existence check with no read and no decode. Branch `proto/storage-v2-d9`, from `proto/storage-v2` at 77f63c76.
+
+### Key layout
+
+The flag key is the record's key plus one byte, `00`:
+
+```text
+flag_key := record_key 00
+markets[7] record: F0 04 00 h16(7) 07000000      23 bytes
+markets[7] flag:   F0 04 00 h16(7) 07000000 00   24 bytes
+```
+
+- **Not a field below the record:** `00` is tag 0 as a LEB128 varint, which no `#[key]` may use (`Path::field(0)` asserts), and every other tag's varint starts with a nonzero byte.
+- **Not a sibling entry:** map keys are prefix-free Borsh behind their own hash, so no `h16(k') borsh(k')` equals `h16(k) borsh(k) 00`.
+- **Sorted beside its record:** it comes right after the record key and before every child, so the flush stays in key order.
+- **Within 2,048 bytes:** it is one byte longer than the record key and shorter than any key below the record. A record that owns collections always has a longer child, so the derive's 2,048-byte sum already covers it, and `Path::checked` asserts at runtime too.
+
+In code it is `key::FLAG_SEGMENT` and `Path::flag()`, with the layout in the `key.rs` module docs and `docs/storage-v2-spec.md` (Keys are paths from the root, the Flag row). Record bytes carry no flag any more. `record::CLEARING_FLAG`, `record::is_clearing` and the `parse` skip are gone, so tag 0 in a record is `TagZero` again, `00 00` included.
+
+### Existence-check scheme: the record moves to the flag key
+
+A `storage_has_key` returns one bit, and `at_mut` has to tell three states apart: absent, present, being cleared. One check on the common path is only possible if "record key present" by itself means "not being cleared". So while a clear is unfinished the record's bytes, unchanged, live at the flag key and the record key is absent. This is a step past "a flag key beside the record": the record relocates for the duration of the clear. It is the option the decision called folding the check into the key already checked.
+
+- **Hit at the record key:** present and not clearing. `at_mut`, `get_mut` and `entry` pay nothing for D9, so their costs equal those before D9 existed.
+- **Miss at the record key, for a map value that owns storage (`MAX_SUBPATH > 0`):** consult the flag key. `get`, `entry`, `remove`, `replace` and `remove_some` read it, because they need the bytes. `contains_key`, `insert_new` and `at_mut` check its existence. Leaves, `Vector` slots and `Lazy` never consult it.
+- **Flush:** `Clearing::Set` writes the encoding to the flag key and removes the record key. A record loaded from the flag key and then replaced (`Clearing::Cleared`) writes the record key and removes the flag key. A delete removes whichever key holds the record. A blind delete (`discard`, a bulk `clear` of a map of records) removes both, because a nested record may itself be mid-clear.
+- **Refusals:** `LookupMap::insert_new` over a clearing record panics with "is being cleared" (new, free: the slot knows). `Map::insert_new` still says "record exists", because the index is still there.
+
+The rejected alternative keeps the record at its key and checks the flag key on every write that hits an existing record. That gives `at_mut` 2 checks, and adds 1 check to `get_mut` and `entry` on existing records: a repeat `deposit`, `place`, `fill` and `cancel` would each pay it, and DAO `vote` would be 4 checks. Moving the record instead charges misses, which are mostly record creation and happen once per record.
+
+### Before and after, in reads, writes, removes + existence checks
+
+| Method | Before D9 (rev 3) | Flag in record (round 1) | Flag key (now) |
+| --- | --- | --- | --- |
+| Exchange `set_balance` | (2,1,0) + 1 | (3,1,0) + 0 | **(2,1,0) + 1** |
+| Exchange `cancel` | (5,3,3) + 1 | (6,3,3) + 0 | **(5,3,3) + 1** |
+| Exchange `cancel` of an unknown order | not recorded | (3,0,0) + 0 | **(2,0,0) + 1** |
+| Exchange `fill` | not recorded | (3,1,0) + 0 | **(2,1,0) + 1** |
+| DAO `vote` | (5,8,0) + 2 | (7,8,0) + 1 | **(5,8,0) + 2**, proposal not read (< 2,000 bytes read) |
+| lib `at_mut` + insert below (`Map<u32, Account>`) | not recorded | (3,4,0) + 0 | **(2,4,0) + 1** |
+| Exchange first `deposit` (new account) | (5,8,0) | (5,8,0) | **(6,8,0)**: the flag key read on the account miss |
+| Exchange `new_seeded` init | (2,5,0) | (2,5,0) | **(3,5,0)** |
+| lib first `deposit` into a `LookupMap` record | (4,6,0) | (4,6,0) | **(5,6,0)** |
+| `LookupMap::insert_new` of a record | 1 check + 1 write | same | **2 checks** + 1 write |
+| `at_mut` on an absent record | 1 check | 1 read | **2 checks** |
+| repeat `deposit`, `open_market`, `place`, FT, NFT, DAO finalize and remove_member | unchanged | unchanged | unchanged |
+
+The DAO finalize (33,0,44), remove_member (29,3,40), nft_transfer (8,8,3) and nft_burn (10,2,17) counts printed by the suites are identical at 77f63c76 and now. Every op-log assertion above is exact in the test suites: `state_v2_exchange`, `state_v2_dao` and the lib `state::tests`.
+
+Clearing, per call: 1 record read (2 once flagged), the clearing work, then on the first unfinished call 1 remove (record key) + 1 write (flag key), and on the finishing call 1 remove of the flag key. A flagged record stakes 1 more key byte.
+
+### Example and doc
+
+- Exchange `Market` gets `#[key(4, default = true)] open: bool,        // added later; older records read as open` in both `proto-wasm-check/src/lib.rs` and `near-sdk/tests/state_v2_exchange.rs`. The struct block and the five spec methods are byte-identical between the two. Its one use is in the test file's `place`, outside the printed block: `assert!(m.open, "market closed")`, plus a `halt_market` helper. Test: `market_open_defaults_to_true_for_an_old_record`, where a record seeded without tag 4 reads as open and a halted market refuses an order.
+- The `set_balance` comment, "writes below the record without reading it: one existence check, no decode", is accurate again under the flag key: measured (2,1,0) + 1 check. So it is unchanged, and the spec's caveat that it was stale is removed.
+- `docs/storage-v2-spec.md`:
+  - Keys: a Flag row in the segment table, and a paragraph with the `markets[7]` example.
+  - Cost table: the `LookupMap` `get` and insert columns, and the `Map` insert-new column.
+  - Bounded clearing: rewritten.
+  - "`at_mut` is one existence check": replaces "`at_mut` reads the record", with the before/after table.
+  - Two ways to write; the API-round paragraph; the prototype test counts.
+  - Exchange listing: the `open` line.
+  - Open questions: the `at_mut` row is decided.
+
+### New tests
+
+- `flag_key_is_the_record_key_plus_a_zero_byte` (key).
+- `tag_zero_is_rejected_even_leading_and_empty` (record), replacing `clearing_flag_is_a_leading_empty_tag_zero`.
+- `flag_key_is_dropped_by_replace_remove_and_discard` (lib). It also covers `insert_new` and `entry` refusing a clearing record, and `Map::iter` yielding it.
+- `market_open_defaults_to_true_for_an_old_record` (exchange).
+- Rewritten: `clear_across_two_calls_refuses_an_interleaved_insert`, `clear_that_fits_in_one_call_writes_no_flag` and `remove_some_budgets_across_calls` now assert that the record key is absent and the flag key holds the unchanged bytes, and that a one-call clear never touches the flag key. The interleaved-insert refusals and the `get` mid-clear are as before.
+
+### Deliberately not done
+
+- No flag check at the flush. It would still be one host call per record, only later.
+- No change to `get`/`at` semantics mid-clear. `get` still returns the record, which is why a `get` miss on a map value that owns storage pays the flag-key read. Making `get` return `None` mid-clear would remove that read, but iteration would then meet an indexed key with no entry.
+- `entry` and `get` read the flag key on a miss rather than checking its existence. The bytes are needed for `get` and for a continuing `remove_some`, and one shared path keeps the cache simple. A miss is 1 read of an absent key, not a `storage_has_key`.
+- No migration path for records written with the old `00 00` prefix. The prototype never shipped, so such a record now fails closed with `TagZero`.
+- No change to `Map::insert_new`'s message mid-clear ("record exists" from the index). Telling it apart would cost a host call.
+- The Claude Doc is not touched; it syncs from this section and the spec.
+
+### Test counts (end of round 2)
+
+- Lib: 573 (571 + 2 new; the record test was renamed).
+- Doctests: 344.
+- `state_v2_exchange`: 35. `state_v2_ft`: 16. `state_v2_nft`: 17. `state_v2_dao`: 15. `state_v2_migrate`: 5.
+- ft-v2 example: 16 migration plus 1 nested_trap.
+- `proto-wasm-check`: wasm32 check passes, with no warnings.
