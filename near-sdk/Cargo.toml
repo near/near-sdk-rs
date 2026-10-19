@@ -23,10 +23,10 @@ required-features = ["abi", "unstable"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_with = { version = "3", features = ["base64", "hex", "json"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "~6.0.0" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.30.0-rc.1" }
 near-sys = { path = "../near-sys", version = "0.3.0" }
 near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.7" }
-near-sdk-core = { path = "../near-sdk-core/", version = "~5.0.0", features = [
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.3.0", features = [
     "serde",
     "borsh",
 ] }
