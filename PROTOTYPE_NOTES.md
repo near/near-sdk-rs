@@ -1772,3 +1772,77 @@ than covers them.
 
 **Not done here:** Kani (long runs still going in their own worktrees, and the fix changes no
 state transition). No new mutants sweep. h8, `ext` and the 1k/100k gas sizes were not re-measured.
+
+## libFuzzer round (Oct 18)
+
+The bolero harnesses ran under libFuzzer for the first time, in the impeccable-rust toolbox (Docker was restored by pruning the Rancher VM's image store). Started at 30bbfe9f, branch `proto/storage-v2-fuzz`. Full table and triage: /tmp/storage-v2-review/fuzz-results.md.
+
+### Command (worktree root)
+
+    scripts/impeccable run env NEAR_SANDBOX_BIN_PATH=/usr/bin/true \
+      CARGO_PROFILE_FUZZ_INHERITS=dev CARGO_PROFILE_FUZZ_OPT_LEVEL=3 CARGO_PROFILE_FUZZ_INCREMENTAL=false CARGO_PROFILE_FUZZ_CODEGEN_UNITS=1 \
+      cargo bolero test --toolchain nightly -p near-sdk --features "unstable unit-testing" -e libfuzzer -T 600s -t 10s <target>
+
+Setup notes:
+- The workspace defines no `[profile.fuzz]`, so it is passed through Cargo env config.
+- libFuzzer needs `--toolchain nightly`.
+- Lib targets are named by full path (`state::verify::g1_addressable::...`). Integration targets use their path inside `state_v2_verify` (`g6_derive_added_fields_default_without_a_write`).
+- `.with_iterations` is ignored under libFuzzer.
+- `catch_unwind` harnesses work.
+
+### Scope and result
+
+- **Main campaign:** 36 targets, 216.8 M execs.
+  - At 10 min: the 2 differential harnesses and all 22 G1-G7 harnesses (the brief's "seven" undercounted).
+  - At 3 min: the 12 bug-class targets (C1-C7, F3, D2).
+- **Re-fuzz:** 7 targets re-run on the fixed code, 17.7 M execs, all clean.
+- **Properties:** no property violation in any harness.
+- **Not run:**
+  - `differential_generator_reaches_nested_ops`: its assertion runs after `for_each`, which never returns under libFuzzer.
+  - The A3/A5 pins: fixed-input tests, not bolero harnesses.
+  - The second `check!` in `g6_derive_reserved_tag_dropped_on_rewrite_only`: never reached under libFuzzer.
+
+### Cache leak at thread teardown (bec58728, production change)
+
+LeakSanitizer reported leaks at exit in 5 harnesses (g1_nested_get, g6_derive_reserved, c1, c2 removed-record, c5). In each case the artifact was the empty input, and the leak was one input's worth after millions of execs.
+
+Symbolized, the leaks are:
+- `Box<Slot>` from `Cache::slot` (cache.rs:316).
+- The slot's decoded value.
+- The mock read bytes.
+
+Cause: `Cache` owned its slots, handles and graveyard as raw `Box::leak` pointers with no `Drop`. A call that ended without a flush lost them when the thread-local `CACHE` was destroyed.
+
+Fix: `impl Drop for Cache` calls `free_slots(self.take_slots())`, the same path as `begin_call`.
+
+Impact:
+- Teardown-only. Wasm never runs thread-local destructors, and flush/`begin_call` are unchanged, so no gas path changes.
+- `install_host`, which has only test callers, still empties the cache first.
+
+Limitation: at thread exit, a value whose `Drop` touches another thread-local (a nested v1 write-on-drop through the env mock) could find it already destroyed.
+
+Pinned by `tests_gaps_cache::gaps_cache_thread_exit_frees_unflushed_slots` (red without the Drop: 0 drops). The 5 targets re-fuzzed clean.
+
+### Mocked gas exhausted across inputs (5d10f029, harness only)
+
+C7 production failed after 30k inputs and D2 after 9.7k, both with `HostError(GasLimitExceeded)` from the MockedBlockchain:
+- C7: `env::sha256` / `env::keccak256` in the hashed v1 keys.
+- D2: the mocked panic host call behind the expected decode error.
+
+Cause: neither harness reset the shared mocked context, so gas accumulated until the 300 Tgas prepaid limit tripped. The random engine's case counts stay under it.
+
+Fix: refresh the context with `testing_env!` once `used_gas` passes 200 Tgas. A reset on every input made C7 take 130 s under `cargo test`. Both harnesses re-fuzzed clean, and the old crash inputs were replayed.
+
+Other harnesses that make mocked host calls without a reset could hit the same wall in longer campaigns.
+
+### Test counts (end of libFuzzer round)
+
+- Lib: 706 passed, 1 ignored (+1, the pin).
+- Unchanged: `state_v2_dao` 15, `state_v2_exchange` 36, `state_v2_ft` 16, `state_v2_migrate` 17, `state_v2_nft` 17, `state_v2_verify` 17.
+- `proto-wasm-check`: passes.
+
+### Deliberately not done
+
+- No gas or code-size re-measure for bec58728: the change adds no executed code in a contract.
+- The `__fuzz__/` corpora stay untracked in the scratch worktree, not committed.
+- No push.
