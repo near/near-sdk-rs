@@ -110,7 +110,8 @@ impl ImplItemMethodInfo {
         let mut callbacks = Vec::<TokenStream2>::new();
         let mut callback_vec: Option<TokenStream2> = None;
         for arg in &attr_signature_info.args {
-            let typ = &arg.ty;
+            let owned_ty = utils::unsized_to_owned(&arg.ty);
+            let typ = &owned_ty;
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
