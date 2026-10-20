@@ -1,15 +1,15 @@
 [package]
 name = "near-global-contracts"
-version = "0.2.6"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 categories.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 readme = "./README.md"
 description = """
-Global contract identifiers and deterministic account derivation (NEP-616) for the NEAR SDK.
+Global contract identifiers and account derivation for deterministic (NEP-616, `0s`) and universal (NEP-655, `0u`) accounts for the NEAR SDK.
 """
 
 # Make `derive_account_id` visible on docs.rs (it requires `borsh`; the off-chain sha3
@@ -22,9 +22,11 @@ features = ["serde", "borsh", "abi", "near-primitives-interop"]
 # `internal_unstable` is for `AccountId::new_unvalidated` in the `0s` derivation.
 near-account-id = { version = "3", features = ["internal_unstable"] }
 near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
+# SHA3-256 for the `0u` id: the `sha3_256` host function on `cfg(near)`, pure Rust otherwise.
+near-digest = { path = "../near-digest/", version = "0.1.3", features = ["sha3"] }
 # `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
 # which lives next to `PublicKey` in near-sdk-core.
-near-sdk-core = { path = "../near-sdk-core/", version = "~4.2.3" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.3.0" }
 
 hex = { version = "0.4", optional = true }
 
@@ -35,15 +37,15 @@ borsh = { version = "1.0.0", features = ["derive"], optional = true }
 
 arbitrary = { version = "1.4", features = ["derive"], optional = true }
 
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6", optional = true }
-# Pinned to the published nearcore 2.14 release candidate `0.38.0-rc.2`; see near-sdk/Cargo.toml
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.7", optional = true }
+# Pinned to the published nearcore 2.14 release candidate `0.38.0-rc.4`; see near-sdk/Cargo.toml
 # for the rationale. Bump to `0.38.0` (drop the `=`) once 2.14 ships stable.
-near-primitives-core = { version = "=0.38.0-rc.2", optional = true }
+near-primitives-core = { version = "=0.38.0-rc.4", optional = true }
 
 schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
 
 [target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.6" }
+near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.7" }
 
 [target.'cfg(not(near))'.dependencies]
 digest-io = { version = "0.1" }
@@ -75,7 +77,10 @@ borsh = [
     "near-sdk-core/borsh",
 ]
 
+# A JSON schema describes the serde form, and the base64 adapters (`serde_as`) that shape it only
+# exist with `serde`, so this (and `abi`) turns `serde` on.
 schemars-v0_8 = [
+    "serde",
     "dep:schemars-v0_8",
     "near-account-id/schemars-v0_8",
     "serde_with/schemars_0_8",
