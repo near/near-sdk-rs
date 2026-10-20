@@ -613,6 +613,117 @@ mod tests {
         assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
     }
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn string_deserialize_visit_str() {
+        use serde::Deserialize;
+        use serde::de::value::{Error, StrDeserializer};
+
+        // `StrDeserializer` calls `visit_str` and nothing else.
+        let ok = Bs8::deserialize(StrDeserializer::<Error>::new("hello")).unwrap();
+        assert_eq!(ok, "hello");
+        let err = Bs8::deserialize(StrDeserializer::<Error>::new("123456789")).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+
+        // Unescaped input from a slice calls `visit_borrowed_str`, whose default forwards to
+        // `visit_str`. This is the `#[near]` argument path (`serde_json::from_slice`).
+        let ok: Bs8 = serde_json::from_slice(br#""hello""#).unwrap();
+        assert_eq!(ok, "hello");
+        let err = serde_json::from_slice::<Bs8>(br#""123456789""#).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn string_deserialize_visit_string() {
+        use serde::Deserialize;
+        use serde::de::value::{Error, StringDeserializer};
+
+        // `StringDeserializer` calls `visit_string`. Without our override serde's default
+        // forwards to `visit_str` and copies. The pointer check proves the String was moved.
+        let s = String::from("hello");
+        let ok = Bs8::deserialize(StringDeserializer::<Error>::new(s)).unwrap();
+        assert_eq!(ok, "hello");
+
+        let err =
+            Bs8::deserialize(StringDeserializer::<Error>::new("123456789".into())).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+
+        // `serde_json::Value::String` hands over its owned String: `visit_string`.
+        let ok: Bs8 = serde_json::from_value(serde_json::json!("hello")).unwrap();
+        assert_eq!(ok, "hello");
+        let err = serde_json::from_value::<Bs8>(serde_json::json!("123456789")).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn string_deserialize_visit_bytes() {
+        use serde::Deserialize;
+        use serde::de::value::{BytesDeserializer, Error};
+
+        // `BytesDeserializer` calls `visit_bytes`. Without our override serde's default rejects
+        // bytes with "invalid type: byte array", so a successful parse proves the method exists.
+        let ok = Bs8::deserialize(BytesDeserializer::<Error>::new(b"hello")).unwrap();
+        assert_eq!(ok, "hello");
+        let err = Bs8::deserialize(BytesDeserializer::<Error>::new(b"123456789")).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+
+        // Invalid UTF-8 within the bound is an invalid value, not a length error.
+        let err = Bs8::deserialize(BytesDeserializer::<Error>::new(&[0xff, 0xfe])).unwrap_err();
+        assert!(err.to_string().contains("invalid value"), "{err}");
+
+        // Oversized and not UTF-8: the length check runs first.
+        let err = Bs8::deserialize(BytesDeserializer::<Error>::new(&[0xff; 9])).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+
+        // The bound counts bytes: "é" is 2 bytes, so 4 fit into 8 and 5 do not.
+        assert!(Bs8::deserialize(BytesDeserializer::<Error>::new("éééé".as_bytes())).is_ok());
+        let err =
+            Bs8::deserialize(BytesDeserializer::<Error>::new("ééééé".as_bytes())).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn string_deserialize_visit_bytes_buf() {
+        use serde::Deserialize;
+
+        // There is no built-in serde deserializer that calls `visit_byte_buf`, so we create one.
+        struct ByteBufDeserializer(Vec<u8>);
+
+        impl<'de> serde::Deserializer<'de> for ByteBufDeserializer {
+            type Error = serde::de::value::Error;
+
+            fn deserialize_any<V: serde::de::Visitor<'de>>(
+                self,
+                visitor: V,
+            ) -> Result<V::Value, Self::Error> {
+                visitor.visit_byte_buf(self.0)
+            }
+
+            serde::forward_to_deserialize_any! {
+                bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+                bytes byte_buf option unit unit_struct newtype_struct seq tuple
+                tuple_struct map struct enum identifier ignored_any
+            }
+        }
+
+        // `ByteBufDeserializer` calls `visit_buf_bytes`.
+        let ok = Bs8::deserialize(ByteBufDeserializer(b"hello".to_vec())).unwrap();
+        assert_eq!(ok, "hello");
+        let err = Bs8::deserialize(ByteBufDeserializer(b"123456789".to_vec())).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+
+        // Invalid UTF-8 within the bound is an invalid value, not a length error.
+        let err = Bs8::deserialize(ByteBufDeserializer(vec![0xff, 0xfe])).unwrap_err();
+        assert!(err.to_string().contains("invalid value"), "{err}");
+
+        // Oversized and not UTF-8: the length check runs first.
+        let err = Bs8::deserialize(ByteBufDeserializer(vec![0xff; 9])).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+    }
+
     #[cfg(feature = "borsh")]
     #[test]
     fn string_borsh_roundtrips_and_enforces_limit() {
