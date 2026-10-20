@@ -447,9 +447,10 @@ where
 
                 // Allocate only up to 4 KB upfront. In this way, if hint is large, we don't
                 // allocate big vec straight up.
-                let mut v = Vec::with_capacity(std::cmp::max(
-                    std::cmp::min(hint, 4096 / std::mem::size_of::<T>()),
-                    1,
+                // Serde also accepts zero-sized types and treats them as null.
+                let mut v = Vec::with_capacity(std::cmp::min(
+                    hint,
+                    4096 / std::cmp::max(std::mem::size_of::<T>(), 1),
                 ));
 
                 loop {
@@ -702,7 +703,28 @@ mod tests {
         let parsed: Bv3 = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, bv);
 
+        let bv = Bv3::new(vec![1, 2, 3]).unwrap();
+        let json = serde_json::to_string(&bv).unwrap();
+        assert_eq!(json, "[1,2,3]");
+        let parsed: Bv3 = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, bv);
+
         let err = serde_json::from_str::<Bv3>("[1,2,3,4]").unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn vec_json_zero_size_types() {
+        let bv = BoundedVec::<(), 3>::new(vec![(), ()]).unwrap();
+        let json = serde_json::to_string(&bv).unwrap();
+        assert_eq!(json, "[null,null]");
+
+        let bv = BoundedVec::<(), 3>::new(vec![]).unwrap();
+        let json = serde_json::to_string(&bv).unwrap();
+        assert_eq!(json, "[]");
+
+        let err = serde_json::from_str::<BoundedVec<(), 3>>("[null,null,null,null]").unwrap_err();
         assert!(err.to_string().contains("ERR_TOO_LONG"), "{err}");
     }
 
@@ -712,6 +734,12 @@ mod tests {
         let bv = Bv3::new(vec![1, 2]).unwrap();
         let bytes = borsh::to_vec(&bv).unwrap();
         assert_eq!(bytes, borsh::to_vec(&vec![1u32, 2]).unwrap());
+        let parsed: Bv3 = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(parsed, bv);
+
+        let bv = Bv3::new(vec![1, 2, 3]).unwrap();
+        let bytes = borsh::to_vec(&bv).unwrap();
+        assert_eq!(bytes, borsh::to_vec(&vec![1u32, 2, 3]).unwrap());
         let parsed: Bv3 = borsh::from_slice(&bytes).unwrap();
         assert_eq!(parsed, bv);
 
