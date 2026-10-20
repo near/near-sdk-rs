@@ -39,7 +39,6 @@ impl From<TooLongError> for std::io::Error {
 
 /// Helper that compares provided string length and max length. Returns `TooLongError` if len > max.
 #[inline]
-#[allow(unused)]
 fn check_len(len: usize, max: usize) -> Result<(), TooLongError> {
     if len > max { Err(TooLongError { len, max }) } else { Ok(()) }
 }
@@ -74,9 +73,7 @@ impl<const MAX: usize> BoundedString<MAX> {
     /// Wraps `s`, failing with [`TooLongError`] if its UTF-8 byte length exceeds `MAX`.
     pub fn new(s: impl Into<String>) -> Result<Self, TooLongError> {
         let s = s.into();
-        if s.len() > MAX {
-            return Err(TooLongError { len: s.len(), max: MAX });
-        }
+        check_len(s.len(), MAX)?;
         Ok(Self(s))
     }
 
@@ -220,22 +217,12 @@ impl<const MAX: usize> borsh::BorshSerialize for BoundedString<MAX> {
 #[cfg(feature = "borsh")]
 impl<const MAX: usize> borsh::BorshDeserialize for BoundedString<MAX> {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        // Before allocating and parsing anything, we will read length of the string first,
-        // which is u32 according to borsh spec.
-        let len = u32::deserialize_reader(reader)?;
-        // Shouldn't be possible as `u32 == usize` on wasm, but we still check.
-        let len = usize::try_from(len).map_err(|_| {
-            std::io::Error::new(borsh::io::ErrorKind::InvalidData, "length overflows usize")
-        })?;
-
+        let mut prefix = [0u8; 4];
+        reader.read_exact(&mut prefix)?;
+        let len = usize::try_from(u32::from_le_bytes(prefix)).unwrap_or(usize::MAX);
         check_len(len, MAX)?;
 
-        let mut buf = vec![0u8; len];
-        reader.read_exact(&mut buf)?;
-
-        String::from_utf8(buf)
-            .map(Self)
-            .map_err(|e| std::io::Error::new(borsh::io::ErrorKind::InvalidData, e.to_string()))
+        String::deserialize_reader(&mut std::io::Read::chain(prefix.as_slice(), reader)).map(Self)
     }
 }
 
@@ -326,9 +313,7 @@ impl<T, const MAX: usize> BoundedVec<T, MAX> {
     /// Wraps `v`, failing with [`TooLongError`] if it holds more than `MAX` elements.
     pub fn new(v: impl Into<Vec<T>>) -> Result<Self, TooLongError> {
         let v = v.into();
-        if v.len() > MAX {
-            return Err(TooLongError { len: v.len(), max: MAX });
-        }
+        check_len(v.len(), MAX)?;
         Ok(Self(v))
     }
 
@@ -460,11 +445,16 @@ where
                 let hint = seq.size_hint().unwrap_or(0);
                 check_len(hint, MAX).map_err(A::Error::custom)?;
 
-                let mut v = Vec::with_capacity(hint);
+                // Allocate only up to 4 KB upfront. In this way, if hint is large, we don't
+                // allocate big vec straight up.
+                let mut v = Vec::with_capacity(std::cmp::max(
+                    std::cmp::min(hint, 4096 / std::mem::size_of::<T>()),
+                    1,
+                ));
 
                 loop {
                     if v.len() == MAX {
-                        // just do a peak into the next element.
+                        // just do a peek into the next element to see if there are any new elements.
                         if seq.next_element::<serde::de::IgnoredAny>()?.is_some() {
                             return Err(A::Error::custom(TooLongError { len: MAX + 1, max: MAX }));
                         }
@@ -495,32 +485,14 @@ impl<T: borsh::BorshSerialize, const MAX: usize> borsh::BorshSerialize for Bound
 #[cfg(feature = "borsh")]
 impl<T: borsh::BorshDeserialize, const MAX: usize> borsh::BorshDeserialize for BoundedVec<T, MAX> {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        // We check if the type `T` has size of 0 and reject it in such case - this is
-        // to ensure that DoS attacks are not possible. This is the same what is done
-        // in borsh.
-        if std::mem::size_of::<T>() == 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Collections of zero-sized types are not allowed due to deny-of-service concerns on deseri
-alization.",
-            ));
-        }
-
-        // Before allocating and parsing anything, we will read length of the string first,
-        // which is u32 according to borsh spec.
-        let len = u32::deserialize_reader(reader)?;
-        // Shouldn't be possible as `u32 == usize` on wasm, but we still check.
-        let len = usize::try_from(len).map_err(|_| {
-            std::io::Error::new(borsh::io::ErrorKind::InvalidData, "length overflows usize")
-        })?;
-
+        let mut prefix = [0u8; 4];
+        reader.read_exact(&mut prefix)?;
+        let len = usize::try_from(u32::from_le_bytes(prefix)).unwrap_or(usize::MAX);
         check_len(len, MAX)?;
 
-        let mut v = Vec::with_capacity(len);
-        for _ in 0..len {
-            v.push(T::deserialize_reader(reader)?)
-        }
-        Ok(Self(v))
+        // BorshDeserialize for Vec<T> already checks if type `T` is of size 0 and throws error in
+        // this case.
+        Vec::<T>::deserialize_reader(&mut std::io::Read::chain(prefix.as_slice(), reader)).map(Self)
     }
 }
 
