@@ -1846,3 +1846,64 @@ Other harnesses that make mocked host calls without a reset could hit the same w
 - No gas or code-size re-measure for bec58728: the change adds no executed code in a contract.
 - The `__fuzz__/` corpora stay untracked in the scratch worktree, not committed.
 - No push.
+
+## Kani: shrunk bounds (Oct 20)
+
+The four Kani harnesses that never finished at their full bounds were stopped by a reboot on Oct 19 with no verdict: G1 distinct paths after about 33 h, and the G6 loop after about 25 h on its first harness (`g6_record_encode_then_parse_is_identity`; the other two never started). This round adds shrunk-bound proofs beside them. The originals are unchanged and stay the random-engine tests.
+
+Kani 0.68, CBMC 6.11, cadical, on the host (64 GB, 18 cores), run one at a time with `caffeinate -i` and a per-run cap:
+
+    NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo kani --tests --lib -p near-sdk --features unstable \
+      --harness state::verify::<module>::<name> [--exact]
+
+Logs, with peak RSS per run: `kani-logs/` in the worktree (excluded from git).
+
+### Results
+
+"No verdict" below is a resource stop (the cap, or CBMC out of memory). In no run did a property check fail, and no unwinding assertion fired in a finished run.
+
+| Harness (new, `#[cfg(kani)]`) | Bound | Wall time | Verdict |
+|---|---|---|---|
+| `g6_record_encode_then_parse_is_identity_small_s00`..`_s04` (5 proofs, one per field shape) | the empty record and every one-field record: scalar or nested record with a 0- or 1-byte body, or a marker; symbolic tag 1..=127 and body byte; unwind 3 | 106, 140, 169, 105, 108 s (629 s total; 645 s wall with build; peak 34 GB) | **VERIFIED** |
+| `g6_record_parse_accepts_only_canonical_encodings_small_len0` | the empty string | 0.6 s | **VERIFIED** (trivial) |
+| `..._canonical_encodings_small_len1`, `_len2` | every 1-byte, every 2-byte string | 15 min cap each | no verdict (still in symbolic execution) |
+| `..._canonical_encodings_small_len3` | every 3-byte string | 4 attempts, 10-11 min each | no verdict |
+| `g6_schema_evolution_defaults_required_unknown_reserved_small_{absent,written}_<decl>` (10 proofs) | one tag, absent or any `u8`, each of the 5 declarations | 19 min on the first case (`written_unknown`) | no verdict; 9 cases not reached |
+| `g1_addressable_distinct_paths_distinct_keys_small_s00`..`_s22` (23 proofs, one per shape of path `a`) | two paths of depth <= 1, tags 1..=127, every collection kind and table, `Fixed(0..=2)` / `Var` 0..=2 keys, any slot index, one constant placement hash | `_s00`: 15 min cap | no verdict (still in symbolic execution); the other 22 not run |
+
+The depth-2 G1 variant the brief asked for was not attempted: depth 1 did not finish.
+
+### Attempts that led there
+
+| Harness | Attempt | Wall | Peak RSS | Outcome |
+|---|---|---|---|---|
+| G1 depth <= 1 | 1. symbolic depth, unwind 10 | 21 min | n/a | killed, still in symbolic execution |
+| | 2. depths enumerated, unwind 4 | 12 min | n/a | CBMC out of memory (another session's 7-44 GB CBMC ran alongside) |
+| | 3. each prefix encoded once | 11 min | n/a | CBMC out of memory (same contention) |
+| | 4. concrete hop shapes, all 23 x 23 pairs in one proof | 41 min | 23 GB | killed, still in symbolic execution |
+| | 5. split per shape: `_s00` probe | 15 min | 12 GB | cap, still in symbolic execution |
+| | probe: one pair (`Map`, `Var` 2-byte keys) | 15 min | 21 GB | cap, in propositional reduction |
+| G6 identity | 1. 2 fields, bodies 0..=4, unwind 6 | 11 min | 3 GB (another CBMC at 44 GB) | killed, symbolic execution in std's stable sort |
+| | 2. same, unwind 4 | 10 min | 5 GB | killed, same |
+| | 3. field count concrete | 8.5 min | 48 GB | CBMC out of memory |
+| | 4. one field, 11 shapes (bodies 0..=4) in one proof | 10 min | 10 GB | killed, still in symbolic execution |
+| | 5. split per shape, unwind 4 | 20 min | 41 GB | killed on the first shape |
+| | probe: 1 scalar field, 1-byte body, unwind 3 | 3.3 min | 30 GB | VERIFIED: led to the shipped bound |
+| | probe: 1 scalar field, 4-byte body, unwind 4 | 15 min | 48 GB | cap |
+| | probe: 2 concrete 4-byte fields | 10.5 min | 50 GB | killed |
+| G6 canonical | 1-3. 0..=3 bytes, three ways of fixing the field count | 10-11 min each | 5-6 GB | killed, still in symbolic execution |
+| | 4. `len3`, body length concrete too | 10 min | 7 GB | killed |
+| | 5. `len0`, `len1`, `len2` separately | 0.6 s / 15 min / 15 min | 0 / 9 / 8 GB | VERIFIED / cap / cap |
+| G6 evolution | 1. one tag, all 10 cases in one proof | 20 min | 9 GB | killed, still in symbolic execution |
+| | 2. split per case: first case | 19 min | 10 GB | killed, still in symbolic execution |
+
+### What the cost is
+
+A proof over the record codec or the key builder costs far more than the size of its input suggests. One scalar field with a 1-byte body verifies in 18 s at 0.9 GB when only the tag is asserted, and in 3.3 min when the whole identity is asserted. The same field with a 4-byte body reaches 48-50 GB with no verdict. Every `Path` hop and every record field allocates a fresh `Vec`. CBMC models each allocation as its own object, and a symbolic tag or length makes the later offsets symbolic, so each read through a pointer becomes a case split over objects and offsets. Concrete shapes and one case per proof are what made the identity proofs finish.
+
+### Not done, and what would help next
+
+- **Depth-2 G1, 2-field records, bodies over 1 byte:** not attempted, since the smaller bounds did not finish.
+- **CBMC options:** `--refine-arrays` and stubbing the std sort need `-Z unstable-options --cbmc-args ...`. The mbx `cargo` shim refuses `-Z unstable-options` (its `cargo metadata` probe fails), so they were not tried. The untested route is Kani's `[workspace.metadata.kani]` flag tables in `Cargo.toml`.
+- **Cheaper harness shape:** a harness-side byte-array key builder proven equal to `Path` on concrete shapes would avoid the allocations.
+- **Part 1 of the design doc** still says "two Kani proofs", which no longer matches. It was left alone: no status sentence there says proofs are running.

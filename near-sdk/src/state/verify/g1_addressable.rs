@@ -100,13 +100,56 @@ impl Hop {
     fn has_key(&self) -> bool {
         matches!(self.access, Access::Entry | Access::Index) && self.key_ty().is_some()
     }
-    /// Abstract identity of the hop (the hash is not part of it).
+    /// The key bytes `borsh(k)` is made of (without the `Var` length prefix), as a slice.
+    fn key_bytes(&self) -> &[u8] {
+        match self.key_ty() {
+            Some(KeyTy::Fixed(w)) => &self.key[..w as usize],
+            Some(KeyTy::Var) => &self.key[..self.klen as usize],
+            None => &[],
+        }
+    }
+    /// Abstract identity of the hop (the hash is not part of it). Two hops of one collection
+    /// type have equal `borsh(k)` iff their key bytes (and so, for `Var`, their lengths) are
+    /// equal; compared without building the encodings.
     fn same(&self, o: &Hop) -> bool {
         self.tag == o.tag
             && self.coll == o.coll
             && self.access == o.access
-            && (!self.has_key() || self.enc() == o.enc())
+            && (!self.has_key() || self.key_bytes() == o.key_bytes())
     }
+}
+
+/// A path as a slice of hops (the shared core of the random-engine and shrunk Kani harnesses).
+fn hops_wf(h: &[Hop]) -> bool {
+    h.iter().all(Hop::wf) && h.iter().rev().skip(1).all(Hop::value_position)
+}
+
+fn hops_same(a: &[Hop], b: &[Hop]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.same(y))
+}
+
+/// `a` is a proper ancestor of `b`: every hop of `a` is a hop of `b`.
+fn hops_ancestor_of(a: &[Hop], b: &[Hop]) -> bool {
+    a.len() < b.len() && a.iter().zip(b).all(|(x, y)| x.same(y))
+}
+
+/// Encodes with the production builder. `real_hash`: sha256 (`entry_raw`), else the hop's
+/// own hash bytes (`entry_hashed`).
+fn encode_hops(hops: &[Hop], real_hash: bool) -> std::vec::Vec<u8> {
+    let mut p = Path::root(DEFAULT_ROOT);
+    for h in hops {
+        p = p.field(h.tag);
+        let entry = |p: Path| if real_hash { p.entry_raw(&h.enc()) } else { p.entry_hashed(&h.hash, &h.enc()) };
+        p = match (h.coll, h.access) {
+            (Coll::Lazy, _) => p,
+            (_, Access::Entry) => entry(p.kind(kind::ENTRIES)),
+            (_, Access::Index) => entry(p.kind(kind::INDEX)),
+            (Coll::Vector, Access::Slot(i)) => p.kind(kind::ENTRIES).slot(i),
+            (_, Access::Slot(i)) => p.kind(kind::SLOTS).slot(i),
+            (_, Access::Header) => p.kind(kind::HEADER),
+        };
+    }
+    p.as_bytes().to_vec()
 }
 
 impl SPath {
@@ -114,34 +157,13 @@ impl SPath {
         &self.hops[..self.depth as usize]
     }
     pub fn wf(&self) -> bool {
-        let h = self.hops();
-        h.iter().all(Hop::wf) && h.iter().rev().skip(1).all(Hop::value_position)
-    }
-    fn same(&self, o: &SPath) -> bool {
-        self.depth == o.depth && self.hops().iter().zip(o.hops()).all(|(a, b)| a.same(b))
-    }
-    /// `self` is a proper ancestor of `o`: every hop of `self` is a hop of `o`.
-    fn ancestor_of(&self, o: &SPath) -> bool {
-        self.depth < o.depth && self.hops().iter().zip(o.hops()).all(|(a, b)| a.same(b))
+        hops_wf(self.hops())
     }
 
     /// Encodes with the production builder. `real_hash`: sha256 (`entry_raw`), else the hop's
     /// symbolic hash (`entry_hashed`).
     pub fn encode(&self, real_hash: bool) -> std::vec::Vec<u8> {
-        let mut p = Path::root(DEFAULT_ROOT);
-        for h in self.hops() {
-            p = p.field(h.tag);
-            let entry = |p: Path| if real_hash { p.entry_raw(&h.enc()) } else { p.entry_hashed(&h.hash, &h.enc()) };
-            p = match (h.coll, h.access) {
-                (Coll::Lazy, _) => p,
-                (_, Access::Entry) => entry(p.kind(kind::ENTRIES)),
-                (_, Access::Index) => entry(p.kind(kind::INDEX)),
-                (Coll::Vector, Access::Slot(i)) => p.kind(kind::ENTRIES).slot(i),
-                (_, Access::Slot(i)) => p.kind(kind::SLOTS).slot(i),
-                (_, Access::Header) => p.kind(kind::HEADER),
-            };
-        }
-        p.as_bytes().to_vec()
+        encode_hops(self.hops(), real_hash)
     }
 
     /// The same path through the model's independent spec encoder (real sha256).
@@ -164,10 +186,10 @@ impl SPath {
 
 /// Both paths live in one schema: wherever they have taken the same tags so far, the field
 /// has the same collection and key type.
-fn consistent(a: &SPath, b: &SPath) -> bool {
-    let n = a.depth.min(b.depth) as usize;
+fn consistent(a: &[Hop], b: &[Hop]) -> bool {
+    let n = a.len().min(b.len());
     for d in 0..n {
-        if (0..=d).all(|i| a.hops[i].tag == b.hops[i].tag) && a.hops[d].coll != b.hops[d].coll {
+        if (0..=d).all(|i| a[i].tag == b[i].tag) && a[d].coll != b[d].coll {
             return false;
         }
     }
@@ -176,20 +198,29 @@ fn consistent(a: &SPath, b: &SPath) -> bool {
 
 /// The property. Equal bytes imply the same path; one key a prefix of another implies an
 /// ancestor (a record and the storage it owns).
-fn check_pair(a: &SPath, b: &SPath, real_hash: bool) {
-    if !a.wf() || !b.wf() || !consistent(a, b) {
+fn check_hops(a: &[Hop], b: &[Hop], real_hash: bool) {
+    if !hops_wf(a) || !hops_wf(b) || !consistent(a, b) {
         return;
     }
-    let (ka, kb) = (a.encode(real_hash), b.encode(real_hash));
+    check_keys(a, b, &encode_hops(a, real_hash), &encode_hops(b, real_hash));
+}
+
+/// The property on keys already built for `a` and `b` (the caller has checked well-formedness
+/// and schema consistency).
+fn check_keys(a: &[Hop], b: &[Hop], ka: &[u8], kb: &[u8]) {
     if ka == kb {
-        assert!(a.same(b), "two distinct paths share a key: {a:?} / {b:?}");
+        assert!(hops_same(a, b), "two distinct paths share a key: {a:?} / {b:?}");
     }
-    if kb.starts_with(&ka) {
-        assert!(a.same(b) || a.ancestor_of(b), "a key is a prefix of a non-descendant's key: {a:?} / {b:?}");
+    if kb.starts_with(ka) {
+        assert!(hops_same(a, b) || hops_ancestor_of(a, b), "a key is a prefix of a non-descendant's key: {a:?} / {b:?}");
     }
-    if ka.starts_with(&kb) {
-        assert!(a.same(b) || b.ancestor_of(a), "a key is a prefix of a non-descendant's key: {b:?} / {a:?}");
+    if ka.starts_with(kb) {
+        assert!(hops_same(a, b) || hops_ancestor_of(b, a), "a key is a prefix of a non-descendant's key: {b:?} / {a:?}");
     }
+}
+
+fn check_pair(a: &SPath, b: &SPath, real_hash: bool) {
+    check_hops(a.hops(), b.hops(), real_hash);
 }
 
 /// Random engine only: draw tags from LEB128 edge values (and values 128 / 256 apart), so
@@ -237,6 +268,168 @@ fn g1_addressable_distinct_paths_distinct_keys() {
         check_pair(&a, &b, !cfg!(kani));
     });
 }
+
+/// The one placement hash every hop uses in the shrunk Kani proofs. Using the SAME bytes for
+/// every hop of both paths is the hardest concrete choice: the hash then separates nothing, and
+/// only the Borsh key bytes and the hop structure can tell two entries apart.
+#[cfg(kani)]
+const SMALL_HASH: [u8; ENTRY_HASH_LEN] = [0xA5; ENTRY_HASH_LEN];
+
+/// The symbolic values of one hop in the shrunk Kani proofs: tag in 1..=127 (one-byte
+/// LEB128), up to 2 key bytes, any `u32` slot index. The hop's shape (collection, access, key
+/// type) is concrete and enumerated by [`SHAPES`].
+#[cfg(kani)]
+#[derive(Clone, Copy)]
+struct HopVals {
+    tag: u32,
+    key: [u8; 2],
+    slot: u32,
+}
+
+#[cfg(kani)]
+fn small_vals() -> HopVals {
+    let tag: u8 = kani::any();
+    kani::assume((1..=127).contains(&tag));
+    HopVals { tag: tag as u32, key: kani::any(), slot: kani::any() }
+}
+
+/// Every well-formed hop shape at the shrunk bound: each collection kind with each access it
+/// allows, and for a keyed access each key type `Fixed(0..=2)` or `Var` with 0..=2 bytes, as
+/// `(collection, access, Var key length)`. Concrete, so every buffer the production builder
+/// allocates has a constant size; only the values in [`HopVals`] are symbolic.
+#[cfg(kani)]
+const SHAPES: [(Coll, Access, u8); 23] = [
+    (Coll::Lookup(KeyTy::Fixed(0)), Access::Entry, 0),
+    (Coll::Lookup(KeyTy::Fixed(1)), Access::Entry, 0),
+    (Coll::Lookup(KeyTy::Fixed(2)), Access::Entry, 0),
+    (Coll::Lookup(KeyTy::Var), Access::Entry, 0),
+    (Coll::Lookup(KeyTy::Var), Access::Entry, 1),
+    (Coll::Lookup(KeyTy::Var), Access::Entry, 2),
+    (Coll::Map(KeyTy::Fixed(0)), Access::Entry, 0),
+    (Coll::Map(KeyTy::Fixed(1)), Access::Entry, 0),
+    (Coll::Map(KeyTy::Fixed(2)), Access::Entry, 0),
+    (Coll::Map(KeyTy::Var), Access::Entry, 0),
+    (Coll::Map(KeyTy::Var), Access::Entry, 1),
+    (Coll::Map(KeyTy::Var), Access::Entry, 2),
+    (Coll::Map(KeyTy::Fixed(0)), Access::Index, 0),
+    (Coll::Map(KeyTy::Fixed(1)), Access::Index, 0),
+    (Coll::Map(KeyTy::Fixed(2)), Access::Index, 0),
+    (Coll::Map(KeyTy::Var), Access::Index, 0),
+    (Coll::Map(KeyTy::Var), Access::Index, 1),
+    (Coll::Map(KeyTy::Var), Access::Index, 2),
+    (Coll::Map(KeyTy::Fixed(0)), Access::Slot(0), 0),
+    (Coll::Map(KeyTy::Fixed(0)), Access::Header, 0),
+    (Coll::Vector, Access::Slot(0), 0),
+    (Coll::Vector, Access::Header, 0),
+    (Coll::Lazy, Access::Entry, 0),
+];
+
+/// `[e(0), e(1), ..., e(22)]` with `$i` bound to each index of [`SHAPES`]: unrolled by the
+/// macro rather than a loop, so CBMC needs no unwind bound of 23 (which would also apply to
+/// every loop with a symbolic trip count).
+#[cfg(kani)]
+macro_rules! per_shape {
+    ([$i:ident] => $e:expr) => {
+        per_shape!(@arr $i, $e, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22])
+    };
+    ($i:ident => $body:block) => {
+        per_shape!(@each $i, $body, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22])
+    };
+    (@arr $i:ident, $e:expr, [$($n:literal),*]) => {
+        [$({ let $i: usize = $n; $e }),*]
+    };
+    (@each $i:ident, $body:block, [$($n:literal),*]) => {
+        $({ let $i: usize = $n; $body })*
+    };
+}
+
+#[cfg(kani)]
+fn shaped_hop((coll, access, klen): (Coll, Access, u8), x: HopVals) -> Hop {
+    let access = if let Access::Slot(_) = access { Access::Slot(x.slot) } else { access };
+    let mut key = [0u8; 8];
+    key[..2].copy_from_slice(&x.key);
+    Hop { tag: x.tag, coll, access, key, klen, hash: SMALL_HASH }
+}
+
+/// Shrunk-bound G1 core at depth <= 1, for path `a` of shape `SHAPES[i]`: `a` against the
+/// root, and against path `b` of every shape `SHAPES[j]` with `j >= i` (the property is checked
+/// in both directions and `a`, `b` carry independent symbolic [`HopVals`], so `j < i` is the
+/// same pair seen from `b`). Each key is built once by the production builder and checked by the
+/// same property as the random-engine harness ([`check_keys`]).
+#[cfg(kani)]
+fn small_distinct_paths_depth1(i: usize) {
+    let (xa, xb) = (small_vals(), small_vals());
+    let root: [Hop; 0] = [];
+    let k0 = encode_hops(&root, false);
+    if i == 0 {
+        check_keys(&root, &root, &k0, &k0);
+    }
+    let ha = shaped_hop(SHAPES[i], xa);
+    let a = core::slice::from_ref(&ha);
+    let ka = encode_hops(a, false);
+    check_keys(&root, a, &k0, &ka);
+    check_keys(a, &root, &ka, &k0);
+    per_shape!(j => {
+        if j >= i {
+            let hb = shaped_hop(SHAPES[j], xb);
+            let b = core::slice::from_ref(&hb);
+            if consistent(a, b) {
+                check_keys(a, b, &ka, &encode_hops(b, false));
+            }
+        }
+    });
+}
+
+/// G1 core claim, Kani at a shrunk bound, as 23 proofs `..._small_s00` to `..._small_s22` (one
+/// per shape of path `a`; `--harness g1_addressable_distinct_paths_distinct_keys_small` runs
+/// them all). Together: two symbolic paths of depth <= 1 (the root, or one hop), tags 1..=127
+/// (one-byte LEB128), every collection kind (`LookupMap`, `Map`, `Vector`, `Lazy`) with every
+/// table it uses (entries, index, slots, header), map keys `Fixed(0..=2)` or length-prefixed
+/// with 0..=2 bytes, any `u32` slot index. The placement hash is ONE constant for every hop:
+/// the free-symbolic-hash claim of the full-bound harness is not covered here. Split per shape
+/// because one proof over all 23 x 23 pairs was still in symbolic execution after 40 minutes.
+/// Status (Oct 20, Kani 0.68, CBMC 6.11, 64 GB host): NO VERDICT. `..._small_s00` was still in
+/// symbolic execution at its 15-minute cap, and a single pair (two `Map` entries with 2-byte
+/// `Var` keys) was still in propositional reduction at 15 minutes and 20 GB.
+macro_rules! g1_small_proofs {
+    ($($name:ident = $i:literal),* $(,)?) => {
+        $(
+            #[cfg(kani)]
+            #[kani::proof]
+            #[kani::unwind(4)]
+            #[kani::solver(cadical)]
+            fn $name() {
+                small_distinct_paths_depth1($i);
+            }
+        )*
+    };
+}
+
+g1_small_proofs!(
+    g1_addressable_distinct_paths_distinct_keys_small_s00 = 0,
+    g1_addressable_distinct_paths_distinct_keys_small_s01 = 1,
+    g1_addressable_distinct_paths_distinct_keys_small_s02 = 2,
+    g1_addressable_distinct_paths_distinct_keys_small_s03 = 3,
+    g1_addressable_distinct_paths_distinct_keys_small_s04 = 4,
+    g1_addressable_distinct_paths_distinct_keys_small_s05 = 5,
+    g1_addressable_distinct_paths_distinct_keys_small_s06 = 6,
+    g1_addressable_distinct_paths_distinct_keys_small_s07 = 7,
+    g1_addressable_distinct_paths_distinct_keys_small_s08 = 8,
+    g1_addressable_distinct_paths_distinct_keys_small_s09 = 9,
+    g1_addressable_distinct_paths_distinct_keys_small_s10 = 10,
+    g1_addressable_distinct_paths_distinct_keys_small_s11 = 11,
+    g1_addressable_distinct_paths_distinct_keys_small_s12 = 12,
+    g1_addressable_distinct_paths_distinct_keys_small_s13 = 13,
+    g1_addressable_distinct_paths_distinct_keys_small_s14 = 14,
+    g1_addressable_distinct_paths_distinct_keys_small_s15 = 15,
+    g1_addressable_distinct_paths_distinct_keys_small_s16 = 16,
+    g1_addressable_distinct_paths_distinct_keys_small_s17 = 17,
+    g1_addressable_distinct_paths_distinct_keys_small_s18 = 18,
+    g1_addressable_distinct_paths_distinct_keys_small_s19 = 19,
+    g1_addressable_distinct_paths_distinct_keys_small_s20 = 20,
+    g1_addressable_distinct_paths_distinct_keys_small_s21 = 21,
+    g1_addressable_distinct_paths_distinct_keys_small_s22 = 22
+);
 
 /// F1: field tags across the whole `u32` range. Model-checked for every pair of tags
 /// (Kani, unwind 6 covers the 5-byte LEB128): the production field hop is
