@@ -1860,15 +1860,16 @@ Logs, with peak RSS per run: `kani-logs/` in the worktree (excluded from git).
 
 ### Results
 
-"No verdict" below is a resource stop (the cap, or CBMC out of memory). In no run did a property check fail, and no unwinding assertion fired in a finished run.
+"No verdict" below is a resource stop (a time cap, or CBMC out of memory). In no run did a property check fail, and no unwinding assertion fired in a finished run. Two runs went to the full 60-minute cap: canonical `len1` and evolution `written_unknown`. Every other no-verdict run was stopped by hand at 10-41 minutes, below the cap, to fit the session. `len2`, `len3`, the other nine evolution cases and the G1 family are untried at the full cap.
 
 | Harness (new, `#[cfg(kani)]`) | Bound | Wall time | Verdict |
 |---|---|---|---|
 | `g6_record_encode_then_parse_is_identity_small_s00`..`_s04` (5 proofs, one per field shape) | the empty record and every one-field record: scalar or nested record with a 0- or 1-byte body, or a marker; symbolic tag 1..=127 and body byte; unwind 3 | 106, 140, 169, 105, 108 s (629 s total; 645 s wall with build; peak 34 GB) | **VERIFIED** |
 | `g6_record_parse_accepts_only_canonical_encodings_small_len0` | the empty string | 0.6 s | **VERIFIED** (trivial) |
-| `..._canonical_encodings_small_len1`, `_len2` | every 1-byte, every 2-byte string | 15 min cap each | no verdict (still in symbolic execution) |
+| `..._canonical_encodings_small_len1` | every 1-byte string | 60 min cap (14 GB) | no verdict (still in symbolic execution) |
+| `..._canonical_encodings_small_len2` | every 2-byte string | 15 min cap | no verdict (still in symbolic execution) |
 | `..._canonical_encodings_small_len3` | every 3-byte string | 4 attempts, 10-11 min each | no verdict |
-| `g6_schema_evolution_defaults_required_unknown_reserved_small_{absent,written}_<decl>` (10 proofs) | one tag, absent or any `u8`, each of the 5 declarations | 19 min on the first case (`written_unknown`) | no verdict; 9 cases not reached |
+| `g6_schema_evolution_defaults_required_unknown_reserved_small_{absent,written}_<decl>` (10 proofs) | one tag, absent or any `u8`, each of the 5 declarations | 60 min cap on the first case (`written_unknown`, 15 GB) | no verdict; 9 cases not run |
 | `g1_addressable_distinct_paths_distinct_keys_small_s00`..`_s22` (23 proofs, one per shape of path `a`) | two paths of depth <= 1, tags 1..=127, every collection kind and table, `Fixed(0..=2)` / `Var` 0..=2 keys, any slot index, one constant placement hash | `_s00`: 15 min cap | no verdict (still in symbolic execution); the other 22 not run |
 
 The depth-2 G1 variant the brief asked for was not attempted: depth 1 did not finish.
@@ -1894,8 +1895,10 @@ The depth-2 G1 variant the brief asked for was not attempted: depth 1 did not fi
 | G6 canonical | 1-3. 0..=3 bytes, three ways of fixing the field count | 10-11 min each | 5-6 GB | killed, still in symbolic execution |
 | | 4. `len3`, body length concrete too | 10 min | 7 GB | killed |
 | | 5. `len0`, `len1`, `len2` separately | 0.6 s / 15 min / 15 min | 0 / 9 / 8 GB | VERIFIED / cap / cap |
+| | 6. `len1` at the full cap | 60 min | 14 GB | cap, still in symbolic execution |
 | G6 evolution | 1. one tag, all 10 cases in one proof | 20 min | 9 GB | killed, still in symbolic execution |
 | | 2. split per case: first case | 19 min | 10 GB | killed, still in symbolic execution |
+| | 3. `written_unknown` at the full cap | 60 min | 15 GB | cap, still in symbolic execution |
 
 ### What the cost is
 

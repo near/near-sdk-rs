@@ -215,9 +215,9 @@ fn small_canonical<const N: usize>() {
 
 /// Canonical form, Kani at a shrunk bound, as 4 proofs `..._small_len0` to `..._small_len3`:
 /// together, every byte string of length 0..=3 that parses re-encodes to exactly itself.
-/// Status (Oct 20, Kani 0.68, CBMC 6.11, 64 GB host): `len0` VERIFIED (0.6 s); `len1` and
-/// `len2` no verdict, each still in symbolic execution at its 15-minute cap; `len3` no verdict
-/// in 4 attempts of 10 minutes.
+/// Status (Oct 20, Kani 0.68, CBMC 6.11, 64 GB host): `len0` VERIFIED (0.6 s); `len1` no
+/// verdict, still in symbolic execution at the 60-minute cap (14 GB); `len2` no verdict at a
+/// 15-minute cap; `len3` no verdict in 4 attempts of 10 minutes.
 macro_rules! g6_canonical_small_proofs {
     ($($name:ident = $n:literal),* $(,)?) => {
         $(
@@ -346,8 +346,8 @@ fn evolution_check<const T: usize>(s1: &[Option<u8>; T], s2: &[Decl; T]) {
 /// declared by S2 as each of the 5 `Decl`s. One case per proof, so every record the codec
 /// builds has a known shape and only the value is symbolic (all 10 cases in one proof were
 /// still in symbolic execution after 20 minutes). Status (Oct 20, Kani 0.68, CBMC 6.11, 64 GB
-/// host): NO VERDICT; `..._small_written_unknown` was still in symbolic execution after 19
-/// minutes, and the other nine were not reached.
+/// host): NO VERDICT; `..._small_written_unknown` was still in symbolic execution at the
+/// 60-minute cap (15 GB), and the other nine were not run.
 macro_rules! g6_evolution_small_proofs {
     ($($name:ident = $written:literal, $d:ident),* $(,)?) => {
         $(
