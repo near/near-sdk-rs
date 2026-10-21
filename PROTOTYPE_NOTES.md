@@ -1937,14 +1937,14 @@ A proof over the record codec or the key builder costs far more than the size of
 
   Two per-op checks run on isolated ops: a failed op left the trie and `storage_usage` unchanged, and `remove_step` never adds a key under its record. Coverage asserts that every method was reached. A per-op tally counts behaviour coverage.
 
-**Runs (debug profile, one M-series Mac).**
+**Runs (debug profile, Apple M5 Pro).**
 
 | Campaign | Cases / runs | Wall time | Result |
 | --- | --- | --- | --- |
 | Smoke: hand-written witness (29 steps) + positive control (orphan planted with `set_state`) | 2 | 0.2 s | clean; the control is caught |
 | Search, `gas::mixed`, seed 0x20261020 | 2,000 cases (368 grown by guidance) + 366 max-gas, 2,369 runs, 55,071 op calls | 447 s, 0.224 s per case (growth included) | clean, all 29 methods reached |
 | Search, `gas::wide`, seed 0x20261021 | 2,000 cases, 2,005 runs | 85 s, 0.042 s per case | clean, all 29 methods reached |
-| `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | about 60 s | clean |
+| `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | 58 s (72.7 s with the first, 1 Tgas-start gas walk in the same process) | clean |
 | Gas walk: each step of a 13-step witness from 50 Ggas up in 20 Ggas steps until it succeeds | 1,228 runs, 1,174 failing gas values, 714 of them dying after the flush's first write or remove | 67 s | clean |
 
 Behaviour reached in the mixed search, counted per receipt:
@@ -1990,4 +1990,4 @@ What it did not add: cross-receipt SDK state leaks are structurally impossible o
 - `Run::outcomes()[step]` tells whether a step succeeded, for the gas walk.
 - The guidance and max-gas growth ignore the strategy's gaps, so a harness must not assume Settle-only isolation.
 - `proptest::prop_oneof!` needs a weight on every arm or on none. `Just(..)` arms of a `Copy` enum are fine.
-- The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator. The first build compiled nearcore's crates again, because proto-gas's last build was evicted, which took about 10 minutes.
+- The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator. The first build recompiled some of nearcore's dependencies; later builds take seconds.
