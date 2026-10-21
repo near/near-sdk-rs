@@ -8,7 +8,11 @@ edition = "2024"
 publish = false
 
 [dev-dependencies]
-near-contract-sim = { path = "/Users/ricky/Developer/near-contract-sim-scenario" }
+# near-contract-sim main @ 8e8642db ("One crate: primitives replaces main (#83)"), checked out as a
+# worktree next to near-sdk-rs: `git -C ~/Developer/near-contract-sim-scenario worktree add
+# ~/Developer/near-contract-sim-main 8e8642db`. Relative, so it resolves from any checkout at
+# ~/Developer/near-sdk-rs (a .claude/worktrees checkout needs a symlink; see ../README.md).
+near-contract-sim = { path = "../../../near-contract-sim-main" }
 proptest = "1.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
