@@ -1943,9 +1943,9 @@ A proof over the record codec or the key builder costs far more than the size of
 | --- | --- | --- | --- |
 | Smoke: hand-written witness (29 steps) + positive control (orphan planted with `set_state`) | 2 | 0.2 s | clean; the control is caught |
 | Search, `gas::mixed`, seed 0x20261020 | 2,000 cases (368 grown by guidance) + 366 max-gas, 2,369 runs, 55,071 op calls (38,050 of them overlapped another op, so the per-op before/after checks count them ok without judging; the global replay judges them) | 440 to 447 s over two runs, 0.22 s per case (growth included); the rerun with the liveness check gave identical counts | clean, all 29 methods reached |
-| Search, `gas::wide`, seed 0x20261021 | 2,000 cases, 2,005 runs | 85 s, 0.042 s per case | clean, all 29 methods reached |
-| `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | 58 s (72.7 s with the first, 1 Tgas-start gas walk in the same process) | clean |
-| Gas walk: each step of a 13-step witness from 50 Ggas up in 20 Ggas steps until it succeeds | 1,228 runs, 1,174 failing gas values, 714 of them dying after the flush's first write or remove | 67 s | clean |
+| Search, `gas::wide`, seed 0x20261021 | 2,000 cases, 2,005 runs | 85 to 95 s over two runs, 0.04 to 0.05 s per case | clean, all 29 methods reached |
+| `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | 56 to 58 s | clean |
+| Gas walk: each step of a 13-step witness from 50 Ggas up in 20 Ggas steps until it succeeds | 1,228 runs, 1,174 failing gas values, 714 of them dying after the flush's first write or remove | 60 to 67 s | clean |
 
 Behaviour reached in the mixed search, counted per receipt:
 
@@ -1956,7 +1956,7 @@ Behaviour reached in the mixed search, counted per receipt:
 - 975 `remove_step` receipts on a present record returned a value, plus the chained Pending links; each was judged against the budget and the liveness bound.
 - Natural out of gas: 428, mostly bulk inserts and chain links.
 
-The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt`.
+The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt`. The scan, the gas walk and both searches were rerun after the liveness bound was added, and all stayed clean.
 
 **Findings, triaged.** None is an SDK bug, so no production code changed.
 

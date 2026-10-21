@@ -1,47 +1,55 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
      Running tests/storage_v2_search.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_search-942c1f474db377ad)
 
 running 2 tests
-test gas_walk_every_step ... gas walk: 274 runs in 14.185017875s
-  Bulk: 40 failing gas values, first success at 3.0 Tgas
-  BalSet: 3 failing gas values, first success at 1.2 Tgas
-  BalRemove: 11 failing gas values, first success at 1.6 Tgas
-  LogPop: 0 failing gas values, first success at 1.0 Tgas
-  TryInsert: 0 failing gas values, first success at 1.0 Tgas
-  MemInsert: 0 failing gas values, first success at 1.0 Tgas
-  LookInsert: 0 failing gas values, first success at 1.0 Tgas
-  SetNonce: 0 failing gas values, first success at 1.0 Tgas
-  RemoveStep: 10 failing gas values, first success at 1.5 Tgas
-  RemoveStep: 8 failing gas values, first success at 1.4 Tgas
-  RemoveChain: 183 failing gas values, first success at 10.2 Tgas
-  Remove: 6 failing gas values, first success at 1.3 Tgas
-  MemRemove: 0 failing gas values, first success at 1.0 Tgas
+test gas_walk_every_step ... mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+gas walk: 1228 runs in 60.355770583s
+  Bulk: 146 failing gas values (30 distinct death points by host calls made, 78 after the flush's first write or remove), first success at 3.0 Tgas
+  BalSet: 55 failing gas values (9 distinct death points by host calls made, 18 after the flush's first write or remove), first success at 1.2 Tgas
+  BalRemove: 75 failing gas values (13 distinct death points by host calls made, 29 after the flush's first write or remove), first success at 1.6 Tgas
+  LogPop: 41 failing gas values (7 distinct death points by host calls made, 8 after the flush's first write or remove), first success at 0.870 Tgas
+  TryInsert: 47 failing gas values (8 distinct death points by host calls made, 15 after the flush's first write or remove), first success at 0.990 Tgas
+  MemInsert: 46 failing gas values (8 distinct death points by host calls made, 14 after the flush's first write or remove), first success at 0.970 Tgas
+  LookInsert: 23 failing gas values (3 distinct death points by host calls made, 1 after the flush's first write or remove), first success at 0.510 Tgas
+  SetNonce: 34 failing gas values (5 distinct death points by host calls made, 8 after the flush's first write or remove), first success at 0.730 Tgas
+  RemoveStep: 72 failing gas values (12 distinct death points by host calls made, 28 after the flush's first write or remove), first success at 1.5 Tgas
+  RemoveStep: 66 failing gas values (11 distinct death points by host calls made, 19 after the flush's first write or remove), first success at 1.4 Tgas
+  RemoveChain: 504 failing gas values (12 distinct death points by host calls made, 462 after the flush's first write or remove), first success at 10.2 Tgas
+  Remove: 61 failing gas values (12 distinct death points by host calls made, 19 after the flush's first write or remove), first success at 1.3 Tgas
+  MemRemove: 45 failing gas values (8 distinct death points by host calls made, 15 after the flush's first write or remove), first success at 0.950 Tgas
 behaviour coverage (receipts):
-  acct_remove_chain: Done: 92
-  acct_remove_chain: Pending (chained): 319
-  acct_remove_step: Done: 80
-  acct_remove_step: Pending: 452
-  hand flush mid-call, then root change: 275
-  natural out of gas: acct_bulk: 40
-  natural out of gas: acct_remove: 6
-  natural out of gas: acct_remove_chain: 183
-  natural out of gas: acct_remove_step: 18
-  natural out of gas: bal_remove: 11
-  natural out of gas: bal_set: 3
-  ok: acct_bulk: 235
-  ok: acct_remove: 269
-  ok: acct_remove_chain: 92
-  ok: acct_remove_step: 532
-  ok: acct_set_nonce: 275
-  ok: acct_try_insert: 275
-  ok: bal_remove: 264
-  ok: bal_set: 272
-  ok: log_pop: 275
-  ok: look_insert: 275
-  ok: mem_insert: 275
-  ok: mem_remove: 275
+  acct_remove_chain: Done: 725
+  acct_remove_chain: Pending (chained): 2191
+  acct_remove_step: Done: 292
+  acct_remove_step: Pending: 2028
+  hand flush mid-call, then root change: 1195
+  natural out of gas: acct_bulk: 146
+  natural out of gas: acct_remove: 61
+  natural out of gas: acct_remove_chain: 504
+  natural out of gas: acct_remove_step: 138
+  natural out of gas: acct_set_nonce: 34
+  natural out of gas: acct_try_insert: 47
+  natural out of gas: bal_remove: 75
+  natural out of gas: bal_set: 55
+  natural out of gas: log_pop: 41
+  natural out of gas: look_insert: 23
+  natural out of gas: mem_insert: 46
+  natural out of gas: mem_remove: 45
+  ok: acct_bulk: 1083
+  ok: acct_remove: 1168
+  ok: acct_remove_chain: 725
+  ok: acct_remove_step: 2320
+  ok: acct_set_nonce: 1195
+  ok: acct_try_insert: 1182
+  ok: bal_remove: 1154
+  ok: bal_set: 1174
+  ok: log_pop: 1188
+  ok: look_insert: 1206
+  ok: mem_insert: 1183
+  ok: mem_remove: 1184
+  remove_step on a present record (budget and liveness judged): 2607
 ok
-test scan_witnesses ... mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+test scan_witnesses ... mbx[progress]: 1m 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
 Clean
 scan: 2 plans and 477 variant(s), 479 cases, 38760 blocks; 48 injected, 0 incomplete; 64 not tried
 gas explored on 429 of 11966 calls (11966 unpinned); the least-gas bisection ran a transaction 1585 times
@@ -141,6 +149,7 @@ storage, per op that grew a contract's (signer's ops; the contract pays when the
 
 acct_remove_chain starved in 12 variant(s)
 behaviour coverage (receipts):
+    of which the hand flush reached the host before the panic: 402
   accounts_page: continued from a cursor: 402
   acct_get of a clearing record: 408
   acct_remove_chain: Done: 461
@@ -177,8 +186,9 @@ behaviour coverage (receipts):
   ok: mem_remove: 402
   ok: members_page: 402
   panic after a hand flush (reverted): 402
+  remove_step on a present record (budget and liveness judged): 1265
   write below a clearing record refused: 420
 ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 72.70s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 116.65s
 
