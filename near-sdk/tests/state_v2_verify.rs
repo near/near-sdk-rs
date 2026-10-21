@@ -793,6 +793,11 @@ mod a3 {
         v.note.set(700);
         let r = testing::end_call();
         assert_eq!(ops_on_rec(&r), vec![HasKey, Read, Write]);
+        let lazy_key = root().kind(0).entry(&1u32).field(5).as_bytes().to_vec();
+        assert!(
+            !r.ops.iter().any(|o| o.kind == HasKey && o.key == lazy_key),
+            "the record's bytes are known in this call (patched), so the Lazy needs no existence check"
+        );
         let kinds: Vec<_> = record::parse(&testing::store()[&rec_key]).unwrap().into_iter().map(|(t, w, b)| (t, w, b.to_vec())).collect();
         assert_eq!(
             kinds,
@@ -1077,7 +1082,10 @@ mod a3 {
             testing::flush();
         })
         .expect_err("a collection below a removed record");
-        assert!(msg(e).contains("refusing to create a collection below the record"), "{}", "absent");
+        let e = msg(e);
+        assert!(e.contains("refusing to create a collection below the record"), "{}", "absent");
+        let rec_hex: String = root().kind(0).entry(&3u32).as_bytes().iter().map(|b| format!("{b:02x}")).collect();
+        assert!(e.contains(&rec_hex), "the message names the record key: {e}");
         testing::begin_call();
         assert_eq!(testing::store(), before);
     }

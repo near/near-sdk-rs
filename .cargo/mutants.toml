@@ -36,4 +36,16 @@ exclude_re = [
     # migrating.rs `Migrating::detach -> ()`: unreachable, Migrating is not `Removable`, so
     # nothing detaches it.
     'replace <impl Value for Migrating<V1, V2>>::detach with \(\)',
+    # cache.rs `Slot::gone_in_this_call` (round 7, used only by `ensure_marker`): a record
+    # removed or set clearing in this call after a handle was bound fails that handle's
+    # `check_live` first, and `at_mut` refuses a clearing record, so no anchored handle reaches
+    # `ensure_marker` with such a slot; the record removed or cleared in an earlier call has an
+    # absent key (`Orig::Absent`), which the caller tests separately. `-> false` and `&&` (either
+    # term alone) are therefore unobservable; `-> true` is caught.
+    'replace Slot::gone_in_this_call -> bool with false',
+    'replace \|\| with && in Slot::gone_in_this_call',
+    # record.rs `with_marker` `t > tag` -> `t >= tag`: a stored field at `tag` itself is skipped
+    # (replaced by the new body) either way, so placing the new field just before it or just
+    # after it gives the same bytes.
+    'replace > with >= in with_marker',
 ]

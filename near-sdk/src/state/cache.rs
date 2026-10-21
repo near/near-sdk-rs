@@ -173,6 +173,12 @@ enum FlushOp<'a> {
 }
 
 impl Slot {
+    /// Removed, or set clearing, in this call. Defensive in `ensure_marker`: a handle bound
+    /// before such a removal fails `check_live` first, and `at_mut` refuses a clearing record.
+    fn gone_in_this_call(&self) -> bool {
+        self.mode == Mode::Deleted || self.is_clearing()
+    }
+
     fn is_clearing(&self) -> bool {
         match self.clearing {
             Clearing::Set => true,
@@ -669,7 +675,7 @@ pub(crate) fn set_clearing(path: &Path) {
 /// still one write per key). Panics if the record was removed in this call or is being cleared:
 /// a child never comes into existence under a record that is not there.
 #[track_caller]
-pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: impl FnOnce() -> bool) {
+pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: &dyn Fn() -> bool) {
     let state = with(|c| {
         if c.root.as_deref() == Some(rec_key) {
             return None;
@@ -682,10 +688,9 @@ pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absen
             Some(s) if matches!(s.mode, Mode::Touched | Mode::Dirty) => None,
             // decided without a host call: the bytes are known, or the record is gone (refused)
             Some(s)
-                if s.mode == Mode::Deleted
-                    || s.is_clearing()
+                if matches!(s.orig, Orig::Present(_) | Orig::Absent)
                     || s.patch.is_some()
-                    || matches!(s.orig, Orig::Present(_) | Orig::Absent) =>
+                    || s.gone_in_this_call() =>
             {
                 Some(true)
             }
@@ -703,7 +708,7 @@ pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absen
         let mut sp = c.load(rec_key, false);
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_mut() };
-        if s.mode == Mode::Deleted || s.is_clearing() || s.orig == Orig::Absent {
+        if s.orig == Orig::Absent || s.gone_in_this_call() {
             panic!(
                 "state: refusing to create a collection below the record at {}: the record is \
                  not stored (removed, absent, or being cleared by `remove_step`)",

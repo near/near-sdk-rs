@@ -78,7 +78,8 @@ impl Binding {
     /// asked only when the record's bytes are not known in this call. Free for root fields and
     /// for handles of a decoded record.
     #[track_caller]
-    fn declare(&self, child_absent: impl FnOnce() -> bool) {
+    #[inline(never)]
+    fn declare(&self, child_absent: &dyn Fn() -> bool) {
         if let Binding::Bound(p, _, a) = self
             && a.rec_len > 0
         {
@@ -86,9 +87,10 @@ impl Binding {
             let mut trail = std::vec::Vec::new();
             let mut pos = 0;
             while pos < hops.len() {
-                trail.push(
-                    super::record::read_varint_u32(hops, &mut pos).expect("field hops are LEB128 tags"),
-                );
+                match super::record::read_varint_u32(hops, &mut pos) {
+                    Ok(t) => trail.push(t),
+                    Err(_) => panic!("field hops are LEB128 tags"),
+                }
             }
             cache::ensure_marker(rec, &trail, a.kind, child_absent);
         }
@@ -996,7 +998,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     fn push_key(&mut self, k: &K) {
         let h = self.head();
         if h == MapHeader::default() {
-            self.path.declare(|| true);
+            self.path.declare(&|| true);
         }
         cache::put(&self.index_path(k), h.len);
         cache::put(&self.slot_path(h.len), k.clone());
@@ -1578,7 +1580,7 @@ impl<T: Value> Vector<T> {
         self.path.live();
         let len = self.len();
         if len == 0 {
-            self.path.declare(|| true);
+            self.path.declare(&|| true);
         }
         let path = self.slot(len);
         v.bind(&path);
@@ -1834,7 +1836,7 @@ impl<T: Value> Lazy<T> {
         self.path.live();
         let path = self.p().clone();
         assert_insert_new::<T>(&path);
-        self.path.declare(|| !cache::exists(&path));
+        self.path.declare(&|| !cache::exists(&path));
         v.bind(&path);
         cache::put(&path, v);
     }

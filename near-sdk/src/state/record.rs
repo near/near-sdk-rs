@@ -324,14 +324,27 @@ pub fn with_marker(bytes: &[u8], trail: &[u32], kind: u8) -> Result<Option<Vec<u
         },
         (_, false) => (Wire::Record, with_marker(&[], rest, kind)?.expect("an empty record has no marker")),
     };
-    let mut w = RecordWriter::new();
+    // `parse` checked the tags ascend, so the field goes in by splicing (no re-sort).
+    let mut out = Vec::with_capacity(bytes.len() + body.1.len() + 6);
+    let mut put = |t: u32, wire: Wire, b: &[u8]| {
+        write_varint(&mut out, field_key(t, wire));
+        write_varint(&mut out, b.len() as u64);
+        out.extend_from_slice(b);
+    };
+    let mut placed = false;
     for (t, wire, b) in fields {
+        if t > tag && !placed {
+            put(tag, body.0, &body.1);
+            placed = true;
+        }
         if t != tag {
-            w.push_wire(t, wire, b.to_vec());
+            put(t, wire, b);
         }
     }
-    w.push_wire(tag, body.0, body.1);
-    Ok(Some(w.finish(None, |_| false)))
+    if !placed {
+        put(tag, body.0, &body.1);
+    }
+    Ok(Some(out))
 }
 
 /// Finds the bytes of one field in a parsed record (any wire type).
