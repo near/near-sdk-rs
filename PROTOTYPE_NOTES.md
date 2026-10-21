@@ -2048,7 +2048,8 @@ tag 3 169, starved continuations 17 (searches) and 34 (scan).
 ### Findings and triage
 
 1. **Real SDK hole: the A3 kind marker is missing when a new collection is written through
-   `at_mut` (medium; not fixed, pinned).** Found by the scan (witness 5), minimal plan: v2a
+   `at_mut` (medium; fixed in round 7 by option (b) plus root-only `LookupMap`/`LookupSet`, see
+   "Round 7" below).** Found by the scan (witness 5), minimal plan: v2a
    creates g0 (tags 1-5, no tag-8 marker); upgrade to v2b; `add_flag(g0)` writes the `flags`
    entries through `at_mut`, which never rewrites the record, so no marker lands; downgrade to
    v2a; `remove_group(g0)` (or `remove_step`) passes the A3 check and leaves 4 keys (flag entry,
@@ -2120,7 +2121,70 @@ receipt is on one account.
 
 ### Not done
 
-No fix for finding 1 (decision above). No variant with a different-length re-tag, a `Lazy` or
+Finding 1 is fixed in round 7. No variant with a different-length re-tag, a `Lazy` or
 `Vector` field added in a later version, or a v3 deployed before the drain finished (the op
 skips it: the documented precondition). Searches rarely land OutOfGas (fault draws fit only
 continuations); the scan covers every continuation of its 8 witnesses.
+
+## Round 7: A3 first-write rule and root-only headerless collections (Oct 20)
+
+Fixes finding 1 of "Sim upgrade search (Oct 20)": a collection field added to an existing record type had no kind marker in records an older version wrote, and `at_mut` writes below a record without rewriting it, so an older version's removal passed the A3 check and orphaned the new collection's entries. Option (b) of that triage, plus a compile-time rule for the collections (b) cannot cover. Started at ec29bf6f.
+
+### The rule
+
+- **First write.** When a collection reached through an `at_mut` view comes into existence, the SDK reads the parent record once and adds the collection's kind marker if no marker is stored at its tag. The triggers are `Map::push_key` with the header at its default (covers `Map` and `Set` inserts, `try_insert` and `entry`), `Vector::push` at length 0, and `Lazy::set` when the value is absent. The patched bytes go into a new `Slot::patch`; the flush writes them as the record's one write (`Write(At::Key, patch)` for a Clean slot), and a verbatim move to the flag key uses them too. No write when the marker is already there (any kind byte).
+- **Where the record is.** `Binding::Bound` carries an `Anchor { rec_len, kind }`, set only by `at_mut` views: the derive's `__view_mut_in(path, anchor)` passes the record's key length down to `__view_field_mut(field_path, anchor)`, nested inline records included. The trail is the LEB128 tags in `path[rec_len..]`. The kind comes from the declared field type, so a `Set` writes `SET` (0x83), not the `MAP` of its inner map. Root fields, `__bound_at` handles and handles of a decoded record have no anchor and pay nothing.
+- **`cache::ensure_marker`.** Returns at once for the root or a Touched/Dirty record (its typed encode writes every marker). With the bytes known in this call (Present, a pending patch, Absent, or removed/clearing in this call) it decides without a host call. Otherwise it asks the collection whether it is absent (`Map`/`Vector`: already known from the header; `Lazy`: 1 `storage_has_key`), then loads the record (1 read) and applies `record::with_marker`.
+- **`record::with_marker`.** Splices the marker into the parsed record at its tag; a nested record on the way that is absent is created holding only the path to the marker, and a field on the way under another wire type is replaced. The first version re-encoded through `RecordWriter::finish`, which monomorphised another stable sort into every contract (+7.9 KB of wasm); the splice and a non-generic `Binding::declare(&dyn Fn() -> bool)` bring it to +3.7 KB.
+- **Depth.** By induction: a middle record exists only if its own map's first write marked the level above, so every level of a 3-deep chain carries its marker (`a3_first_write_rule_holds_three_levels_deep`).
+- **Fail closed.** A first write below a record that is absent, removed or clearing panics ("refusing to create a collection below the record at <hex>: ..."); in practice the A2 generation check or `at_mut`'s clearing guard fires first, and only the absent case is reachable. A record whose bytes do not parse panics with the decode error, where the write used to land.
+
+### Root-only headerless collections
+
+`LookupMap`, `LookupSet` and `GroupedMap` have no header, so nothing tells their first write apart. `Value::__ROOT_ONLY` (hidden, default false) is true for them and for `Migrating` (it holds a v1 map). The derive emits, per field of a non-root record, `const _: () = assert!(!<T as Value>::__ROOT_ONLY, msg)` spanned at the field type, so the error (E0080) names the field, the record, why, and the fix (`Map`/`Set`). New `compile_fail,E0080` doctest in `state/mod.rs` (8 now) plus a passing doctest with `Set` in the record and `LookupSet` at the root. No example or proto contract nested one; only the hand-written model fixture `RecL` (`lset` is now a `Set<u8>`, kind `SET`) changed.
+
+### Model and harness changes
+
+- `CacheModel::rec_declare` mirrors the rule: 1 record read unless the record is pending or known; `KV` gained a `parent`, and `vpush` a `parent` parameter. `RecLM.lset` became a set with `lset_rev`; `LSetInsert`/`LSetRemove` return `Bool`.
+- `g7_stated_cost`: `RecAtMutInsert` costs `c(3,4,0,1)` when the key lands in a map with no header. The pin `g7_at_mut_is_one_existence_check_current_shape` asserts 1 record read on the first write, none after.
+- DAO `vote_op_counts` (3 members, 2 proposals): the first vote into a proposal's empty `votes` map is (7, 8, 0) with over 2,000 bytes read (the proposal record); later votes (6, 8, 0) and (5, 8, 0) as before.
+- `hazard_old_in_record_flag_passes_at_mut_but_fails_get`: the first write below a record with the pre-D9 in-record flag now panics with `TagZero`; the test then seeds a header to show the remaining hazard on later writes.
+- Sim upgrade harness: the model applies the rule (`GroupM::first_write` on `add_member`/`add_flag`), the A3 `Known` is gone, the refusal message is an expected panic and a probe line.
+
+### Flipped pins (fail on ec29bf6f, pass now)
+
+| Pin | On ec29bf6f | Now |
+|---|---|---|
+| mock `a3_first_write_through_at_mut_adds_the_marker_so_removal_fails_closed` (was `hazard_a3_marker_missing_when_the_new_collection_is_written_through_at_mut`) | fails: ops on the record `[HasKey]`, expected `[HasKey, Read, Write]`; with the op-count lines removed, fails at `assert_refused("remove")` (removal succeeded) | passes: marker `09 01 81` appended, every removal path through A refused, B removes in steps and leaves zero keys |
+| sim `a3_first_write_through_at_mut_marks_the_record_so_removal_refuses` (was `a3_marker_missing_after_at_mut_write_orphans_a_new_collection`) | fails: no tag-8 marker in the record | passes: marker `21 01 83`, v2a refuses, nothing changes, v2b removes, no key left, new g0 inherits nothing |
+| sim `a3_orphan_replay` | fails: the orphan finding is present | passes: no "no collection outlives its record" finding |
+
+New mock tests: `a3_first_write_marks_each_kind_once_and_only_when_missing` (Set, Vector, Lazy; host ops counted, no rewrite when the marker exists), `a3_first_write_rule_holds_three_levels_deep`, `a3_first_write_rule_through_an_inline_nested_record`, `a3_first_write_below_a_clearing_or_removed_record_is_refused`, `record::tests::with_marker_adds_only_a_missing_marker`, `tests_gaps_cache::gaps_cache_remove_hands_out_the_decoded_value`.
+
+### Gas (proto-gas, real runtime; `proto-gas/results/gas_a3fix_20261020.txt`)
+
+Every row moves by the contract-load shift of the larger wasm: +3.7 KB, +4.0 Ggas (h16) and +4.6 Ggas (ext) per call. Beyond that:
+
+| Row (10k keys) | Before Tgas | After Tgas | Ops before -> after |
+|---|---:|---:|---|
+| at_mut, 1st write into an empty nested Map, record has the marker | 1.975 | 2.056 | 3/4/0/1 -> 4/4/0/1 |
+| at_mut, 1st write, record without the marker | 1.975 | 2.164 | 3/4/0/1 -> 4/5/0/1 |
+| at_mut, `Lazy<u64>::set`, value absent | 1.431 | 1.573 | 1/1/0/1 -> 2/1/0/2 |
+| at_mut, `Lazy<u64>::set`, value present | 1.441 | 1.509 | 1/1/0/1 -> 1/1/0/2 |
+| at_mut 2nd write, update, root Map/LookupMap ops, deposit, paging | | | unchanged beyond load |
+
+The slow path on its own: +22 Ggas (record read) over a later write when the marker is there, +130 Ggas (read and write) when it is not. `Lazy::set` through `at_mut` pays its existence check on every call (+63 Ggas): it has no header to answer in memory. A flush-time variant that learns absence from `storage_write`'s eviction result would remove it; not done.
+
+### Verification
+
+- near-sdk lib 708 passed, 1 ignored; doctests 349 passed, 7 ignored, plus 8; `state_v2_*`: dao 15, exchange 36, ft 16, migrate 17, nft 17, verify 22; near-sdk-macros 49 + 1; proto-wasm-check ok; ft-v2 16 + 2 doctests. `abi_tests` and `deny_unknown_arguments_tests` fail in this worktree for environment reasons (a nested package that cargo places in the outer workspace; no sandbox binary), as on ec29bf6f.
+- Sim upgrade: hand tests 9/9; campaign regenerated (`proto-sim-upgrade/results/`): 3 x 512 search cases and the 472-case scan; "no collection outlives its record" 0 failed everywhere (the scan had 50); A3 refusals in the scan 137 (was 42). Knowns left: the re-used tag 4 and continuation refusals, as before.
+- Sim search: smoke and positive control pass; 512-case search (seed 0x20261020) and wide-gas search (0x20261021) Clean; scan_witnesses Clean; gas walk passes.
+- cargo-mutants 27.1.0, `--in-diff` of `git diff ec29bf6f` over cache.rs, collections.rs, record.rs, value.rs and migrating.rs, testing the lib (`BOLERO_RANDOM_ITERATIONS=300`, skipping `g3_no_debt_after_10000`) plus `state_v2_verify`, `state_v2_dao`, `state_v2_exchange` and `state_v2_migrate`, -j 4, with `.cargo/mutants.toml`. First pass: 77 mutants, 54 caught, 6 missed, 16 unviable, 1 timeout. Closed: the record key in the refusal message (`hex -> String::new()` / `"xyzzy"`) by an assertion in `a3_first_write_below_a_clearing_or_removed_record_is_refused`; `delete_impl -> None` by `gaps_cache_remove_hands_out_the_decoded_value`; the three `||` -> `&&` on the removed/clearing terms of `ensure_marker` are unreachable (A2 generation check and `at_mut`'s clearing guard fire first) and now sit in `Slot::gone_in_this_call`, excluded with the reason, as is `with_marker`'s `t > tag` -> `>=` (the field at `tag` is skipped either way). Second pass: 74 mutants, 56 caught, 1 missed, 16 unviable, 1 timeout. The missed one (`(known || patch) && gone`, which turns every first write into "unknown") is now caught by an assertion that a `Lazy::set` after the record was patched in the same call makes no existence check. The timeout is `delete_impl -> None`, which hangs another test before the new one runs; each of the four kills was confirmed by applying the mutant by hand. The macro crate was not mutated.
+- Miri (nightly, `-Zmiri-ignore-leaks`) on the 10 A1/A2 handle tests, the 16 `tests_gaps_cache` tests (one new), `at_mut_writes_below_the_record_without_decoding_it`, `at_mut_on_an_absent_record_is_none`, `hazard_old_in_record_flag_passes_at_mut_but_fails_get` and `record::tests::with_marker_adds_only_a_missing_marker`: 30/30 under Stacked Borrows (9 min 37 s) and 30/30 under Tree Borrows (11 min 13 s). No UB; the known integer-to-pointer warning from the mock's host ABI.
+- Kani not re-run: the harnesses cover record parse/encode and key paths, which this round does not change (`with_marker` is new and covered by unit and differential tests).
+
+### Not done
+
+- `Lazy::set`'s per-call existence check (above).
+- Records written before the rule by an older version are not swept; they gain the marker on the first write below them or the next rewrite.
