@@ -1,45 +1,58 @@
 # A3 first-write rule: gas before/after (Oct 20 2026)
-# proto-gas sim test `a3_rows` (cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture)
-# before = proto-gas/res built from ec29bf6f SDK + the new ext methods; after = e7a7480d (first-write rule).
-# 10k keys for the h16 map/lookup and ext rows. Delta in Ggas. Rows marked * moved by more than 0.1 Ggas
-# beyond the uniform contract-load shift (all rows move by ~8.6-9.0 Ggas of `load`: the code section grew 7.2 KB).
+# proto-gas sim test `a3_rows`: cd proto-gas/sim && cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture
+# before: proto-gas/res built from the ec29bf6f SDK plus the new ext methods. after: the round 7 SDK.
+# 10k keys for the h16 map/lookup and ext rows. Tgas is the median of the row; deltas in Ggas.
+# Every row pays a uniform contract-load shift: the v2 wasms grew by 3.7 KB (the first-write
+# code: Binding::declare, cache::ensure_marker, record::with_marker), +4.0 Ggas of `load` on h16
+# and +4.5 on ext. 'beyond load' is the delta minus that shift; totals have 1 Ggas resolution,
+# so rows marked * are those whose host-op counts changed or that moved 2 Ggas or more beyond load
+# (page_with and deposit at +2 are at the rounding edge; remove_step(n=64) +5 is wasm execution).
 
-| contract | op | before Tgas | after Tgas | delta Ggas | load Ggas | r/w/d/h before -> after | |
-|---|---|---:|---:|---:|---|---|---|
-| v2 Map (h16) | insert new | 1.796 | 1.806 | +10 | 178.1 -> 186.7 | 3/4/0/0 -> 3/4/0/0 |  |
-| v2 Map (h16) | update existing | 1.422 | 1.431 | +9 | 178.1 -> 186.7 | 2/1/0/0 -> 2/1/0/0 |  |
-| v2 Map (h16) | remove (non-last) | 2.150 | 2.160 | +10 | 178.1 -> 186.7 | 5/3/3/0 -> 5/3/3/0 |  |
-| v2 LookupMap (h16) | insert new | 1.315 | 1.324 | +9 | 178.1 -> 186.7 | 1/1/0/0 -> 1/1/0/0 |  |
-| v2 LookupMap (h16) | update existing | 1.324 | 1.333 | +9 | 178.1 -> 186.7 | 1/1/0/0 -> 1/1/0/0 |  |
-| v2 LookupMap (h16) | remove (non-last) | 1.378 | 1.386 | +8 | 178.1 -> 186.7 | 2/0/1/0 -> 2/0/1/0 |  |
-| v2 (h16, ext) | page_with(after, 50) of Map<AccountId, u128> | 10.513 | 10.522 | +9 | 217.9 -> 226.9 | 103/0/0/0 -> 103/0/0/0 |  |
-| v2 (h16, ext) | ping (same wasm) | 1.106 | 1.115 | +9 | 217.9 -> 226.9 | 0/0/0/0 -> 0/0/0/0 |  |
-| v2 (h16, ext) | Map::try_insert record owning a Map (new key) | 1.850 | 1.860 | +10 | 217.9 -> 226.9 | 3/4/0/0 -> 3/4/0/0 |  |
-| v2 (h16, ext) | LookupMap::try_insert record owning a Map (new key) | 1.483 | 1.493 | +10 | 217.9 -> 226.9 | 1/1/0/2 -> 1/1/0/2 |  |
-| v2 (h16, ext) | remove_step(n=3), first call (Pending), record + 10-entry Map | 1.768 | 1.777 | +9 | 217.9 -> 226.9 | 4/1/1/0 -> 4/1/1/0 |  |
-| v2 (h16, ext) | remove_step(n=3), finishing call (Done); calls to finish 13-13 | 2.109 | 2.119 | +10 | 217.9 -> 226.9 | 6/1/3/0 -> 6/1/3/0 |  |
-| v2 (h16, ext) | remove_step(n=3), whole sequence: total 27.741 Tgas, 35 removes | 27.741 | 27.867 | +126 | - -> - | - -> - | * |
-| v2 (h16, ext) | remove_step(n=64), one call (Done), record + 10-entry Map | 7.432 | 7.444 | +12 | 217.9 -> 226.9 | 15/1/34/0 -> 15/1/34/0 |  |
-| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record has marker) | 1.975 | 2.061 | +86 | 217.9 -> 226.9 | 3/4/0/1 -> 4/4/0/1 | * |
-| v2 (h16, ext) | at_mut: 2nd write, new key, same nested Map | 2.028 | 2.038 | +10 | 217.9 -> 226.9 | 3/4/0/1 -> 3/4/0/1 |  |
-| v2 (h16, ext) | at_mut: update existing key in nested Map | 1.580 | 1.590 | +10 | 217.9 -> 226.9 | 2/1/0/1 -> 2/1/0/1 |  |
-| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record without marker) | 1.975 | 2.171 | +196 | 217.9 -> 226.9 | 3/4/0/1 -> 4/5/0/1 | * |
-| v2 (h16, ext) | at_mut: 2nd write into that Map | 2.028 | 2.038 | +10 | 217.9 -> 226.9 | 3/4/0/1 -> 3/4/0/1 |  |
-| v2 (h16, ext) | at_mut: Lazy<u64>::set, value absent | 1.431 | 1.577 | +146 | 217.9 -> 226.9 | 1/1/0/1 -> 2/1/0/2 | * |
-| v2 (h16, ext) | at_mut: Lazy<u64>::set, value present | 1.441 | 1.514 | +73 | 217.9 -> 226.9 | 1/1/0/1 -> 1/1/0/2 | * |
-| v2 root (h16) | deposit (new account via entry().or_default(), 1st token) | 2.306 | 2.316 | +10 | 178.1 -> 186.7 | 6/8/0/0 -> 6/8/0/0 |  |
-| v2 root (h16) | deposit (existing account, new token) | 1.935 | 1.945 | +10 | 178.1 -> 186.7 | 4/4/0/0 -> 4/4/0/0 |  |
-| v2 root (h16) | balance_of (2 hops) | 1.294 | 1.303 | +9 | 178.1 -> 186.7 | 2/0/0/0 -> 2/0/0/0 |  |
+| contract | op | before Tgas | after Tgas | delta | load delta | beyond load | r/w/d/h before -> after | |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| v2 Map (h16) | insert new | 1.796 | 1.801 | +5 | +4.0 | +1 | 3/4/0/0 -> 3/4/0/0 |  |
+| v2 Map (h16) | update existing | 1.422 | 1.427 | +5 | +4.0 | +1 | 2/1/0/0 -> 2/1/0/0 |  |
+| v2 Map (h16) | remove (non-last) | 2.150 | 2.155 | +5 | +4.0 | +1 | 5/3/3/0 -> 5/3/3/0 |  |
+| v2 LookupMap (h16) | insert new | 1.315 | 1.320 | +5 | +4.0 | +1 | 1/1/0/0 -> 1/1/0/0 |  |
+| v2 LookupMap (h16) | update existing | 1.324 | 1.328 | +4 | +4.0 | +0 | 1/1/0/0 -> 1/1/0/0 |  |
+| v2 LookupMap (h16) | remove (non-last) | 1.378 | 1.382 | +4 | +4.0 | +0 | 2/0/1/0 -> 2/0/1/0 |  |
+| v2 (h16, ext) | page_with(after, 50) of Map<AccountId, u128> | 10.513 | 10.520 | +7 | +4.5 | +2 | 103/0/0/0 -> 103/0/0/0 | * |
+| v2 (h16, ext) | ping (same wasm) | 1.106 | 1.111 | +5 | +4.5 | +0 | 0/0/0/0 -> 0/0/0/0 |  |
+| v2 (h16, ext) | Map::try_insert record owning a Map (new key) | 1.850 | 1.856 | +6 | +4.5 | +2 | 3/4/0/0 -> 3/4/0/0 |  |
+| v2 (h16, ext) | LookupMap::try_insert record owning a Map (new key) | 1.483 | 1.489 | +6 | +4.5 | +2 | 1/1/0/2 -> 1/1/0/2 |  |
+| v2 (h16, ext) | remove_step(n=3), first call (Pending), record + 10-entry Map | 1.768 | 1.773 | +5 | +4.5 | +0 | 4/1/1/0 -> 4/1/1/0 |  |
+| v2 (h16, ext) | remove_step(n=3), finishing call (Done); calls to finish 13-13 | 2.109 | 2.115 | +6 | +4.5 | +2 | 6/1/3/0 -> 6/1/3/0 |  |
+| v2 (h16, ext) | remove_step(n=3), whole sequence: total 27.741 Tgas, 35 removes | 27.741 | 27.812 | +71 | 13 x 4.6 | +11 | - -> - |  |
+| v2 (h16, ext) | remove_step(n=64), one call (Done), record + 10-entry Map | 7.432 | 7.442 | +10 | +4.5 | +5 | 15/1/34/0 -> 15/1/34/0 | * |
+| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record has marker) | 1.975 | 2.056 | +81 | +4.5 | +76 | 3/4/0/1 -> 4/4/0/1 | * |
+| v2 (h16, ext) | at_mut: 2nd write, new key, same nested Map | 2.028 | 2.034 | +6 | +4.5 | +1 | 3/4/0/1 -> 3/4/0/1 |  |
+| v2 (h16, ext) | at_mut: update existing key in nested Map | 1.580 | 1.585 | +5 | +4.5 | +0 | 2/1/0/1 -> 2/1/0/1 |  |
+| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record without marker) | 1.975 | 2.164 | +189 | +4.5 | +185 | 3/4/0/1 -> 4/5/0/1 | * |
+| v2 (h16, ext) | at_mut: 2nd write into that Map | 2.028 | 2.034 | +6 | +4.5 | +1 | 3/4/0/1 -> 3/4/0/1 |  |
+| v2 (h16, ext) | at_mut: Lazy<u64>::set, value absent | 1.431 | 1.573 | +142 | +4.5 | +137 | 1/1/0/1 -> 2/1/0/2 | * |
+| v2 (h16, ext) | at_mut: Lazy<u64>::set, value present | 1.441 | 1.509 | +68 | +4.5 | +63 | 1/1/0/1 -> 1/1/0/2 | * |
+| v2 root (h16) | deposit (new account via entry().or_default(), 1st token) | 2.306 | 2.311 | +5 | +4.0 | +1 | 6/8/0/0 -> 6/8/0/0 |  |
+| v2 root (h16) | deposit (existing account, new token) | 1.935 | 1.941 | +6 | +4.0 | +2 | 4/4/0/0 -> 4/4/0/0 | * |
+| v2 root (h16) | balance_of (2 hops) | 1.294 | 1.298 | +4 | +4.0 | +0 | 2/0/0/0 -> 2/0/0/0 |  |
 
-The slow path on its own (after minus the hot-path row of the same shape, same wasm):
-- first write, record already has the marker: 1 record read = 2.061 - 2.038 = +23 Ggas over a 2nd write (+86 Ggas vs before, of which 9 is load)
-- first write, record without the marker: 1 record read + 1 record write = 2.171 - 2.038 = +133 Ggas over a 2nd write
-- Lazy<u64>::set below a record, value present: +1 has_key on the Lazy key every call = +73 Ggas (64 beyond load)
-- Lazy<u64>::set below a record, value absent: +1 has_key, +1 record read = +146 Ggas (137 beyond load)
-- remove_step(n=3) whole sequence: +126 Ggas over 13 calls = load shift only (~9.7 Ggas per call)
+The slow path as its own rows (same after-wasm, so no load shift in these differences):
+
+| slow path | cost Ggas | host ops added | when |
+|---|---:|---|---|
+| at_mut first write, record already has the marker | +22 vs a 2nd write | +1 record read | once per collection (header absent) |
+| at_mut first write, record without the marker | +130 vs a 2nd write | +1 record read, +1 record write | once per collection |
+| Lazy::set below a record, value absent | +137 beyond load | +1 has_key (Lazy key), +1 record read | each absent -> present set |
+| Lazy::set below a record, value present | +63 beyond load | +1 has_key (Lazy key) | every set: Lazy has no header to answer in memory |
+
+(The first write with the marker present costs more than a 2nd write only by the record read: the
+same row before the rule was 53 Ggas cheaper than the 2nd write because its trie walk was shorter.)
+
+DAO (near-sdk/tests/state_v2_dao.rs vote_op_counts): the first vote into a proposal's empty
+`votes` map reads the proposal record once (7/8/0 instead of 6/8/0, >2000 bytes read); the
+one-time read scales with the parent record's size. Later votes are unchanged.
 
 wasm sizes and SHA-256 (wasms are gitignored):
   v1.wasm  before 136397 B 8bcc7bb77aa9aecb2d593d0eeccc622fb71ab7f278cfd16938e604570a370f09  after 136397 B 8bcc7bb77aa9aecb2d593d0eeccc622fb71ab7f278cfd16938e604570a370f09
-  v2_h8.wasm  before 163413 B 823cac9708e6e9a5afcff698e8b92cc7fc70c9d3d1952847aeb55416bce084c6  after 171362 B 7adddfc887359489164425f2ef9799203c06afd1da7e6e1589665d1fc0e45f72
-  v2_h16.wasm  before 163434 B e59ef5e370657e72d575e4da4ad9391bb11667c158f435779aeea923bc685eff  after 171383 B 048e87883da901c043f58c3e3510d514f0380449c65befbc16e5bfba2140ed2a
-  v2_h16_ext.wasm  before 200040 B 6b92456d5c54fa8177ea1726975bfe361e1ec23c6836280c9a878cbb7786178a  after 208286 B 854792313aaef704df8c423073bd33389285bdff56395ab40b8b42065dd8b107
+  v2_h8.wasm  before 163413 B 823cac9708e6e9a5afcff698e8b92cc7fc70c9d3d1952847aeb55416bce084c6  after 167117 B f00cb398ce24c8ab0eccaf533dbcc76e8cbd2809fb83cb8e78ed2208db61e128
+  v2_h16.wasm  before 163434 B e59ef5e370657e72d575e4da4ad9391bb11667c158f435779aeea923bc685eff  after 167138 B e46adcb3e898893e8c34b9a2c36b8bdaef8521f553072d02dbdb0a1b67f8a161
+  v2_h16_ext.wasm  before 200040 B 6b92456d5c54fa8177ea1726975bfe361e1ec23c6836280c9a878cbb7786178a  after 204170 B bc5257f3a350f08ec174c04f620bad42973e5688ab267f89a67c07f3e0855b41
