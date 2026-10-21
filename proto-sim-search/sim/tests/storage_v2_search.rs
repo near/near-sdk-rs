@@ -1046,6 +1046,11 @@ fn step(m: &Model, r: &ReceiptOutcome, at: &str) -> Result<Model, String> {
             if removes > n {
                 return Err(format!("{call}: issued {removes} host removes, over the budget n = {n}"));
             }
+            // Liveness: on a present record every call with n >= 3 removes something (the first
+            // Pending call at least moves the record to its flag key).
+            if removes == 0 {
+                return Err(format!("{call}: returned done={is_done} on a present record with 0 host removes"));
+            }
             Ok(if is_done { done } else { pending })
         }
         
@@ -1348,6 +1353,10 @@ fn classify(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
                 let what = if msg.contains(CLEARING) {
                     "write below a clearing record refused"
                 } else if msg.contains("planned panic after flush") {
+                    let o = r.storage_ops();
+                    if o.writes + o.removes > 0 {
+                        tally::add("  of which the hand flush reached the host before the panic");
+                    }
                     "panic after a hand flush (reverted)"
                 } else if msg.contains(PLANNED) {
                     "panic before the flush"
@@ -1368,6 +1377,9 @@ fn classify(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
                     } else if args["after"].is_string() {
                         tally::add(format!("{m}: continued from a cursor"));
                     }
+                }
+                if (m == "acct_remove_step" || m == "acct_remove_chain") && r.storage_ops().removes > 0 {
+                    tally::add("remove_step on a present record (budget and liveness judged)");
                 }
                 if m == "acct_remove_step" || m == "acct_remove_chain" {
                     tally::add(format!("{m}: {}", if v == json!(true) { "Done" } else { "Pending" }));

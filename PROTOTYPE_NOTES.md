@@ -1931,7 +1931,7 @@ A proof over the record codec or the key builder costs far more than the size of
   - A receipt that failed for any reason is dropped from the model.
   - The whole trie (`view_state`) must then equal the model's concretization, key for key and byte for byte. Keys come from the spec's grammar, ported from `model.rs` `spec_key`. This covers G2/C2 (orphans), F3/G4 (no trace) and C4 (bytes).
   - `storage_usage` must equal the empty contract's plus key + value + 40 per key (C4 accounting).
-  - C5: a clearing record must have no record key, its bytes verbatim at the flag key, only keys it held when clearing began, and stay readable through `get`. Every `remove_step` receipt's host removes, from the real gas profile, must be at most `n`. A first call's Done or Pending must match the record's clear cost against `n`.
+  - C5: a clearing record must have no record key, its bytes verbatim at the flag key, only keys it held when clearing began, and stay readable through `get`. Every `remove_step` receipt's host removes, from the real gas profile, must be at most `n`, and at least 1 on a present record (liveness: a Pending call that touched nothing would fail). A first call's Done or Pending must match the record's clear cost against `n`.
   - C6: every page must equal the model's key-vector slice with its revision, or be `CursorGone` exactly when the cursor key is absent. A walk at one revision must return no key twice.
   - Probe: `storage_has_key`, called through the contract, is false on the record, flag and child keys of every absent record.
 
@@ -1942,7 +1942,7 @@ A proof over the record codec or the key builder costs far more than the size of
 | Campaign | Cases / runs | Wall time | Result |
 | --- | --- | --- | --- |
 | Smoke: hand-written witness (29 steps) + positive control (orphan planted with `set_state`) | 2 | 0.2 s | clean; the control is caught |
-| Search, `gas::mixed`, seed 0x20261020 | 2,000 cases (368 grown by guidance) + 366 max-gas, 2,369 runs, 55,071 op calls | 447 s, 0.224 s per case (growth included) | clean, all 29 methods reached |
+| Search, `gas::mixed`, seed 0x20261020 | 2,000 cases (368 grown by guidance) + 366 max-gas, 2,369 runs, 55,071 op calls (38,050 of them overlapped another op, so the per-op before/after checks count them ok without judging; the global replay judges them) | 440 to 447 s over two runs, 0.22 s per case (growth included); the rerun with the liveness check gave identical counts | clean, all 29 methods reached |
 | Search, `gas::wide`, seed 0x20261021 | 2,000 cases, 2,005 runs | 85 s, 0.042 s per case | clean, all 29 methods reached |
 | `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | 58 s (72.7 s with the first, 1 Tgas-start gas walk in the same process) | clean |
 | Gas walk: each step of a 13-step witness from 50 Ggas up in 20 Ggas steps until it succeeds | 1,228 runs, 1,174 failing gas values, 714 of them dying after the flush's first write or remove | 67 s | clean |
@@ -1952,7 +1952,8 @@ Behaviour reached in the mixed search, counted per receipt:
 - `remove_step`: 440 Pending, 1,422 Done; chained links: 48,862 Pending, 872 Done.
 - Refusals: 406 writes below a clearing record, 172 calls with `n < 3`, 4 nested keys over `MAX_LEN`.
 - `CursorGone`: 323 on `accounts`, 214 on `balances`, 123 on `members`; 69 pages continued from a cursor.
-- Planned panics: 673 before the flush, 634 after a hand flush, all reverted; 756 mid-call hand flushes.
+- Planned panics: 673 before the flush, and 634 after a hand flush. In 346 of those 634 the hand flush had issued writes or removes before the panic (the others had nothing dirty); all were reverted. There were 756 mid-call hand flushes.
+- 975 `remove_step` receipts on a present record returned a value, plus the chained Pending links; each was judged against the budget and the liveness bound.
 - Natural out of gas: 428, mostly bulk inserts and chain links.
 
 The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt`.
@@ -1990,4 +1991,4 @@ What it did not add: cross-receipt SDK state leaks are structurally impossible o
 - `Run::outcomes()[step]` tells whether a step succeeded, for the gas walk.
 - The guidance and max-gas growth ignore the strategy's gaps, so a harness must not assume Settle-only isolation.
 - `proptest::prop_oneof!` needs a weight on every arm or on none. `Just(..)` arms of a `Copy` enum are fine.
-- The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator. The first build recompiled some of nearcore's dependencies; later builds take seconds.
+- The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator (committed with `git add -f`, since the root `.gitignore` drops lockfiles). The first build recompiled some of nearcore's dependencies; later builds take seconds.

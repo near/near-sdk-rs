@@ -1,4 +1,4 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.23s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.24s
      Running tests/storage_v2_search.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_search-942c1f474db377ad)
 
 running 1 test
@@ -56,8 +56,9 @@ most gas used, per site (the most observed in this campaign, not a bound):
     witness: target/near-contract-sim/found/search/search-0x20261020-b128f9d4/maxgas@store.near-acct_remove_chain-762e990e.json
 
 replay files: 2
-wall time: 447.058191917s for 2000 cases, 0.224 s per case
+wall time: 440.307814959s for 2000 cases, 0.220 s per case
 behaviour coverage (receipts):
+    of which the hand flush reached the host before the panic: 346
   accounts_page: CursorGone: 323
   accounts_page: continued from a cursor: 48
   acct_get of a clearing record: 3
@@ -113,8 +114,9 @@ behaviour coverage (receipts):
   panic before the flush: 673
   per-op before/after not judged: op overlapped another: 38050
   remove_step n < 3 refused: 172
+  remove_step on a present record (budget and liveness judged): 975
   write below a clearing record refused: 406
 test search ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 447.10s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 440.36s
 
