@@ -1,0 +1,21 @@
+# Storage v2 invariants as a stateful property search on near-contract-sim (nearcore's runtime
+# in-process). Run with CARGO_TARGET_DIR pointed at the simulator's target/ so nearcore is not
+# rebuilt; see ../README.md.
+[package]
+name = "proto-sim-search"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+near-contract-sim = { path = "/Users/ricky/Developer/near-contract-sim-scenario" }
+proptest = "1.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+base64 = "0.22"
+
+# Same as the simulator's own Cargo.toml, so its nearcore build is reused.
+[profile.dev.package."*"]
+debug = false
+
+[workspace]
