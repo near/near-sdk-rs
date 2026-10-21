@@ -341,14 +341,14 @@ Each guarantee rests on one mechanism, makes a claim no wider than the check beh
 
 Each property is a bolero harness under the random engine in `cargo test`. The plan adds libFuzzer and Kani in a nightly job with the bound reported next to the claim; neither runs there yet. No random check is a proof; the Kani results are proofs within their stated bounds. The one unbounded argument, that concatenating prefix-free codes gives a prefix-free code, is a half-page theorem in the format spec. `cargo-mutants` over the whole `state` module now leaves 15 of 919 mutants alive, each proven equivalent or unreachable and excluded with its reason in `.cargo/mutants.toml`, and 14 error paths, neutered one at a time, are each caught by a test (What the prototype showed).
 
-**Kani: shrunk bounds (Oct 20).** The full-bound runs of G1 distinct paths (about 33 h) and of the first record-format harness (about 25 h) were stopped by a reboot on Oct 19 with no verdict. Shrunk-bound proofs now sit beside them (Kani 0.68, CBMC 6.11, one run at a time on a 64 GB host). No property check failed in any run; "no verdict" means a time cap or CBMC running out of memory.
+**Kani: shrunk bounds (Oct 20).** The full-bound runs of G1 distinct paths (about 33 h) and of the first record-format harness (about 25 h) were stopped by a reboot on Oct 19 with no verdict. Shrunk-bound proofs now sit beside them (Kani 0.68, CBMC 6.11, one run at a time on a 64 GB host). No property check failed in any run; "no verdict" means a time cap or CBMC running out of memory. Only canonical `len1` and the first evolution case ran to the full 60-minute cap; the other no-verdict runs were stopped by hand at 10 to 41 minutes.
 
 | Harness | Bound | Wall time | Verdict |
 |---|---|---|---|
 | G6 encode then parse (5 proofs, one per field shape) | empty record and every one-field record; any wire type; body 0 or 1 byte; tag 1..=127 | 105-169 s each, 629 s total | VERIFIED |
 | G6 one encoding per record, `len0` | the empty string | 0.6 s | VERIFIED |
-| G6 one encoding per record, `len1` to `len3` | every string of 1, 2 or 3 bytes | 15 min cap (1, 2 bytes); 4 x 10 min (3 bytes) | no verdict |
-| G6 schema evolution (10 proofs, one per case) | 1 tag, absent or any `u8`, 5 declarations | 19 min on the first case | no verdict |
+| G6 one encoding per record, `len1` to `len3` | every string of 1, 2 or 3 bytes | 60 min cap (1 byte); 15 min (2 bytes); 4 x 10 min (3 bytes) | no verdict |
+| G6 schema evolution (10 proofs, one per case) | 1 tag, absent or any `u8`, 5 declarations | 60 min cap on the first case | no verdict |
 | G1 distinct paths (23 proofs, one per hop shape) | depth <= 1, tags 1..=127, every collection kind and table, keys `Fixed(0..=2)` or `Var` 0..=2 bytes, one constant hash | 15 min cap on the first; one pair alone 15 min, 20 GB | no verdict |
 
 The cost is in the allocations, not in the input size. One field with a 1-byte body verifies in about 3 min; with a 4-byte body it reaches 48-50 GB with no verdict. Every attempt is listed in `PROTOTYPE_NOTES.md` ("Kani: shrunk bounds (Oct 20)").
