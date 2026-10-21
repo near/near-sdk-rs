@@ -306,6 +306,34 @@ impl RecordWriter {
     }
 }
 
+/// The A3 first-write rule (round 7): the stored record `bytes` with the kind marker `kind`
+/// at the field reached by `trail` (tags from this record down through wire-2 nested records to
+/// the collection field), or `None` when that marker is already there. A missing nested record
+/// on the way is created holding only what leads to the marker; a field on the way stored under
+/// another wire type (a re-used tag, which `storage diff` refuses) is replaced, as a rewrite of
+/// the record through `get_mut` would replace it. Every other field is kept byte for byte.
+pub fn with_marker(bytes: &[u8], trail: &[u32], kind: u8) -> Result<Option<Vec<u8>>, RecordError> {
+    let (&tag, rest) = trail.split_first().expect("a marker trail names at least the field");
+    let fields = parse(bytes)?;
+    let body = match (fields.iter().find(|(t, _, _)| *t == tag), rest.is_empty()) {
+        (Some((_, Wire::Marker, _)), true) => return Ok(None),
+        (_, true) => (Wire::Marker, vec![kind]),
+        (Some((_, Wire::Record, inner)), false) => match with_marker(inner, rest, kind)? {
+            None => return Ok(None),
+            Some(b) => (Wire::Record, b),
+        },
+        (_, false) => (Wire::Record, with_marker(&[], rest, kind)?.expect("an empty record has no marker")),
+    };
+    let mut w = RecordWriter::new();
+    for (t, wire, b) in fields {
+        if t != tag {
+            w.push_wire(t, wire, b.to_vec());
+        }
+    }
+    w.push_wire(tag, body.0, body.1);
+    Ok(Some(w.finish(None, |_| false)))
+}
+
 /// Finds the bytes of one field in a parsed record (any wire type).
 pub fn find<'a>(fields: &[Field<'a>], tag: u32) -> Option<&'a [u8]> {
     fields.iter().find(|(t, _, _)| *t == tag).map(|(_, _, b)| *b)
@@ -455,6 +483,56 @@ mod tests {
         assert_eq!(unknown_value_collection(f[0].1, f[0].2), None);
         // the same bytes as a nested record do hold a marker
         assert_eq!(unknown_value_collection(Wire::Record, &looks_like_record), Some((vec![2], marker::MAP)));
+    }
+
+    /// Round 7 (A3 first-write rule): the marker lands at its tag in order, nested records on
+    /// the way are created or edited in place, every other field is kept byte for byte, and a
+    /// marker already present leaves the record alone.
+    #[test]
+    fn with_marker_adds_only_a_missing_marker() {
+        let mut w = RecordWriter::new();
+        w.push(1, vec![7; 8]);
+        w.push(9, vec![1]);
+        let old = w.finish(None, |_| true);
+        let new = with_marker(&old, &[8], marker::SET).unwrap().unwrap();
+        assert_eq!(
+            parse(&new).unwrap(),
+            vec![(1, Wire::Scalar, &[7u8; 8][..]), (8, Wire::Marker, &[marker::SET][..]), (9, Wire::Scalar, &[1][..])]
+        );
+        assert_eq!(new.len(), old.len() + 3);
+        assert_eq!(with_marker(&new, &[8], marker::SET).unwrap(), None, "already there");
+        // an empty record
+        assert_eq!(with_marker(&[], &[2], marker::MAP).unwrap().unwrap(), vec![0x09, 0x01, marker::MAP]);
+        // a nested record that is absent is created holding just the marker
+        let n = with_marker(&old, &[2, 3], marker::VECTOR).unwrap().unwrap();
+        assert_eq!(find(&parse(&n).unwrap(), 2).unwrap(), &[0x0D, 0x01, marker::VECTOR]);
+        assert_eq!(parse(&n).unwrap()[1].1, Wire::Record);
+        // ... and edited in place when present, keeping its scalars
+        let mut inner = RecordWriter::new();
+        inner.push(1, vec![5]);
+        let mut w = RecordWriter::new();
+        w.push_record(2, inner.finish(None, |_| true));
+        let outer = w.finish(None, |_| true);
+        let n = with_marker(&outer, &[2, 3], marker::LAZY).unwrap().unwrap();
+        assert_eq!(find(&parse(&n).unwrap(), 2).unwrap(), &[0x04, 0x01, 0x05, 0x0D, 0x01, marker::LAZY]);
+        assert_eq!(with_marker(&n, &[2, 3], marker::LAZY).unwrap(), None);
+        // three levels
+        let n = with_marker(&[], &[1, 2, 3], marker::MAP).unwrap().unwrap();
+        assert_eq!(unknown_value_collection(Wire::Record, &n), Some((vec![1, 2, 3], marker::MAP)));
+        // a field on the way stored under another wire type is replaced
+        let mut w = RecordWriter::new();
+        w.push(2, vec![0x81]);
+        let n = with_marker(&w.finish(None, |_| true), &[2], marker::MAP).unwrap().unwrap();
+        assert_eq!(n, vec![0x09, 0x01, marker::MAP]);
+        let mut w = RecordWriter::new();
+        w.push(2, vec![0x81]);
+        let n = with_marker(&w.finish(None, |_| true), &[2, 1], marker::MAP).unwrap().unwrap();
+        assert_eq!(n, vec![0x0A, 0x03, 0x05, 0x01, marker::MAP]);
+        // a marker of another kind at the tag counts as present (the kind byte is informative)
+        assert_eq!(with_marker(&[0x09, 0x01, marker::MAP], &[2], marker::SET).unwrap(), None);
+        // bytes that do not parse are an error
+        assert_eq!(with_marker(&[0x07, 0x00], &[2], marker::MAP), Err(RecordError::ReservedWire { tag: 1 }));
+        assert_eq!(with_marker(&[0x0A, 0x02, 0x07, 0x00], &[2, 1], marker::MAP), Err(RecordError::ReservedWire { tag: 1 }));
     }
 
     #[test]

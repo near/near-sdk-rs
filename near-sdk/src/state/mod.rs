@@ -101,8 +101,7 @@
 //!
 //! - `impl Default`, unless a field is `required` or you derive one.
 //! - `impl Removable` when every field is removable: leaves, `Map`, `Set`, `Vector`, `Lazy`,
-//!   and records built from them. A `LookupMap`/`LookupSet` field makes the record
-//!   non-removable (they do not track their keys).
+//!   and records built from them (every field a record may hold, since round 7).
 //! - `impl Leaf` when no field owns storage (D6): only then is plain `insert` available.
 //! - `NameAt<'a>` (from `at`) and `NameAtMut<'a>` (from `at_mut`): views whose collection
 //!   fields are handles and whose scalars are unavailable.
@@ -111,7 +110,8 @@
 //! # Collections
 //!
 //! `Map` / `Set` are iterable, pageable and removable (4 writes on a new key); `LookupMap` /
-//! `LookupSet` are the opt-in for 1 write per insert. `Vector` is dense slots. `Lazy` is one
+//! `LookupSet` are the opt-in for 1 write per insert, as fields of the contract root only
+//! (round 7, below). `Vector` is dense slots. `Lazy` is one
 //! value at its own key, read only when touched. A map value cannot itself be a collection: put
 //! it in a record (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order>, .. }`).
 //! (`GroupedMap` is deferred out of the first release, D3; it is `#[doc(hidden)]` and kept only
@@ -144,6 +144,46 @@
 //!   and removing a record whose stored bytes carry an undeclared, unreserved marker field
 //!   panics naming the tag (see [`Removable`]). Since Verification round 2 every field key is
 //!   `tag << 2 | wire` (0 scalar, 1 marker, 2 nested record), so no scalar reads as a marker.
+//! - Round 7, the A3 first-write rule: a child collection never comes into existence unless its
+//!   record declares it. A record carries its markers when it is written, but a field a later
+//!   version adds to an existing record type has none in records written before; `at_mut`
+//!   writes below a record without rewriting it. So the write that brings a `Map`, `Set` or
+//!   `Vector` into existence (its header is absent, read by that write anyway) or sets a `Lazy`
+//!   whose value is absent, through `at_mut`, reads the record (1 read, unless this call already
+//!   read or rewrites it) and adds the missing marker (1 write of the record at the flush, only
+//!   if missing). Every later write stays on the `at_mut` path: no record read. A record being
+//!   cleared or removed refuses the write. `LookupMap`, `LookupSet` (and the hidden
+//!   `GroupedMap`, and `Migrating`) have no header, so no first-write signal: they are fields of
+//!   the contract root only, which is never removed. Inside a record use `Map` / `Set`:
+//!
+//! ```compile_fail,E0080
+//! use near_sdk::near;
+//! use near_sdk::state::{LookupSet, Map};
+//! #[near(storage)]
+//! pub struct Group {
+//!     #[key(1)] members: Map<u32, u64>,
+//!     // error[E0080]: field `seen` of `#[near(storage)]` record `Group`: `LookupMap`,
+//!     // `LookupSet` and `GroupedMap` can only be fields of the contract root ...
+//!     #[key(2)] seen: LookupSet<u32>,
+//! }
+//! ```
+//!
+//! The fix, `Set` in the record (`LookupSet` stays available at the root):
+//!
+//! ```
+//! use near_sdk::near;
+//! use near_sdk::state::{LookupSet, Map, Set};
+//! #[near(storage)]
+//! pub struct Group {
+//!     #[key(1)] members: Map<u32, u64>,
+//!     #[key(2)] seen: Set<u32>,
+//! }
+//! #[near(contract_state(layout = v2))]
+//! pub struct App {
+//!     #[key(1)] groups: Map<u32, Group>,
+//!     #[key(2)] banned: LookupSet<u32>,
+//! }
+//! ```
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
 //!   the index read; `#[must_use]`, round 3 T1); `LookupMap::insert` returns `()` (no existence
 //!   read). It requires `V: Leaf`, a value that owns no collections, so for a record that owns

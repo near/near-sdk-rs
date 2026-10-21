@@ -26,9 +26,9 @@
 //!     #[key(3)] set: Set<u8>,
 //!     #[key(4)] vect: Vector<Vec<u8>>,
 //! }
-//! #[near(storage)] struct RecL {          // `04 08 n(8)  09 01 84`; not `Removable`
+//! #[near(storage)] struct RecL {          // `04 08 n(8)  09 01 83`
 //!     #[key(1)] n: u64,
-//!     #[key(2)] lset: LookupSet<u8>,
+//!     #[key(2)] lset: Set<u8>,            // a `LookupSet` until round 7 (now root-only)
 //! }
 //! ```
 
@@ -137,11 +137,11 @@ impl Record for Rec {
             _m: PhantomData,
         }
     }
-    fn __view_mut<'a>(path: Path) -> RecAtMut<'a> {
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecAtMut<'a> {
         RecAtMut {
-            n: <u64 as ViewFieldMut<'a, Rec>>::__view_field_mut(path.field(REC_N)),
+            n: <u64 as ViewFieldMut<'a, Rec>>::__view_field_mut(path.field(REC_N), anchor),
             items: <Map<u8, StdVec<u8>> as ViewFieldMut<'a, Rec>>::__view_field_mut(
-                path.field(REC_ITEMS),
+                path.field(REC_ITEMS), anchor,
             ),
             _m: PhantomData,
         }
@@ -252,10 +252,10 @@ impl Record for RecV2 {
             _m: PhantomData,
         }
     }
-    fn __view_mut<'a>(path: Path) -> RecV2AtMut<'a> {
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecV2AtMut<'a> {
         RecV2AtMut {
             items: <Map<u8, StdVec<u8>> as ViewFieldMut<'a, RecV2>>::__view_field_mut(
-                path.field(REC_ITEMS),
+                path.field(REC_ITEMS), anchor,
             ),
             _m: PhantomData,
         }
@@ -376,12 +376,12 @@ impl Record for RecX {
             _m: PhantomData,
         }
     }
-    fn __view_mut<'a>(path: Path) -> RecXAtMut<'a> {
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecXAtMut<'a> {
         RecXAtMut {
-            n: <u64 as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_N)),
-            lazy: <Lazy<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_LAZY)),
-            set: <Set<u8> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_SET)),
-            vect: <Vector<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_VEC)),
+            n: <u64 as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_N), anchor),
+            lazy: <Lazy<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_LAZY), anchor),
+            set: <Set<u8> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_SET), anchor),
+            vect: <Vector<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_VEC), anchor),
             _m: PhantomData,
         }
     }
@@ -412,25 +412,26 @@ impl Removable for RecX {
 }
 
 // ---------------------------------------------------------------------------------------
-// RecL: a record owning a LookupSet (not Removable) (Verification round 2)
+// RecL: a LookupMap value owning a Set (Verification round 2; a LookupSet until round 7,
+// when headerless collections became root-only)
 // ---------------------------------------------------------------------------------------
 
 #[derive(Default, Debug)]
 pub struct RecL {
     pub n: u64,
-    pub lset: LookupSet<u8>,
+    pub lset: Set<u8>,
 }
 
 impl Value for RecL {
     const MAX_SUBPATH: usize =
-        p::max(p::field_subpath::<u64>(RL_N), p::field_subpath::<LookupSet<u8>>(RL_LSET));
+        p::max(p::field_subpath::<u64>(RL_N), p::field_subpath::<Set<u8>>(RL_LSET));
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
         for &(t, w, b) in f.iter() {
             let hit = match t {
                 RL_N => p::declared_field_collection::<u64>(w, b),
-                RL_LSET => p::declared_field_collection::<LookupSet<u8>>(w, b),
+                RL_LSET => p::declared_field_collection::<Set<u8>>(w, b),
                 _ => p::unknown_field_collection(w, b),
             };
             if let Some((mut trail, k)) = hit {
@@ -447,7 +448,7 @@ impl Value for RecL {
         p::encode_field(&mut w, of.as_ref(), RL_LSET, &self.lset);
         w.finish(orig, |t| match t {
             RL_N => !<u64 as Value>::INLINE,
-            RL_LSET => !<LookupSet<u8> as Value>::INLINE,
+            RL_LSET => !<Set<u8> as Value>::INLINE,
             _ => true,
         })
     }
@@ -468,14 +469,14 @@ impl Value for RecL {
 #[allow(dead_code)]
 pub struct RecLAt<'a> {
     pub n: <u64 as ViewField<'a, RecL>>::Out,
-    pub lset: <LookupSet<u8> as ViewField<'a, RecL>>::Out,
+    pub lset: <Set<u8> as ViewField<'a, RecL>>::Out,
     _m: PhantomData<&'a ()>,
 }
 
 #[allow(dead_code)]
 pub struct RecLAtMut<'a> {
     pub n: <u64 as ViewFieldMut<'a, RecL>>::Out,
-    pub lset: <LookupSet<u8> as ViewFieldMut<'a, RecL>>::Out,
+    pub lset: <Set<u8> as ViewFieldMut<'a, RecL>>::Out,
     _m: PhantomData<&'a mut ()>,
 }
 
@@ -485,14 +486,14 @@ impl Record for RecL {
     fn __view<'a>(path: Path) -> RecLAt<'a> {
         RecLAt {
             n: <u64 as ViewField<'a, RecL>>::__view_field(path.field(RL_N)),
-            lset: <LookupSet<u8> as ViewField<'a, RecL>>::__view_field(path.field(RL_LSET)),
+            lset: <Set<u8> as ViewField<'a, RecL>>::__view_field(path.field(RL_LSET)),
             _m: PhantomData,
         }
     }
-    fn __view_mut<'a>(path: Path) -> RecLAtMut<'a> {
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecLAtMut<'a> {
         RecLAtMut {
-            n: <u64 as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_N)),
-            lset: <LookupSet<u8> as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_LSET)),
+            n: <u64 as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_N), anchor),
+            lset: <Set<u8> as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_LSET), anchor),
             _m: PhantomData,
         }
     }

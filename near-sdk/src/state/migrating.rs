@@ -161,6 +161,9 @@ where
     // The v1 prefix is inline in the parent record; the v2 subtree hangs off the field path.
     const INLINE: bool = true;
     const MAX_SUBPATH: usize = V2::MAX_SUBPATH;
+    // Round 7: root-only. It holds a v1 map (root-only since T7), and its v2 half, inline as a
+    // scalar, leaves no kind marker, so inside a record it would escape the A3 rules.
+    const __ROOT_ONLY: bool = true;
 
     fn encode_value(&self, _orig: Option<&[u8]>) -> std::vec::Vec<u8> {
         borsh::to_vec(&self.old).expect("borsh serialization cannot fail")

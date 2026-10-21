@@ -89,6 +89,11 @@ pub trait Value: Sized + 'static {
     /// for unknown collection tags (API round 5, hazard A3).
     #[doc(hidden)]
     const __RECORD: bool = false;
+    /// Round 7: a collection with no header (`LookupMap`, `LookupSet`, `GroupedMap`), so no
+    /// first-write signal; allowed only as a field of a contract root. The derive refuses one
+    /// as a field of a `#[near(storage)]` record.
+    #[doc(hidden)]
+    const __ROOT_ONLY: bool = false;
 
     /// For a tagged record: the first tag in `bytes` (the stored record) that this type does
     /// not know and whose value is a collection kind marker, or a nested record holding one;
@@ -200,8 +205,17 @@ pub trait Record: Value {
     type ViewMut<'a>;
     #[doc(hidden)]
     fn __view<'a>(path: Path) -> Self::View<'a>;
+    /// The `at_mut` view of the record stored at `path` (its own key).
     #[doc(hidden)]
-    fn __view_mut<'a>(path: Path) -> Self::ViewMut<'a>;
+    fn __view_mut<'a>(path: Path) -> Self::ViewMut<'a> {
+        let anchor = path.len();
+        Self::__view_mut_in(path, anchor)
+    }
+    /// The `at_mut` view of the record at `path` inside the record stored at the first `anchor`
+    /// bytes of `path` (equal for a record at its own key; longer for a nested record field).
+    /// Its collection handles remember the anchor for the A3 first-write rule (round 7).
+    #[doc(hidden)]
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> Self::ViewMut<'a>;
 }
 
 /// A value that owns no storage below its own key: every [`BorshLeaf`] (blanket impl), and every
@@ -227,9 +241,10 @@ impl<T: BorshLeaf> Leaf for T {}
 /// and derived for records whose fields are all `Removable`. `clear_children` removes every
 /// key below `path` that this value owns, without reading the value itself.
 ///
-/// Not removable: `LookupMap`, `LookupSet` and `GroupedMap` (they do not track their keys), and
-/// any record holding one. v1 collections are not values at all (T7), so no record holding one
-/// compiles and `remove` can never orphan one.
+/// Not removable: `LookupMap`, `LookupSet` and `GroupedMap` (they do not track their keys). They
+/// are fields of the contract root only (round 7), so every record is removable. v1
+/// collections are not values at all (T7), so no record holding one compiles and `remove` can
+/// never orphan one.
 ///
 /// # Removal fails closed on unknown collection tags (API round 5, hazard A3)
 ///
@@ -249,14 +264,17 @@ impl<T: BorshLeaf> Leaf for T {}
 /// a scalar, so no scalar is mistaken for a marker, whatever its bytes.
 ///
 /// The check reads the record; `remove`, `replace` and `remove_step` read it anyway, and
-/// `discard` and bulk clears now pay 1 read per record. Not covered: a blind `insert` of a
-/// `Leaf` record (or `Lazy::set` of one) over stored bytes that carry an unknown collection tag
-/// replaces them without reading, and records written before round 5 carry no markers until
-/// they are next rewritten (`get_mut` or `entry` rewrite them; `at_mut` does not).
+/// `discard` and bulk clears now pay 1 read per record. A marker missing because the field was
+/// added to the record type after the record was written is added by the write that brings the
+/// collection into existence (round 7, the A3 first-write rule: through `at_mut`, the first
+/// write of a `Map`/`Set`/`Vector` with no header, or a `Lazy` set with no value, reads the
+/// record and adds the marker if missing). Not covered: a blind `insert` of a `Leaf` record (or
+/// `Lazy::set` of one) over stored bytes that carry an unknown collection tag replaces them
+/// without reading.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be removed or cleared: it is or holds a `LookupMap`/`LookupSet`, which does not track its keys",
     label = "not `Removable`",
-    note = "use `Map`/`Set` for collections inside records you remove, or keep the record and clear its fields by hand"
+    note = "`LookupMap`/`LookupSet` are root-only; inside records use `Map`/`Set`"
 )]
 pub trait Removable: Value {
     fn clear_children(_path: &Path) {}
@@ -307,8 +325,10 @@ impl<'a, R: Value, T: BorshLeaf> ViewField<'a, R> for T {
 /// `&'a mut` handles, nested records as their own `AtMut`, scalars as `UseGetMutForScalars`.
 pub trait ViewFieldMut<'a, R: Value>: Value {
     type Out;
+    /// `anchor`: the length of the key of the record that stores this field (round 7, the A3
+    /// first-write rule; see [`Record::__view_mut_in`]).
     #[doc(hidden)]
-    fn __view_field_mut(field_path: Path) -> Self::Out;
+    fn __view_field_mut(field_path: Path, anchor: usize) -> Self::Out;
 }
 
 /// The type a scalar field has inside an `AtMut` view. `at_mut(&k)` does not read the record,
@@ -319,7 +339,7 @@ pub struct UseGetMutForScalars;
 
 impl<'a, R: Value, T: BorshLeaf> ViewFieldMut<'a, R> for T {
     type Out = UseGetMutForScalars;
-    fn __view_field_mut(_field_path: Path) -> UseGetMutForScalars {
+    fn __view_field_mut(_field_path: Path, _anchor: usize) -> UseGetMutForScalars {
         UseGetMutForScalars
     }
 }

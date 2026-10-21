@@ -514,6 +514,14 @@ fn declared(v: Ver) -> (&'static [u32], &'static [u32]) {
 }
 
 impl GroupM {
+    /// The A3 first-write rule: a write through `at_mut` into a collection with no header adds
+    /// the collection's kind marker to the record if no marker is stored at its tag.
+    fn first_write(&mut self, tag: u32, kind: u8, had_header: bool) {
+        if !had_header && !matches!(self.tags.get(&tag), Some(TagV::Marker(_))) {
+            self.tags.insert(tag, TagV::Marker(kind));
+        }
+    }
+
     /// Decoding through `v`; `Err` where the SDK must refuse (a missing `required` tag).
     fn decode(&self, v: Ver) -> Result<Decoded, String> {
         let t = &self.tags;
@@ -844,6 +852,7 @@ impl Model {
                             Some(slot) => slot.1 = val,
                             None => gm.members.push((m, val)),
                         }
+                        gm.first_write(5, MAP_KIND, gm.members_hdr);
                         gm.members_hdr = true;
                     }
                     "remove_member" => {
@@ -857,6 +866,7 @@ impl Model {
                         if !gm.flags.contains(&f) {
                             gm.flags.push(f);
                         }
+                        gm.first_write(8, SET_KIND, gm.flags_hdr);
                         gm.flags_hdr = true;
                     }
                 }
@@ -1204,6 +1214,7 @@ const EXPECTED_PANICS: &[&str] = &[
     "is being cleared by `remove_step`",
     "the budget counts host removes and must be at least",
     "refusing to remove the record",
+    "refusing to create a collection below the record",
     "state: cannot decode root",
     "state: cannot decode value",
     "The contract has already been initialized",
@@ -1270,6 +1281,7 @@ fn probe(d: &OpDone<UpOp>) -> Result<(), Fail> {
                     for (p, what) in [
                         ("is being cleared", "refused: write below a clearing record"),
                         ("refusing to remove", "refused: A3 unknown collection tag on removal"),
+                        ("refusing to create a collection", "refused: first write below a record that is not stored"),
                         ("cannot decode value", "refused: record decode (v2c required tag)"),
                         ("cannot decode root", "refused: v2 code before migrate"),
                         ("must be at least", "refused: remove_step below 3"),
@@ -1358,13 +1370,6 @@ fn retag_known() -> Known {
         .leaves("v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record")
 }
 
-fn a3_hole_known() -> Known {
-    Known::new("no collection outlives its record")
-        .cause("A3 hole: a collection written through at_mut under a record without its marker")
-        .because("FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags")
-        .leaves("the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key")
-}
-
 /// SDK refusals a detached continuation can hit after a redeploy (it then fails with nobody
 /// to tell): the A3 refusal, v2c's undecodable records, the clearing guard, code without the
 /// method.
@@ -1391,7 +1396,6 @@ fn continuation_known(site: &str) -> Known {
 fn audited(world: Sim) -> Harness<UpOp> {
     harness(world)
         .known(retag_known())
-        .known(a3_hole_known())
         .known(continuation_known("app.near::clear_loop"))
         .known(continuation_known("app.near::drain"))
         .out_of_scope("app.near::drain", "a public entry point the contract calls itself; Drain ops witness it")
@@ -1681,40 +1685,37 @@ fn retag_both_directions() {
 
 /// FOUND by `scan_out_of_gas` (witness 5), minimised by hand: a record written by v2a carries
 /// no marker for v2b's `flags` (tag 8). v2b adds a flag through `at_mut`, which writes below the
-/// record without rewriting it, so the marker is never written. Rolled back to v2a, removing
-/// the record passes the A3 check (no unknown marker in its bytes) and leaves the flag entries
-/// behind; a new g0 then inherits them once v2b is back: exactly hazard A3.
+/// record without rewriting it. Before the first-write rule the marker was never written, so
+/// v2a's removal passed the A3 check and left the flags for the next g0 to inherit. With the
+/// rule, that first write adds the tag 8 marker to the record, and v2a refuses the removal.
 #[test]
-fn a3_marker_missing_after_at_mut_write_orphans_a_new_collection() {
+fn a3_first_write_through_at_mut_marks_the_record_so_removal_refuses() {
     let mut sim = v2a_world(); // g0 written by v2a: tags 1-5, no tag 8
     sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
     tx_ok(&mut sim, "add_flag", json!({ "g": "g0", "f": "f0" })).unwrap();
     let rec = raw(&sim, &group_rec("g0")).unwrap();
-    println!("g0 record after v2b add_flag: {rec:02x?} (no 0x21 = tag 8 marker field key)");
+    println!("g0 record after v2b add_flag: {rec:02x?}");
+    assert!(rec.windows(3).any(|w| w == [0x21, 0x01, SET_KIND]), "the first write adds the tag 8 SET marker: {rec:02x?}");
+    let keys_before = sim.view_state(APP, &group_rec("g0")).len();
     sim.tx(APP, APP).deploy(Ver::V2a.wasm()).transact().assert_success();
     let removed = tx_ok(&mut sim, "remove_group", json!({ "g": "g0" }));
     println!("v2a remove_group(g0): {removed:?}");
-    let left = sim.view_state(APP, &group_rec("g0"));
-    println!("keys left under g0: {}", left.len());
-    tx_ok(&mut sim, "create_group", json!({ "g": "g0", "weight": 1, "x": 1 })).unwrap();
+    assert!(removed.unwrap_err().contains("refusing to remove"), "v2a refuses to remove a record with an unknown collection");
+    assert_eq!(sim.view_state(APP, &group_rec("g0")).len(), keys_before, "the refused removal changes nothing");
+    assert_eq!(raw(&sim, &group_rec("g0")).unwrap(), rec, "the record and its marker stay");
     sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
-    let inherited = sim.state(APP, &coll_entry("g0", 8, "f0")).is_some();
-    println!("new g0 under v2b sees the old flag f0: {inherited}");
-    if removed.is_ok() {
-        assert!(!left.is_empty() && inherited, "the hole: removal passed and orphaned the flags");
-        println!("HOLE PRESENT (production code without the fix)");
-    } else {
-        assert!(removed.unwrap_err().contains("refusing to remove"), "fixed: removal refuses");
-        println!("FIXED: v2a refuses the removal");
-    }
+    assert!(tx_ok(&mut sim, "remove_group", json!({ "g": "g0" })).is_ok(), "v2b knows the flags and removes them");
+    assert!(sim.view_state(APP, &group_rec("g0")).is_empty(), "nothing is left under g0");
+    tx_ok(&mut sim, "create_group", json!({ "g": "g0", "weight": 1, "x": 1 })).unwrap();
+    assert!(sim.state(APP, &coll_entry("g0", 8, "f0")).is_none(), "a new g0 inherits no flag");
 }
 
-/// The scan's saved case (`tests/found/a3-orphaned-flags.json`): on this build the A3 hole
-/// shows; once fixed, the removal through v2a is refused and the case is clean of it.
+/// The scan's saved case (`tests/found/a3-orphaned-flags.json`): it showed the A3 hole before
+/// the first-write rule; now the removal through v2a is refused and the case is clean of it.
 #[test]
 fn a3_orphan_replay() {
     let path = format!("{}/tests/found/a3-orphaned-flags.json", env!("CARGO_MANIFEST_DIR"));
     let run = harness(v2a_world()).rerun(&path);
     println!("{run}");
-    run.assert_found("no collection outlives its record", "world");
+    assert!(run.found_at("no collection outlives its record", "world").is_none(), "the A3 orphan is gone");
 }

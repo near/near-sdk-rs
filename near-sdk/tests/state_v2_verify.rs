@@ -680,43 +680,406 @@ mod a3 {
         assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "OuterB removes its nested collection");
     }
 
-    /// HAZARD (pinned, not fixed; found by the Oct 20 sim upgrade search,
-    /// `proto-sim-upgrade`, `a3_marker_missing_after_at_mut_write_orphans_a_new_collection`).
-    /// The kind marker that makes removal fail closed is written only when the record itself is
-    /// rewritten. A record first written by version A carries no marker for B's new collection;
-    /// B adds entries through `at_mut`, which writes below the record without rewriting it, so
-    /// the marker never lands. Rolled back to A, removal finds no unknown marker, succeeds, and
-    /// orphans B's child; a new record at the key then shows it under B again (hazard A3).
+    /// Round 7, the A3 first-write rule. Was `hazard_a3_marker_missing_when_the_new_collection_
+    /// is_written_through_at_mut` (found by the Oct 20 sim upgrade search, `proto-sim-upgrade`),
+    /// which asserted the hole: A writes record 1 (no tag-2 marker); B adds `kids[5]` through
+    /// `at_mut`, which used to write below the record without touching it, so A's removal later
+    /// passed the check and orphaned the child, and a new record 1 inherited it. Now B's first
+    /// write into the empty `kids` (no header) reads the record and adds the marker (1 read, 1
+    /// write of the record at the flush), so every way A removes record 1 is refused and changes
+    /// nothing; rolled forward, B removes it and leaves zero keys.
     #[test]
-    fn hazard_a3_marker_missing_when_the_new_collection_is_written_through_at_mut() {
+    fn a3_first_write_through_at_mut_adds_the_marker_so_removal_fails_closed() {
         testing::use_mock();
         let rec_key = root().kind(0).entry(&1u32).as_bytes().to_vec();
         // A writes record 1.
         let mut a: Map<u32, RecA> = Map::__bound_at(root());
         a.try_insert(1, RecA { n: 1 }).unwrap();
         testing::flush();
-        // B writes below it through at_mut: the record bytes are untouched (no tag-2 marker).
+        let a_bytes = testing::store()[&rec_key].clone();
+        // B writes below it through at_mut: the first write into `kids` adds the marker.
         testing::begin_call();
         let mut b: Map<u32, RecB> = Map::__bound_at(root());
         b.at_mut(&1).unwrap().kids.insert(5, 50);
-        testing::flush();
+        let r = testing::end_call();
+        let on_rec: Vec<_> = r.ops.iter().filter(|o| o.key == rec_key).map(|o| o.kind).collect();
+        assert_eq!(on_rec, vec![testing::OpKind::HasKey, testing::OpKind::Read, testing::OpKind::Write], "at_mut, the first-write read, one write");
         let stored = testing::store()[&rec_key].clone();
-        assert_eq!(record::parse(&stored).unwrap(), vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..])], "no marker");
-        assert!(testing::store().contains_key(&kid_key()));
-        // A removes record 1: passes the A3 check and leaves B's child behind.
+        assert_eq!(
+            record::parse(&stored).unwrap(),
+            vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..]), (2, record::Wire::Marker, &[record::marker::MAP][..])],
+            "the marker landed"
+        );
+        assert_eq!(stored[..a_bytes.len()], a_bytes[..], "A's bytes kept, marker appended");
+        assert_eq!(&stored[a_bytes.len()..], &[0x09, 0x01, record::marker::MAP]);
+        // Every later write below it is back on the at_mut path: no read, no write of the record.
         testing::begin_call();
-        let mut a: Map<u32, RecA> = Map::__bound_at(root());
-        assert!(a.remove(&1).is_some(), "the removal is not refused");
-        testing::flush();
-        assert!(testing::store().contains_key(&kid_key()), "B's child is orphaned");
-        // A new record 1, read by B, inherits the orphan.
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        b.at_mut(&1).unwrap().kids.insert(6, 60);
+        let r = testing::end_call();
+        let on_rec: Vec<_> = r.ops.iter().filter(|o| o.key == rec_key).map(|o| o.kind).collect();
+        assert_eq!(on_rec, vec![testing::OpKind::HasKey], "the hot path does not touch the record");
+        // Rolled back to A, every removal path is refused and changes nothing.
+        let nz = std::num::NonZeroU32::new(3).unwrap();
+        assert_refused("remove", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove(&1)));
+        assert_refused("discard", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
+        });
+        assert_refused("remove_step", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).remove_step(&1, nz);
+        });
+        assert_refused("clear", "2", || Map::<u32, RecA>::__bound_at(root()).clear());
+        // Rolled forward, B removes the record in bounded steps and leaves zero keys.
+        let mut steps = 0;
+        loop {
+            testing::begin_call();
+            let mut b: Map<u32, RecB> = Map::__bound_at(root());
+            let done = b.remove_step(&1, nz).is_done();
+            testing::flush();
+            steps += 1;
+            if done {
+                break;
+            }
+            assert!(steps < 20);
+        }
+        assert!(testing::store().keys().all(|k| !k.starts_with(&rec_key)), "keys left under record 1");
+        // A new record 1 starts empty under B.
         testing::begin_call();
-        let mut a: Map<u32, RecA> = Map::__bound_at(root());
-        a.try_insert(1, RecA { n: 2 }).unwrap();
+        Map::<u32, RecA>::__bound_at(root()).try_insert(1, RecA { n: 2 }).unwrap();
         testing::flush();
         testing::begin_call();
         let b: Map<u32, RecB> = Map::__bound_at(root());
-        assert_eq!(b.at(&1).kids.get(&5).copied(), Some(50), "the new record shows the old child");
+        assert_eq!(b.at(&1).kids.len(), 0, "the new record inherits nothing");
+    }
+
+    /// Version B2: B plus a `Set`, a `Vector` and a `Lazy` added later (tags 3 to 5).
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct RecB2 {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        kids: Map<u8, u64>,
+        #[key(3)]
+        flags: near_sdk::state::Set<u8>,
+        #[key(4)]
+        log: near_sdk::state::Vector<u64>,
+        #[key(5)]
+        note: near_sdk::state::Lazy<u64>,
+    }
+
+    /// Each header-bearing kind and `Lazy` leaves its own marker on its first write through
+    /// `at_mut`; several first writes in one call still write the record once (the one write per
+    /// key rule); a `Lazy` set whose value is already there, and a second write into any of them,
+    /// do not touch the record; a record that already carries the marker is read once and not
+    /// rewritten.
+    #[test]
+    fn a3_first_write_marks_each_kind_once_and_only_when_missing() {
+        testing::use_mock();
+        let rec_key = root().kind(0).entry(&1u32).as_bytes().to_vec();
+        let mut a: Map<u32, RecA> = Map::__bound_at(root());
+        a.try_insert(1, RecA { n: 1 }).unwrap();
+        testing::flush();
+        let ops_on_rec = |r: &testing::Receipt| -> Vec<testing::OpKind> {
+            r.ops.iter().filter(|o| o.key == rec_key).map(|o| o.kind).collect()
+        };
+        use testing::OpKind::{HasKey, Read, Write};
+        // the Set, the Vector and the Lazy in one call: one read, one write of the record
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        let v = b.at_mut(&1).unwrap();
+        assert!(v.flags.insert(7));
+        v.log.push(70);
+        v.note.set(700);
+        let r = testing::end_call();
+        assert_eq!(ops_on_rec(&r), vec![HasKey, Read, Write]);
+        let kinds: Vec<_> = record::parse(&testing::store()[&rec_key]).unwrap().into_iter().map(|(t, w, b)| (t, w, b.to_vec())).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                (1, record::Wire::Scalar, 1u64.to_le_bytes().to_vec()),
+                (3, record::Wire::Marker, vec![record::marker::SET]),
+                (4, record::Wire::Marker, vec![record::marker::VECTOR]),
+                (5, record::Wire::Marker, vec![record::marker::LAZY]),
+            ],
+            "Set, Vector and Lazy markers, kind bytes from the field types (not the Map inside Set)"
+        );
+        // second writes and a `Lazy` overwrite: the record is not read again
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        let v = b.at_mut(&1).unwrap();
+        assert!(v.flags.insert(8));
+        v.log.push(80);
+        v.note.set(800);
+        let r = testing::end_call();
+        assert_eq!(ops_on_rec(&r), vec![HasKey]);
+        assert!(r.ops.iter().any(|o| o.kind == HasKey && o.key == root().kind(0).entry(&1u32).field(5).as_bytes()), "the Lazy's existence check");
+        // `kids` first: read once more and append its marker
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.at_mut(&1).unwrap().kids.insert(1, 10);
+        let r = testing::end_call();
+        assert_eq!(ops_on_rec(&r), vec![HasKey, Read, Write]);
+        // a record B2 created itself carries every marker: its first writes read it, write nothing
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.try_insert(2, RecB2 { n: 2, ..Default::default() }).unwrap();
+        testing::flush();
+        let rec2 = root().kind(0).entry(&2u32).as_bytes().to_vec();
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        let v = b.at_mut(&2).unwrap();
+        v.kids.insert(1, 1);
+        assert!(v.flags.insert(1));
+        v.log.push(1);
+        v.note.set(1);
+        let r = testing::end_call();
+        let on2: Vec<_> = r.ops.iter().filter(|o| o.key == rec2).map(|o| o.kind).collect();
+        assert_eq!(on2, vec![HasKey, Read], "the marker is there: 1 read, no rewrite");
+        // in the call that creates the record, first writes cost nothing extra (it is written anyway)
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.try_insert(3, RecB2 { n: 3, ..Default::default() }).unwrap();
+        b.at_mut(&3).unwrap().kids.insert(1, 1);
+        let r = testing::end_call();
+        let rec3 = root().kind(0).entry(&3u32).as_bytes().to_vec();
+        let on3: Vec<_> = r.ops.iter().filter(|o| o.key == rec3).map(|o| o.kind).collect();
+        assert_eq!(on3, vec![Write], "at_mut answers from the cache; one write");
+        // a Vector popped empty loses its header: the next push reads the record again, writes nothing
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        let v = b.at_mut(&1).unwrap();
+        assert_eq!(v.log.pop(), Some(80));
+        assert_eq!(v.log.pop(), Some(70));
+        testing::flush();
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.at_mut(&1).unwrap().log.push(90);
+        let r = testing::end_call();
+        assert_eq!(ops_on_rec(&r), vec![HasKey, Read]);
+        // A refuses to remove a record carrying any of them
+        for k in [1u32, 2] {
+            testing::begin_call();
+            let e = quiet(|| drop(Map::<u32, RecA>::__bound_at(root()).remove(&k))).expect_err("refused");
+            assert!(msg(e).contains("refusing to remove"));
+        }
+    }
+
+    /// Three levels through maps. `Top` v1 has no `mids`; v2 adds `mids: Map<u8, Mid>`; `Mid`
+    /// v1 has no `leaves`, v2 adds `leaves: Map<u8, u64>`. Each first write marks only the
+    /// record directly above the new collection; the level above is marked by the write that
+    /// created the middle record (whose map had no header then), and is not touched again.
+    /// Every downgrade's removal is refused at the right tag; rolled forward, nothing is left.
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Top1 {
+        #[key(1)]
+        n: u64,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Mid1 {
+        #[key(1)]
+        x: u8,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Mid2 {
+        #[key(1)]
+        x: u8,
+        #[key(2)]
+        leaves: Map<u8, u64>,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Top2Mid1 {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        mids: Map<u8, Mid1>,
+    }
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Top2Mid2 {
+        #[key(1)]
+        n: u64,
+        #[key(2)]
+        mids: Map<u8, Mid2>,
+    }
+
+    #[test]
+    fn a3_first_write_rule_holds_three_levels_deep() {
+        testing::use_mock();
+        let top = root().kind(0).entry(&1u32);
+        let mid = top.field(2).kind(0).entry(&5u8);
+        let (top_key, mid_key) = (top.as_bytes().to_vec(), mid.as_bytes().to_vec());
+        let on = |r: &testing::Receipt, k: &[u8]| -> Vec<testing::OpKind> {
+            r.ops.iter().filter(|o| o.key == k).map(|o| o.kind).collect()
+        };
+        use testing::OpKind::{HasKey, Read, Write};
+        Map::<u32, Top1>::__bound_at(root()).try_insert(1, Top1 { n: 1 }).unwrap();
+        testing::flush();
+        // v2/Mid1 creates mids[5] through at_mut: the empty `mids` marks Top
+        testing::begin_call();
+        let mut t: Map<u32, Top2Mid1> = Map::__bound_at(root());
+        t.at_mut(&1).unwrap().mids.try_insert(5, Mid1 { x: 9 }).unwrap();
+        let r = testing::end_call();
+        assert_eq!(on(&r, &top_key), vec![HasKey, Read, Write]);
+        assert_eq!(on(&r, &mid_key), vec![Write], "Mid1 has no collection, so no marker");
+        // v2/Mid2 writes mids[5].leaves[1]: the empty `leaves` marks Mid only; Top untouched
+        testing::begin_call();
+        let mut t: Map<u32, Top2Mid2> = Map::__bound_at(root());
+        t.at_mut(&1).unwrap().mids.at_mut(&5).unwrap().leaves.insert(1, 10);
+        let r = testing::end_call();
+        assert_eq!(on(&r, &top_key), vec![HasKey], "the level above is already declared");
+        assert_eq!(on(&r, &mid_key), vec![HasKey, Read, Write]);
+        assert_eq!(&testing::store()[&mid_key][..], &[0x04, 0x01, 9, 0x09, 0x01, record::marker::MAP]);
+        // downgrades: Top1 refuses at tag 2 (mids), Top2Mid1 refuses at mids[5]'s tag 2 (leaves)
+        for which in 0..2 {
+            testing::begin_call();
+            let before = testing::store();
+            let e = quiet(|| {
+                if which == 0 {
+                    drop(Map::<u32, Top1>::__bound_at(root()).remove(&1));
+                } else {
+                    let _ = Map::<u32, Top2Mid1>::__bound_at(root()).remove_step(&1, std::num::NonZeroU32::new(30).unwrap());
+                }
+                testing::flush();
+            })
+            .expect_err("refused");
+            let m = msg(e);
+            assert!(m.contains("carry tag 2, a `Map` field"), "which={which}: {m}");
+            let at = if which == 0 { &top } else { &mid };
+            assert!(m.contains(&format!("{at:?}")), "which={which}: names the record: {m}");
+            testing::begin_call();
+            assert_eq!(testing::store(), before);
+        }
+        // rolled forward: zero keys under Top
+        testing::begin_call();
+        assert!(Map::<u32, Top2Mid2>::__bound_at(root()).remove(&1).is_some());
+        testing::flush();
+        assert!(testing::store().keys().all(|k| !k.starts_with(&top_key)));
+    }
+
+    /// Nested records inline (wire 2): the new collection lives in a nested record field, so
+    /// the marker goes inside it, in the stored record above. Absent nested field: created as a
+    /// record holding only the marker; present: edited in place, its scalars kept.
+    #[test]
+    fn a3_first_write_rule_through_an_inline_nested_record() {
+        testing::use_mock();
+        let rec_key = root().kind(0).entry(&1u32).as_bytes().to_vec();
+        // OuterA has no `inner` at all
+        Map::<u32, OuterA>::__bound_at(root()).try_insert(1, OuterA { n: 1 }).unwrap();
+        // OuterKnowsInnerA writes `inner.x = 7` on record 2
+        let mut k: Map<u32, OuterKnowsInnerA> = Map::__bound_at(root());
+        k.try_insert(2, OuterKnowsInnerA { n: 2, inner: InnerA { x: 7 } }).unwrap();
+        testing::flush();
+        testing::begin_call();
+        let mut b: Map<u32, OuterB> = Map::__bound_at(root());
+        b.at_mut(&1).unwrap().inner.kids.insert(5, 50);
+        b.at_mut(&2).unwrap().inner.kids.insert(5, 50);
+        testing::flush();
+        let s1 = testing::store()[&rec_key].clone();
+        assert_eq!(&s1[10..], &[0x0A, 0x03, 0x09, 0x01, record::marker::MAP], "inner created holding the marker");
+        let s2 = testing::store()[root().kind(0).entry(&2u32).as_bytes()].clone();
+        assert_eq!(&s2[10..], &[0x0A, 0x06, 0x04, 0x01, 7, 0x09, 0x01, record::marker::MAP], "inner.x kept");
+        for (key, which) in [(1u32, 0), (1, 1), (2, 0), (2, 1)] {
+            testing::begin_call();
+            let e = quiet(|| {
+                if which == 0 {
+                    drop(Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&key));
+                } else {
+                    let _ = Map::<u32, OuterA>::__bound_at(root()).discard(&key);
+                }
+            })
+            .expect_err("nested removal accepted");
+            assert!(msg(e).contains("carry tag 2 > 2, a `Map` field"), "key={key} which={which}");
+        }
+        testing::begin_call();
+        let mut b: Map<u32, OuterB> = Map::__bound_at(root());
+        assert!(b.remove(&1).is_some() && b.remove(&2).is_some());
+        testing::flush();
+        assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())));
+    }
+
+    /// D9 and A2 still win: a record being cleared refuses the first write below it (at_mut
+    /// panics), a handle moved out of its record before `remove_step` started clearing it panics
+    /// in the same call, and a handle kept past its record's removal into a later call (where
+    /// the stale-handle log is gone) is refused by the first-write rule itself: the record is
+    /// not stored. Storage is unchanged by every refusal.
+    #[test]
+    fn a3_first_write_below_a_clearing_or_removed_record_is_refused() {
+        testing::use_mock();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.try_insert(1, RecB2 { n: 1, ..Default::default() }).unwrap();
+        for i in 0..5 {
+            b.at_mut(&1).unwrap().kids.insert(i, 1);
+        }
+        testing::flush();
+        let nz = std::num::NonZeroU32::new(4).unwrap();
+        testing::begin_call();
+        assert_eq!(Map::<u32, RecB2>::__bound_at(root()).remove_step(&1, nz), near_sdk::state::Removal::Pending);
+        testing::flush();
+        // next call: the record is clearing; first writes of each kind are refused
+        for what in 0..3 {
+            testing::begin_call();
+            let before = testing::store();
+            let e = quiet(|| {
+                let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+                let v = b.at_mut(&1).unwrap();
+                match what {
+                    0 => drop(v.flags.insert(1)),
+                    1 => v.log.push(1),
+                    _ => v.note.set(1),
+                }
+                testing::flush();
+            })
+            .expect_err("a write below a clearing record");
+            assert!(msg(e).contains("is being cleared"), "what={what}");
+            testing::begin_call();
+            assert_eq!(testing::store(), before);
+        }
+        // same call: a handle taken out before `remove_step` flags the record (A2)
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.try_insert(2, RecB2 { n: 2, ..Default::default() }).unwrap();
+        for i in 0..5 {
+            b.at_mut(&2).unwrap().kids.insert(i, 1);
+        }
+        testing::flush();
+        testing::begin_call();
+        let before = testing::store();
+        let e = quiet(|| {
+            let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+            let mut flags = std::mem::take(b.at_mut(&2).unwrap().flags);
+            assert_eq!(b.remove_step(&2, nz), near_sdk::state::Removal::Pending);
+            flags.insert(1);
+        })
+        .expect_err("escaped handle");
+        assert!(msg(e).contains("started `remove_step` clearing"), "{}", "A2");
+        testing::begin_call();
+        assert_eq!(testing::store(), before);
+        // a later call: the escaped handle's record was removed in between
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        b.try_insert(3, RecB2 { n: 3, ..Default::default() }).unwrap();
+        testing::flush();
+        testing::begin_call();
+        let mut b: Map<u32, RecB2> = Map::__bound_at(root());
+        let mut flags = std::mem::take(b.at_mut(&3).unwrap().flags);
+        testing::flush();
+        testing::begin_call();
+        assert!(Map::<u32, RecB2>::__bound_at(root()).remove(&3).is_some());
+        testing::flush();
+        testing::begin_call();
+        let before = testing::store();
+        let e = quiet(|| {
+            flags.insert(1);
+            testing::flush();
+        })
+        .expect_err("a collection below a removed record");
+        assert!(msg(e).contains("refusing to create a collection below the record"), "{}", "absent");
+        testing::begin_call();
+        assert_eq!(testing::store(), before);
     }
 }
 

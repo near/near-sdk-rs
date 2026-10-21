@@ -263,7 +263,10 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
         CostOp::RecTryInsert(K(k)) => if rec_present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
         // at_mut: 1 `storage_has_key` on a live record, 2 on an absent one (the flag key), no
         // read, no decode (D9); then the items map insert:
-        // new: index read, header read, 4 writes; existing: index read, 1 write
+        // new: index read, header read, 4 writes; existing: index read, 1 write.
+        // Round 7, the A3 first-write rule: a new key into an items map with no header (never
+        // held an entry) reads the record once; its marker is there (this schema wrote it), so
+        // the record is not rewritten.
         CostOp::RecAtMutInsert(K(k), K(k2)) => {
             if !rec_present(k) {
                 c(0, 0, 0, 2)
@@ -271,6 +274,8 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
                 return None;
             } else if f.items(k).contains(&k2) {
                 c(1, 1, 0, 1)
+            } else if !f.items_header(k) {
+                c(3, 4, 0, 1)
             } else {
                 c(2, 4, 0, 1)
             }
@@ -430,19 +435,28 @@ fn g7_swap_remove_moves_a_large_last_element_stated_exception() {
 
 /// D9 after API round 2 (the flag key): `at_mut` is one existence check on the record key and
 /// never reads or decodes the record, so it pays nothing for the record's size. Pinned shape
-/// (reads, writes, removes, has_keys) for an insert of a new key below an existing record:
-/// (2, 4, 0, 1), the 2 reads and 4 writes being the items map's. An absent record costs a 2nd
-/// `storage_has_key`, of its flag key, and nothing else. (Before the merge this pin was
-/// `g7_at_mut_reads_the_record_current_shape`, (3, 4, 0, 0) with a read of the record.)
+/// (reads, writes, removes, has_keys) for an insert of a new key below an existing record whose
+/// items map already holds an entry: (2, 4, 0, 1), the 2 reads and 4 writes being the items
+/// map's. An absent record costs a 2nd `storage_has_key`, of its flag key, and nothing else.
+/// (Before the merge this pin was `g7_at_mut_reads_the_record_current_shape`, (3, 4, 0, 0) with
+/// a read of the record.) Round 7: the first write into an EMPTY items map (no header) reads
+/// the record once (the A3 first-write rule), (3, 4, 0, 1), and does not rewrite it (its marker
+/// is there), whatever the record's size.
 #[test]
 fn g7_at_mut_is_one_existence_check_current_shape() {
-    let s = Setup { n: 3, nb_pos: 0, m: 0 };
+    let s = Setup { n: 3, nb_pos: 0, m: 1 };
     s.seed(BIG);
     let r = run_op(CostOp::RecAtMutInsert(K(1), K(4)));
     assert_eq!(Cost::of(&r), c(2, 4, 0, 1));
     let rec_key = recs_entry_key(1);
     assert!(!r.ops.iter().any(|o| o.kind == testing::OpKind::Read && o.key == rec_key), "at_mut read the record");
     assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::HasKey && o.key == rec_key));
+    let s0 = Setup { n: 3, nb_pos: 0, m: 0 };
+    s0.seed(BIG);
+    let r = run_op(CostOp::RecAtMutInsert(K(1), K(4)));
+    assert_eq!(Cost::of(&r), c(3, 4, 0, 1));
+    assert_eq!(r.ops.iter().filter(|o| o.kind == testing::OpKind::Read && o.key == rec_key).count(), 1, "first write: 1 record read");
+    assert!(!r.ops.iter().any(|o| o.kind == testing::OpKind::Write && o.key == rec_key), "the marker is there: no rewrite");
     s.seed(BIG);
     let r = run_op(CostOp::RecAtMutInsert(K(4), K(4)));
     let flag = crate::state::model::rec_flag(4);

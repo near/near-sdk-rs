@@ -1,36 +1,32 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-scan_each plan 2/8 · variant 35/92 · 10s elapsed, ~30s left (from the mean plan time)
+scan_each plan 2/8 · variant 42/92 · 10s elapsed, ~30s left (from the mean plan time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 3/8 · variant 55/68 · 20s elapsed, ~33s left (from the mean plan time)
+scan_each plan 3/8 · variant 59/68 · 20s elapsed, ~33s left (from the mean plan time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 5/8 · variant 10/52 · 30s elapsed, ~18s left (from the mean plan time)
-scan_each plan 7/8 · variant 19/52 · 40s elapsed, ~5s left (from the mean plan time)
-scan_each: done, 8 plan(s) in 44s
-Known: known findings only, not clean: claimable is only what schema B wrote at world; no collection outlives its record at world; unhandled failure at app.near::clear_loop (ClearLoop)
-scan: 8 plans and 472 variant(s), 480 cases, 4885 blocks; 136 injected, 0 incomplete; 49 not tried
-gas explored on 336 of 1329 calls (1329 unpinned); the least-gas bisection ran a transaction 1020 times
+scan_each plan 5/8 · variant 35/52 · 30s elapsed, ~18s left (from the mean plan time)
+scan_each plan 7/8 · variant 31/52 · 40s elapsed, ~5s left (from the mean plan time)
+scan_each: done, 8 plan(s) in 43s
+Known: known findings only, not clean: claimable is only what schema B wrote at world; unhandled failure at app.near::clear_loop (ClearLoop)
+scan: 8 plans and 464 variant(s), 472 cases, 4702 blocks; 128 injected, 0 incomplete; 49 not tried
+gas explored on 336 of 1305 calls (1305 unpinned); the least-gas bisection ran a transaction 973 times
 AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
 
 known (not clean), each Known with what it suppressed:
   1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
      leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
-     suppressed 342 of 480 case(s): world (342)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-88a8be63.json
-  2. "no collection outlives its record" anywhere, cause "A3 hole: a collection written through at_mut under a record without its marker": "FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags"
-     leaves: the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key
-     suppressed 50 of 480 case(s): world (50)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-no-collection-outlives-its-record@world-A3-hole-a-collection-written-through-at_mut-under-a-record-without-its-marker-b8ebde28.json
-  3. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     suppressed 334 of 472 case(s): world (334)
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-7e3041de/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-d4f26b4b.json
+  2. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
-     suppressed 42 of 480 case(s): app.near::clear_loop (ClearLoop) (42); 1 root cause(s)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-unhandled-failure@app.near-clear_loop-ClearLoop-eea6ec91.json
-  4. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     suppressed 84 of 472 case(s): app.near::clear_loop (ClearLoop) (84); 1 root cause(s)
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-7e3041de/known-unhandled-failure@app.near-clear_loop-ClearLoop-c2ea4d3f.json
+  3. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
-     suppressed 0 of 480 case(s)
+     suppressed 0 of 472 case(s)
 
 not tried (49):
   plan 0, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 3 receipt(s) it spawned
@@ -58,7 +54,7 @@ not tried (49):
   plan 4, step 0, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
   plan 4, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
   plan 4, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 3 receipt(s) it spawned
+  plan 4, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 1 receipt(s) it spawned
   plan 4, step 3, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
   plan 4, step 3, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
   plan 4, step 4, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
@@ -86,25 +82,25 @@ not tried (49):
 ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
 self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
   site                  reached  starved  call failed  held  result held  other  status
-  app.near::clear_loop      329       21            0    63            0      0  out of scope
+  app.near::clear_loop      321       19            0    57            0      0  out of scope
   app.near::drain           151       13            0    39            0      0  out of scope
 out of scope:
   app.near::drain: a public entry point the contract calls itself; Drain ops witness it
   app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 
 checks, over all cases:
-  seq has no gap: 1923 ok, 0 failed, 0 unobserved
-  the model saw nothing forbidden: 1923 ok, 0 failed, 0 unobserved
-  items read back through the deployed code: 1923 ok, 0 failed, 0 unobserved
-  each item lives on exactly one side: 1923 ok, 0 failed, 0 unobserved
-  group records match the model byte for byte: 1923 ok, 0 failed, 0 unobserved
-  group views match the model: 1923 ok, 0 failed, 0 unobserved
-  claimable is only what schema B wrote: 1117 ok, 806 failed, 0 unobserved
-  no collection outlives its record: 1873 ok, 50 failed, 0 unobserved
-  storage_usage is account + code + every key: 1923 ok, 0 failed, 0 unobserved
-  item subtree bytes match the spec formula: 1923 ok, 0 failed, 0 unobserved
-  failures are documented ones: 1785 ok, 0 failed, 0 unobserved
-  coverage probe (never fails): 1785 ok, 0 failed, 0 unobserved
+  seq has no gap: 1883 ok, 0 failed, 0 unobserved
+  the model saw nothing forbidden: 1883 ok, 0 failed, 0 unobserved
+  items read back through the deployed code: 1883 ok, 0 failed, 0 unobserved
+  each item lives on exactly one side: 1883 ok, 0 failed, 0 unobserved
+  group records match the model byte for byte: 1883 ok, 0 failed, 0 unobserved
+  group views match the model: 1883 ok, 0 failed, 0 unobserved
+  claimable is only what schema B wrote: 1093 ok, 790 failed, 0 unobserved
+  no collection outlives its record: 1883 ok, 0 failed, 0 unobserved
+  storage_usage is account + code + every key: 1883 ok, 0 failed, 0 unobserved
+  item subtree bytes match the spec formula: 1883 ok, 0 failed, 0 unobserved
+  failures are documented ones: 1745 ok, 0 failed, 0 unobserved
+  coverage probe (never fails): 1745 ok, 0 failed, 0 unobserved
 
 logs, per site, against the host's limit:
   app.near::add_member: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
@@ -112,26 +108,25 @@ logs, per site, against the host's limit:
   app.near::drain: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
   (5 more sites, all smaller)
 
-replay files: 3
-WALL 44.6 s for the scan
+replay files: 2
+WALL 43.1 s for the scan
 reached (op runs):
   continuation ran on other code: clear_loop V2a -> V2b: 480
-  continuation ran on other code: clear_loop V2b -> V2a: 147
   continuation ran on other code: drain V2a -> V2b: 400
   continuation ran: clear_loop: 563
   continuation ran: drain: 99
   migrate_batch on an empty old side: 38
-  ran out of explored gas: clear_loop: 21
+  ran out of explored gas: clear_loop: 19
   ran out of explored gas: drain: 13
-  refused: A3 unknown collection tag on removal: 42
+  refused: A3 unknown collection tag on removal: 137
   refused: write below a clearing record: 15
-  remove_step resumed a clearing record: 1266
+  remove_step resumed a clearing record: 1058
   remove_step resumed under another schema: 495
-  remove_step started: 422
-  starved clear_loop: 21
+  remove_step started: 414
+  starved clear_loop: 19
   starved drain: 13
 
 test scan_out_of_gas ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 44.62s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 43.09s
 
