@@ -1531,8 +1531,8 @@ fn walk_plan() -> Plan<StoreOp> {
         .op(MemRemove { who: b, mode: Plain })
 }
 
-/// OutOfGas at every position inside each step: the step's gas walked up from 1 Tgas in
-/// `GAS_WALK_GGAS` steps (default 50 Ggas, about one host call) until the step succeeds, so its
+/// OutOfGas at every position inside each step: the step's gas walked up from 50 Ggas in
+/// `GAS_WALK_GGAS` steps (default 20 Ggas, under one host call) until the step succeeds, so its
 /// receipt dies at each host call of the method body and of the flush in turn; the rest of the
 /// plan then runs on whatever each failure left, under every check.
 #[test]
@@ -1540,12 +1540,14 @@ fn gas_walk_every_step() {
     let h = harness();
     let plan = walk_plan();
     h.run(&plan).assert_clean();
-    let stride: u64 = std::env::var("GAS_WALK_GGAS").ok().and_then(|v| v.parse().ok()).unwrap_or(50);
+    let stride: u64 = std::env::var("GAS_WALK_GGAS").ok().and_then(|v| v.parse().ok()).unwrap_or(20);
     let t0 = std::time::Instant::now();
     let mut runs = 0;
     let mut per_step = Vec::new();
+    let mut positions: BTreeSet<(u64, u64, u64, u64)> = BTreeSet::new();
+    let mut mid_flush = 0u32;
     for s in 0..plan.steps.len() {
-        let mut g = Gas::from_teragas(1).as_gas();
+        let mut g = Gas::from_gigagas(50).as_gas();
         let mut failures = 0;
         loop {
             let mut p = plan.clone();
@@ -1556,8 +1558,18 @@ fn gas_walk_every_step() {
                 panic!("step {s} ({}) at {g} gas:\n{run}", p.steps[s].op.name());
             }
             if run.outcomes()[s].is_success() {
-                per_step.push((plan.steps[s].op.name(), failures, Gas::from_gas(g)));
+                per_step.push((plan.steps[s].op.name(), failures, Gas::from_gas(g), positions.len(), mid_flush));
+                positions.clear();
+                mid_flush = 0;
                 break;
+            }
+            // Where it died: the failed receipt's host calls so far, from its gas profile.
+            for r in run.outcomes()[s].receipts.iter().filter(|r| r.executor_id.as_str() == C && !r.is_success()) {
+                let o = r.storage_ops();
+                positions.insert((o.reads, o.has_keys, o.writes, o.removes));
+                if o.writes + o.removes > 0 {
+                    mid_flush += 1;
+                }
             }
             failures += 1;
             g += Gas::from_gigagas(stride).as_gas();
@@ -1565,8 +1577,11 @@ fn gas_walk_every_step() {
         }
     }
     println!("gas walk: {runs} runs in {:?}", t0.elapsed());
-    for (name, failures, ok) in per_step {
-        println!("  {name}: {failures} failing gas values, first success at {ok}");
+    for (name, failures, ok, distinct, mid) in per_step {
+        println!(
+            "  {name}: {failures} failing gas values ({distinct} distinct death points by host calls made, \
+             {mid} after the flush's first write or remove), first success at {ok}"
+        );
     }
     tally::print(&tally::take());
 }

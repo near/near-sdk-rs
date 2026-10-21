@@ -1,0 +1,120 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.23s
+     Running tests/storage_v2_search.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_search-942c1f474db377ad)
+
+running 1 test
+test search has been running for over 60 seconds
+Clean
+search: 2000 cases (368 grown by headroom guidance) and 366 max-gas case(s), 102967 blocks, seed 0x20261020; 2 injected, 406 drew a fault nothing fits, 0 incomplete, 0 every op skipped; 2369 runs
+gas explored on 11937 of 55071 calls (55071 unpinned); the least-gas bisection ran a transaction 35341 times; drawn exactly and ±1 gas: 3, 30, 300, 1000 Tgas
+
+ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
+self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
+  site                           reached  starved  call failed  held  result held  other  status
+  store.near::acct_remove_chain      684        1            0     1            0      0  ok
+
+checks, over all cases:
+  model and trie agree: 20500 ok, 0 failed, 0 unobserved
+  a failed op leaves no trace: 55071 ok, 0 failed, 0 unobserved
+  remove_step only shrinks the record: 55071 ok, 0 failed, 0 unobserved
+  tally: 55071 ok, 0 failed, 0 unobserved
+
+gas a contract attached, per site:
+  store.near::acct_remove_chain: attached 3.00 Tgas to 997.86 Tgas, used 0.54 Tgas / 133.24 Tgas / 297.86 Tgas (least / median / most), least headroom 1.06 Tgas, 361 of 48567 out of gas
+
+storage, per op that grew a contract's (signer's ops; the contract pays when the bytes cost more than the op brought it; amplification: what it paid over what the signer spent):
+  BalRemove at store.near under 0xf0: -291 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 181 op(s); who paid: store.near, in every one; amplification 2.7x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  BalSet at store.near under 0xf0: 51 to 1900 bytes (0.0190 NEAR locked at most), 0 yocto attached, 290 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  BlobRemove at store.near under 0xf0: -65614 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 109 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  BlobSet at store.near under 0xf0: -65535 to 65614 bytes (0.6561 NEAR locked at most), 0 yocto attached, 97 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  Bulk at store.near under 0xf0: -589389 to 659326 bytes (6.5933 NEAR locked at most), 0 yocto attached, 35830 op(s); who paid: store.near, in every one; amplification 42.8x (0.0176 NEAR paid where the signer spent 0.0004 NEAR)
+  Bump at store.near under 0xf0: 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 34 op(s); who paid: store.near, in every one; amplification 3.1x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  Discard at store.near under 0xf0: -67858 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 74 op(s); who paid: store.near, in every one; amplification 1400.3x (0.6675 NEAR paid where the signer spent 0.0005 NEAR)
+  LogPop at store.near under 0xf0: -166 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 78 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  LogPush at store.near under 0xf0: 51 to 166 bytes (0.0017 NEAR locked at most), 0 yocto attached, 204 op(s); who paid: store.near, in every one; amplification 8.5x (0.0017 NEAR paid where the signer spent 0.0002 NEAR)
+  LookInsert at store.near under 0xf0: 79 to 132 bytes (0.0013 NEAR locked at most), 0 yocto attached, 987 op(s); who paid: store.near, in every one; amplification 4.8x (0.0008 NEAR paid where the signer spent 0.0002 NEAR)
+  LookRemove at store.near under 0xf0: -81 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 45 op(s); who paid: store.near, in every one; amplification 2.9x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  LookTryInsert at store.near under 0xf0: 79 to 132 bytes (0.0013 NEAR locked at most), 0 yocto attached, 183 op(s); who paid: store.near, in every one; amplification 4.5x (0.0008 NEAR paid where the signer spent 0.0002 NEAR)
+  MemInsert at store.near under 0xf0: 205 to 309 bytes (0.0031 NEAR locked at most), 0 yocto attached, 345 op(s); who paid: store.near, in every one; amplification 12.1x (0.0026 NEAR paid where the signer spent 0.0002 NEAR)
+  MemRemove at store.near under 0xf0: -203 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 49 op(s); who paid: store.near, in every one; amplification 2.9x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  Remove at store.near under 0xf0: -69396 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 54 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  RemoveChain at store.near under 0xf0: -659220 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 882 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  RemoveStep at store.near under 0xf0: -69018 to 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 811 op(s); who paid: store.near, in every one; amplification 2.7x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  SetNonce at store.near under 0xf0: 51 bytes (0.0005 NEAR locked at most), 0 yocto attached, 73 op(s); who paid: store.near, in every one; amplification 2.8x (0.0005 NEAR paid where the signer spent 0.0002 NEAR)
+  Touch at store.near under 0xf0: 224 to 328 bytes (0.0033 NEAR locked at most), 0 yocto attached, 294 op(s); who paid: store.near, in every one; amplification 14.5x (0.0032 NEAR paid where the signer spent 0.0002 NEAR)
+  TryInsert at store.near under 0xf0: 224 to 328 bytes (0.0033 NEAR locked at most), 0 yocto attached, 445 op(s); who paid: store.near, in every one; amplification 10.2x (0.0022 NEAR paid where the signer spent 0.0002 NEAR)
+  free balance of store.near (balance less storage): fell in 39506 of the 41065 op(s) that changed its storage; the most in one Bulk, by 6.5933 NEAR (659326 bytes, 0 yocto attached)
+
+closest to a limit:
+  store.near::acct_remove_chain: ran out of 4.84 Tgas, logged 0 bytes of 16.0 KiB (case 567, grown by the guidance)
+  plan: target/near-contract-sim/found/search/search-0x20261020-b128f9d4/lead@store.near-acct_remove_chain-f07e278d.json (Plan::load it, run it, grow it)
+  most used there: store.near::acct_remove_chain: most used 297.86 Tgas of 297.86 Tgas attached; with its unpinned steps at the ceiling (1000.00 Tgas), not the wallet's 300 Tgas: 1000.00 Tgas of 1000.00 Tgas; read 4 (0.1 KiB), wrote 1 (0.1 KiB), removed 1, evicted 0.0 KiB, 9 trie nodes (+9 cached), 2 keys written; Bulk repeated 80 times, largest value 8 bytes, largest list 0, 101 steps (case 609, grown; the most observed in this campaign, not a bound)
+    drivers: entries under b"\xf0\x02\x00o\xa3\xb4\xe7=vqD%c\xdd;\xc1s+\x13\n\x00\x00\x00alice." 499 (grew), depth ~3 (proxy, varied)
+
+most gas used, per site (the most observed in this campaign, not a bound):
+  store.near::acct_remove_chain: most used 297.86 Tgas of 297.86 Tgas attached; with its unpinned steps at the ceiling (1000.00 Tgas), not the wallet's 300 Tgas: 1000.00 Tgas of 1000.00 Tgas; read 4 (0.1 KiB), wrote 1 (0.1 KiB), removed 1, evicted 0.0 KiB, 9 trie nodes (+9 cached), 2 keys written; Bulk repeated 80 times, largest value 8 bytes, largest list 0, 101 steps (case 609, grown; the most observed in this campaign, not a bound)
+    drivers: entries under b"\xf0\x02\x00o\xa3\xb4\xe7=vqD%c\xdd;\xc1s+\x13\n\x00\x00\x00alice." 499 (grew), depth ~3 (proxy, varied)
+    witness: target/near-contract-sim/found/search/search-0x20261020-b128f9d4/maxgas@store.near-acct_remove_chain-762e990e.json
+
+replay files: 2
+wall time: 447.058191917s for 2000 cases, 0.224 s per case
+behaviour coverage (receipts):
+  accounts_page: CursorGone: 323
+  accounts_page: continued from a cursor: 48
+  acct_get of a clearing record: 3
+  acct_remove_chain: Done: 872
+  acct_remove_chain: Pending (chained): 48862
+  acct_remove_step: Done: 1422
+  acct_remove_step: Pending: 440
+  balances_page: CursorGone: 214
+  balances_page: continued from a cursor: 19
+  forced fault at acct_remove_chain: 1
+  hand flush mid-call, then root change: 756
+  members_page: CursorGone: 123
+  members_page: continued from a cursor: 2
+  natural out of gas: acct_bulk: 52
+  natural out of gas: acct_discard: 1
+  natural out of gas: acct_get: 1
+  natural out of gas: acct_remove: 7
+  natural out of gas: acct_remove_chain: 363
+  natural out of gas: acct_remove_step: 2
+  natural out of gas: blob_set: 1
+  natural out of gas: mem_insert: 1
+  nested key over MAX_LEN refused: 4
+  ok: accounts_len: 125
+  ok: accounts_page: 876
+  ok: acct_bulk: 36019
+  ok: acct_contains: 840
+  ok: acct_discard: 205
+  ok: acct_get: 1023
+  ok: acct_remove: 190
+  ok: acct_remove_chain: 872
+  ok: acct_remove_step: 1862
+  ok: acct_set_nonce: 361
+  ok: acct_touch: 348
+  ok: acct_try_insert: 584
+  ok: bal_remove: 1450
+  ok: bal_set: 1082
+  ok: balances_page: 697
+  ok: blob_remove: 394
+  ok: blob_set: 315
+  ok: bump: 197
+  ok: counter: 104
+  ok: log_pop: 716
+  ok: log_push: 609
+  ok: look_get: 1477
+  ok: look_insert: 1085
+  ok: look_remove: 189
+  ok: look_try_insert: 202
+  ok: mem_contains: 117
+  ok: mem_insert: 397
+  ok: mem_remove: 313
+  ok: members_page: 331
+  panic after a hand flush (reverted): 634
+  panic before the flush: 673
+  per-op before/after not judged: op overlapped another: 38050
+  remove_step n < 3 refused: 172
+  write below a clearing record refused: 406
+test search ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 447.10s
+

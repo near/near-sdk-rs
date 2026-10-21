@@ -1910,3 +1910,84 @@ A proof over the record codec or the key builder costs far more than the size of
 - **CBMC options:** `--refine-arrays` and stubbing the std sort need `-Z unstable-options --cbmc-args ...`. The mbx `cargo` shim refuses `-Z unstable-options` (its `cargo metadata` probe fails), so they were not tried. The untested route is Kani's `[workspace.metadata.kani]` flag tables in `Cargo.toml`.
 - **Cheaper harness shape:** a harness-side byte-array key builder proven equal to `Path` on concrete shapes would avoid the allocations.
 - **Part 1 of the design doc** still says "two Kani proofs", which no longer matches. It was left alone: no status sentence there says proofs are running.
+
+## Sim search (Oct 20)
+
+**Question.** The mock-host harnesses already test storage v2's invariants. Does a stateful property search on near-contract-sim find anything they cannot? The sim runs nearcore's runtime in-process, on main @ b328d067, its first release after the breaking "primitives" API change. **Answer: no SDK finding.** Every campaign below came back clean once two harness bugs were fixed. That is a result about the cases tried, not a proof. What the sim added is coverage the mock cannot give, listed below.
+
+**What was built** (`proto-sim-search/`, commands in its README):
+
+- **Contract.** One v2 root, written with the real derive: a root `u64`, `Map<AccountId, Account>` (`Account` = `u64` + nested `Map<String, u64>` + `Vector<u64>` + `Lazy<Vec<u8>>`), a `LookupMap` and a `Set`. 29 methods cover the model's op set:
+  - inserts, overwrites and removes at the root and below a record through `at_mut`;
+  - `try_insert`, `entry().or_default()`, `get_mut`, `remove`, `discard`;
+  - `remove_step(k, n)` with any `n`, and `acct_remove_chain`, which steps through self-calls;
+  - cursor pages of all three iterables;
+  - read views and a cache-bypassing `probe_has`.
+
+  Each mutating method takes a `mode`: plain, panic before the flush, `state_write()` then panic, or `state_write()` then a root change (the model's MidFlush).
+- **Harness.** Ops are an enum drawn by `plans(ops()).len(1..=12)`, with Settle gaps, default gas and default `Faults`. One `at_rest` check replays every receipt the contract executed (`Sim::receipts_in(..)`, execution order) through an in-test model:
+  - Each return value must equal the model's.
+  - Each panic must be one the model predicts: a write below a clearing record, `n < 3`, a nested key over `MAX_LEN`, or a planned panic.
+  - A receipt that failed for any reason is dropped from the model.
+  - The whole trie (`view_state`) must then equal the model's concretization, key for key and byte for byte. Keys come from the spec's grammar, ported from `model.rs` `spec_key`. This covers G2/C2 (orphans), F3/G4 (no trace) and C4 (bytes).
+  - `storage_usage` must equal the empty contract's plus key + value + 40 per key (C4 accounting).
+  - C5: a clearing record must have no record key, its bytes verbatim at the flag key, only keys it held when clearing began, and stay readable through `get`. Every `remove_step` receipt's host removes, from the real gas profile, must be at most `n`. A first call's Done or Pending must match the record's clear cost against `n`.
+  - C6: every page must equal the model's key-vector slice with its revision, or be `CursorGone` exactly when the cursor key is absent. A walk at one revision must return no key twice.
+  - Probe: `storage_has_key`, called through the contract, is false on the record, flag and child keys of every absent record.
+
+  Two per-op checks run on isolated ops: a failed op left the trie and `storage_usage` unchanged, and `remove_step` never adds a key under its record. Coverage asserts that every method was reached. A per-op tally counts behaviour coverage.
+
+**Runs (debug profile, one M-series Mac).**
+
+| Campaign | Cases / runs | Wall time | Result |
+| --- | --- | --- | --- |
+| Smoke: hand-written witness (29 steps) + positive control (orphan planted with `set_state`) | 2 | 0.2 s | clean; the control is caught |
+| Search, `gas::mixed`, seed 0x20261020 | 2,000 cases (368 grown by guidance) + 366 max-gas, 2,369 runs, 55,071 op calls | 447 s, 0.224 s per case (growth included) | clean, all 29 methods reached |
+| Search, `gas::wide`, seed 0x20261021 | 2,000 cases, 2,005 runs | 85 s, 0.042 s per case | clean, all 29 methods reached |
+| `scan_each` of 2 witnesses, `Faults::default()` | 477 variants, 48 injected; `acct_remove_chain` starved in 12 | about 60 s | clean |
+| Gas walk: each step of a 13-step witness from 50 Ggas up in 20 Ggas steps until it succeeds | 1,228 runs, 1,174 failing gas values, 714 of them dying after the flush's first write or remove | 67 s | clean |
+
+Behaviour reached in the mixed search, counted per receipt:
+
+- `remove_step`: 440 Pending, 1,422 Done; chained links: 48,862 Pending, 872 Done.
+- Refusals: 406 writes below a clearing record, 172 calls with `n < 3`, 4 nested keys over `MAX_LEN`.
+- `CursorGone`: 323 on `accounts`, 214 on `balances`, 123 on `members`; 69 pages continued from a cursor.
+- Planned panics: 673 before the flush, 634 after a hand flush, all reverted; 756 mid-call hand flushes.
+- Natural out of gas: 428, mostly bulk inserts and chain links.
+
+The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt`.
+
+**Findings, triaged.** None is an SDK bug, so no production code changed.
+
+1. **Harness bug, fixed:** `Model::exec` returned early for an absent record before applying the method's `mode`, so it predicted success for a planned panic, and missed the extra counter bump after a mid-call flush. Found by the first 48-case search (6 findings, all this cause). The fix splits `exec_body` from the mode wrapper.
+2. **Harness bug, fixed:** cases grown by headroom guidance and max-gas growth put `0 blocks` between steps, even though the strategy draws only `Gap::Settle`. So ops overlap, and a chained `remove_step` interleaves with them. The replay walked ops in plan order, and the before/after per-op checks assumed isolation, which gave 8 false findings in a 128-case search. The fix replays from `Sim::receipts_in(..)` (execution order) and judges per-op before/after only when `OpDone::isolated()`. The global replay judges every overlapped op receipt by receipt (38,050 such ops in the mixed search).
+3. **Spec vs brief, no finding:** the brief says a record mid `remove_step` "reads as absent". The spec says, and the chain agrees, that `get`, `at`, iteration, `len` and `try_insert` (which returns `Err(Occupied)`) still see it, while `get_mut`, `entry` and `at_mut` panic. The harness encodes the spec.
+
+No `Known` was declared.
+
+**What the sim covered that the mock could not.**
+
+- **Real trie.** Exact state is compared against nearcore's trie through `view_state`, not against the mock's `BTreeMap`. Every key the SDK wrote is the one the spec grammar computes, on wasm built by `cargo near`.
+- **Real storage accounting.** `storage_usage` matched base + Σ(key + value + 40) after every op of every case, including 64 KiB `Lazy` values, flag-key moves, 12-byte headers and grown records of about 500 entries.
+- **Out of gas mid-op, at real positions.** The mock's F3 harness fails at the i-th write. Here nearcore ran out of gas at 1,174 positions, 714 of them inside the flush (writes or removes already issued), and the runtime reverted each. The rest of the plan then ran on the result, under every check.
+- **The real `#[near]` wrapper on wasm.** This covers load and flush, `state_write()` mid-call, panics with `panic = "abort"`, the generated `clear_children_some` over `Lazy` + `Vector` + nested `Map`, and JSON round trips of `AccountId`, pages and `Option`s.
+- **The `remove_step` budget, from the real gas profile.** Host removes per receipt were at most `n` in every call, chained calls included.
+
+What it did not add: cross-receipt SDK state leaks are structurally impossible on nearcore, since each receipt gets a fresh wasm instance. So the sim confirms the runtime's revert, not the cache's in-memory hygiene, which the mock's F3 harness covers. Exact per-call read, write and remove counts (C5's mirror) stay with the mock.
+
+**Sim fidelity limits (`skills/near-contract-sim/references/fidelity.md`, `faults.md`).**
+
+- An injected fault never selects a transaction's first receipt. Most ops are one receipt, so `Faults::default()` lands only on `acct_remove_chain`'s self-calls: 2 to 4 injected cases per 2,000-case search, 48 variants in the scan.
+- An injected `OutOfGas` runs the call with 1 gas, so it fails at contract load, before any host call ("A fault (`Tx::inject`) rewrites a receipt"). Mid-op exhaustion comes only from gas exploration and the gas walk.
+- One shard, no congestion, so `Hold` reorders nothing among one contract's receipts.
+
+**API adaptations the new sim needed** (proto-gas was written against the old API):
+
+- `explore::{Harness, Op, Plan, plans, Faults, Gap}` replace the old `testing::Scenario` layer. `Op::submit` only submits; it must not `transact`.
+- A custom world (`World { sim, base }`: `Clone + AsRef<Sim> + AsMut<Sim>`), so checks know the empty contract's storage usage. Check closures must name `OpDone<StoreOp, World>` explicitly.
+- `Sim::settle` / `step` / `findings()` are the new verb names. Failures are classified through `ReceiptOutcome::failure() -> Failure`, with `fault` for forced ones.
+- `Sim::receipts_in(..)` gives execution order across overlapping ops. `ReceiptOutcome::storage_ops()` gives real host-call counts.
+- `Run::outcomes()[step]` tells whether a step succeeded, for the gas walk.
+- The guidance and max-gas growth ignore the strategy's gaps, so a harness must not assume Settle-only isolation.
+- `proptest::prop_oneof!` needs a weight on every arm or on none. `Just(..)` arms of a `Copy` enum are fine.
+- The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator. The first build compiled nearcore's crates again, because proto-gas's last build was evicted, which took about 10 minutes.
