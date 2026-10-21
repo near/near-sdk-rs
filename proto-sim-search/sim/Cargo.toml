@@ -18,8 +18,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 base64 = "0.22"
 
-# Same as the simulator's own Cargo.toml, so its nearcore build is reused.
+# quickstart.md (sim main): optimise dependencies (nearcore) in the test profile; unoptimised
+# nearcore can take a minute for one large call. The simulator's own Cargo.toml sets only
+# `debug = false`, so the first build here compiles nearcore at opt-level 2 once into the shared
+# target dir; both harness crates then reuse it.
 [profile.dev.package."*"]
+opt-level = 2
 debug = false
 
 [workspace]

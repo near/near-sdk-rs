@@ -1560,7 +1560,8 @@ fn search_audit(world: Sim, upgrade_weight: u32, cases: u32, len: std::ops::Rang
         el.as_millis() as f64 / audit.cases().max(1) as f64
     );
     campaign::print_checks(&audit);
-    let plans = std::mem::take(&mut drawn.lock().unwrap().1);
+    println!("{}", drawn.lock().unwrap().per_case());
+    let plans = std::mem::take(&mut drawn.lock().unwrap().plans);
     println!("{}", campaign::faults(&h, &plans));
     print_coverage(&audit);
     println!("behaviour classes, over every execution (shrinking, fault baselines and case 0's rerun included; an upper bound):\n{}", reached_summary());
@@ -1781,6 +1782,7 @@ mod campaign {
     use std::collections::BTreeSet;
     use std::fmt::Debug;
     use std::sync::{Arc, Mutex};
+    use std::time::Instant;
 
     /// Labels of checks that are not SDK properties: shown apart from the property table.
     const NOT_PROPERTIES: [&str; 3] = ["runtime:", "harness:", "probe:"];
@@ -1807,12 +1809,35 @@ mod campaign {
         println!("incomplete cases: {} of {}", audit.incomplete().len(), audit.cases());
     }
 
+    /// What the plan strategy drew: each distinct plan, and when the first and the last new
+    /// one were drawn.
+    pub struct Seen<O> {
+        keys: BTreeSet<String>,
+        pub plans: Vec<Plan<O>>,
+        first: Option<Instant>,
+        last: Option<Instant>,
+    }
+
+    impl<O> Seen<O> {
+        /// The mean case time with shrinking left out: a search draws case k's plan as case k
+        /// starts, and shrinks only after its seed's cases, so the time from the first new plan
+        /// to the last over the cases between (case 0 runs twice, its determinism check).
+        pub fn per_case(&self) -> String {
+            match (self.first, self.last, self.plans.len()) {
+                (Some(a), Some(b), n) if n > 1 => {
+                    format!("{:.0} ms per case, shrinking excluded (cases 0..{})", (b - a).as_secs_f64() * 1000.0 / (n - 1) as f64, n - 1)
+                }
+                _ => "per case: too few cases".into(),
+            }
+        }
+    }
+
     /// The plan strategy, keeping each distinct plan it draws. A search calls `new_tree` once per
     /// case, and once more per finding it shrinks (the case seed regenerates the same plan), so
     /// plans are kept once, by their JSON.
     pub struct Drawn<S, O> {
         pub inner: S,
-        pub plans: Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>,
+        pub seen: Arc<Mutex<Seen<O>>>,
     }
 
     impl<S: Debug, O> Debug for Drawn<S, O> {
@@ -1828,17 +1853,20 @@ mod campaign {
             let tree = self.inner.new_tree(runner)?;
             let plan = tree.current();
             let key = serde_json::to_string(&plan).unwrap_or_default();
-            let mut g = self.plans.lock().unwrap();
-            if g.0.insert(key) {
-                g.1.push(plan);
+            let mut g = self.seen.lock().unwrap();
+            if g.keys.insert(key) {
+                g.plans.push(plan);
+                let now = Instant::now();
+                g.first.get_or_insert(now);
+                g.last = Some(now);
             }
             Ok(tree)
         }
     }
 
-    pub fn drawn<S, O>(inner: S) -> (Drawn<S, O>, Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>) {
-        let plans = Arc::new(Mutex::new((BTreeSet::new(), vec![])));
-        (Drawn { inner, plans: plans.clone() }, plans)
+    pub fn drawn<S, O>(inner: S) -> (Drawn<S, O>, Arc<Mutex<Seen<O>>>) {
+        let seen = Arc::new(Mutex::new(Seen { keys: BTreeSet::new(), plans: vec![], first: None, last: None }));
+        (Drawn { inner, seen: seen.clone() }, seen)
     }
 
     /// "faults: N drawn, M landed", which the 8e8642db summary doesn't print (sim triage §1: the
