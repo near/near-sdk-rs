@@ -303,7 +303,7 @@ impl Op for UpOp {
     }
 }
 
-fn ops() -> impl Strategy<Value = UpOp> {
+fn ops(upgrade_weight: u32) -> impl Strategy<Value = UpOp> {
     let g = || 0..GROUPS;
     let ver = prop_oneof![Just(Ver::V2a), Just(Ver::V2b), Just(Ver::V2c), Just(Ver::V3)];
     Union::new_weighted(vec![
@@ -322,7 +322,7 @@ fn ops() -> impl Strategy<Value = UpOp> {
         (3, (g(), 1..=12u32).prop_map(|(g, n)| UpOp::RemoveStep { g, n }).boxed()),
         (2, (g(), 3..=8u32, 1..=6u32).prop_map(|(g, n, rounds)| UpOp::ClearLoop { g, n, rounds }).boxed()),
         (1, g().prop_map(|g| UpOp::RemoveGroup { g }).boxed()),
-        (3, (ver, any::<bool>()).prop_map(|(to, migrate)| UpOp::Upgrade { to, migrate }).boxed()),
+        (upgrade_weight, (ver, any::<bool>()).prop_map(|(to, migrate)| UpOp::Upgrade { to, migrate }).boxed()),
         (1, Just(UpOp::Migrate).boxed()),
     ])
 }
@@ -361,6 +361,19 @@ fn v2a_world() -> Sim {
     for m in ["m0", "m1", "m2"] {
         sim.call(APP, APP, "add_member").args_json(json!({ "g": "g0", "m": m, "v": 7 })).transact().assert_success();
     }
+    sim
+}
+
+/// v2a's world upgraded to v2b: g0 rewritten by schema B (tag 3 dropped, level/label and the
+/// flags marker written, tag 4 still v2a's `locked`), g2 created by v2b with a flag. Downgrades
+/// to v2a and A3 are one op away.
+fn v2b_world() -> Sim {
+    let mut sim = v2a_world();
+    sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
+    sim.call(APP, APP, "set_level").args_json(json!({ "g": "g0", "x": 4 })).transact().assert_success();
+    sim.call(APP, APP, "create_group").args_json(json!({ "g": "g2", "weight": 1, "x": 2 })).transact().assert_success();
+    sim.call(APP, APP, "add_flag").args_json(json!({ "g": "g2", "f": "f0" })).transact().assert_success();
+    sim.call(APP, APP, "add_member").args_json(json!({ "g": "g2", "m": "m3", "v": 1 })).transact().assert_success();
     sim
 }
 
@@ -1165,9 +1178,114 @@ fn failures_expected(d: &OpDone<UpOp>) -> Result<(), Fail> {
     Ok(())
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// coverage probe: what the cases reached that a single-call mock cannot (counted per op run,
+// shrinking and replays included, so the counts are an upper bound on distinct cases)
+// ---------------------------------------------------------------------------------------------
+
+static REACHED: std::sync::Mutex<BTreeMap<String, u64>> = std::sync::Mutex::new(BTreeMap::new());
+
+fn hit(what: &str) {
+    *REACHED.lock().unwrap().entry(what.to_string()).or_default() += 1;
+}
+
+fn reached_summary() -> String {
+    let r = REACHED.lock().unwrap();
+    r.iter().map(|(k, v)| format!("  {k}: {v}\n")).collect()
+}
+
+fn ev_of(r: &near_contract_sim::ReceiptOutcome) -> Option<(u64, Ver)> {
+    let ev = r.logs.iter().find_map(|l| l.strip_prefix("ev "))?;
+    let mut it = ev.split(' ');
+    let v = Ver::parse(it.next()?.strip_prefix("v=")?)?;
+    let seq = it.next()?.strip_prefix("seq=")?.parse().ok()?;
+    Some((seq, v))
+}
+
+/// Never fails: counts the interactions each op's receipts reached.
+fn probe(d: &OpDone<UpOp>) -> Result<(), Fail> {
+    let evs = events(d.world());
+    for o in d.outcomes() {
+        let mut first_ver = None;
+        for (i, r) in o.receipts.iter().filter(|r| r.executor_id.as_str() == APP && !r.method_names.is_empty()).enumerate() {
+            if r.fault == Some(near_contract_sim::Fault::OutOfGas) {
+                hit(&format!("starved {}", r.method_names.join(",")));
+            }
+            match r.failure() {
+                Some(Failure::Panic(m)) => {
+                    for (p, what) in [
+                        ("is being cleared", "refused: write below a clearing record"),
+                        ("refusing to remove", "refused: A3 unknown collection tag on removal"),
+                        ("cannot decode value", "refused: record decode (v2c required tag)"),
+                        ("cannot decode root", "refused: v2 code before migrate"),
+                        ("must be at least", "refused: remove_step below 3"),
+                        ("already been initialized", "refused: migrate twice"),
+                        ("no v1 STATE", "refused: migrate with no STATE"),
+                    ] {
+                        if m.contains(p) {
+                            hit(what);
+                        }
+                    }
+                }
+                Some(Failure::OutOfGas) => hit(&format!("ran out of explored gas: {}", r.method_names.join(","))),
+                Some(Failure::Action(_)) => hit("method missing on the deployed code"),
+                _ => {}
+            }
+            if !r.is_success() {
+                continue;
+            }
+            let Some((seq, v)) = ev_of(r) else { continue };
+            if i == 0 {
+                first_ver = Some(v);
+            } else if first_ver.is_some_and(|f| f != v) {
+                hit(&format!("continuation ran on other code: {} {:?} -> {:?}", r.method_names.join(","), first_ver.unwrap(), v));
+            } else if i > 0 {
+                hit(&format!("continuation ran: {}", r.method_names.join(",")));
+            }
+            // The model just before this event.
+            let mut m = Model::default();
+            for e in evs.iter().take_while(|e| e.seq < seq) {
+                m.apply(e);
+            }
+            let Some(e) = evs.iter().find(|e| e.seq == seq) else { continue };
+            let g = s(&e.args, "g");
+            if let Some(gm) = m.groups.get(&g) {
+                let rewrite = matches!(e.method.as_str(), "set_weight" | "set_field4" | "set_level" | "set_label");
+                if rewrite && v == Ver::V2a && (gm.tags.contains_key(&6) || gm.tags.contains_key(&7)) {
+                    hit("v2a rewrote a record carrying schema-B tags (downgrade)");
+                }
+                if rewrite && v.schema_b() && gm.tags.contains_key(&3) {
+                    hit("schema B rewrote a record carrying reserved tag 3");
+                }
+                if rewrite && v.schema_b() && gm.prov4 == Prov::Locked {
+                    hit("schema B rewrote a record whose tag 4 is v2a's locked");
+                }
+                if matches!(e.method.as_str(), "remove_step" | "clear_loop") {
+                    hit(if gm.clearing { "remove_step resumed a clearing record" } else { "remove_step started" });
+                    if gm.clearing && v.schema_b() != m.groups[&g].tags.contains_key(&8) {
+                        hit("remove_step resumed under another schema");
+                    }
+                }
+                if gm.clearing && matches!(e.method.as_str(), "remove_group") {
+                    hit("remove_group of a clearing record");
+                }
+            }
+            if matches!(e.method.as_str(), "migrate_batch" | "drain") && m.v1_order.is_empty() {
+                hit("migrate_batch on an empty old side");
+            }
+            if e.method == "insert" && v.migrating() && matches!(m.items.get(&s(&e.args, "k")), Some((_, Side::Old))) {
+                hit("insert moved a key off the old side");
+            }
+        }
+    }
+    Ok(())
+}
+
 fn harness(world: Sim) -> Harness<UpOp> {
     Harness::new(world)
         .per_op("failures are documented ones", failures_expected)
+        .per_op("coverage probe (never fails)", probe)
         .at_rest("seq has no gap", check_seq)
         .at_rest("the model saw nothing forbidden", check_violations)
         .at_rest("items read back through the deployed code", check_items_read_back)
@@ -1303,9 +1421,9 @@ fn drained_contract_matches_a_fresh_v2_one() {
     assert_eq!(ua - ub, (root_a.len() - root_b.len()) as u64, "the whole difference is the root record");
 }
 
-fn search_report(world: Sim, cases: u32, len: std::ops::RangeInclusive<usize>) -> near_contract_sim::explore::Report<UpOp> {
+fn search_report(world: Sim, upgrade_weight: u32, cases: u32, len: std::ops::RangeInclusive<usize>) -> near_contract_sim::explore::Report<UpOp> {
     let t = std::time::Instant::now();
-    let report = audited(world).search(plans(ops()).len(len)).cases(cases).run();
+    let report = audited(world).search(plans(ops(upgrade_weight)).len(len)).cases(cases).run();
     let el = t.elapsed();
     println!("{report}");
     println!(
@@ -1314,20 +1432,28 @@ fn search_report(world: Sim, cases: u32, len: std::ops::RangeInclusive<usize>) -
         report.coverage().cases(),
         el.as_millis() as f64 / report.coverage().cases().max(1) as f64
     );
+    println!("reached (op runs, shrinking included):\n{}", reached_summary());
     report
 }
 
 #[test]
 #[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
 fn search_from_v1() {
-    let report = search_report(v1_world(), 256, 2..=12);
+    let report = search_report(v1_world(), 10, 256, 4..=14);
     report.assert_no_new_findings();
 }
 
 #[test]
 #[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
 fn search_from_v2a() {
-    let report = search_report(v2a_world(), 256, 2..=12);
+    let report = search_report(v2a_world(), 3, 256, 4..=14);
+    report.assert_no_new_findings();
+}
+
+#[test]
+#[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
+fn search_from_v2b() {
+    let report = search_report(v2b_world(), 4, 256, 4..=14);
     report.assert_no_new_findings();
 }
 
@@ -1367,5 +1493,6 @@ fn scan_out_of_gas() {
     let el = t.elapsed();
     println!("{report}");
     println!("WALL {:.1} s for the scan", el.as_secs_f64());
+    println!("reached (op runs):\n{}", reached_summary());
     report.assert_no_new_findings();
 }

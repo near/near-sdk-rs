@@ -1,0 +1,49 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s
+     Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
+
+running 1 test
+search: done, 48 case(s) in 4s
+Clean
+search: 48 cases, 313 blocks, seed 0x1; 1 injected, 14 drew a fault nothing fits, 0 incomplete, 10 every op skipped; 50 runs
+gas explored on 103 of 103 calls (103 unpinned); the least-gas bisection ran a transaction 258 times; drawn exactly and ±1 gas: 30, 300, 1000 Tgas
+AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
+
+known (not clean), each Known with what it suppressed:
+  1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
+     leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
+     suppressed 0 of 48 case(s)
+
+ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
+self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
+  site             reached  starved  call failed  held  result held  other  status
+  app.near::drain        2        1            0     0            0      0  out of scope
+out of scope:
+  app.near::drain: a public entry point the contract calls itself; Drain ops witness it
+  app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
+
+checks, over all cases:
+  seq has no gap: 251 ok, 0 failed, 0 unobserved
+  the model saw nothing forbidden: 251 ok, 0 failed, 0 unobserved
+  items read back through the deployed code: 251 ok, 0 failed, 0 unobserved
+  each item lives on exactly one side: 251 ok, 0 failed, 0 unobserved
+  group records match the model byte for byte: 251 ok, 0 failed, 0 unobserved
+  group views match the model: 251 ok, 0 failed, 0 unobserved
+  claimable is only what schema B wrote: 251 ok, 0 failed, 0 unobserved
+  storage_usage is account + code + every key: 251 ok, 0 failed, 0 unobserved
+  item subtree bytes match the spec formula: 251 ok, 0 failed, 0 unobserved
+  failures are documented ones: 115 ok, 0 failed, 0 unobserved
+
+logs, per site, against the host's limit:
+  app.near::add_flag: largest log 14 bytes, most per receipt 14 bytes of 16.0 KiB
+  app.near::add_member: largest log 14 bytes, most per receipt 14 bytes of 16.0 KiB
+  app.near::clear_loop: largest log 14 bytes, most per receipt 14 bytes of 16.0 KiB
+  (10 more sites, all smaller)
+
+WALL 4.9 s for 48 cases: 103 ms per case
+test search_from_v1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 4.98s
+
