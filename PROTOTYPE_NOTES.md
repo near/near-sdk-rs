@@ -1956,11 +1956,11 @@ collection outlives its record (intent); `storage_usage` = account + code + Σ(k
 1,536 search cases + 480 scan variants, about 5.2 min of wall time. Searches landed a fault in
 22 + 17 cases (OutOfGas lands only on continuation receipts; ~120 cases per search drew a fault
 nothing fits). Coverage probe, counted per op run with shrinking (upper bounds): continuations
-ran 1,330 times in the searches, 15 on other code than their first link (`drain` v2a->v2b,
+ran 731 times in the searches, 15 on other code than their first link (`drain` v2a->v2b,
 v2b->v2c); the scan's `.blocks(0)` witnesses ran 1,027 cross-version links (clear_loop v2a->v2b
 480, v2b->v2a 147; drain v2a->v2b 400). `remove_step` resumed a clearing record 284 times in
-the searches and 1,266 in the scan, 527 of them under another schema than the one that started
-it. Writes below a clearing record were refused 150 times, A3 refusals 81, v2c decode refusals
+the searches (32 under another schema than the one that started it) and 1,266 in the scan (495
+under another schema). Writes below a clearing record were refused 150 times, A3 refusals 41 (and 42 in the scan), v2c decode refusals
 268, v2a rewrites of a record carrying schema-B tags 34, schema-B rewrites dropping reserved
 tag 3 169, starved continuations 17 (searches) and 34 (scan).
 
