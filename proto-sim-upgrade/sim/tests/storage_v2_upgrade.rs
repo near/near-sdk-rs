@@ -1032,21 +1032,23 @@ fn check_group_records(sim: &Sim) -> Result<(), Fail> {
             None => {
                 let mut left = sim.view_state(APP, &group_rec(&g));
                 if let Some((flags, hdr)) = m.orphans.get(&g) {
+                    // A `Set` keeps 3 keys per entry (entry, index, key slot) and a header.
+                    let at = group_rec(&g).len();
+                    let under: Vec<&Vec<u8>> = left.iter().map(|(k, _)| k).filter(|k| k[at] == 8).collect();
+                    let kind = |c: u8| under.iter().filter(|k| k.len() > at + 1 && k[at + 1] == c).count();
+                    let mut entries: Vec<Vec<u8>> = under.iter().filter(|k| k[at + 1] == 0).map(|k| k.to_vec()).collect();
+                    entries.sort();
                     let mut want: Vec<Vec<u8>> = flags.iter().map(|f| coll_entry(&g, 8, f)).collect();
-                    let mut h = group_rec(&g);
-                    h.extend([8, 3]);
-                    if *hdr {
-                        want.push(h);
+                    want.sort();
+                    let n = flags.len();
+                    if entries != want || kind(1) != n || kind(2) != n || kind(3) != usize::from(*hdr) {
+                        return Err(Fail::new(format!(
+                            "{g}: orphaned flag keys: entries {entries:02x?}, index {}, slots {}, header {}; model {flags:?}, header {hdr}",
+                            kind(1), kind(2), kind(3)
+                        ))
+                        .key("orphaned keys"));
                     }
-                    let mut got: Vec<Vec<u8>> = left.iter().filter(|(k, _)| k[group_rec(&g).len()] == 8).map(|(k, _)| k.clone()).collect();
-                    let (mut w2, mut g2) = (want.clone(), got.clone());
-                    w2.sort();
-                    g2.sort();
-                    if w2 != g2 {
-                        return Err(Fail::new(format!("{g}: orphaned flag keys {g2:02x?}, model {w2:02x?}")).key("orphaned keys"));
-                    }
-                    got.clear();
-                    left.retain(|(k, _)| k[group_rec(&g).len()] != 8);
+                    left.retain(|(k, _)| k[at] != 8);
                 }
                 if !left.is_empty() {
                     return Err(Fail::new(format!("{g} is gone, {} keys under it remain: {:02x?}", left.len(), left[0].0)).key("orphaned keys"));
@@ -1572,6 +1574,25 @@ fn scan_out_of_gas() {
             .blocks(1)
             .op(up(Ver::V2a, false))
             .op(UpOp::RemoveStep { g: 0, n: 12 }),
+        // The deploy lands in the block the first link runs in, so every later link of the
+        // chain runs on the new code (cross-version continuation).
+        Plan::new()
+            .op(UpOp::ClearLoop { g: 0, n: 3, rounds: 8 })
+            .blocks(0)
+            .op(up(Ver::V2b, false))
+            .op(UpOp::AddMember { g: 1, m: 3, v: 1 }),
+        Plan::new()
+            .op(UpOp::Drain { n: 2, rounds: 8 })
+            .blocks(0)
+            .op(up(Ver::V2b, false))
+            .op(UpOp::Insert { k: 7, v: 1 }),
+        Plan::new()
+            .op(up(Ver::V2b, false))
+            .op(UpOp::CreateGroup { g: 2, weight: 1, x: 1 })
+            .op(UpOp::AddFlag { g: 2, f: 1 })
+            .op(UpOp::ClearLoop { g: 2, n: 3, rounds: 6 })
+            .blocks(0)
+            .op(up(Ver::V2a, false)),
     ];
     let t = std::time::Instant::now();
     let report = audited(v2a_world()).scan_each(&witnesses, Faults::default());
@@ -1685,4 +1706,14 @@ fn a3_marker_missing_after_at_mut_write_orphans_a_new_collection() {
         assert!(removed.unwrap_err().contains("refusing to remove"), "fixed: removal refuses");
         println!("FIXED: v2a refuses the removal");
     }
+}
+
+/// The scan's saved case (`tests/found/a3-orphaned-flags.json`): on this build the A3 hole
+/// shows; once fixed, the removal through v2a is refused and the case is clean of it.
+#[test]
+fn a3_orphan_replay() {
+    let path = format!("{}/tests/found/a3-orphaned-flags.json", env!("CARGO_MANIFEST_DIR"));
+    let run = harness(v2a_world()).rerun(&path);
+    println!("{run}");
+    run.assert_found("no collection outlives its record", "world");
 }

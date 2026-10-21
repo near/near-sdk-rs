@@ -1,28 +1,27 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-search case 46/512 · 10s elapsed, ~1m47s left (from the mean case time)
+search case 43/512 · 10s elapsed, ~1m49s left (from the mean case time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 98/512 · 20s elapsed, ~1m27s left (from the mean case time)
+search case 91/512 · 20s elapsed, ~1m33s left (from the mean case time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 148/512 · 30s elapsed, ~1m15s left (from the mean case time)
-search case 192/512 · 40s elapsed, ~1m08s left (from the mean case time)
+search case 143/512 · 30s elapsed, ~1m18s left (from the mean case time)
+search case 190/512 · 40s elapsed, ~1m08s left (from the mean case time)
 mbx[progress]: 45s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 246/512 · 50s elapsed, ~55s left (from the mean case time)
+search case 243/512 · 50s elapsed, ~55s left (from the mean case time)
 mbx[progress]: 1m elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
 test search_from_v2b has been running for over 60 seconds
 search case 293/512 · 1m00s elapsed, ~45s left (from the mean case time)
-search case 352/512 · 1m11s elapsed, ~32s left (from the mean case time)
+search case 346/512 · 1m10s elapsed, ~33s left (from the mean case time)
 mbx[progress]: 1m 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 410/512 · 1m21s elapsed, ~20s left (from the mean case time)
+search case 400/512 · 1m20s elapsed, ~22s left (from the mean case time)
 mbx[progress]: 1m 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 467/512 · 1m31s elapsed, ~8s left (from the mean case time)
-mbx[progress]: 1m 45s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-mbx[progress]: 2m elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search: done, 512 case(s) in 2m00s
-Findings: 2 distinct finding(s): 2 shown, 0 not shown (after a forced fault)
-search: 512 cases, 7154 blocks, seed 0x103; 17 injected, 120 drew a fault nothing fits, 0 incomplete, 0 every op skipped; 744 runs
+search case 456/512 · 1m31s elapsed, ~11s left (from the mean case time)
+search case 509/512 · 1m41s elapsed, ~0s left (from the mean case time)
+search: done, 512 case(s) in 1m42s
+Known: known findings only, not clean: claimable is only what schema B wrote at world; unhandled failure at app.near::clear_loop (ClearLoop)
+search: 512 cases, 7154 blocks, seed 0x103; 17 injected, 120 drew a fault nothing fits, 0 incomplete, 0 every op skipped; 530 runs
 gas explored on 4168 of 4168 calls (4168 unpinned); the least-gas bisection ran a transaction 9482 times; drawn exactly and ±1 gas: 10, 20, 30, 300, 1000 Tgas
 AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
@@ -33,32 +32,16 @@ known (not clean), each Known with what it suppressed; AUDIT the 1 flagged:
      suppressed 512 of 512 case(s): world (512)
      sample: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-71ef34ce.json
      AUDIT: broad: suppressed 512 of 512 cases, more than max(8, 5%): read its sample, and narrow it to the cause
-
-Coverage not achieved (write_up() refuses until each is closed, or Report::with_open_gaps(why) puts them first in the write-up):
-  - a search alone starves one receipt in about a sixteenth of its cases: merge it with a scan first (Report::merge)
-
-findings to write up: none (no root cause breaks a value invariant)
-  (value invariants: seq has no gap, the model saw nothing forbidden, items read back through the deployed code, each item lives on exactly one side, group records match the model byte for byte, group views match the model, claimable is only what schema B wrote, storage_usage is account + code + every key, item subtree bytes match the spec formula, conservation, must not fail)
-
-shown findings by root cause (each still listed below):
-  app.near::clear_loop failed: panicked: state: cannot decode value at f00200b77e1756157d25057d9868cc208fd455020000006732: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option` -> 1 finding(s) across 1 check(s) (FOUND 1)
-  app.near::clear_loop failed: panicked: state: refusing to remove the record at f00200b77e1756157d25057d9868cc208fd455020000006732: its stored bytes carry tag 8, a `Set` field this version of the record does not declare (another version of the contract wrote it). Removing the record would leave that collection's keys behind, and a new record at this key would inherit them. Roll forward to the version that declares tag 8 and remove the record there, or, if that version cleared the collection before the field was dropped, list the tag in `#[near(storage, reserved(8))]` -> 1 finding(s) across 1 check(s) (FOUND 2)
-
-FOUND 1/2  unhandled failure @ app.near::clear_loop (ClearLoop)
-  also via another op: FOUND 2/2 @ app.near::clear_loop (ClearLoop)
-  reachability: shown (nothing was forced) at the caller's gas (step 3 at 555.70 Tgas): whoever submits the transaction picks it, a relayer or a wallet attaching just enough; normal inputs, or a hostile counterparty if a stub's reply the plan chose caused it
-  case 0, seed 0x103; shrunk in 150 attempts (attempt budget reached; a simpler case may exist): 14 steps -> 4; shrink further: `harness.shrink("target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json")`
-  breaking step 1 of 4: ClearLoop; Report::steps(found) shows each step
-  app.near.clear_loop (63dyHP…): panicked: state: cannot decode value at f00200b77e1756157d25057d9868cc208fd455020000006732: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option` [attached 289.28 Tgas, burnt 1.56 Tgas (0.68 + 0.89 exec fees)]
-    transaction status: pending at this block; no callback receives this failure and the caller never sees it
-  plan:
-    0. ClearLoop { g: 2, n: 3, rounds: 2 }, then 0 blocks
-    1. Upgrade { to: V2c, migrate: false }
-    2. Insert { k: 0, v: 0 }
-    3. Insert { k: 10, v: 727 }, then 1 blocks, gas 555.70 Tgas
-  replay: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json
-  replay: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-1f84a8f9.json
-  keep it: copy it to tests/found/, then reproduce("tests/found/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json") on this build and rerun("tests/found/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json").assert_clean() once fixed
+  2. "no collection outlives its record" anywhere, cause "A3 hole: a collection written through at_mut under a record without its marker": "FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags"
+     leaves: the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key
+     suppressed 0 of 512 case(s)
+  3. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
+     suppressed 3 of 512 case(s): app.near::clear_loop (ClearLoop) (3); 1 root cause(s)
+     sample: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/known-unhandled-failure@app.near-clear_loop-ClearLoop-71ef34ce.json
+  4. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
+     suppressed 0 of 512 case(s)
 
 ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
 self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
@@ -77,6 +60,7 @@ checks, over all cases:
   group records match the model byte for byte: 3677 ok, 0 failed, 0 unobserved
   group views match the model: 3677 ok, 0 failed, 0 unobserved
   claimable is only what schema B wrote: 945 ok, 2732 failed, 0 unobserved
+  no collection outlives its record: 3677 ok, 0 failed, 0 unobserved
   storage_usage is account + code + every key: 3677 ok, 0 failed, 0 unobserved
   item subtree bytes match the spec formula: 3677 ok, 0 failed, 0 unobserved
   failures are documented ones: 4468 ok, 0 failed, 0 unobserved
@@ -88,118 +72,39 @@ logs, per site, against the host's limit:
   app.near::clear_loop: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
   (12 more sites, all smaller)
 
-replay files: 3
-WALL 120.1 s for 512 cases: 235 ms per case
+replay files: 2
+WALL 102.2 s for 512 cases: 200 ms per case
 reached (op runs, shrinking included):
   continuation ran on other code: drain V2b -> V2c: 9
-  continuation ran: clear_loop: 147
-  continuation ran: drain: 230
-  insert moved a key off the old side: 253
+  continuation ran: clear_loop: 139
+  continuation ran: drain: 211
+  insert moved a key off the old side: 207
   method missing on the deployed code: 2
-  migrate_batch on an empty old side: 127
+  migrate_batch on an empty old side: 120
   ran out of explored gas: add_flag: 1
   ran out of explored gas: clear_loop: 4
   ran out of explored gas: drain: 10
-  ran out of explored gas: insert: 7
+  ran out of explored gas: insert: 5
   ran out of explored gas: migrate_batch: 16
   ran out of explored gas: remove: 1
   ran out of explored gas: remove_group: 1
   ran out of explored gas: remove_step: 4
-  refused: A3 unknown collection tag on removal: 97
+  refused: A3 unknown collection tag on removal: 39
   refused: migrate twice: 107
-  refused: record decode (v2c required tag): 342
+  refused: record decode (v2c required tag): 175
   refused: remove_step below 3: 63
-  refused: write below a clearing record: 127
+  refused: write below a clearing record: 99
   remove_group of a clearing record: 9
-  remove_step resumed a clearing record: 178
+  remove_step resumed a clearing record: 170
   remove_step resumed under another schema: 7
-  remove_step started: 643
+  remove_step started: 424
   schema B rewrote a record carrying reserved tag 3: 136
-  schema B rewrote a record whose tag 4 is v2a's locked: 337
+  schema B rewrote a record whose tag 4 is v2a's locked: 336
   starved clear_loop: 3
   starved drain: 1
   v2a rewrote a record carrying schema-B tags (downgrade): 34
 
+test search_from_v2b ... ok
 
-thread 'search_from_v2b' (7864778) panicked at tests/storage_v2_upgrade.rs:1457:12:
-new findings: 2 distinct finding(s): 2 shown, 0 not shown (after a forced fault)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 102.35s
 
-Findings: 2 distinct finding(s): 2 shown, 0 not shown (after a forced fault)
-search: 512 cases, 7154 blocks, seed 0x103; 17 injected, 120 drew a fault nothing fits, 0 incomplete, 0 every op skipped; 744 runs
-gas explored on 4168 of 4168 calls (4168 unpinned); the least-gas bisection ran a transaction 9482 times; drawn exactly and ±1 gas: 10, 20, 30, 300, 1000 Tgas
-AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
-AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
-
-known (not clean), each Known with what it suppressed; AUDIT the 1 flagged:
-  1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
-     leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
-     suppressed 512 of 512 case(s): world (512)
-     sample: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-71ef34ce.json
-     AUDIT: broad: suppressed 512 of 512 cases, more than max(8, 5%): read its sample, and narrow it to the cause
-
-Coverage not achieved (write_up() refuses until each is closed, or Report::with_open_gaps(why) puts them first in the write-up):
-  - a search alone starves one receipt in about a sixteenth of its cases: merge it with a scan first (Report::merge)
-
-findings to write up: none (no root cause breaks a value invariant)
-  (value invariants: seq has no gap, the model saw nothing forbidden, items read back through the deployed code, each item lives on exactly one side, group records match the model byte for byte, group views match the model, claimable is only what schema B wrote, storage_usage is account + code + every key, item subtree bytes match the spec formula, conservation, must not fail)
-
-shown findings by root cause (each still listed below):
-  app.near::clear_loop failed: panicked: state: cannot decode value at f00200b77e1756157d25057d9868cc208fd455020000006732: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option` -> 1 finding(s) across 1 check(s) (FOUND 1)
-  app.near::clear_loop failed: panicked: state: refusing to remove the record at f00200b77e1756157d25057d9868cc208fd455020000006732: its stored bytes carry tag 8, a `Set` field this version of the record does not declare (another version of the contract wrote it). Removing the record would leave that collection's keys behind, and a new record at this key would inherit them. Roll forward to the version that declares tag 8 and remove the record there, or, if that version cleared the collection before the field was dropped, list the tag in `#[near(storage, reserved(8))]` -> 1 finding(s) across 1 check(s) (FOUND 2)
-
-FOUND 1/2  unhandled failure @ app.near::clear_loop (ClearLoop)
-  also via another op: FOUND 2/2 @ app.near::clear_loop (ClearLoop)
-  reachability: shown (nothing was forced) at the caller's gas (step 3 at 555.70 Tgas): whoever submits the transaction picks it, a relayer or a wallet attaching just enough; normal inputs, or a hostile counterparty if a stub's reply the plan chose caused it
-  case 0, seed 0x103; shrunk in 150 attempts (attempt budget reached; a simpler case may exist): 14 steps -> 4; shrink further: `harness.shrink("target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json")`
-  breaking step 1 of 4: ClearLoop; Report::steps(found) shows each step
-  app.near.clear_loop (63dyHP…): panicked: state: cannot decode value at f00200b77e1756157d25057d9868cc208fd455020000006732: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option` [attached 289.28 Tgas, burnt 1.56 Tgas (0.68 + 0.89 exec fees)]
-    transaction status: pending at this block; no callback receives this failure and the caller never sees it
-  plan:
-    0. ClearLoop { g: 2, n: 3, rounds: 2 }, then 0 blocks
-    1. Upgrade { to: V2c, migrate: false }
-    2. Insert { k: 0, v: 0 }
-    3. Insert { k: 10, v: 727 }, then 1 blocks, gas 555.70 Tgas
-  replay: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json
-  replay: target/near-contract-sim/found/search_from_v2b/search-0x103-c6b6f728/unhandled-failure@app.near-clear_loop-ClearLoop-1f84a8f9.json
-  keep it: copy it to tests/found/, then reproduce("tests/found/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json") on this build and rerun("tests/found/unhandled-failure@app.near-clear_loop-ClearLoop-f4d40ed2.json").assert_clean() once fixed
-
-ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
-self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
-  site                  reached  starved  call failed  held  result held  other  status
-  app.near::clear_loop      194        3            0     6            0      0  out of scope
-  app.near::drain           193        1            0     7            0      0  out of scope
-out of scope:
-  app.near::drain: a public entry point the contract calls itself; Drain ops witness it
-  app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
-
-checks, over all cases:
-  seq has no gap: 3677 ok, 0 failed, 0 unobserved
-  the model saw nothing forbidden: 3677 ok, 0 failed, 0 unobserved
-  items read back through the deployed code: 3677 ok, 0 failed, 0 unobserved
-  each item lives on exactly one side: 3677 ok, 0 failed, 0 unobserved
-  group records match the model byte for byte: 3677 ok, 0 failed, 0 unobserved
-  group views match the model: 3677 ok, 0 failed, 0 unobserved
-  claimable is only what schema B wrote: 945 ok, 2732 failed, 0 unobserved
-  storage_usage is account + code + every key: 3677 ok, 0 failed, 0 unobserved
-  item subtree bytes match the spec formula: 3677 ok, 0 failed, 0 unobserved
-  failures are documented ones: 4468 ok, 0 failed, 0 unobserved
-  coverage probe (never fails): 4468 ok, 0 failed, 0 unobserved
-
-logs, per site, against the host's limit:
-  app.near::add_flag: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  app.near::add_member: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  app.near::clear_loop: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  (12 more sites, all smaller)
-
-replay files: 3
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-test search_from_v2b ... FAILED
-
-failures:
-
-failures:
-    search_from_v2b
-
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 120.24s
-
-error: test failed, to rerun pass `--test storage_v2_upgrade`

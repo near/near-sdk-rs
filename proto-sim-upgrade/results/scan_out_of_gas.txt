@@ -1,47 +1,38 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-scan_each plan 2/5 · variant 22/92 · 10s elapsed, ~15s left (from the mean plan time)
+scan_each plan 2/8 · variant 35/92 · 10s elapsed, ~30s left (from the mean plan time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 3/5 · variant 39/68 · 20s elapsed, ~13s left (from the mean plan time)
+scan_each plan 3/8 · variant 55/68 · 20s elapsed, ~33s left (from the mean plan time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 4/5 · variant 51/60 · 30s elapsed, ~7s left (from the mean plan time)
-scan_each: done, 5 plan(s) in 32s
-Findings: 1 distinct finding(s): 1 shown, 0 not shown (after a forced fault)
-scan: 5 plans and 316 variant(s), 321 cases, 3518 blocks; 92 injected, 0 incomplete; 30 not tried
-gas explored on 224 of 958 calls (958 unpinned); the least-gas bisection ran a transaction 663 times
+scan_each plan 5/8 · variant 10/52 · 30s elapsed, ~18s left (from the mean plan time)
+scan_each plan 7/8 · variant 19/52 · 40s elapsed, ~5s left (from the mean plan time)
+scan_each: done, 8 plan(s) in 44s
+Known: known findings only, not clean: claimable is only what schema B wrote at world; no collection outlives its record at world; unhandled failure at app.near::clear_loop (ClearLoop)
+scan: 8 plans and 472 variant(s), 480 cases, 4885 blocks; 136 injected, 0 incomplete; 49 not tried
+gas explored on 336 of 1329 calls (1329 unpinned); the least-gas bisection ran a transaction 1020 times
 AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
 
 known (not clean), each Known with what it suppressed:
   1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
      leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
-     suppressed 183 of 321 case(s): world (183)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-816acde8-973f2d7e/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-88a8be63.json
+     suppressed 342 of 480 case(s): world (342)
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-88a8be63.json
+  2. "no collection outlives its record" anywhere, cause "A3 hole: a collection written through at_mut under a record without its marker": "FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags"
+     leaves: the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key
+     suppressed 50 of 480 case(s): world (50)
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-no-collection-outlives-its-record@world-A3-hole-a-collection-written-through-at_mut-under-a-record-without-its-marker-b8ebde28.json
+  3. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
+     suppressed 42 of 480 case(s): app.near::clear_loop (ClearLoop) (42); 1 root cause(s)
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-973f2d7e/known-unhandled-failure@app.near-clear_loop-ClearLoop-eea6ec91.json
+  4. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+     leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
+     suppressed 0 of 480 case(s)
 
-Coverage not achieved (write_up() refuses until each is closed, or Report::with_open_gaps(why) puts them first in the write-up):
-  - no audited contract: declare its callbacks (Harness::callbacks) or name it (Harness::audits)
-
-findings to write up (1 root cause(s) that break a value invariant; each is a numbered finding, ranked by impact and plausibility; merge entries that share a cause, never drop one):
-  V1 — interleaving, nothing failed on the value path: Upgrade (block +0), AddFlag (block +2), ClearLoop (block +4), Upgrade (block +5), RemoveStep (block +9); breaks group records match the model byte for byte (FOUND 1): g0 is gone, 4 keys under it remain: [f0, 02, 00, fe, 56, cf, 2a, 09, 42, 25, 3b, 15, 06, d5, 6b, 9d, 67, 83, 37, 02, 00, 00, 00, 67, 30, 08, 00, c8, eb, a9, c7, 01, ea, 5d, 96, 64, 02, 30, a1, 97, 46, e4, 72, 02, 00, 00, 00, 66, 30]; no budget measured, no headroom measured. Plausibility: shown.
-  (value invariants: seq has no gap, the model saw nothing forbidden, items read back through the deployed code, each item lives on exactly one side, group records match the model byte for byte, group views match the model, claimable is only what schema B wrote, storage_usage is account + code + every key, item subtree bytes match the spec formula, conservation, must not fail)
-
-FOUND 1/1  group records match the model byte for byte @ orphaned keys
-  reachability: shown (nothing was forced): normal inputs, or a hostile counterparty if a stub's reply the plan chose caused it
-  the scanned plan, no fault forced; not shrunk
-  breaking step 5 of 5: RemoveStep; Report::steps(found) shows each step
-  g0 is gone, 4 keys under it remain: [f0, 02, 00, fe, 56, cf, 2a, 09, 42, 25, 3b, 15, 06, d5, 6b, 9d, 67, 83, 37, 02, 00, 00, 00, 67, 30, 08, 00, c8, eb, a9, c7, 01, ea, 5d, 96, 64, 02, 30, a1, 97, 46, e4, 72, 02, 00, 00, 00, 66, 30]
-  plan:
-    0. Upgrade { to: V2b, migrate: false }
-    1. AddFlag { g: 0, f: 0 }
-    2. ClearLoop { g: 0, n: 3, rounds: 4 }, then 1 blocks
-    3. Upgrade { to: V2a, migrate: false }
-    4. RemoveStep { g: 0, n: 12 }
-  replay: target/near-contract-sim/found/scan_out_of_gas/scan-816acde8-973f2d7e/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json
-  keep it: copy it to tests/found/, then reproduce("tests/found/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json") on this build and rerun("tests/found/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json").assert_clean() once fixed
-
-not tried (30):
+not tried (49):
   plan 0, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 3 receipt(s) it spawned
   plan 0, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
   plan 0, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
@@ -72,159 +63,75 @@ not tried (30):
   plan 4, step 3, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
   plan 4, step 4, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
   plan 4, step 4, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 5, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 5 receipt(s) it spawned
+  plan 5, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 5, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 5, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 5, step 2, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 6, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 5 receipt(s) it spawned
+  plan 6, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 6, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 6, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 6, step 2, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 0, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 2, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 3, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 1 receipt(s) it spawned
+  plan 7, step 4, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
+  plan 7, step 4, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
 
 ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
 self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
   site                  reached  starved  call failed  held  result held  other  status
-  app.near::clear_loop      223       15            0    45            0      0  out of scope
-  app.near::drain            98        8            0    24            0      0  out of scope
+  app.near::clear_loop      329       21            0    63            0      0  out of scope
+  app.near::drain           151       13            0    39            0      0  out of scope
 out of scope:
   app.near::drain: a public entry point the contract calls itself; Drain ops witness it
   app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 
 checks, over all cases:
-  seq has no gap: 1340 ok, 0 failed, 0 unobserved
-  the model saw nothing forbidden: 1340 ok, 0 failed, 0 unobserved
-  items read back through the deployed code: 1340 ok, 0 failed, 0 unobserved
-  each item lives on exactly one side: 1340 ok, 0 failed, 0 unobserved
-  group records match the model byte for byte: 1290 ok, 50 failed, 0 unobserved
-  group views match the model: 1340 ok, 0 failed, 0 unobserved
-  claimable is only what schema B wrote: 905 ok, 435 failed, 0 unobserved
-  storage_usage is account + code + every key: 1340 ok, 0 failed, 0 unobserved
-  item subtree bytes match the spec formula: 1340 ok, 0 failed, 0 unobserved
-  failures are documented ones: 1202 ok, 0 failed, 0 unobserved
-  coverage probe (never fails): 1202 ok, 0 failed, 0 unobserved
+  seq has no gap: 1923 ok, 0 failed, 0 unobserved
+  the model saw nothing forbidden: 1923 ok, 0 failed, 0 unobserved
+  items read back through the deployed code: 1923 ok, 0 failed, 0 unobserved
+  each item lives on exactly one side: 1923 ok, 0 failed, 0 unobserved
+  group records match the model byte for byte: 1923 ok, 0 failed, 0 unobserved
+  group views match the model: 1923 ok, 0 failed, 0 unobserved
+  claimable is only what schema B wrote: 1117 ok, 806 failed, 0 unobserved
+  no collection outlives its record: 1873 ok, 50 failed, 0 unobserved
+  storage_usage is account + code + every key: 1923 ok, 0 failed, 0 unobserved
+  item subtree bytes match the spec formula: 1923 ok, 0 failed, 0 unobserved
+  failures are documented ones: 1785 ok, 0 failed, 0 unobserved
+  coverage probe (never fails): 1785 ok, 0 failed, 0 unobserved
 
 logs, per site, against the host's limit:
   app.near::add_member: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
   app.near::clear_loop: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
   app.near::drain: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  (4 more sites, all smaller)
+  (5 more sites, all smaller)
 
-replay files: 2
-WALL 32.5 s for the scan
+replay files: 3
+WALL 44.6 s for the scan
 reached (op runs):
-  continuation ran on other code: clear_loop V2a -> V2b: 280
-  continuation ran on other code: clear_loop V2b -> V2a: 156
-  continuation ran on other code: drain V2a -> V2b: 200
-  continuation ran: clear_loop: 572
+  continuation ran on other code: clear_loop V2a -> V2b: 480
+  continuation ran on other code: clear_loop V2b -> V2a: 147
+  continuation ran on other code: drain V2a -> V2b: 400
+  continuation ran: clear_loop: 563
   continuation ran: drain: 99
   migrate_batch on an empty old side: 38
-  ran out of explored gas: clear_loop: 15
-  ran out of explored gas: drain: 8
+  ran out of explored gas: clear_loop: 21
+  ran out of explored gas: drain: 13
+  refused: A3 unknown collection tag on removal: 42
   refused: write below a clearing record: 15
-  remove_step resumed a clearing record: 1088
-  remove_step resumed under another schema: 302
-  remove_step started: 323
-  starved clear_loop: 15
-  starved drain: 8
+  remove_step resumed a clearing record: 1266
+  remove_step resumed under another schema: 495
+  remove_step started: 422
+  starved clear_loop: 21
+  starved drain: 13
 
+test scan_out_of_gas ... ok
 
-thread 'scan_out_of_gas' (7884652) panicked at tests/storage_v2_upgrade.rs:1497:12:
-new findings: 1 distinct finding(s): 1 shown, 0 not shown (after a forced fault)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 44.62s
 
-Findings: 1 distinct finding(s): 1 shown, 0 not shown (after a forced fault)
-scan: 5 plans and 316 variant(s), 321 cases, 3518 blocks; 92 injected, 0 incomplete; 30 not tried
-gas explored on 224 of 958 calls (958 unpinned); the least-gas bisection ran a transaction 663 times
-AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
-AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
-
-known (not clean), each Known with what it suppressed:
-  1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
-     leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
-     suppressed 183 of 321 case(s): world (183)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-816acde8-973f2d7e/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-88a8be63.json
-
-Coverage not achieved (write_up() refuses until each is closed, or Report::with_open_gaps(why) puts them first in the write-up):
-  - no audited contract: declare its callbacks (Harness::callbacks) or name it (Harness::audits)
-
-findings to write up (1 root cause(s) that break a value invariant; each is a numbered finding, ranked by impact and plausibility; merge entries that share a cause, never drop one):
-  V1 — interleaving, nothing failed on the value path: Upgrade (block +0), AddFlag (block +2), ClearLoop (block +4), Upgrade (block +5), RemoveStep (block +9); breaks group records match the model byte for byte (FOUND 1): g0 is gone, 4 keys under it remain: [f0, 02, 00, fe, 56, cf, 2a, 09, 42, 25, 3b, 15, 06, d5, 6b, 9d, 67, 83, 37, 02, 00, 00, 00, 67, 30, 08, 00, c8, eb, a9, c7, 01, ea, 5d, 96, 64, 02, 30, a1, 97, 46, e4, 72, 02, 00, 00, 00, 66, 30]; no budget measured, no headroom measured. Plausibility: shown.
-  (value invariants: seq has no gap, the model saw nothing forbidden, items read back through the deployed code, each item lives on exactly one side, group records match the model byte for byte, group views match the model, claimable is only what schema B wrote, storage_usage is account + code + every key, item subtree bytes match the spec formula, conservation, must not fail)
-
-FOUND 1/1  group records match the model byte for byte @ orphaned keys
-  reachability: shown (nothing was forced): normal inputs, or a hostile counterparty if a stub's reply the plan chose caused it
-  the scanned plan, no fault forced; not shrunk
-  breaking step 5 of 5: RemoveStep; Report::steps(found) shows each step
-  g0 is gone, 4 keys under it remain: [f0, 02, 00, fe, 56, cf, 2a, 09, 42, 25, 3b, 15, 06, d5, 6b, 9d, 67, 83, 37, 02, 00, 00, 00, 67, 30, 08, 00, c8, eb, a9, c7, 01, ea, 5d, 96, 64, 02, 30, a1, 97, 46, e4, 72, 02, 00, 00, 00, 66, 30]
-  plan:
-    0. Upgrade { to: V2b, migrate: false }
-    1. AddFlag { g: 0, f: 0 }
-    2. ClearLoop { g: 0, n: 3, rounds: 4 }, then 1 blocks
-    3. Upgrade { to: V2a, migrate: false }
-    4. RemoveStep { g: 0, n: 12 }
-  replay: target/near-contract-sim/found/scan_out_of_gas/scan-816acde8-973f2d7e/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json
-  keep it: copy it to tests/found/, then reproduce("tests/found/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json") on this build and rerun("tests/found/group-records-match-the-model-byte-for-byte@orphaned-keys-b8ebde28.json").assert_clean() once fixed
-
-not tried (30):
-  plan 0, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 3 receipt(s) it spawned
-  plan 0, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 0, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 1, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 5 receipt(s) it spawned
-  plan 1, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 1, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 1, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 1, step 2, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 2, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 2, step 0, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 2, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 2, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 2, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 5 receipt(s) it spawned
-  plan 2, step 3, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 2 receipt(s) it spawned
-  plan 3, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 5 receipt(s) it spawned
-  plan 3, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 3, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 3, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 3, step 2, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 3, step 3, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 3, step 3, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 0, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 0, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 1, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 1, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 2, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 3 receipt(s) it spawned
-  plan 4, step 3, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 3, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 4, tx 0: PromiseFailed at Receipts::cross_contract_callbacks(): selects none of the 0 receipt(s) it spawned
-  plan 4, step 4, tx 0: Hold(1), Hold(2), Hold(3), HoldResult(1), HoldResult(2), HoldResult(3), OutOfGas at Receipts::all(): selects none of the 0 receipt(s) it spawned
-
-ledger (judged with the excuses when it ran: `rejudge(&harness)` applies the current ones):
-self-callbacks seen (not required: Harness::callbacks(..) makes each one, and every declared one, an obligation):
-  site                  reached  starved  call failed  held  result held  other  status
-  app.near::clear_loop      223       15            0    45            0      0  out of scope
-  app.near::drain            98        8            0    24            0      0  out of scope
-out of scope:
-  app.near::drain: a public entry point the contract calls itself; Drain ops witness it
-  app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
-
-checks, over all cases:
-  seq has no gap: 1340 ok, 0 failed, 0 unobserved
-  the model saw nothing forbidden: 1340 ok, 0 failed, 0 unobserved
-  items read back through the deployed code: 1340 ok, 0 failed, 0 unobserved
-  each item lives on exactly one side: 1340 ok, 0 failed, 0 unobserved
-  group records match the model byte for byte: 1290 ok, 50 failed, 0 unobserved
-  group views match the model: 1340 ok, 0 failed, 0 unobserved
-  claimable is only what schema B wrote: 905 ok, 435 failed, 0 unobserved
-  storage_usage is account + code + every key: 1340 ok, 0 failed, 0 unobserved
-  item subtree bytes match the spec formula: 1340 ok, 0 failed, 0 unobserved
-  failures are documented ones: 1202 ok, 0 failed, 0 unobserved
-  coverage probe (never fails): 1202 ok, 0 failed, 0 unobserved
-
-logs, per site, against the host's limit:
-  app.near::add_member: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  app.near::clear_loop: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  app.near::drain: largest log 15 bytes, most per receipt 15 bytes of 16.0 KiB
-  (4 more sites, all smaller)
-
-replay files: 2
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-test scan_out_of_gas ... FAILED
-
-failures:
-
-failures:
-    scan_out_of_gas
-
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 32.46s
-
-error: test failed, to rerun pass `--test storage_v2_upgrade`
