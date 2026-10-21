@@ -11,11 +11,12 @@ and forced `OutOfGas` at self-call continuations. Results and triage: `PROTOTYPE
   v2b = Group schema changes (tag 3 removed + `reserved(3)`, `default = 7`, `default_fn`, tag 4
   re-used on purpose, new `flags: Set` at tag 8); v2c = v2b + a `required` tag (forbidden);
   v3 = the wrapper off. `drain` and `clear_loop` chain themselves with detached self-calls.
-- `res/`: the built wasms (committed). `build.sh` rebuilds them. `--no-abi` skips the ABI, so
+- `res/`: the built wasms (gitignored; `build.sh` builds them). `--no-abi` skips the ABI, so
   the `storage diff` that would refuse v2b's re-used tag and v2c's `required` never runs.
 - `sim/tests/storage_v2_upgrade.rs`: the op enum, a model folded from every receipt's
   `ev v=<version> seq=<n>` log, ten checks, hand tests, three searches and a scan.
-- `sim/tests/found/a3-orphaned-flags.json`: the scan's saved case for the A3 marker hole.
+- `sim/tests/found/a3-orphaned-flags.json`: the scan's saved case for the A3 marker hole, clean
+  since round 7's first-write rule (`a3_orphan_replay` asserts the orphan finding is gone).
 - `results/`: the Oct 20 campaign outputs. `run_campaign.sh` regenerates them.
 
 ## Commands
@@ -34,7 +35,7 @@ cd .. && ./run_campaign.sh                   # 3 x 512 search cases + the scan, 
 ```
 
 The near-sdk mock pin: `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features
-unstable,unit-testing --test state_v2_verify hazard_a3_marker`.
+unstable,unit-testing --test state_v2_verify a3_first_write`.
 
 ## Timings (Oct 20, debug test profile, M-series laptop, one search at a time)
 
@@ -45,3 +46,8 @@ unstable,unit-testing --test state_v2_verify hazard_a3_marker`.
 | `search_from_v2b` (seed 0x103) | 512 | 102 s | 200 ms |
 | `scan_out_of_gas` (8 witnesses, `Faults::default()`) | 480 | 45 s | 93 ms |
 | hand tests (9) | | ~1 s | |
+
+`results/` was regenerated after round 7 (the A3 first-write rule): 97 s, 88 s, 114 s and 51 s,
+with other jobs on the machine.
+The scan's "no collection outlives its record" failures went from 50 to 0, and its A3 removal
+refusals from 42 to 137; the only Knowns left are the re-used tag 4 and continuation refusals.

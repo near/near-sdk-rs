@@ -1,24 +1,25 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-search case 55/512 · 10s elapsed, ~1m30s left (from the mean case time)
+search case 52/512 · 10s elapsed, ~1m37s left (from the mean case time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 117/512 · 21s elapsed, ~1m12s left (from the mean case time)
+search case 102/512 · 21s elapsed, ~1m24s left (from the mean case time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 174/512 · 31s elapsed, ~1m01s left (from the mean case time)
-search case 273/512 · 41s elapsed, ~36s left (from the mean case time)
+search case 148/512 · 31s elapsed, ~1m16s left (from the mean case time)
+search case 200/512 · 41s elapsed, ~1m04s left (from the mean case time)
 mbx[progress]: 45s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 329/512 · 51s elapsed, ~28s left (from the mean case time)
+search case 274/512 · 52s elapsed, ~45s left (from the mean case time)
 mbx[progress]: 1m elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
 test search_from_v1 has been running for over 60 seconds
-search case 402/512 · 1m01s elapsed, ~16s left (from the mean case time)
-search case 481/512 · 1m11s elapsed, ~4s left (from the mean case time)
+search case 334/512 · 1m02s elapsed, ~33s left (from the mean case time)
+search case 399/512 · 1m12s elapsed, ~20s left (from the mean case time)
 mbx[progress]: 1m 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search: done, 512 case(s) in 1m15s
+search case 469/512 · 1m22s elapsed, ~7s left (from the mean case time)
+search: done, 512 case(s) in 1m28s
 Known: known findings only, not clean: claimable is only what schema B wrote at world
 search: 512 cases, 5368 blocks, seed 0x101; 0 injected, 125 drew a fault nothing fits, 0 incomplete, 29 every op skipped; 513 runs
-gas explored on 2246 of 2246 calls (2246 unpinned); the least-gas bisection ran a transaction 3924 times; drawn exactly and ±1 gas: 30, 300, 1000 Tgas
+gas explored on 2246 of 2246 calls (2246 unpinned); the least-gas bisection ran a transaction 3926 times; drawn exactly and ±1 gas: 30, 300, 1000 Tgas
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
 
 known (not clean), each Known with what it suppressed:
@@ -62,7 +63,7 @@ logs, per site, against the host's limit:
   (13 more sites, all smaller)
 
 replay files: 1
-WALL 75.3 s for 512 cases: 147 ms per case
+WALL 88.2 s for 512 cases: 172 ms per case
 reached (op runs, shrinking included):
   continuation ran on other code: drain V2b -> V2c: 1
   continuation ran: drain: 57
@@ -81,5 +82,5 @@ reached (op runs, shrinking included):
 
 test search_from_v1 ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 75.36s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 88.31s
 

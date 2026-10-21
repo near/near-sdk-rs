@@ -1,17 +1,19 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-scan_each plan 2/8 · variant 42/92 · 10s elapsed, ~30s left (from the mean plan time)
+scan_each plan 2/8 · variant 22/92 · 10s elapsed, ~30s left (from the mean plan time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 3/8 · variant 59/68 · 20s elapsed, ~33s left (from the mean plan time)
+scan_each plan 3/8 · variant 30/68 · 20s elapsed, ~33s left (from the mean plan time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-scan_each plan 5/8 · variant 35/52 · 30s elapsed, ~18s left (from the mean plan time)
-scan_each plan 7/8 · variant 31/52 · 40s elapsed, ~5s left (from the mean plan time)
-scan_each: done, 8 plan(s) in 43s
+scan_each plan 4/8 · variant 39/52 · 30s elapsed, ~30s left (from the mean plan time)
+scan_each plan 6/8 · variant 32/52 · 40s elapsed, ~13s left (from the mean plan time)
+mbx[progress]: 45s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+scan_each plan 7/8 · variant 50/52 · 50s elapsed, ~7s left (from the mean plan time)
+scan_each: done, 8 plan(s) in 50s
 Known: known findings only, not clean: claimable is only what schema B wrote at world; unhandled failure at app.near::clear_loop (ClearLoop)
 scan: 8 plans and 464 variant(s), 472 cases, 4702 blocks; 128 injected, 0 incomplete; 49 not tried
-gas explored on 336 of 1305 calls (1305 unpinned); the least-gas bisection ran a transaction 973 times
+gas explored on 336 of 1305 calls (1305 unpinned); the least-gas bisection ran a transaction 967 times
 AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
 
@@ -19,11 +21,11 @@ known (not clean), each Known with what it suppressed:
   1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
      leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
      suppressed 334 of 472 case(s): world (334)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-7e3041de/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-d4f26b4b.json
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-eada0608/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-31137353.json
   2. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
      suppressed 84 of 472 case(s): app.near::clear_loop (ClearLoop) (84); 1 root cause(s)
-     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-7e3041de/known-unhandled-failure@app.near-clear_loop-ClearLoop-c2ea4d3f.json
+     sample: target/near-contract-sim/found/scan_out_of_gas/scan-9b3ec39f-eada0608/known-unhandled-failure@app.near-clear_loop-ClearLoop-01ef0c46.json
   3. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
      suppressed 0 of 472 case(s)
@@ -109,7 +111,7 @@ logs, per site, against the host's limit:
   (5 more sites, all smaller)
 
 replay files: 2
-WALL 43.1 s for the scan
+WALL 51.0 s for the scan
 reached (op runs):
   continuation ran on other code: clear_loop V2a -> V2b: 480
   continuation ran on other code: drain V2a -> V2b: 400
@@ -128,5 +130,5 @@ reached (op runs):
 
 test scan_out_of_gas ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 43.09s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 51.04s
 
