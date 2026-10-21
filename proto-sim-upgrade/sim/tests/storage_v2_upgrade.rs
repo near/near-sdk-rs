@@ -18,8 +18,13 @@
 //! what this harness can judge that a single-call mock cannot is the cross-receipt behaviour:
 //! a `drain`/`clear_loop` continuation starved or landing after a redeploy, a deploy between two
 //! calls of a clearing sequence, two calls in one block, and storage as the runtime stakes it.
+//!
+//! Ported Oct 20 to near-contract-sim main @ 8e8642db (the primitives layer). There a finding is
+//! never excused (harness.md, Excuses: `Known` is gone), so the findings this build shows by
+//! design or as the A3 hole are asserted by check, cause and site ([`expected`]), and nothing
+//! else may show. Checks labelled `harness:` / `runtime:` are sanity, not SDK properties.
 
-use near_contract_sim::explore::{Fail, Faults, Harness, Known, Op, OpDone, Plan, Skip, plans};
+use near_contract_sim::explore::{Audit, Fail, Faults, Found, Harness, Op, OpDone, Plan, Run, Skip, builtin, plans};
 use near_contract_sim::nearcore::near_primitives::hash::hash as sha256;
 use near_contract_sim::{Balance, Failure, Sim};
 use proptest::prelude::*;
@@ -1233,8 +1238,10 @@ fn failures_expected(d: &OpDone<UpOp>) -> Result<(), Fail> {
 
 
 // ---------------------------------------------------------------------------------------------
-// coverage probe: what the cases reached that a single-call mock cannot (counted per op run,
-// shrinking and replays included, so the counts are an upper bound on distinct cases)
+// behaviour probe: what the cases reached that a single-call mock cannot. NOT a property (it never
+// fails) and NOT once per case: a check runs on every execution (shrink candidates, a faulted
+// case's targeting baseline, case 0's rerun), so these counts are an upper bound (sim triage §4).
+// Distinct-case coverage is `Audit::reached` per method site.
 // ---------------------------------------------------------------------------------------------
 
 static REACHED: std::sync::Mutex<BTreeMap<String, u64>> = std::sync::Mutex::new(BTreeMap::new());
@@ -1244,7 +1251,7 @@ fn hit(what: &str) {
 }
 
 fn reached_summary() -> String {
-    let r = REACHED.lock().unwrap();
+    let r = std::mem::take(&mut *REACHED.lock().unwrap());
     r.iter().map(|(k, v)| format!("  {k}: {v}\n")).collect()
 }
 
@@ -1256,10 +1263,13 @@ fn ev_of(r: &near_contract_sim::ReceiptOutcome) -> Option<(u64, Ver)> {
     Some((seq, v))
 }
 
-/// Never fails: counts the interactions each op's receipts reached.
-fn probe(d: &OpDone<UpOp>) -> Result<(), Fail> {
-    let evs = events(d.world());
-    for o in d.outcomes() {
+const PROBE: &str = "probe: behaviour classes (never fails; counts include reruns)";
+
+/// Never fails: counts the interactions the case's receipts reached, once per execution.
+fn probe(sim: &Sim) -> Result<(), Fail> {
+    let evs = events(sim);
+    for h in sim.txs() {
+        let o = sim.outcome(h);
         let mut first_ver = None;
         for (i, r) in o.receipts.iter().filter(|r| r.executor_id.as_str() == APP && !r.method_names.is_empty()).enumerate() {
             if r.fault == Some(near_contract_sim::Fault::OutOfGas) {
@@ -1337,65 +1347,76 @@ fn probe(d: &OpDone<UpOp>) -> Result<(), Fail> {
 
 fn harness(world: Sim) -> Harness<UpOp> {
     Harness::new(world)
+        .audits([APP])
         .per_op("failures are documented ones", failures_expected)
-        .per_op("coverage probe (never fails)", probe)
-        .at_rest("seq has no gap", check_seq)
+        .at_rest("harness: seq has no gap", check_seq)
         .at_rest("the model saw nothing forbidden", check_violations)
         .at_rest("items read back through the deployed code", check_items_read_back)
         .at_rest("each item lives on exactly one side", check_one_side)
         .at_rest("group records match the model byte for byte", check_group_records)
         .at_rest("group views match the model", check_group_views)
-        .at_rest("claimable is only what schema B wrote", check_retag)
-        .at_rest("no collection outlives its record", check_no_orphans)
-        .at_rest("storage_usage is account + code + every key", check_storage_usage)
+        .at_rest(RETAG, check_retag)
+        .at_rest(A3, check_no_orphans)
+        .at_rest("runtime: storage_usage is account + code + every key", check_storage_usage)
         .at_rest("item subtree bytes match the spec formula", check_item_bytes)
+        .at_end(PROBE, probe)
 }
 
-fn retag_known() -> Known {
-    Known::new("claimable is only what schema B wrote")
-        .cause("tag 4 re-used: v2a's locked bytes read as claimable")
-        .because("v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)")
-        .leaves("v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record")
-}
-
-fn a3_hole_known() -> Known {
-    Known::new("no collection outlives its record")
-        .cause("A3 hole: a collection written through at_mut under a record without its marker")
-        .because("FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags")
-        .leaves("the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key")
-}
+const RETAG: &str = "claimable is only what schema B wrote";
+const RETAG_CAUSE: &str = "tag 4 re-used: v2a's locked bytes read as claimable";
+const A3: &str = "no collection outlives its record";
+const A3_CAUSE: &str = "A3 hole: a collection written through at_mut under a record without its marker";
 
 /// SDK refusals a detached continuation can hit after a redeploy (it then fails with nobody
 /// to tell): the A3 refusal, v2c's undecodable records, the clearing guard, code without the
 /// method.
-fn continuation_refusal(f: &near_contract_sim::explore::Seen) -> bool {
-    f.outcome().is_some_and(|o| {
-        o.receipts.iter().filter(|r| r.method_names.iter().any(|m| m == "clear_loop" || m == "drain")).any(|r| match r.failure() {
-            Some(Failure::Panic(m)) => {
-                ["refusing to remove", "Missing { tag: 9 }", "is being cleared", "cannot decode root"].iter().any(|p| m.contains(p))
-            }
-            Some(Failure::Action(k)) => format!("{k:?}").contains("MethodResolveError"),
-            _ => false,
-        })
+fn continuation_refusal(run: &Run<UpOp>) -> bool {
+    run.outcomes().iter().flat_map(|o| &o.receipts).filter(|r| r.method_names.iter().any(|m| m == "clear_loop" || m == "drain")).any(|r| match r.failure() {
+        Some(Failure::Panic(m)) => {
+            ["refusing to remove", "Missing { tag: 9 }", "is being cleared", "cannot decode root"].iter().any(|p| m.contains(p))
+        }
+        Some(Failure::Action(k)) => format!("{k:?}").contains("MethodResolveError"),
+        _ => false,
     })
 }
 
-fn continuation_known(site: &str) -> Known {
-    Known::new(near_contract_sim::builtin::UNHANDLED_FAILURE)
-        .at(site)
-        .when("a detached continuation landed on code that refuses (documented SDK refusal)", continuation_refusal)
-        .because("drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically")
-        .leaves("nothing: the failed link changes no state; the chain stops and the next call reports the refusal")
+/// The findings this build shows by design or as the known A3 hole, each with why. On main a
+/// finding is never excused (the `Known`s of b328d067 are gone), so a campaign asserts that
+/// every finding is one of these, and reports each.
+fn expected(f: &Found<UpOp>) -> Option<&'static str> {
+    let (check, cause, site) = (f.finding.check.as_str(), f.finding.cause.as_deref(), f.finding.site.to_string());
+    match check {
+        RETAG if cause == Some(RETAG_CAUSE) => Some(
+            "by design: v2b re-uses tag 4 (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check); leaves v2a's `locked` readable and writable as `claimable`",
+        ),
+        A3 if cause == Some(A3_CAUSE) => Some(
+            "the A3 hole on ec29bf6f (FOUND Oct 20): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags; leaves the flags orphaned on removal through v2a and inherited by the next record at that key",
+        ),
+        builtin::UNHANDLED_FAILURE if (site.contains("clear_loop") || site.contains("drain")) && continuation_refusal(&f.run) => Some(
+            "by design: drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and fails atomically with nobody told; leaves nothing (the failed link changes no state)",
+        ),
+        _ => None,
+    }
 }
 
-fn audited(world: Sim) -> Harness<UpOp> {
-    harness(world)
-        .known(retag_known())
-        .known(a3_hole_known())
-        .known(continuation_known("app.near::clear_loop"))
-        .known(continuation_known("app.near::drain"))
-        .out_of_scope("app.near::drain", "a public entry point the contract calls itself; Drain ops witness it")
-        .out_of_scope("app.near::clear_loop", "a public entry point the contract calls itself; ClearLoop ops witness it")
+/// Prints every finding with whether it is expected, and panics on any that isn't (or on a
+/// harness error).
+fn assert_only_expected(audit: &Audit<UpOp>) {
+    for (k, f) in audit.found().iter().enumerate() {
+        let why = expected(f);
+        println!(
+            "finding {}: [{}] {} at {} ({}), {} case(s): {}",
+            k + 1,
+            if why.is_some() { "expected" } else { "UNEXPECTED" },
+            f.finding.check,
+            f.finding.site,
+            f.label,
+            f.cases,
+            why.unwrap_or(&f.finding.message)
+        );
+    }
+    let unexpected: Vec<_> = audit.found().iter().filter(|f| expected(f).is_none()).collect();
+    assert!(unexpected.is_empty() && audit.errors().is_empty(), "unexpected findings or errors:\n{audit:#?}");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1449,8 +1470,9 @@ fn retag_hazard_is_caught() {
         .op(UpOp::CreateGroup { g: 0, weight: 3, x: 9 })
         .op(UpOp::SetField4 { g: 0, x: 4 });
     harness(v1_world()).run(&different).assert_clean();
-    let run = harness(v1_world()).known(retag_known()).run(&intended);
-    assert!(run.findings().is_empty() && !run.known().is_empty(), "the Known covers the intended case: {run}");
+    // The intended case shows this finding only, with its cause: what `expected` accepts.
+    let run = harness(v1_world()).run(&intended);
+    assert!(run.findings().iter().all(|f| f.check == RETAG && f.cause.as_deref() == Some(RETAG_CAUSE)), "{run}");
 }
 
 /// Positive controls for the model's raw checks: corrupt state and watch them fail.
@@ -1509,40 +1531,61 @@ fn drained_contract_matches_a_fresh_v2_one() {
     assert_eq!(ua - ub, (root_a.len() - root_b.len()) as u64, "the whole difference is the root record");
 }
 
-fn search_report(world: Sim, upgrade_weight: u32, cases: u32, len: std::ops::RangeInclusive<usize>) -> near_contract_sim::explore::Report<UpOp> {
+/// The contract's methods (value paths), each reported with the distinct cases that reached it.
+const METHODS: &[&str] = &[
+    "insert", "remove", "migrate", "migrate_batch", "drain", "create_group", "set_weight", "set_field4",
+    "set_level", "set_label", "add_member", "remove_member", "add_flag", "remove_step", "clear_loop",
+    "remove_group",
+];
+
+fn print_coverage(audit: &Audit<UpOp>) {
+    println!("coverage, distinct cases reaching each method (Audit::reached):");
+    for m in METHODS {
+        let site = format!("{APP}::{m}");
+        println!("  {site}: {}", audit.reached(&site));
+    }
+}
+
+fn search_audit(world: Sim, upgrade_weight: u32, cases: u32, len: std::ops::RangeInclusive<usize>) -> Audit<UpOp> {
+    let h = harness(world);
+    let (strategy, drawn) = campaign::drawn(plans(ops(upgrade_weight)).len(len));
     let t = std::time::Instant::now();
-    let report = audited(world).search(plans(ops(upgrade_weight)).len(len)).cases(cases).run();
+    let audit = h.search(strategy).cases(cases).run();
     let el = t.elapsed();
-    println!("{report}");
+    println!("{audit}");
     println!(
-        "WALL {:.1} s for {} cases: {:.0} ms per case",
+        "WALL {:.1} s for {} cases: {:.0} ms per case (shrinking included)",
         el.as_secs_f64(),
-        report.coverage().cases(),
-        el.as_millis() as f64 / report.coverage().cases().max(1) as f64
+        audit.cases(),
+        el.as_millis() as f64 / audit.cases().max(1) as f64
     );
-    println!("reached (op runs, shrinking included):\n{}", reached_summary());
-    report
+    campaign::print_checks(&audit);
+    let plans = std::mem::take(&mut drawn.lock().unwrap().1);
+    println!("{}", campaign::faults(&h, &plans));
+    print_coverage(&audit);
+    println!("behaviour classes, over every execution (shrinking, fault baselines and case 0's rerun included; an upper bound):\n{}", reached_summary());
+    for m in ["insert", "remove"] {
+        audit.assert_reached(&format!("{APP}::{m}"));
+    }
+    audit
 }
 
 #[test]
 #[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
 fn search_from_v1() {
-    let report = search_report(v1_world(), 10, 256, 4..=14);
-    report.assert_no_new_findings();
+    assert_only_expected(&search_audit(v1_world(), 10, 256, 4..=14));
 }
 
 #[test]
 #[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
 fn search_from_v2a() {
-    let report = search_report(v2a_world(), 3, 256, 4..=14);
-    report.assert_no_new_findings();
+    assert_only_expected(&search_audit(v2a_world(), 3, 256, 4..=14));
 }
 
 #[test]
 #[ignore = "long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it"]
 fn search_from_v2b() {
-    let report = search_report(v2b_world(), 4, 256, 4..=14);
-    report.assert_no_new_findings();
+    assert_only_expected(&search_audit(v2b_world(), 4, 256, 4..=14));
 }
 
 /// Every fault at every receipt of witness plans that run the self-call continuations, with a
@@ -1596,12 +1639,14 @@ fn scan_out_of_gas() {
             .op(up(Ver::V2a, false)),
     ];
     let t = std::time::Instant::now();
-    let report = audited(v2a_world()).scan_each(&witnesses, Faults::default());
+    let audit = harness(v2a_world()).scan(&witnesses).faults(Faults::default()).run();
     let el = t.elapsed();
-    println!("{report}");
-    println!("WALL {:.1} s for the scan", el.as_secs_f64());
-    println!("reached (op runs):\n{}", reached_summary());
-    report.assert_no_new_findings();
+    println!("{audit}");
+    println!("WALL {:.1} s for the scan, {} cases", el.as_secs_f64(), audit.cases());
+    campaign::print_checks(&audit);
+    print_coverage(&audit);
+    println!("behaviour classes, over every execution (an upper bound):\n{}", reached_summary());
+    assert_only_expected(&audit);
 }
 
 fn tx_ok(sim: &mut Sim, method: &str, args: Value) -> Result<Vec<u8>, String> {
@@ -1628,8 +1673,10 @@ fn downgrade_keeps_schema_b_fields() {
     assert_eq!(after["label"], before["label"]);
     assert_eq!(after["weight"], 99);
     assert_eq!(in_a["note"], "", "tag 3 was dropped by v2b (reserved), so v2a reads its default");
-    let run = audited(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
-    assert!(run.findings().is_empty(), "{run}");
+    // g0 was written by v2a and is read through v2b: the retag hazard shows (by design), and
+    // nothing else may.
+    let run = harness(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
+    assert!(run.findings().iter().all(|f| f.check == RETAG && f.cause.as_deref() == Some(RETAG_CAUSE)), "{run}");
 }
 
 /// What each method does on a record written before v2c's `required` tag existed.
@@ -1660,7 +1707,7 @@ fn required_tag_on_old_records() {
     assert!(lines[0].contains("Err"), "an old record does not decode under v2c");
     assert!(lines.iter().any(|l| l.starts_with("add_member: Ok")), "at_mut does not decode, so writes below still land");
     assert!(lines.iter().any(|l| l.starts_with("remove_group: Err")), "removal decodes, so the record cannot be removed");
-    let run = audited(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
+    let run = harness(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
     assert!(run.findings().is_empty(), "{run}");
 }
 
@@ -1709,12 +1756,103 @@ fn a3_marker_missing_after_at_mut_write_orphans_a_new_collection() {
     }
 }
 
-/// The scan's saved case (`tests/found/a3-orphaned-flags.json`): on this build the A3 hole
-/// shows; once fixed, the removal through v2a is refused and the case is clean of it.
+/// The scan's saved case (`tests/found/a3-orphaned-flags.json`, converted to main's plan
+/// format): on ec29bf6f the A3 hole shows, which makes this the upgrade harness's positive
+/// control. Once fixed, the removal through v2a is refused and the case is clean of it.
 #[test]
 fn a3_orphan_replay() {
     let path = format!("{}/tests/found/a3-orphaned-flags.json", env!("CARGO_MANIFEST_DIR"));
-    let run = harness(v2a_world()).rerun(&path);
+    let run = harness(v2a_world()).run(&Plan::load(&path));
     println!("{run}");
-    run.assert_found("no collection outlives its record", "world");
+    let f = run.assert_found(A3, "world");
+    assert_eq!(f.cause.as_deref(), Some(A3_CAUSE), "{run}");
+}
+
+// ---------------------------------------------------------------------------------------------
+// campaign accounting the 8e8642db summary doesn't print (the same module as the search harness's)
+// ---------------------------------------------------------------------------------------------
+
+mod campaign {
+    use near_contract_sim::explore::{Audit, Harness, Op, Plan, World};
+    use proptest::strategy::{NewTree, Strategy, ValueTree};
+    use proptest::test_runner::TestRunner;
+    use serde::Serialize;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+    use std::fmt::Debug;
+    use std::sync::{Arc, Mutex};
+
+    /// Labels of checks that are not SDK properties: shown apart from the property table.
+    const NOT_PROPERTIES: [&str; 3] = ["runtime:", "harness:", "probe:"];
+
+    /// Prints each check's judgements as `Audit::add` sums them: once per counted case (shrink
+    /// candidates, a faulted case's targeting baseline and case 0's rerun are not counted).
+    /// `Audit::judged` is crate-private at 8e8642db and the summary prints no per-check line
+    /// (fix/open-gaps 37f7f588 adds a not-judged line); `Report`'s JSON carries the map.
+    pub fn print_checks<O: Clone + Debug>(audit: &Audit<O>) {
+        let v: Value = serde_json::from_str(&audit.report().json()).expect("report JSON");
+        let n = |j: &Value, f: &str| j[f].as_u64().unwrap_or(0);
+        let rows: Vec<(String, &Value)> =
+            v["judged"].as_object().map(|m| m.iter().map(|(k, j)| (k.clone(), j)).collect()).unwrap_or_default();
+        for (title, props) in [("SDK properties", true), ("not SDK properties (runtime sanity, harness, probes)", false)] {
+            println!("checks, {title}, over the {} counted case(s):", audit.cases());
+            for (k, j) in rows.iter().filter(|(k, _)| props != NOT_PROPERTIES.iter().any(|p| k.starts_with(p))) {
+                let why = j["why"].as_str().map(|w| format!(" (first: {w})")).unwrap_or_default();
+                println!(
+                    "  {k}: {} ok, {} failed, {} not judged, {} idle{why}",
+                    n(j, "ok"), n(j, "failed"), n(j, "unjudged"), n(j, "idle")
+                );
+            }
+        }
+        println!("incomplete cases: {} of {}", audit.incomplete().len(), audit.cases());
+    }
+
+    /// The plan strategy, keeping each distinct plan it draws. A search calls `new_tree` once per
+    /// case, and once more per finding it shrinks (the case seed regenerates the same plan), so
+    /// plans are kept once, by their JSON.
+    pub struct Drawn<S, O> {
+        pub inner: S,
+        pub plans: Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>,
+    }
+
+    impl<S: Debug, O> Debug for Drawn<S, O> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.inner.fmt(f)
+        }
+    }
+
+    impl<S: Strategy<Value = Plan<O>>, O: Serialize + Clone + Debug> Strategy for Drawn<S, O> {
+        type Tree = S::Tree;
+        type Value = Plan<O>;
+        fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
+            let tree = self.inner.new_tree(runner)?;
+            let plan = tree.current();
+            let key = serde_json::to_string(&plan).unwrap_or_default();
+            let mut g = self.plans.lock().unwrap();
+            if g.0.insert(key) {
+                g.1.push(plan);
+            }
+            Ok(tree)
+        }
+    }
+
+    pub fn drawn<S, O>(inner: S) -> (Drawn<S, O>, Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>) {
+        let plans = Arc::new(Mutex::new((BTreeSet::new(), vec![])));
+        (Drawn { inner, plans: plans.clone() }, plans)
+    }
+
+    /// "faults: N drawn, M landed", which the 8e8642db summary doesn't print (sim triage §1: the
+    /// old "N injected, M drew a fault nothing fits" line has no counterpart on main). Of the
+    /// distinct plans drawn, those carrying a sampled fault, and those whose fault the run
+    /// resolves to a receipt (`Run::plan`: "a sampled injection resolved to the receipt it landed
+    /// on"; one that fits nothing is dropped). Each faulted plan runs once more, here.
+    pub fn faults<O: Op<W>, W: World>(h: &Harness<O, W>, plans: &[Plan<O>]) -> String {
+        let faulted: Vec<&Plan<O>> = plans.iter().filter(|p| p.steps.iter().any(|s| !s.inject.is_empty())).collect();
+        let landed = faulted.iter().filter(|p| h.run(p).plan().steps.iter().any(|s| !s.inject.is_empty())).count();
+        format!(
+            "faults: {} drawn, {landed} landed (of {} distinct plans drawn; the rest fit no receipt their case spawned: a transaction's first receipt is its caller's gas, faults.md)",
+            faulted.len(),
+            plans.len()
+        )
+    }
 }

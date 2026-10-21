@@ -2541,12 +2541,15 @@ dependencies = [
  "near-vm-runner",
  "node-runtime",
  "proptest",
+ "rustc-demangle",
  "serde",
  "serde_json",
+ "sha3",
  "stacker",
  "strum",
  "wasmparser 0.236.1",
  "wat",
+ "zstd",
 ]
 
 [[package]]

@@ -8,30 +8,33 @@
 //! `try_insert`, `entry().or_default()`, `remove_step(k, n)` with any `n`, cursor pages, plus
 //! failure modes (panic before the flush, panic after a hand flush, a hand flush mid-call).
 //!
-//! What is judged, after every op:
-//! - the mirror: every receipt the contract ran is replayed through [`Model`] in execution
-//!   order; each return value must equal the model's, a panic must be one the model predicts,
-//!   and a receipt that failed (any reason) is dropped from the model;
-//! - exact state: the contract's whole trie (`Sim::view_state`) must equal the model's
+//! What is judged (SDK properties only; ported to near-contract-sim main @ 8e8642db, Oct 20):
+//! - the mirror, at rest: every receipt the contract ran is replayed through [`Model`] in
+//!   execution order (`Sim::receipts_in`); each return value must equal the model's, a panic must
+//!   be one the model predicts, and a receipt that failed (any reason) is dropped from the model;
+//! - exact state, at rest: the contract's whole trie (`Sim::view_state`) must equal the model's
 //!   concretization, key for key and byte for byte, built with the spec's key grammar. This is
-//!   G2/C2 (no key under a removed path), F3/G4 (a failed receipt left no trace: the model
-//!   dropped it, so a trace is an extra key), and C4's bytes;
-//! - C4 accounting: `storage_usage` equals the empty contract's plus key + value + 40 per key;
+//!   G2/C2 (no key under a removed path), C4's bytes, and F3/G4 as far as the SDK owns it (a
+//!   failed receipt's writes reaching the trie would be an extra key);
 //! - C5: a record mid `remove_step` has no record key, its bytes verbatim at the flag key,
 //!   only keys it held when clearing began, and stays readable; every `remove_step` receipt
-//!   issues at most `n` host removes (the real gas profile's count); `Done` leaves nothing;
+//!   issues at most `n` host removes (the real gas profile's count); `Done` leaves nothing; per
+//!   op, a `remove_step` never adds a key under its record (not judged when ops overlap);
 //! - C6: every page equals the model's key-vector slice, or is `CursorGone` exactly when the
 //!   cursor key is absent; a walk at one revision returns no key twice;
 //! - the raw probe: `storage_has_key` through the contract (no cache) on the record, flag and
-//!   child keys of every absent record is false;
-//! - F3 per op: an op whose receipts all failed left the trie and `storage_usage` unchanged.
+//!   child keys of every absent record is false.
+//!
+//! Runtime sanity, not an SDK property (labelled `runtime:`): `storage_usage` equals the empty
+//! contract's plus key + value + 40 per key (nearcore's accounting rule). The per-op "a failed op
+//! leaves no trace" check is gone: it tested nearcore's receipt atomicity (sim triage, Oct 20).
 //!
 //! A clean search means no check failed in the cases tried. It is never a proof.
 
 use base64::Engine;
-use near_contract_sim::explore::{Faults, Gap, Harness, Op, OpDone, Plan, Skip, StepGas, plans};
+use near_contract_sim::explore::{Audit, Fail, Faults, Gap, Harness, Op, OpDone, Plan, Plans, Skip, plans};
 use near_contract_sim::nearcore::near_primitives::hash::hash;
-use near_contract_sim::{Balance, Failure, Fixture, Gas, ReceiptOutcome, Sim};
+use near_contract_sim::{Balance, Failure, Fixture, ReceiptOutcome, Sim};
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -191,6 +194,11 @@ enum StoreOp {
     AccountsPage { from: From<User>, limit: u32 },
     MembersPage { from: From<User>, limit: u32 },
     BalancesPage { who: User, from: From<Tok>, limit: u32 },
+    /// Harness-only, never drawn: writes 8 bytes at `who`'s log slot `slot` straight into the
+    /// trie (`Sim::set_state`), submitting nothing. The positive control's planted orphan, as a
+    /// step of the plan, so it is a finding after an op on main and on fix/open-gaps alike
+    /// (there a check failing on the untouched fixture is a harness error, 32f33955).
+    PlantOrphan { who: User, slot: u32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -252,6 +260,7 @@ impl StoreOp {
                 ReadKind::Counter => ("counter", json!({})),
                 ReadKind::Len => ("accounts_len", json!({})),
             },
+            PlantOrphan { .. } => unreachable!("PlantOrphan submits nothing"),
             AccountsPage { from, limit } => {
                 let after = match from {
                     From::Start => None,
@@ -306,6 +315,10 @@ fn last_cursor(sim: &Sim, method: &str, who: Option<&str>) -> Option<String> {
 
 impl Op<World> for StoreOp {
     fn submit(&self, w: &mut World) -> Result<(), Skip> {
+        if let StoreOp::PlantOrphan { who, slot } = *self {
+            w.sim.set_state(C, &key::vslot(&key::log(who.id()), slot), Some(&[1u8; 8]));
+            return Ok(());
+        }
         let (method, args) = self.call(&w.sim);
         w.sim.call(ALICE, C, method).args_json(args).submit();
         Ok(())
@@ -981,18 +994,6 @@ fn actual(r: &ReceiptOutcome) -> Actual {
     }
 }
 
-/// The contract's receipts of one op, in execution order (refunds left out).
-fn contract_receipts<'a>(d: &'a OpDone<'_, StoreOp, World>) -> Vec<&'a ReceiptOutcome> {
-    let mut rs: Vec<&ReceiptOutcome> = d
-        .outcomes()
-        .iter()
-        .flat_map(|o| o.receipts.iter())
-        .filter(|r| r.executor_id.as_str() == C && !r.is_refund() && !r.method_names.is_empty())
-        .collect();
-    rs.sort_by_key(|r| r.block_height);
-    rs
-}
-
 /// One receipt's account in the replay: what ran, what the model said, what happened.
 fn step(m: &Model, r: &ReceiptOutcome, at: &str) -> Result<Model, String> {
     let method = r.method_names[0].clone();
@@ -1083,9 +1084,10 @@ fn check_clearing_view(m: &Model, args: &Value, got: &Value) -> Result<(), Strin
     Ok(())
 }
 
-/// The contract's receipts over the whole chain, in execution order (refunds left out). Ops
-/// overlap in grown cases (the guidance and max-gas growth put `0 blocks` between steps), and a
-/// chained `remove_step` interleaves with them, so execution order, not plan order, is the truth.
+/// The contract's receipts over the whole chain, in execution order (refunds left out). The
+/// search draws isolated steps (`Gap::Settle`, `.repeats(false)`), but a scan's or a curve's
+/// variants and a shrunk plan need not be, and a chained `remove_step` spans blocks, so
+/// execution order, not plan order, is the truth.
 fn executed(sim: &Sim) -> Vec<ReceiptOutcome> {
     sim.receipts_in(..)
         .into_iter()
@@ -1277,52 +1279,44 @@ fn at_rest(w: &World) -> Result<(), String> {
     let m = replay(&w.sim)?;
     let actual = state(&w.sim);
     check_state(&m, &actual)?;
-    check_accounting(w, &actual)?;
     check_probes(w, &m)?;
     check_walks(&w.sim)
 }
 
-/// F3 per op: an op whose contract receipts all failed changed nothing.
-fn failed_leaves_no_trace(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
-    if !d.isolated() {
-        tally::add("per-op before/after not judged: op overlapped another");
-        return Ok(()); // the global replay still judges it, receipt by receipt
-    }
-    let rs = contract_receipts(d);
-    if rs.is_empty() || rs.iter().any(|r| r.is_success()) {
-        return Ok(());
-    }
-    let (b, a) = (state(&d.before().sim), state(&d.world().sim));
-    let dd = diff(&b, &a);
-    if !dd.is_empty() {
-        return Err(format!("a failed op changed the trie:\n  {}", dd.join("\n  ")));
-    }
-    let (ub, ua) = (usage(&d.before().sim), usage(&d.world().sim));
-    if ub != ua {
-        return Err(format!("a failed op changed storage_usage {ub} -> {ua}"));
-    }
-    Ok(())
+/// Runtime sanity (nearcore's storage accounting), kept apart from the SDK's properties.
+fn runtime_accounting(w: &World) -> Result<(), String> {
+    check_accounting(w, &state(&w.sim))
 }
 
-/// C5 per step: a `remove_step` receipt only ever removes keys under the record (plus the
-/// flag-key move), never adds one under it other than the flag key.
-fn remove_step_shrinks(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
-    let (StoreOp::RemoveStep { who, .. } | StoreOp::RemoveChain { who, .. }) = d.op() else { return Ok(()) };
+
+fn is_remove_step(op: &StoreOp) -> bool {
+    matches!(op, StoreOp::RemoveStep { .. } | StoreOp::RemoveChain { .. })
+}
+
+/// C5 per op: a `remove_step` op only ever removes keys under its record (plus the flag-key
+/// move), never adds one under it other than the flag key. It compares the op's before and
+/// after worlds, so it needs the op alone: overlapped, it is not judged (harness.md, Checks).
+fn remove_step_shrinks(d: &OpDone<'_, StoreOp, World>) -> Result<(), Fail> {
+    let (StoreOp::RemoveStep { who, .. } | StoreOp::RemoveChain { who, .. }) = d.op() else {
+        unreachable!("per_op_for(is_remove_step)")
+    };
     if !d.isolated() {
-        return Ok(());
+        return Err(Fail::not_judged("overlapped: before/after of a shared world"));
     }
     let rk = key::record(who.id());
     let under = |sim: &Sim| -> BTreeSet<Vec<u8>> { state(sim).into_keys().filter(|k| k.starts_with(&rk)).collect() };
     let (b, a) = (under(&d.before().sim), under(&d.world().sim));
     let added: Vec<String> = a.difference(&b).filter(|k| **k != key::flag(who.id())).map(|k| describe(k)).collect();
     if !added.is_empty() {
-        return Err(format!("remove_step added keys under the record: {added:?}"));
+        return Err(Fail::new(format!("remove_step added keys under the record: {added:?}")));
     }
     Ok(())
 }
 
-/// Behaviour coverage, counted per op as it completes (shrinking runs count too, so these are
-/// "reached at least this often", not exact case counts). Nothing reads them back into a check.
+/// Behaviour classes the case's contract receipts reached. NOT a property (it never fails) and
+/// NOT counted once per case: a check runs on every execution, so these counts include shrink
+/// candidates, a faulted case's targeting baseline and case 0's determinism rerun (sim triage
+/// §4). Distinct-case coverage is `Audit::reached` per method site, printed beside it.
 mod tally {
     use std::collections::BTreeMap;
     use std::sync::Mutex;
@@ -1334,21 +1328,24 @@ mod tally {
         std::mem::take(&mut *T.lock().unwrap())
     }
     pub fn print(t: &BTreeMap<String, u64>) {
-        println!("behaviour coverage (receipts):");
+        println!("behaviour classes, in receipts over every execution (cases + shrink candidates + fault baselines + case 0's rerun; an upper bound, not distinct cases):");
         for (k, v) in t {
             println!("  {k}: {v}");
         }
     }
 }
 
-fn classify(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
-    for r in contract_receipts(d) {
-        let m = r.method_names[0].as_str();
+const PROBE: &str = "probe: behaviour classes (never fails; counts include reruns)";
+
+fn classify(w: &World) -> Result<(), String> {
+    let mut m = Model::default();
+    for (i, r) in executed(&w.sim).iter().enumerate() {
+        let meth = r.method_names[0].as_str();
         let args: Value = serde_json::from_slice(&r.args[0]).unwrap_or_default();
         let mode = args["mode"].as_u64().unwrap_or(0);
         match actual(r) {
-            Actual::Gas(why) if why.starts_with("forced") => tally::add(format!("forced fault at {m}")),
-            Actual::Gas(_) => tally::add(format!("natural out of gas: {m}")),
+            Actual::Gas(why) if why.starts_with("forced") => tally::add(format!("forced fault at {meth}")),
+            Actual::Gas(_) => tally::add(format!("natural out of gas: {meth}")),
             Actual::Panic(msg) => {
                 let what = if msg.contains(CLEARING) {
                     "write below a clearing record refused"
@@ -1370,47 +1367,56 @@ fn classify(d: &OpDone<'_, StoreOp, World>) -> Result<(), String> {
                 tally::add(what);
             }
             Actual::Ok(v) => {
-                tally::add(format!("ok: {m}"));
-                if m.ends_with("_page") {
+                if meth.ends_with("_page") {
                     if v["gone"] == json!(true) {
-                        tally::add(format!("{m}: CursorGone"));
+                        tally::add(format!("{meth}: CursorGone"));
                     } else if args["after"].is_string() {
-                        tally::add(format!("{m}: continued from a cursor"));
+                        tally::add(format!("{meth}: continued from a cursor"));
                     }
                 }
-                if (m == "acct_remove_step" || m == "acct_remove_chain") && r.storage_ops().removes > 0 {
-                    tally::add("remove_step on a present record (budget and liveness judged)");
-                }
-                if m == "acct_remove_step" || m == "acct_remove_chain" {
-                    tally::add(format!("{m}: {}", if v == json!(true) { "Done" } else { "Pending" }));
-                }
-                if m == "acct_get" && !v.is_null() {
-                    let rk = key::record(args["who"].as_str().unwrap_or_default());
-                    if !state(&d.world().sim).contains_key(&rk) {
-                        tally::add("acct_get of a clearing record");
+                if is_remove_step_method(meth) {
+                    if r.storage_ops().removes > 0 {
+                        tally::add("remove_step on a present record (budget and liveness judged)");
                     }
+                    tally::add(format!("{meth}: {}", if v == json!(true) { "Done" } else { "Pending" }));
+                }
+                if meth == "acct_get" && !v.is_null() && is_clearing(&m, &args) {
+                    tally::add("acct_get of a clearing record");
                 }
                 if mode == 3 {
                     tally::add("hand flush mid-call, then root change");
                 }
             }
-            Actual::Promise => tally::add(format!("{m}: Pending (chained)")),
+            Actual::Promise => tally::add(format!("{meth}: Pending (chained)")),
             Actual::Other(_) => tally::add("other failure"),
+        }
+        // The model before the next receipt; a divergence is the property check's to report.
+        match step(&m, r, &format!("receipt {i}")) {
+            Ok(next) => m = next,
+            Err(_) => break,
         }
     }
     Ok(())
 }
 
-fn harness() -> Harness<StoreOp, World> {
-    Harness::new(world())
-        .at_rest("model and trie agree", |w: &World| at_rest(w))
-        .per_op("a failed op leaves no trace", |d: &OpDone<StoreOp, World>| failed_leaves_no_trace(d))
-        .per_op("remove_step only shrinks the record", |d: &OpDone<StoreOp, World>| remove_step_shrinks(d))
-        .per_op("tally", |d: &OpDone<StoreOp, World>| classify(d))
+fn is_remove_step_method(m: &str) -> bool {
+    m == "acct_remove_step" || m == "acct_remove_chain"
 }
 
-fn search_plans() -> near_contract_sim::explore::Plans<StoreOp> {
-    let p = plans(ops()).len(1..=12).gaps(Just(Gap::Settle));
+fn harness() -> Harness<StoreOp, World> {
+    Harness::new(world())
+        .audits([C])
+        .at_rest("model and trie agree", |w: &World| at_rest(w))
+        .per_op_for(is_remove_step, "remove_step only shrinks the record", |d: &OpDone<StoreOp, World>| remove_step_shrinks(d))
+        .at_rest("runtime: storage_usage is base + key + value + 40 per key", |w: &World| runtime_accounting(w))
+        .at_end(PROBE, |w: &World| classify(w))
+}
+
+/// Isolated steps: `Gap::Settle` after each, and no repeat bursts (a repeat puts its copies in
+/// one block whatever the gaps: plan.rs:667, D23), so the per-op check can judge every op and the
+/// reducer never meets a `Blocks(0)` to leave behind (sim triage §3).
+fn search_plans() -> Plans<StoreOp> {
+    let p = plans(ops()).len(1..=12).gaps(Just(Gap::Settle)).repeats(false);
     // `SEARCH_GAS=wide`: log-uniform gas on every step, so far more steps run out mid-method.
     match std::env::var("SEARCH_GAS").as_deref() {
         Ok("wide") => p.gas(near_contract_sim::explore::gas::wide()),
@@ -1418,17 +1424,117 @@ fn search_plans() -> near_contract_sim::explore::Plans<StoreOp> {
     }
 }
 
-fn assert_coverage(report: &near_contract_sim::explore::Report<StoreOp>) {
-    for m in METHODS {
-        report.coverage().assert_reached(&format!("{C}::{m}"));
+// =====================================================================================
+// Campaign accounting the 8e8642db summary doesn't print
+// =====================================================================================
+
+mod campaign {
+    use near_contract_sim::explore::{Audit, Harness, Op, Plan, World};
+    use proptest::strategy::{NewTree, Strategy, ValueTree};
+    use proptest::test_runner::TestRunner;
+    use serde::Serialize;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+    use std::fmt::Debug;
+    use std::sync::{Arc, Mutex};
+
+    /// Labels of checks that are not SDK properties: shown apart from the property table.
+    const NOT_PROPERTIES: [&str; 3] = ["runtime:", "harness:", "probe:"];
+
+    /// Prints each check's judgements as `Audit::add` sums them: once per counted case (shrink
+    /// candidates, a faulted case's targeting baseline and case 0's rerun are not counted).
+    /// `Audit::judged` is crate-private at 8e8642db and the summary prints no per-check line
+    /// (fix/open-gaps 37f7f588 adds a not-judged line); `Report`'s JSON carries the map.
+    pub fn print_checks<O: Clone + Debug>(audit: &Audit<O>) {
+        let v: Value = serde_json::from_str(&audit.report().json()).expect("report JSON");
+        let n = |j: &Value, f: &str| j[f].as_u64().unwrap_or(0);
+        let rows: Vec<(String, &Value)> =
+            v["judged"].as_object().map(|m| m.iter().map(|(k, j)| (k.clone(), j)).collect()).unwrap_or_default();
+        for (title, props) in [("SDK properties", true), ("not SDK properties (runtime sanity, harness, probes)", false)] {
+            println!("checks, {title}, over the {} counted case(s):", audit.cases());
+            for (k, j) in rows.iter().filter(|(k, _)| props != NOT_PROPERTIES.iter().any(|p| k.starts_with(p))) {
+                let why = j["why"].as_str().map(|w| format!(" (first: {w})")).unwrap_or_default();
+                println!(
+                    "  {k}: {} ok, {} failed, {} not judged, {} idle{why}",
+                    n(j, "ok"), n(j, "failed"), n(j, "unjudged"), n(j, "idle")
+                );
+            }
+        }
+        println!("incomplete cases: {} of {}", audit.incomplete().len(), audit.cases());
     }
+
+    /// The plan strategy, keeping each distinct plan it draws. A search calls `new_tree` once per
+    /// case, and once more per finding it shrinks (the case seed regenerates the same plan), so
+    /// plans are kept once, by their JSON.
+    pub struct Drawn<S, O> {
+        pub inner: S,
+        pub plans: Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>,
+    }
+
+    impl<S: Debug, O> Debug for Drawn<S, O> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.inner.fmt(f)
+        }
+    }
+
+    impl<S: Strategy<Value = Plan<O>>, O: Serialize + Clone + Debug> Strategy for Drawn<S, O> {
+        type Tree = S::Tree;
+        type Value = Plan<O>;
+        fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
+            let tree = self.inner.new_tree(runner)?;
+            let plan = tree.current();
+            let key = serde_json::to_string(&plan).unwrap_or_default();
+            let mut g = self.plans.lock().unwrap();
+            if g.0.insert(key) {
+                g.1.push(plan);
+            }
+            Ok(tree)
+        }
+    }
+
+    pub fn drawn<S, O>(inner: S) -> (Drawn<S, O>, Arc<Mutex<(BTreeSet<String>, Vec<Plan<O>>)>>) {
+        let plans = Arc::new(Mutex::new((BTreeSet::new(), vec![])));
+        (Drawn { inner, plans: plans.clone() }, plans)
+    }
+
+    /// "faults: N drawn, M landed", which the 8e8642db summary doesn't print (sim triage §1: the
+    /// old "N injected, M drew a fault nothing fits" line has no counterpart on main). Of the
+    /// distinct plans drawn, those carrying a sampled fault, and those whose fault the run
+    /// resolves to a receipt (`Run::plan`: "a sampled injection resolved to the receipt it landed
+    /// on"; one that fits nothing is dropped). Each faulted plan runs once more, here.
+    pub fn faults<O: Op<W>, W: World>(h: &Harness<O, W>, plans: &[Plan<O>]) -> String {
+        let faulted: Vec<&Plan<O>> = plans.iter().filter(|p| p.steps.iter().any(|s| !s.inject.is_empty())).collect();
+        let landed = faulted.iter().filter(|p| h.run(p).plan().steps.iter().any(|s| !s.inject.is_empty())).count();
+        format!(
+            "faults: {} drawn, {landed} landed (of {} distinct plans drawn; the rest fit no receipt their case spawned: a transaction's first receipt is its caller's gas, faults.md)",
+            faulted.len(),
+            plans.len()
+        )
+    }
+}
+
+fn assert_coverage(audit: &Audit<StoreOp>) {
+    println!("coverage, distinct cases reaching each method (Audit::reached):");
+    for m in METHODS {
+        let site = format!("{C}::{m}");
+        println!("  {site}: {}", audit.reached(&site));
+    }
+    for m in METHODS {
+        audit.assert_reached(&format!("{C}::{m}"));
+    }
+}
+
+fn assert_no_findings(audit: &Audit<StoreOp>) {
+    assert!(audit.found().is_empty() && audit.errors().is_empty(), "findings or errors:\n{audit:#?}");
 }
 
 // =====================================================================================
 // Tests
 // =====================================================================================
 
-/// A hand-written plan through every op, clean; the smoke test of the harness itself.
+/// A hand-written plan through every op, the failure modes included (so it is `refused`: its
+/// `FlushPanic` step fails on purpose, and every failure is still judged by the model); the smoke
+/// test of the harness itself.
 fn witness() -> Plan<StoreOp> {
     use Mode::Plain;
     use StoreOp::*;
@@ -1463,48 +1569,58 @@ fn witness() -> Plan<StoreOp> {
         .op(BlobSet { who: a, size: 1, mode: Plain })
         .op(BlobRemove { who: a, mode: Plain })
         .op(Read { who: a, what: ReadKind::Len })
+        .refused()
 }
 
 #[test]
 fn smoke_witness_is_clean() {
+    let t = std::time::Instant::now();
     let run = harness().run(&witness());
     println!("{}", run.trees());
+    println!("smoke: {} steps in {:?}", witness().steps.len(), t.elapsed());
     run.assert_clean();
 }
 
-/// The checks can fail: a key planted under a removed record's path is found.
+/// The checks can fail: after alice's record is removed, a key planted under her log slot 7 (a
+/// removed record's path) is found by the model check, as an extra key.
 #[test]
 fn positive_control_orphan_key_is_found() {
-    let h = harness();
-    let mut w = world();
     let plan = Plan::new()
         .op(StoreOp::Bulk { who: User::A, n: 2, blob: 3, mode: Mode::Plain })
         .op(StoreOp::Remove { who: User::A, mode: Mode::Plain });
-    // Run once to find the state, then plant an orphan in a fresh fixture after the same plan.
-    let run = h.run(&plan);
-    run.assert_clean();
-    let orphan = key::vslot(&key::log(User::A.id()), 7);
-    w.sim.set_state(C, &orphan, Some(&[1u8; 8]));
-    let planted = Harness::new(w)
-        .at_rest("model and trie agree", |w: &World| at_rest(w));
-    let run = planted.run(&plan);
-    assert!(!run.is_clean(), "an orphan under accounts[alice] must be found:\n{run}");
+    harness().run(&plan).assert_clean();
+    // A step that submits nothing produces no block, so the model check judges the plant only
+    // at the next rest point: a read transaction after it.
+    let planted = plan
+        .op(StoreOp::PlantOrphan { who: User::A, slot: 7 })
+        .op(StoreOp::Read { who: User::A, what: ReadKind::Counter });
+    let run = harness().run(&planted);
+    let f = run.assert_found("model and trie agree", "world");
+    assert!(f.message.contains("accounts[alice.near].log") && f.message.contains("EXTRA"), "{run}");
+    println!("positive control: {}", f.message.lines().take(2).collect::<Vec<_>>().join(" / "));
 }
 
 #[test]
 fn search() {
-    let report = harness().search(search_plans()).cases(256).run();
-    println!("{report}");
-    let per_case = report.elapsed().as_secs_f64() / report.cases().max(1) as f64;
-    println!("wall time: {:?} for {} cases, {:.3} s per case", report.elapsed(), report.cases(), per_case);
+    let h = harness();
+    let (strategy, drawn) = campaign::drawn(search_plans());
+    let t = std::time::Instant::now();
+    let audit = h.search(strategy).cases(256).run();
+    let wall = t.elapsed();
+    println!("{audit}");
+    let per_case = wall.as_secs_f64() / audit.cases().max(1) as f64;
+    println!("wall time: {wall:?} for {} cases, {:.3} s per case (shrinking included)", audit.cases(), per_case);
+    campaign::print_checks(&audit);
+    let plans = std::mem::take(&mut drawn.lock().unwrap().1);
+    println!("{}", campaign::faults(&h, &plans));
     tally::print(&tally::take());
-    assert_coverage(&report);
-    report.assert_no_new_findings();
+    assert_coverage(&audit);
+    assert_no_findings(&audit);
 }
 
 /// Every fault of the default set at every receipt of each witness (the self-calls of
 /// `acct_remove_chain` are the only spawned receipts), plus each step at the caller's least
-/// gas and the wasm's gas constants.
+/// gas and the wasm's gas constants, and each signed number's edges.
 #[test]
 fn scan_witnesses() {
     let chain = Plan::new()
@@ -1512,17 +1628,17 @@ fn scan_witnesses() {
         .op(StoreOp::RemoveChain { who: User::A, n: 3 })
         .op(StoreOp::Read { who: User::A, what: ReadKind::Get })
         .op(StoreOp::TryInsert { who: User::A, nonce: 1, mode: Mode::Plain });
-    let report = harness().scan_each(&[witness(), chain], Faults::default());
-    println!("{report}");
-    println!(
-        "acct_remove_chain starved in {} variant(s)",
-        report.coverage().faulted(&format!("{C}::acct_remove_chain"), "OutOfGas")
-    );
+    let t = std::time::Instant::now();
+    let audit = harness().scan(&[witness(), chain]).faults(Faults::default()).run();
+    println!("{audit}");
+    println!("wall time: {:?} for {} cases", t.elapsed(), audit.cases());
+    println!("cases reaching acct_remove_chain: {}", audit.reached(&format!("{C}::acct_remove_chain")));
+    campaign::print_checks(&audit);
     tally::print(&tally::take());
-    report.assert_no_new_findings();
+    assert_no_findings(&audit);
 }
 
-/// The mutating shapes, short enough to gas-walk every step.
+/// The mutating shapes: one witness whose every step's caller gas is climbed.
 fn walk_plan() -> Plan<StoreOp> {
     use Mode::Plain;
     use StoreOp::*;
@@ -1543,57 +1659,29 @@ fn walk_plan() -> Plan<StoreOp> {
         .op(MemRemove { who: b, mode: Plain })
 }
 
-/// OutOfGas at every position inside each step: the step's gas walked up from 50 Ggas in
-/// `GAS_WALK_GGAS` steps (default 20 Ggas, under one host call) until the step succeeds, so its
-/// receipt dies at each host call of the method body and of the flush in turn; the rest of the
-/// plan then runs on whatever each failure left, under every check.
+/// Replaces the hand gas walk: each step's caller gas climbed by curves (explore.md, Curves:
+/// 1 Tgas to the ceiling, coarse to fine, halving where outcomes change), the rest of the plan
+/// running on whatever each rung left, under every check. A single-receipt op that runs out of
+/// gas commits nothing (nearcore's atomicity), so what this judges is where outcomes change:
+/// for `RemoveChain`, how many links committed.
 #[test]
-fn gas_walk_every_step() {
+fn caller_gas_curves() {
     let h = harness();
     let plan = walk_plan();
     h.run(&plan).assert_clean();
-    let stride: u64 = std::env::var("GAS_WALK_GGAS").ok().and_then(|v| v.parse().ok()).unwrap_or(20);
-    let t0 = std::time::Instant::now();
-    let mut runs = 0;
-    let mut per_step = Vec::new();
-    let mut positions: BTreeSet<(u64, u64, u64, u64)> = BTreeSet::new();
-    let mut mid_flush = 0u32;
+    let t = std::time::Instant::now();
+    let mut cases = 0;
     for s in 0..plan.steps.len() {
-        let mut g = Gas::from_gigagas(50).as_gas();
-        let mut failures = 0;
-        loop {
-            let mut p = plan.clone();
-            p.steps[s].gas = Some(StepGas::Exactly(Gas::from_gas(g)));
-            let run = h.run(&p);
-            runs += 1;
-            if !run.is_clean() {
-                panic!("step {s} ({}) at {g} gas:\n{run}", p.steps[s].op.name());
-            }
-            if run.outcomes()[s].is_success() {
-                per_step.push((plan.steps[s].op.name(), failures, Gas::from_gas(g), positions.len(), mid_flush));
-                positions.clear();
-                mid_flush = 0;
-                break;
-            }
-            // Where it died: the failed receipt's host calls so far, from its gas profile.
-            for r in run.outcomes()[s].receipts.iter().filter(|r| r.executor_id.as_str() == C && !r.is_success()) {
-                let o = r.storage_ops();
-                positions.insert((o.reads, o.has_keys, o.writes, o.removes));
-                if o.writes + o.removes > 0 {
-                    mid_flush += 1;
-                }
-            }
-            failures += 1;
-            g += Gas::from_gigagas(stride).as_gas();
-            assert!(g < Gas::from_teragas(300).as_gas(), "step {s} never succeeded");
+        let audit = h.curve(&plan, s, "caller gas").run();
+        cases += audit.cases();
+        println!("step {s} ({:?}): {} case(s)", plan.steps[s].act.op().unwrap(), audit.cases());
+        for row in audit.curves().iter().filter(|r| r.site.starts_with(C)) {
+            println!("  {row}");
+        }
+        if !audit.found().is_empty() || !audit.errors().is_empty() {
+            panic!("step {s}:\n{audit}");
         }
     }
-    println!("gas walk: {runs} runs in {:?}", t0.elapsed());
-    for (name, failures, ok, distinct, mid) in per_step {
-        println!(
-            "  {name}: {failures} failing gas values ({distinct} distinct death points by host calls made, \
-             {mid} after the flush's first write or remove), first success at {ok}"
-        );
-    }
+    println!("caller-gas curves: {cases} case(s) in {:?}", t.elapsed());
     tally::print(&tally::take());
 }

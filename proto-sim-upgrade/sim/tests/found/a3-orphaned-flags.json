@@ -1,7 +1,6 @@
 {
-  "schema": 4,
-  "test": "scan_out_of_gas",
-  "finding": {
+  "note": "Converted Oct 20 2026 for near-contract-sim main @ 8e8642db: the plan of the b328d067 scan_out_of_gas replay (witness 5, nothing forced), with its null gas/inject fields dropped (main's Step reads inject as a list). Plan::load reads the plan under \"plan\". The b328d067 finding it recorded is kept under \"b328d067_finding\".",
+  "b328d067_finding": {
     "check": "group records match the model byte for byte",
     "site": {
       "Key": {
@@ -24,9 +23,7 @@
             "migrate": false
           }
         },
-        "then": "Settle",
-        "gas": null,
-        "inject": null
+        "then": "Settle"
       },
       {
         "op": {
@@ -35,9 +32,7 @@
             "f": 0
           }
         },
-        "then": "Settle",
-        "gas": null,
-        "inject": null
+        "then": "Settle"
       },
       {
         "op": {
@@ -49,9 +44,7 @@
         },
         "then": {
           "Blocks": 1
-        },
-        "gas": null,
-        "inject": null
+        }
       },
       {
         "op": {
@@ -60,9 +53,7 @@
             "migrate": false
           }
         },
-        "then": "Settle",
-        "gas": null,
-        "inject": null
+        "then": "Settle"
       },
       {
         "op": {
@@ -71,173 +62,8 @@
             "n": 12
           }
         },
-        "then": "Settle",
-        "gas": null,
-        "inject": null
+        "then": "Settle"
       }
     ]
-  },
-  "environment": {
-    "code_hashes": {
-      "app.near": "3BxpSVCkP2mrmVb8k1bNdfCvxGip3nR3PCzZtEyKogP7"
-    },
-    "state_root": "7RTV2zmCx8NhhBfRTCrmm6BiUdPesBQs5CRJ6fTnRefu"
-  },
-  "original": {
-    "plan": {
-      "steps": [
-        {
-          "op": {
-            "Upgrade": {
-              "to": "V2b",
-              "migrate": false
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "AddFlag": {
-              "g": 0,
-              "f": 0
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "ClearLoop": {
-              "g": 0,
-              "n": 3,
-              "rounds": 4
-            }
-          },
-          "then": {
-            "Blocks": 1
-          },
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "Upgrade": {
-              "to": "V2a",
-              "migrate": false
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "RemoveStep": {
-              "g": 0,
-              "n": 12
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        }
-      ]
-    },
-    "verdict": "Findings",
-    "findings": [
-      [
-        "group records match the model byte for byte",
-        {
-          "Key": {
-            "key": "orphaned keys",
-            "op": null
-          }
-        }
-      ]
-    ],
-    "injected": null
-  },
-  "shrunk": {
-    "plan": {
-      "steps": [
-        {
-          "op": {
-            "Upgrade": {
-              "to": "V2b",
-              "migrate": false
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "AddFlag": {
-              "g": 0,
-              "f": 0
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "ClearLoop": {
-              "g": 0,
-              "n": 3,
-              "rounds": 4
-            }
-          },
-          "then": {
-            "Blocks": 1
-          },
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "Upgrade": {
-              "to": "V2a",
-              "migrate": false
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        },
-        {
-          "op": {
-            "RemoveStep": {
-              "g": 0,
-              "n": 12
-            }
-          },
-          "then": "Settle",
-          "gas": null,
-          "inject": null
-        }
-      ]
-    },
-    "verdict": "Findings",
-    "findings": [
-      [
-        "group records match the model byte for byte",
-        {
-          "Key": {
-            "key": "orphaned keys",
-            "op": null
-          }
-        }
-      ]
-    ],
-    "injected": null
-  },
-  "seed": null,
-  "shrink": "Scanned",
-  "attempts": 0
+  }
 }
