@@ -463,6 +463,8 @@ struct GroupM {
     flags: Vec<String>,
     flags_hdr: bool,
     clearing: bool,
+    /// Flags this record inherited from a removed predecessor at the same key (A3).
+    inherited: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -475,6 +477,9 @@ struct Model {
     new_len: u32,
     new_rev: bool,
     groups: BTreeMap<String, GroupM>,
+    /// Flag entries (and whether their header) a removal through v2a left behind: the record
+    /// carried no tag-8 marker, so the A3 check could not see them.
+    orphans: BTreeMap<String, (Vec<String>, bool)>,
     /// What the model saw that should not have happened: (kind, message).
     violations: Vec<(String, String)>,
 }
@@ -654,6 +659,15 @@ impl Model {
         self.violations.push((kind.into(), msg));
     }
 
+    /// Removes a group as `v` does: a version without the flags field leaves them behind.
+    fn drop_group(&mut self, g: &str, v: Ver) -> bool {
+        let Some(gm) = self.groups.remove(g) else { return false };
+        if !v.schema_b() && (!gm.flags.is_empty() || gm.flags_hdr) {
+            self.orphans.insert(g.to_string(), (gm.flags, gm.flags_hdr));
+        }
+        true
+    }
+
     fn v1_remove(&mut self, k: &str) {
         if let Some(i) = self.v1_order.iter().position(|x| x == k) {
             self.v1_order.swap_remove(i);
@@ -768,7 +782,13 @@ impl Model {
                     flags: vec![],
                     flags_hdr: false,
                     clearing: false,
+                    inherited: false,
                 };
+                if let Some((flags, hdr)) = self.orphans.remove(&g) {
+                    gm.flags = flags;
+                    gm.flags_hdr = hdr;
+                    gm.inherited = true;
+                }
                 let d = if v == Ver::V2a {
                     Decoded { owner: "o".into(), weight: w, note: Some(format!("n{x}")), f4: x, ..Default::default() }
                 } else {
@@ -868,7 +888,7 @@ impl Model {
                     self.bad("remove_step progress differs from the spec rule", msg);
                 }
                 if got == Some(true) {
-                    self.groups.remove(&g);
+                    self.drop_group(&g, v);
                 } else if let Some(gm) = self.groups.get_mut(&g) {
                     gm.clearing = true;
                 }
@@ -886,7 +906,7 @@ impl Model {
                 if let Some(why) = undecodable {
                     self.bad("get_mut decoded a record the schema refuses", format!("remove_group({g}) through {v:?}: {why}"));
                 }
-                let want = self.groups.remove(&g).is_some();
+                let want = self.drop_group(&g, v);
                 if got != Some(want) {
                     self.bad("remove returned another value", format!("remove_group({g}) returned {got:?}, model {want}"));
                 }
@@ -1010,7 +1030,24 @@ fn check_group_records(sim: &Sim) -> Result<(), Fail> {
         let flag = raw(sim, &group_flag(&g));
         match m.groups.get(&g) {
             None => {
-                let left = sim.view_state(APP, &group_rec(&g));
+                let mut left = sim.view_state(APP, &group_rec(&g));
+                if let Some((flags, hdr)) = m.orphans.get(&g) {
+                    let mut want: Vec<Vec<u8>> = flags.iter().map(|f| coll_entry(&g, 8, f)).collect();
+                    let mut h = group_rec(&g);
+                    h.extend([8, 3]);
+                    if *hdr {
+                        want.push(h);
+                    }
+                    let mut got: Vec<Vec<u8>> = left.iter().filter(|(k, _)| k[group_rec(&g).len()] == 8).map(|(k, _)| k.clone()).collect();
+                    let (mut w2, mut g2) = (want.clone(), got.clone());
+                    w2.sort();
+                    g2.sort();
+                    if w2 != g2 {
+                        return Err(Fail::new(format!("{g}: orphaned flag keys {g2:02x?}, model {w2:02x?}")).key("orphaned keys"));
+                    }
+                    got.clear();
+                    left.retain(|(k, _)| k[group_rec(&g).len()] != 8);
+                }
                 if !left.is_empty() {
                     return Err(Fail::new(format!("{g} is gone, {} keys under it remain: {:02x?}", left.len(), left[0].0)).key("orphaned keys"));
                 }
@@ -1042,6 +1079,20 @@ fn check_group_records(sim: &Sim) -> Result<(), Fail> {
                 }
             }
         }
+    }
+    Ok(())
+}
+
+/// The intent behind A3: a collection never outlives its record, and a new record at the same
+/// key starts empty.
+fn check_no_orphans(sim: &Sim) -> Result<(), Fail> {
+    let (m, _) = fold(sim);
+    let cause = "A3 hole: a collection written through at_mut under a record without its marker";
+    if let Some((g, (flags, _))) = m.orphans.iter().next() {
+        return Err(Fail::new(format!("{g} was removed through v2a and left its flags {flags:?} behind")).cause(cause));
+    }
+    if let Some((g, gm)) = m.groups.iter().find(|(_, gm)| gm.inherited) {
+        return Err(Fail::new(format!("new {g} inherited flags {:?} from the removed one", gm.flags)).cause(cause));
     }
     Ok(())
 }
@@ -1293,6 +1344,7 @@ fn harness(world: Sim) -> Harness<UpOp> {
         .at_rest("group records match the model byte for byte", check_group_records)
         .at_rest("group views match the model", check_group_views)
         .at_rest("claimable is only what schema B wrote", check_retag)
+        .at_rest("no collection outlives its record", check_no_orphans)
         .at_rest("storage_usage is account + code + every key", check_storage_usage)
         .at_rest("item subtree bytes match the spec formula", check_item_bytes)
 }
@@ -1304,9 +1356,42 @@ fn retag_known() -> Known {
         .leaves("v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record")
 }
 
+fn a3_hole_known() -> Known {
+    Known::new("no collection outlives its record")
+        .cause("A3 hole: a collection written through at_mut under a record without its marker")
+        .because("FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags")
+        .leaves("the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key")
+}
+
+/// SDK refusals a detached continuation can hit after a redeploy (it then fails with nobody
+/// to tell): the A3 refusal, v2c's undecodable records, the clearing guard, code without the
+/// method.
+fn continuation_refusal(f: &near_contract_sim::explore::Seen) -> bool {
+    f.outcome().is_some_and(|o| {
+        o.receipts.iter().filter(|r| r.method_names.iter().any(|m| m == "clear_loop" || m == "drain")).any(|r| match r.failure() {
+            Some(Failure::Panic(m)) => {
+                ["refusing to remove", "Missing { tag: 9 }", "is being cleared", "cannot decode root"].iter().any(|p| m.contains(p))
+            }
+            Some(Failure::Action(k)) => format!("{k:?}").contains("MethodResolveError"),
+            _ => false,
+        })
+    })
+}
+
+fn continuation_known(site: &str) -> Known {
+    Known::new(near_contract_sim::builtin::UNHANDLED_FAILURE)
+        .at(site)
+        .when("a detached continuation landed on code that refuses (documented SDK refusal)", continuation_refusal)
+        .because("drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically")
+        .leaves("nothing: the failed link changes no state; the chain stops and the next call reports the refusal")
+}
+
 fn audited(world: Sim) -> Harness<UpOp> {
     harness(world)
         .known(retag_known())
+        .known(a3_hole_known())
+        .known(continuation_known("app.near::clear_loop"))
+        .known(continuation_known("app.near::drain"))
         .out_of_scope("app.near::drain", "a public entry point the contract calls itself; Drain ops witness it")
         .out_of_scope("app.near::clear_loop", "a public entry point the contract calls itself; ClearLoop ops witness it")
 }
@@ -1495,4 +1580,109 @@ fn scan_out_of_gas() {
     println!("WALL {:.1} s for the scan", el.as_secs_f64());
     println!("reached (op runs):\n{}", reached_summary());
     report.assert_no_new_findings();
+}
+
+fn tx_ok(sim: &mut Sim, method: &str, args: Value) -> Result<Vec<u8>, String> {
+    let o = sim.call(APP, APP, method).args_json(args).transact();
+    match o.failure() {
+        None => Ok(o.value().unwrap_or_default().to_vec()),
+        Some(f) => Err(f.to_string()),
+    }
+}
+
+/// v2b -> v2a -> v2b: v2a rewrites the record (get_mut) and keeps the tags it does not know.
+#[test]
+fn downgrade_keeps_schema_b_fields() {
+    let mut sim = v2b_world();
+    let before: Value = sim.view(APP, "group", json!({ "g": "g0" })).json();
+    sim.tx(APP, APP).deploy(Ver::V2a.wasm()).transact().assert_success();
+    let in_a: Value = sim.view(APP, "group", json!({ "g": "g0" })).json();
+    tx_ok(&mut sim, "set_weight", json!({ "g": "g0", "w": 99 })).unwrap();
+    tx_ok(&mut sim, "add_member", json!({ "g": "g0", "m": "m5", "v": 1 })).unwrap();
+    sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
+    let after: Value = sim.view(APP, "group", json!({ "g": "g0" })).json();
+    println!("v2b before: {before}\nv2a sees:   {in_a}\nv2b after:  {after}");
+    assert_eq!(after["level"], before["level"]);
+    assert_eq!(after["label"], before["label"]);
+    assert_eq!(after["weight"], 99);
+    assert_eq!(in_a["note"], "", "tag 3 was dropped by v2b (reserved), so v2a reads its default");
+    let run = audited(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
+    assert!(run.findings().is_empty(), "{run}");
+}
+
+/// What each method does on a record written before v2c's `required` tag existed.
+#[test]
+fn required_tag_on_old_records() {
+    let mut sim = v2a_world();
+    sim.tx(APP, APP).deploy(Ver::V2c.wasm()).transact().assert_success();
+    let mut lines = vec![];
+    let view = sim.view(APP, "group", json!({ "g": "g0" }));
+    lines.push(format!("view group(g0): {:?}", view.result.map(|b| String::from_utf8_lossy(&b).to_string())));
+    let len = sim.view(APP, "members_len", json!({ "g": "g0" }));
+    lines.push(format!("view members_len(g0): {:?}", len.result.map(|b| String::from_utf8_lossy(&b).to_string())));
+    for (m, a) in [
+        ("set_weight", json!({ "g": "g0", "w": 1 })),
+        ("add_member", json!({ "g": "g0", "m": "m4", "v": 1 })),
+        ("add_flag", json!({ "g": "g0", "f": "f1" })),
+        ("remove_member", json!({ "g": "g0", "m": "m0" })),
+        ("remove_step", json!({ "g": "g0", "n": 3 })),
+        ("remove_group", json!({ "g": "g0" })),
+        ("create_group", json!({ "g": "g2", "weight": 1, "x": 1 })),
+    ] {
+        let r = tx_ok(&mut sim, m, a);
+        lines.push(format!("{m}: {:?}", r.map(|b| String::from_utf8_lossy(&b).to_string()).map_err(|e| e.chars().take(110).collect::<String>())));
+    }
+    for l in &lines {
+        println!("{l}");
+    }
+    assert!(lines[0].contains("Err"), "an old record does not decode under v2c");
+    assert!(lines.iter().any(|l| l.starts_with("add_member: Ok")), "at_mut does not decode, so writes below still land");
+    assert!(lines.iter().any(|l| l.starts_with("remove_group: Err")), "removal decodes, so the record cannot be removed");
+    let run = audited(sim).run(&Plan::new().op(UpOp::Insert { k: 0, v: 1 }));
+    assert!(run.findings().is_empty(), "{run}");
+}
+
+/// The re-used tag, both directions: v2a's `locked` read as v2b's `claimable`, and v2b's
+/// `claimable` read back as v2a's `locked` after a rollback.
+#[test]
+fn retag_both_directions() {
+    let mut sim = v2a_world(); // g0: locked = 5
+    sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
+    let b: Value = sim.view(APP, "group", json!({ "g": "g0" })).json();
+    tx_ok(&mut sim, "set_field4", json!({ "g": "g1", "x": 42 })).unwrap(); // g1.claimable = 42
+    sim.tx(APP, APP).deploy(Ver::V2a.wasm()).transact().assert_success();
+    let a: Value = sim.view(APP, "group", json!({ "g": "g1" })).json();
+    println!("v2b reads g0 (created by v2a, locked 5): {b}\nv2a reads g1 after v2b set claimable 42: {a}");
+    assert_eq!(b["claimable"], 5);
+    assert_eq!(a["locked"], 42);
+}
+
+/// FOUND by `scan_out_of_gas` (witness 5), minimised by hand: a record written by v2a carries
+/// no marker for v2b's `flags` (tag 8). v2b adds a flag through `at_mut`, which writes below the
+/// record without rewriting it, so the marker is never written. Rolled back to v2a, removing
+/// the record passes the A3 check (no unknown marker in its bytes) and leaves the flag entries
+/// behind; a new g0 then inherits them once v2b is back: exactly hazard A3.
+#[test]
+fn a3_marker_missing_after_at_mut_write_orphans_a_new_collection() {
+    let mut sim = v2a_world(); // g0 written by v2a: tags 1-5, no tag 8
+    sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
+    tx_ok(&mut sim, "add_flag", json!({ "g": "g0", "f": "f0" })).unwrap();
+    let rec = raw(&sim, &group_rec("g0")).unwrap();
+    println!("g0 record after v2b add_flag: {rec:02x?} (no 0x21 = tag 8 marker field key)");
+    sim.tx(APP, APP).deploy(Ver::V2a.wasm()).transact().assert_success();
+    let removed = tx_ok(&mut sim, "remove_group", json!({ "g": "g0" }));
+    println!("v2a remove_group(g0): {removed:?}");
+    let left = sim.view_state(APP, &group_rec("g0"));
+    println!("keys left under g0: {}", left.len());
+    tx_ok(&mut sim, "create_group", json!({ "g": "g0", "weight": 1, "x": 1 })).unwrap();
+    sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
+    let inherited = sim.state(APP, &coll_entry("g0", 8, "f0")).is_some();
+    println!("new g0 under v2b sees the old flag f0: {inherited}");
+    if removed.is_ok() {
+        assert!(!left.is_empty() && inherited, "the hole: removal passed and orphaned the flags");
+        println!("HOLE PRESENT (production code without the fix)");
+    } else {
+        assert!(removed.unwrap_err().contains("refusing to remove"), "fixed: removal refuses");
+        println!("FIXED: v2a refuses the removal");
+    }
 }

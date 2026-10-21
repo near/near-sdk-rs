@@ -679,6 +679,45 @@ mod a3 {
         testing::flush();
         assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "OuterB removes its nested collection");
     }
+
+    /// HAZARD (pinned, not fixed; found by the Oct 20 sim upgrade search,
+    /// `proto-sim-upgrade`, `a3_marker_missing_after_at_mut_write_orphans_a_new_collection`).
+    /// The kind marker that makes removal fail closed is written only when the record itself is
+    /// rewritten. A record first written by version A carries no marker for B's new collection;
+    /// B adds entries through `at_mut`, which writes below the record without rewriting it, so
+    /// the marker never lands. Rolled back to A, removal finds no unknown marker, succeeds, and
+    /// orphans B's child; a new record at the key then shows it under B again (hazard A3).
+    #[test]
+    fn hazard_a3_marker_missing_when_the_new_collection_is_written_through_at_mut() {
+        testing::use_mock();
+        let rec_key = root().kind(0).entry(&1u32).as_bytes().to_vec();
+        // A writes record 1.
+        let mut a: Map<u32, RecA> = Map::__bound_at(root());
+        a.try_insert(1, RecA { n: 1 }).unwrap();
+        testing::flush();
+        // B writes below it through at_mut: the record bytes are untouched (no tag-2 marker).
+        testing::begin_call();
+        let mut b: Map<u32, RecB> = Map::__bound_at(root());
+        b.at_mut(&1).unwrap().kids.insert(5, 50);
+        testing::flush();
+        let stored = testing::store()[&rec_key].clone();
+        assert_eq!(record::parse(&stored).unwrap(), vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..])], "no marker");
+        assert!(testing::store().contains_key(&kid_key()));
+        // A removes record 1: passes the A3 check and leaves B's child behind.
+        testing::begin_call();
+        let mut a: Map<u32, RecA> = Map::__bound_at(root());
+        assert!(a.remove(&1).is_some(), "the removal is not refused");
+        testing::flush();
+        assert!(testing::store().contains_key(&kid_key()), "B's child is orphaned");
+        // A new record 1, read by B, inherits the orphan.
+        testing::begin_call();
+        let mut a: Map<u32, RecA> = Map::__bound_at(root());
+        a.try_insert(1, RecA { n: 2 }).unwrap();
+        testing::flush();
+        testing::begin_call();
+        let b: Map<u32, RecB> = Map::__bound_at(root());
+        assert_eq!(b.at(&1).kids.get(&5).copied(), Some(50), "the new record shows the old child");
+    }
 }
 
 // ---------------------------------------------------------------------------------------
