@@ -1449,7 +1449,8 @@ fn retag_hazard_is_caught() {
         .op(UpOp::CreateGroup { g: 0, weight: 3, x: 9 })
         .op(UpOp::SetField4 { g: 0, x: 4 });
     harness(v1_world()).run(&different).assert_clean();
-    harness(v1_world()).known(retag_known()).run(&intended);
+    let run = harness(v1_world()).known(retag_known()).run(&intended);
+    assert!(run.findings().is_empty() && !run.known().is_empty(), "the Known covers the intended case: {run}");
 }
 
 /// Positive controls for the model's raw checks: corrupt state and watch them fail.
