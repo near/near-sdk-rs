@@ -1,0 +1,8 @@
+round 1 opt-level 0 search:  load 29.18 35.86 36.37
+round 1 opt-level 0 upgrade: TIMING 128 plans (1176 steps) in 61.3 s: 479 ms per case load 48.51 39.44 37.63
+round 1 opt-level 2 search:  load 72.58 55.62 45.02
+round 1 opt-level 2 upgrade: TIMING 128 plans (1176 steps) in 24.2 s: 189 ms per case load 71.31 57.59 46.33
+round 2 opt-level 0 search:  load 70.40 57.63 46.41
+round 2 opt-level 0 upgrade: TIMING 128 plans (1176 steps) in 79.4 s: 620 ms per case load 71.79 61.51 48.92
+round 2 opt-level 2 search:  load 71.79 61.51 48.92
+round 2 opt-level 2 upgrade: TIMING 128 plans (1176 steps) in 27.4 s: 214 ms per case load 86.42 65.91 50.88

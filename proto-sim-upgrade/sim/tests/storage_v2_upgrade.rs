@@ -1769,6 +1769,26 @@ fn a3_orphan_replay() {
     assert_eq!(f.cause.as_deref(), Some(A3_CAUSE), "{run}");
 }
 
+/// Per-case time without the search around it: the same N plans (drawn from a fixed seed by the
+/// search's own strategy), run one by one. For comparing build profiles under a noisy machine.
+#[test]
+#[ignore = "timing: TIMING_CASES (default 128) fixed plans, run one by one"]
+fn timing_probe() {
+    // On a big stack, as a search draws: the plan strategy recurses deeply.
+    std::thread::Builder::new().stack_size(512 << 20).spawn(|| {
+        use proptest::strategy::ValueTree;
+        use proptest::test_runner::{Config, RngAlgorithm, TestRng, TestRunner};
+        let n: usize = std::env::var("TIMING_CASES").ok().and_then(|v| v.parse().ok()).unwrap_or(128);
+        let mut r = TestRunner::new_with_rng(Config::default(), TestRng::from_seed(RngAlgorithm::ChaCha, &[7u8; 32]));
+        let plans: Vec<_> = (0..n).map(|_| plans(ops(3)).len(4..=14).new_tree(&mut r).unwrap().current()).collect();
+        let h = harness(v2a_world());
+        let t = std::time::Instant::now();
+        let steps: usize = plans.iter().map(|p| { let _ = h.run(p); p.steps.len() }).sum();
+        let el = t.elapsed();
+        println!("TIMING {n} plans ({steps} steps) in {:.1} s: {:.0} ms per case", el.as_secs_f64(), el.as_secs_f64() * 1000.0 / n as f64);
+    }).unwrap().join().unwrap();
+}
+
 // ---------------------------------------------------------------------------------------------
 // campaign accounting the 8e8642db summary doesn't print (the same module as the search harness's)
 // ---------------------------------------------------------------------------------------------
