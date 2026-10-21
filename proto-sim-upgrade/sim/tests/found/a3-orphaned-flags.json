@@ -1,0 +1,243 @@
+{
+  "schema": 4,
+  "test": "scan_out_of_gas",
+  "finding": {
+    "check": "group records match the model byte for byte",
+    "site": {
+      "Key": {
+        "key": "orphaned keys",
+        "op": null
+      }
+    },
+    "at": "orphaned keys",
+    "injected": false,
+    "landed": null,
+    "message": "g0 is gone, 4 keys under it remain: [f0, 02, 00, fe, 56, cf, 2a, 09, 42, 25, 3b, 15, 06, d5, 6b, 9d, 67, 83, 37, 02, 00, 00, 00, 67, 30, 08, 00, c8, eb, a9, c7, 01, ea, 5d, 96, 64, 02, 30, a1, 97, 46, e4, 72, 02, 00, 00, 00, 66, 30]",
+    "known": false
+  },
+  "plan": {
+    "steps": [
+      {
+        "op": {
+          "Upgrade": {
+            "to": "V2b",
+            "migrate": false
+          }
+        },
+        "then": "Settle",
+        "gas": null,
+        "inject": null
+      },
+      {
+        "op": {
+          "AddFlag": {
+            "g": 0,
+            "f": 0
+          }
+        },
+        "then": "Settle",
+        "gas": null,
+        "inject": null
+      },
+      {
+        "op": {
+          "ClearLoop": {
+            "g": 0,
+            "n": 3,
+            "rounds": 4
+          }
+        },
+        "then": {
+          "Blocks": 1
+        },
+        "gas": null,
+        "inject": null
+      },
+      {
+        "op": {
+          "Upgrade": {
+            "to": "V2a",
+            "migrate": false
+          }
+        },
+        "then": "Settle",
+        "gas": null,
+        "inject": null
+      },
+      {
+        "op": {
+          "RemoveStep": {
+            "g": 0,
+            "n": 12
+          }
+        },
+        "then": "Settle",
+        "gas": null,
+        "inject": null
+      }
+    ]
+  },
+  "environment": {
+    "code_hashes": {
+      "app.near": "3BxpSVCkP2mrmVb8k1bNdfCvxGip3nR3PCzZtEyKogP7"
+    },
+    "state_root": "7RTV2zmCx8NhhBfRTCrmm6BiUdPesBQs5CRJ6fTnRefu"
+  },
+  "original": {
+    "plan": {
+      "steps": [
+        {
+          "op": {
+            "Upgrade": {
+              "to": "V2b",
+              "migrate": false
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "AddFlag": {
+              "g": 0,
+              "f": 0
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "ClearLoop": {
+              "g": 0,
+              "n": 3,
+              "rounds": 4
+            }
+          },
+          "then": {
+            "Blocks": 1
+          },
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "Upgrade": {
+              "to": "V2a",
+              "migrate": false
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "RemoveStep": {
+              "g": 0,
+              "n": 12
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        }
+      ]
+    },
+    "verdict": "Findings",
+    "findings": [
+      [
+        "group records match the model byte for byte",
+        {
+          "Key": {
+            "key": "orphaned keys",
+            "op": null
+          }
+        }
+      ]
+    ],
+    "injected": null
+  },
+  "shrunk": {
+    "plan": {
+      "steps": [
+        {
+          "op": {
+            "Upgrade": {
+              "to": "V2b",
+              "migrate": false
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "AddFlag": {
+              "g": 0,
+              "f": 0
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "ClearLoop": {
+              "g": 0,
+              "n": 3,
+              "rounds": 4
+            }
+          },
+          "then": {
+            "Blocks": 1
+          },
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "Upgrade": {
+              "to": "V2a",
+              "migrate": false
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        },
+        {
+          "op": {
+            "RemoveStep": {
+              "g": 0,
+              "n": 12
+            }
+          },
+          "then": "Settle",
+          "gas": null,
+          "inject": null
+        }
+      ]
+    },
+    "verdict": "Findings",
+    "findings": [
+      [
+        "group records match the model byte for byte",
+        {
+          "Key": {
+            "key": "orphaned keys",
+            "op": null
+          }
+        }
+      ]
+    ],
+    "injected": null
+  },
+  "seed": null,
+  "shrink": "Scanned",
+  "attempts": 0
+}

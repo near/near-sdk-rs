@@ -1,0 +1,36 @@
+# One contract, five builds, for the upgrade/migration search (README.md):
+#   --features v1    v1 Borsh root: `store::IterableMap<String, u64>` + a call counter
+#   --features v2a   v2 root: the map in `Migrating<IterableMap, Map>`, `groups: Map<String, Group>`
+#   --features v2b   v2a with Group schema changes (default, default_fn, reserved(3), tag 4 re-used,
+#                    a new `flags: Set` collection)
+#   --features v2c   v2b plus a `required` field added to Group (the forbidden change)
+#   --features v3    the wrapper off: `items` is a bare v2 `Map` at the same tag, Group as v2b
+# Built by ../build.sh; driven by ../sim.
+[package]
+name = "proto-sim-upgrade-contract"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+v1 = []
+v2a = ["near-sdk/unstable"]
+v2b = ["near-sdk/unstable"]
+v2c = ["near-sdk/unstable"]
+v3 = ["near-sdk/unstable"]
+
+[dependencies]
+near-sdk = { path = "../../near-sdk" }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]

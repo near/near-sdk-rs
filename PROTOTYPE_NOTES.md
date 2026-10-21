@@ -1992,3 +1992,135 @@ What it did not add: cross-receipt SDK state leaks are structurally impossible o
 - The guidance and max-gas growth ignore the strategy's gaps, so a harness must not assume Settle-only isolation.
 - `proptest::prop_oneof!` needs a weight on every arm or on none. `Just(..)` arms of a `Copy` enum are fine.
 - The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator (committed with `git add -f`, since the root `.gitignore` drops lockfiles). The first build recompiled some of nearcore's dependencies; later builds take seconds.
+## Sim upgrade search (Oct 20)
+
+Branch `proto/storage-v2-sim-b`, crate `proto-sim-upgrade/` (README there has the commands).
+near-contract-sim main @ b328d067 (the "primitives" explore API). Question: do the multi-call
+features (redeploys with schema evolution, `Migrating` + `migrate_batch`, `remove_step` across
+calls) have interaction bugs the single-call mock harnesses cannot reach?
+
+### Setup
+
+One contract in five wasms: v1 (`store::IterableMap<String, u64>` under a Borsh root), v2a
+(`Migrating<IterableMap, Map>` + `groups: Map<String, Group>`, Group owning `members: Map`),
+v2b (tag 3 removed and `reserved(3)`, `level` with `default = 7`, `label` with `default_fn`,
+tag 4 re-used as `claimable` where v2a had `locked`, new `flags: Set` at tag 8), v2c (v2b plus
+`#[key(9, required)]`), v3 (wrapper off, bare `Map` at the same tag). `drain(n, rounds)` and
+`clear_loop(g, n, rounds)` chain detached self-calls forwarding their remaining gas.
+
+17 ops (items, groups, `MigrateBatch`, `Drain`, `RemoveStep`, `ClearLoop`, `RemoveGroup`,
+`Upgrade { to, migrate }` = deploy (+ `migrate` in the same tx from v1), `Migrate`), all signed
+by the contract account. Every successful mutating receipt logs `ev v=<version> seq=<n>`
+(`seq` is a root counter carried through every upgrade), so the checks fold every receipt of
+the case, continuations included, in execution order through a model of the documented
+behaviour. Records are modelled at the tag level (stored tags per version, unknown tags kept,
+reserved dropped, defaults materialised on a rewrite, tag-4 provenance), `remove_step` by the
+spec's host-remove budget rule, `migrate_batch` by `IterableMap`'s swap-remove order. Checks:
+seq gapless; nothing the model forbids succeeded (write below a clearing record, A3 removal,
+decode of a `required`-less record, wrong `migrate_batch` count or `remove_step` result);
+every item read back through the deployed code; each item on exactly one side, by raw keys
+computed from the spec (and the v1 key vector slot by slot; no v1 key once drained); group
+records byte for byte at the record or flag key, member and flag entries, no keys under a
+removed record; group views per version; claimable only what schema B wrote (intent); no
+collection outlives its record (intent); `storage_usage` = account + code + Σ(key + value +
+40); the items subtree equals the spec's staked-bytes formula; every failure documented.
+
+### Runs
+
+| run | cases | wall | per case | verdict |
+|---|---|---|---|---|
+| search from v1 (seed 0x101, len 4-14, upgrade weight 10) | 512 | 74 s | 145 ms | Known (retag, 3 cases) |
+| search from v2a (0x102, weight 3) | 512 | 91 s | 177 ms | Known (retag, 115 cases) |
+| search from v2b (0x103, weight 4) | 512 | 102 s | 200 ms | Known (retag 512; continuation refusal 3) |
+| OutOfGas scan, 8 witnesses, `Faults::default()` | 480 | 45 s | 93 ms | Known (retag 342, A3 hole 50, continuation refusal 42) |
+
+1,536 search cases + 480 scan variants, about 5.2 min of wall time. Searches landed a fault in
+22 + 17 cases (OutOfGas lands only on continuation receipts; ~120 cases per search drew a fault
+nothing fits). Coverage probe, counted per op run with shrinking (upper bounds): continuations
+ran 731 times in the searches, 15 on other code than their first link (`drain` v2a->v2b,
+v2b->v2c); the scan's `.blocks(0)` witnesses ran 1,027 cross-version links (clear_loop v2a->v2b
+480, v2b->v2a 147; drain v2a->v2b 400). `remove_step` resumed a clearing record 284 times in
+the searches (32 under another schema than the one that started it) and 1,266 in the scan (495
+under another schema). Writes below a clearing record were refused 150 times, A3 refusals 41 (and 42 in the scan), v2c decode refusals
+268, v2a rewrites of a record carrying schema-B tags 34, schema-B rewrites dropping reserved
+tag 3 169, starved continuations 17 (searches) and 34 (scan).
+
+### Findings and triage
+
+1. **Real SDK hole: the A3 kind marker is missing when a new collection is written through
+   `at_mut` (medium; not fixed, pinned).** Found by the scan (witness 5), minimal plan: v2a
+   creates g0 (tags 1-5, no tag-8 marker); upgrade to v2b; `add_flag(g0)` writes the `flags`
+   entries through `at_mut`, which never rewrites the record, so no marker lands; downgrade to
+   v2a; `remove_group(g0)` (or `remove_step`) passes the A3 check and leaves 4 keys (flag entry,
+   index, slot, header) behind; a new g0 created in v2a shows `f0` again once v2b is back. The
+   spec's "the kind marker closes this" is false for a collection added to an existing record
+   type. The mock reproduces it too (`a3::hazard_a3_marker_missing_when_the_new_collection_is_written_through_at_mut`
+   in `state_v2_verify.rs`, passes while the hole exists); the sim's
+   `a3_marker_missing_after_at_mut_write_orphans_a_new_collection` and the saved scan case
+   `a3_orphan_replay` pin it on the runtime and flip to asserting the refusal once fixed. Not
+   fixed on this branch because each fix changes a stated cost or leaves part of the hole:
+   (a) at flush, read every record whose children `at_mut` wrote and append missing markers:
+   sound, +1 record read on every `at_mut` write path (the read D9 removed; DAO `vote` reads
+   its 2,000-byte description again); (b) the same read only on the cold path where the
+   collection's header was absent before the call (Map, Set, Vector already read it; Lazy needs
+   one `storage_has_key`): near-free, but `LookupMap`/`LookupSet` have no header, so the hole
+   stays for them; (c) schema-level: a collection field added to an existing record type must
+   be declared as added, and only it pays (a); `storage diff` enforces the declaration. The
+   spec's A3 "Not covered" list now names it. Decision needed.
+2. **Re-tagged field (expected hazard, confirmed).** Same-length re-use is silent in both
+   directions: v2a `locked = 5` reads as v2b `claimable = 5`; v2b `claimable = 42` reads back as
+   v2a `locked = 42` (`retag_both_directions`). The tag-level model predicts the bytes exactly;
+   the intent check fails with cause "tag 4 re-used" and a `Known` keyed by that cause covers
+   it. A different-length retype would fail every decode instead (not built). Its breadth
+   (512/512 in the v2b search) is the fixtures', which carry v2a-written tag-4 records;
+   `assert_known_is_narrow` needs a second failure of the same check, which a correct build
+   cannot produce, so only the positive control and a clean v2b-only control were run
+   (`retag_hazard_is_caught`). Triage: by design of the experiment; `--no-abi` skips the
+   `storage diff` that would refuse it.
+3. **`required` added later (expected, documented).** Under v2c an old record fails `get`,
+   `get_mut`, `remove_step` and `remove` with `Missing { tag: 9 }`, while `at_mut` writes below
+   it (`add_member`, `add_flag`, `remove_member`) still land, so the record keeps growing and can
+   never be removed until a rollback (`required_tag_on_old_records`). Not a bug: the spec forbids
+   the change and `storage diff` refuses it.
+4. **Detached continuations meeting refusals (contract design, Known).** After a redeploy the
+   next `clear_loop` link can meet the A3 refusal, v2c's decode refusal or the clearing guard;
+   it fails atomically with nobody told (sim built-in "unhandled failure", 3 search cases, 42
+   scan variants). Keyed by `Known::when` on the refusal message at each continuation site.
+   SDK behaviour is correct; a production driver should surface the stop.
+5. **Harness/contract bugs fixed during the run:** my first driver attached a fixed 40 Tgas to a
+   continuation from a 40 Tgas receipt, so every second link ran out of gas (fixed: forward the
+   remaining gas less 10 Tgas, stop below 20); the orphan model first expected one key per Set
+   entry instead of three (entry, index, slot) plus header.
+
+Everything else held on every case: one side per item through every upgrade; no v1 key after a
+drain; seq gapless through deploys, downgrades and continuations; records byte-exact through
+v2b -> v2a -> v2b (v2a's `get_mut` keeps `level`/`label`; tag 3 is dropped on the first
+schema-B rewrite, intentionally); `remove_step` results matched the budget rule on every call,
+including resumes under another schema and after starved links; `storage_usage` equalled
+account + code + Σ(key + value + 40) after every block; the items subtree matched the spec's
+staked-bytes formula. A drained contract with the wrapper off equals a fresh v3 contract with
+the same 12 items in every items key and byte, and its `storage_usage` is 18 bytes higher, all
+in the root record: tag 1 keeps the stale v1 `IterableMap` bytes (prefixes `iv`/`im`)
+(`drained_contract_matches_a_fresh_v2_one`).
+
+### Fidelity and what the atomicity result means
+
+A receipt that runs out of gas keeps no state change; injected `OutOfGas` runs the receipt with
+1 gas and burns almost nothing (fidelity.md, "A fault rewrites a receipt between blocks"), and
+explored gas below the need fails where a node would. So "a call that ran out of gas in the
+middle of `migrate_batch` or `remove_step` leaves a state the next call completes" is nearcore's
+atomicity, not an SDK property; it held trivially. What the sim judged that the mock harnesses
+do not run: real wasm builds of five versions deployed over each other's state, deploy and
+`migrate` in one transaction and the deploy-without-migrate window (719 refused calls),
+continuations starved or landing on other code, overlapping calls in one block, and the
+runtime's storage staking. The A3 hole itself is reachable in the mock (the pin above); the
+mock suites never tried a record written by one schema and extended by another through
+`at_mut`. One shard and a static gas price (fidelity.md, "Limits") do not matter here: every
+receipt is on one account.
+
+### Not done
+
+No fix for finding 1 (decision above). No variant with a different-length re-tag, a `Lazy` or
+`Vector` field added in a later version, or a v3 deployed before the drain finished (the op
+skips it: the documented precondition). Searches rarely land OutOfGas (fault draws fit only
+continuations); the scan covers every continuation of its 8 witnesses.
