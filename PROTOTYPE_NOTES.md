@@ -2124,3 +2124,60 @@ No fix for finding 1 (decision above). No variant with a different-length re-tag
 `Vector` field added in a later version, or a v3 deployed before the drain finished (the op
 skips it: the documented precondition). Searches rarely land OutOfGas (fault draws fit only
 continuations); the scan covers every continuation of its 8 witnesses.
+
+## Sim harness port to primitives main (Oct 20)
+
+**Question.** Both sim harnesses (`proto-sim-search/`, `proto-sim-upgrade/`) were written against near-contract-sim b328d067, the old explore layer. Do they port to main @ 8e8642db ("One crate: primitives replaces main (#83)"), and do the results hold once the sim team's triage (`.c1-work/q3/storage-v2-triage.md`) is applied? **Answer: they port, and the results hold.** No new SDK finding. The A3 orphan replay still finds the hole on ec29bf6f. Main's scan, which now includes type-max argument edges, turned up two harness model bugs and one witness that should have been marked refused. All three are fixed. The branch is `proto/storage-v2-sim-port`, and the harnesses depend on `../../../near-contract-sim-main`, a worktree at 8e8642db (setup in each README).
+
+**API diffs (old -> main).**
+
+- The module is still `near_contract_sim::explore`. `Report` -> `Audit`. `report.coverage().assert_reached(m)` -> `audit.assert_reached(m)`, and `Audit::reached(m)` counts distinct cases.
+- `harness.scan_each(&plans, Faults)` -> `harness.scan(&plans).faults(Faults::default()).run()`.
+- The gas walk (a hand loop over `Run::outcomes()`) -> `harness.curve(&plan, step, "caller gas").run()`, one curve per step.
+- `harness.search(...)` + `.cases(n)` -> `harness.search(strategy).cases(n).run()`. Guidance growth and max-gas growth are gone: every case is a drawn plan.
+- `Known`, `Known::when`, `out_of_scope`, `assert_no_new_findings`, `Seen`, `Report::elapsed`, `rerun` and `coverage()` are all gone. On main a finding is never excused. The harnesses now assert each expected finding by check name and `Finding.cause`, and any other finding fails the test. `out_of_scope(site, why)` -> `.excuse(todo_id, why)`, which closes a coverage to-do item but never a finding. `.audits([APP])` limits coverage to-dos to the audited account.
+- `Fail` gained `Fail::not_judged(why)` and `Fail::idle(why)`. `per_op_for(pred, name, f)`, which existed already, now replaces the harness's `per_op` checks so a check runs only on the ops it is about. Checks return `Fail::new(..)` with `.key(..)` and `.cause(..)`, or one of the two new kinds.
+- `Plan::new` / old replay JSON (`gas: null`, `inject: null`) -> `Plan::load(path)` with the plan under `"plan"`. `inject` is a `Vec`, so the A3 replay file was converted (`tests/found/a3-orphaned-flags.json`).
+- A written witness whose transaction fails is now a harness error unless it is marked `Plan::refused()`.
+- `plans(ops).repeats(..)` is unchanged. The harnesses now set it to `false`.
+- `Audit.judged` is crate-private at 8e8642db and not printed. The harnesses read it from `audit.report().json()["judged"]`.
+
+**Triage items, as applied.**
+
+1. **Not judged on overlap.** `remove_step only shrinks the record` is a `per_op_for(is_remove_step, ..)` and returns `Fail::not_judged("overlapped: ...")` when the op is not isolated. The old version also counted every non-RemoveStep op as ok, which the triage didn't mention. `a failed op leaves no trace` was dropped: the at-rest model replay already judges every receipt, overlapped or not. Counts are below. Not judged is 0 everywhere because every search gap is `Gap::Settle` and main has no growth, so ops never overlap.
+2. **Faults drawn and landed.** Main at 8e8642db prints neither, so the harness computes them. It wraps the plan strategy to keep each distinct drawn plan. After the search, it reruns each faulted plan through `Harness::run`, and a fault has landed if `Run::plan()` still carries it. Faults never reach a transaction's first receipt (faults.md), so most draws fit nothing.
+3. **`.repeats(false)`, and the reducer `Blocks(0)` bug.** The reducer bug is in `shrink.rs` `smaller()`: `p.steps.drain(block)` leaves the earlier step's `then`. It is fixed on origin/fix/open-gaps 43041c11. It did not bite the search, which drew no `Blocks(0)`, had nothing to shrink, and judged 0 not judged. The upgrade harness draws `Blocks(0)` through default gaps, so its shrunk plans may carry a stale `then`. That would show only in shrunk witnesses of expected findings. Its model folds by `seq`, so a stale `then` changes no verdict.
+4. **Coverage via `Audit`.** The search asserts `Audit::reached` for all 29 methods, and the upgrade search for `insert` and `remove`. Both print the distinct-case count per method. The in-check tally stays as `probe: behaviour classes (never fails; counts include reruns)`, an `at_end` check whose name says what it is. Its counts span every execution: shrink candidates, fault baselines, case 0's rerun and the faults line's reruns.
+5. **Padding checks.** These are now labelled as non-SDK and kept out of the SDK property table: `runtime: storage_usage is base + key + value + 40 per key` (nearcore's accounting rule, which the triage missed), `harness: seq has no gap`, and the probe. The positive control is kept: `positive_control_orphan_key_is_found` plants an orphan with a harness-only op (`PlantOrphan`, `set_state` in `submit`) and asserts the model check finds it (`accounts[alice.near].log/0007000000: EXTRA`). It had to move from the fixture into the plan, because on open-gaps a check failing on the fixture is a harness error. A step that submits no transaction gets no rest judgement, so a `Read` follows the plant.
+6. **opt-level 2.** `[profile.dev.package."*"] opt-level = 2, debug = false` is now in both `sim/Cargo.toml`. The first build compiled nearcore at opt-level 2 in 8 min 56 s, with mbx reporting 1,333 shared-cache hits and 196 misses. In an A/B over 128 fixed drawn plans, two interleaved rounds on a machine at load 48 to 97, search took 338 and 371 ms per case at opt-level 0 against 127 and 124 ms at opt-level 2. Upgrade took 479 and 620 ms against 189 and 214 ms. That is 2.5 to 2.9x faster (`results/opt_level_ab_20261020b.txt`).
+
+**Runs (main @ 8e8642db, opt-level 2, `*_20261020b.txt`).**
+
+| Campaign | Before (b328d067) | After (main) |
+| --- | --- | --- |
+| Search smoke + positive control | clean; control caught | clean in 0.3 s; control caught |
+| Search, mixed gas, seed 0x20261020 | 2,000 cases + 368 grown + 366 max-gas; 0.22 s/case; per-op checks 55,071 ok, of which 38,050 overlapped and were counted ok; faults: 2 injected, 406 fit nothing | 2,000 cases, clean, 0 findings, all 29 methods reached; model check 14,905 ok, 0 not judged; `remove_step` check 1,763 ok, 0 not judged; 0 incomplete; 57 ms/case excluding shrinking, 114 s wall; **faults: 502 drawn, 2 landed** |
+| Search, wide gas, seed 0x20261021 | 2,000 cases; 0.04 to 0.05 s/case | clean; 15,200 / 1,733 ok, 0 not judged; 14 ms/case, 28 s wall; **faults: 477 drawn, 1 landed** |
+| Search scan of 2 witnesses | `scan_each`: 477 variants, 48 injected, 56 to 58 s | `scan`: 734 cases, 0 findings, 19,245 / 1,980 ok, 0 not judged, 106 s (after the two model fixes below) |
+| Search gas | gas walk: 1,228 runs, 714 deaths mid-flush, 60 to 67 s | caller-gas curves, 13 steps: 101 cases, 2.5 s, clean |
+| Upgrade hand tests | 9 pass | 9 pass; `a3_orphan_replay` still finds the orphan with cause "no collection outlives its record" |
+| Upgrade search from v2a, seed 0x102 | 512 cases; 177 ms/case; 22 injected, 116 drew a fault nothing fits; retag `Known` suppressed 115 cases | 2,000 cases; only the 2 expected findings: retag (249 cases), and unhandled failure at `clear_loop` after a v2c redeploy (4 cases); `no collection outlives its record` 14,246 ok; 0 not judged, 0 incomplete; all 16 methods reached; 152 ms/case excluding shrinking, 20 min wall (shrinking the retag finding took most of it); **faults: 504 drawn, 83 landed** |
+| Upgrade searches from v1 and v2b, upgrade OutOfGas scan | | running |
+
+Most of the drop in the search's per-case time, from 0.22 s to 0.04 to 0.06 s, comes from removing guidance and max-gas growth, not from opt-level. Those cases were the long ones. On identical plans, opt-level alone gives about 2.8x.
+
+**New findings, triaged.** No SDK bug.
+
+1. **Harness model bug (search), fixed in a85afe2a.** `Model::exec` ran a receipt's method before looking at its outcome. For `acct_bulk { n: u32::MAX }`, which main's scan draws as an argument edge, the receipt died at the gas ceiling, but the model still looped 4 billion times with an O(n) find, and the scan hung for 12 h. The model now classifies the outcome first: gas failures change nothing, and any other failure is an error.
+2. **Harness/test-contract fidelity (search), fixed in 68b828c6.** The same edge with `blob = u32::MAX` makes the contract's `vec![b; 4 GiB]` panic on wasm32 with `capacity overflow`, while the native model allocated 4 GiB and predicted success. The model now predicts `Panic("capacity overflow")` above `i32::MAX`. This is the test contract's allocation, not the SDK (`scan_20261020b_before_capacity_model.txt` keeps the evidence).
+3. **Witness bug (upgrade), fixed in c3f92d62.** Scan witness 3 runs ClearLoop g0, Upgrade V2b, AddMember g0, RemoveStep g0. Its `add_member` is refused once the chain has cleared g0 ("no such group"). Main calls a failing written witness a harness error, so the witness is now `.refused()`.
+4. **Sim behaviour worth knowing.** A step that submits no transaction gets no block and no rest judgement, so a harness-only state edit must be followed by a real call to be checked.
+
+**What open-gaps (origin/fix/open-gaps 43041c11, not used here) will change.** It prints a not-judged summary line, auto-not-judges an overlapped op's before/world reads, makes a check failing on the fixture a harness error, and fixes the reducer. The local unpushed commits in `~/Developer/ncs-open-gaps` add the `faults: N drawn, M landed` summary (51b71786), which can replace this harness's computed line.
+
+**Disagreements with the triage.**
+
+- The per-case drop is mostly from removing growth, not opt-level (above). Opt-level still matters: 2.5 to 2.9x on identical plans.
+- The triage asked for faults "as the report prints it". 8e8642db prints nothing, so the line is computed harness-side, with the same definition as open-gaps' 51b71786.
+- The `storage_usage` checks are runtime properties too, so they are labelled and kept out of the SDK table.
+- Curves find each step's gas threshold in about 8 runs, but they don't sweep death positions the way the walk did (714 mid-flush deaths). Mid-op exhaustion now comes from the searches' gas strategies and the scan's caller-gas edges. The F3 position coverage stays with the mock.
