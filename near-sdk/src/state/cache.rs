@@ -31,13 +31,15 @@
 //!    returns); code calling `state_write(&root)` by hand while holding a reference does not,
 //!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
 //!    what makes a v1 collection nested in a v2 record run its write-on-drop.
-//! 5. No slot reference is used across a call into user code (a value's decoder, encoder or
-//!    `Drop`): user code may re-enter the cache for the same key, and the `&mut Slot` that
-//!    operation forms would invalidate it (Stacked Borrows). `get` decodes holding no slot
-//!    reference and re-checks the slot after. The encoders run inside the cache borrow (the
-//!    flush, `has_pending_writes`), where a re-entry panics on the `RefCell` instead of
-//!    aliasing. A value is dropped only once it has left its slot (`free_slots`, or by the
-//!    caller of `take`), or by `settle` when it never entered one.
+//! 5. User code (a value's decoder, encoder or `Drop`) may re-enter the cache for the same key,
+//!    and the `&mut Slot` that operation forms would invalidate a slot reference held across
+//!    it (Stacked Borrows). Decoders run holding no slot reference: `get` releases its shared
+//!    borrow before decoding and re-acquires the slot in `settle`, so a decoder's re-entry is
+//!    allowed and well defined. Encoders do run under a shared slot reference
+//!    (`for_each_flush_op` reads `orig` after encoding), but only inside the cache's exclusive
+//!    `RefCell` borrow (the flush, `has_pending_writes`), so an encoder's re-entry panics
+//!    instead of aliasing. A value is dropped only once it has left its slot (`free_slots`, or
+//!    by the caller of `take`), or by `settle` when it never entered one.
 
 use super::key::{Path, flag_key_bytes as flag_key};
 use super::value::Value;
