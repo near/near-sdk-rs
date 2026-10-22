@@ -37,7 +37,7 @@
 //!    reference and re-checks the slot after. The encoders run inside the cache borrow (the
 //!    flush, `has_pending_writes`), where a re-entry panics on the `RefCell` instead of
 //!    aliasing. A value is dropped only once it has left its slot (`free_slots`, or by the
-//!    caller of `take`).
+//!    caller of `take`), or by `settle` when it never entered one.
 
 use super::key::{Path, flag_key_bytes as flag_key};
 use super::value::Value;
@@ -555,6 +555,7 @@ fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
         });
         let p = NonNull::from(Box::leak(Box::new(v)));
         if settle(sp, p) {
+            // Just decoded as a `V`: no type check needed.
             return Some(p);
         }
     }
@@ -568,12 +569,17 @@ fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
 /// there, or its delete, stands, and `p` is freed. Not generic, so one copy serves every
 /// `get::<V>`.
 fn settle(mut sp: NonNull<Slot>, p: NonNull<dyn Erased>) -> bool {
-    // SAFETY: invariant 1; a fresh borrow, after the decoder returned.
-    let s = unsafe { sp.as_mut() };
-    let undecided = s.value.is_none() && s.mode != Mode::Deleted;
-    if undecided {
-        s.value = Some(p);
-    } else {
+    let undecided = {
+        // SAFETY: invariant 1; a fresh borrow, after the decoder returned, ended before the
+        // drop below runs user code.
+        let s = unsafe { sp.as_mut() };
+        let undecided = s.value.is_none() && s.mode != Mode::Deleted;
+        if undecided {
+            s.value = Some(p);
+        }
+        undecided
+    };
+    if !undecided {
         // SAFETY: `p` was just leaked by the caller and is referenced nowhere else.
         unsafe { drop(Box::from_raw(p.as_ptr())) };
     }
