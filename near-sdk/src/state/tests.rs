@@ -1941,3 +1941,60 @@ fn audit_a2_unrelated_removal_does_not_refuse_other_handles() {
     assert_eq!(ex.accounts.at(&alice()).balances.len(), 3);
     assert!(!ex.accounts.contains_key(&bob()));
 }
+
+std::thread_local! {
+    static PARKED_DROPS: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
+}
+fn parked_drops() -> usize {
+    PARKED_DROPS.with(core::cell::Cell::get)
+}
+
+/// A leaf whose `Drop` is counted. Also a `Record` (with no views) so `remove_step` takes it:
+/// its finishing step is the removal path under test, and no field of it owns storage.
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct Parked(u8);
+impl BorshLeaf for Parked {}
+impl Record for Parked {
+    type View<'a> = ();
+    type ViewMut<'a> = ();
+    fn __view<'a>(_path: Path) -> Self::View<'a> {}
+    fn __view_mut_in<'a>(_path: Path, _anchor: usize) -> Self::ViewMut<'a> {}
+}
+impl Drop for Parked {
+    fn drop(&mut self) {
+        PARKED_DROPS.with(|d| d.set(d.get() + 1));
+    }
+}
+
+/// A2 hole 1, drop timing: a removal that hands nothing back (`discard`, the call of
+/// `remove_step` that finishes) parks the cached value until the flush, which is what keeps a
+/// `&V` from an escaped handle valid (`audit_a2_ref_from_taken_handle_survives_discard_through_recreated_handle`).
+/// That test's verdict is Miri's: in plain `cargo test` the freed memory usually still reads 1. The drop
+/// count sees it without Miri. Kills `Map::remove_inner`'s `size_of::<V>() == 0` `== -> !=`,
+/// under which both `Map` calls take the value out of the cache and drop it at once.
+/// `LookupMap` parks through `delete_entry` directly; pinned here alongside.
+#[test]
+fn audit_a2_discarded_value_is_parked_until_the_flush() {
+    testing::use_mock();
+    let mut m: Map<u32, Parked> = at(1);
+    let mut l: LookupMap<u32, Parked> = at(2);
+    for k in 0..2 {
+        m.insert(k, Parked(k as u8));
+        l.insert(k, Parked(k as u8));
+    }
+    end_call();
+    let before = parked_drops();
+    assert_eq!(m.get(&0).map(|v| v.0), Some(0));
+    assert!(m.discard(&0));
+    assert_eq!(parked_drops(), before, "Map::discard parks the value it read");
+    assert_eq!(m.remove_step(&1, nz(3)), Removal::Done);
+    assert_eq!(parked_drops(), before, "Map::remove_step's finish parks the value it read");
+    assert_eq!(l.get(&0).map(|v| v.0), Some(0));
+    l.discard(&0);
+    assert_eq!(l.remove_step(&1, nz(3)), Removal::Done);
+    assert_eq!(parked_drops(), before, "LookupMap parks too");
+    end_call();
+    assert_eq!(parked_drops(), before + 4, "each removed value dropped once, at the flush");
+    assert_eq!((m.len(), l.contains_key(&0), l.contains_key(&1)), (0, false, false));
+    end_call();
+}
