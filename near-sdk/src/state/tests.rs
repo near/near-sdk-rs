@@ -2068,3 +2068,26 @@ fn review_decoder_discards_its_own_key_and_the_discard_stands() {
     assert!(m.get(&5).is_none());
     end_call();
 }
+
+/// A leaf whose encoder asks its map whether its own key exists.
+#[derive(borsh::BorshDeserialize)]
+struct ReentrantEncode(u32);
+impl BorshLeaf for ReentrantEncode {}
+impl borsh::BorshSerialize for ReentrantEncode {
+    fn serialize<W: borsh::io::Write>(&self, w: &mut W) -> borsh::io::Result<()> {
+        let m: LookupMap<u32, ReentrantEncode> = at(REENTRANT_TAG);
+        let _ = m.contains_key(&self.0);
+        self.0.serialize(w)
+    }
+}
+
+/// An encoder runs inside the cache borrow (the flush), so an encoder that re-enters the cache
+/// panics on the `RefCell` instead of aliasing a slot (cache invariant 5).
+#[test]
+#[should_panic(expected = "already borrowed")]
+fn review_encoder_reentering_the_cache_at_the_flush_panics() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, ReentrantEncode> = at(REENTRANT_TAG);
+    m.insert(5, ReentrantEncode(5));
+    end_call();
+}
