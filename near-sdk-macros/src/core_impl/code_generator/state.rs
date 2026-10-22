@@ -15,16 +15,10 @@ pub struct ContractStateArgs {
 
 impl quote::ToTokens for ContractStateArgs {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let mut parts = Vec::new();
-        if let Some(key) = &self.key {
-            parts.push(quote! {key = #key});
-        }
-        if let Some(layout) = &self.layout {
-            parts.push(quote! {layout = #layout});
-        }
-        if let Some(root) = &self.root {
-            parts.push(quote! {root = #root});
-        }
+        let key = self.key.iter().map(|key| quote! {key = #key});
+        let layout = self.layout.iter().map(|layout| quote! {layout = #layout});
+        let root = self.root.iter().map(|root| quote! {root = #root});
+        let parts = key.chain(layout).chain(root);
         tokens.extend(quote! {#(#parts),*});
     }
 }
@@ -41,11 +35,11 @@ impl ContractStateArgs {
     }
 
     pub fn layout_error(&self) -> Option<syn::Error> {
-        match &self.layout {
-            Some(l) if l != "v2" => {
+        match (&self.layout, &self.root) {
+            (Some(l), _) if l != "v2" => {
                 Some(syn::Error::new(l.span(), "unknown storage layout; expected `layout = v2`"))
             }
-            _ if self.layout.is_none() && self.root.is_some() => Some(syn::Error::new(
+            (None, Some(_)) => Some(syn::Error::new(
                 proc_macro2::Span::call_site(),
                 "`root` requires `layout = v2`",
             )),
@@ -58,8 +52,8 @@ impl ContractStateArgs {
         ident: &Ident,
         generics: &Generics,
     ) -> proc_macro2::TokenStream {
-        if let Some(root) = self.v2_root() {
-            return super::storage_v2::contract_state_v2(ident, &root);
+        if self.v2_root().is_some() {
+            return super::storage_v2::contract_state_v2(ident);
         }
         let key = self.key.map(|key| {
             quote! {

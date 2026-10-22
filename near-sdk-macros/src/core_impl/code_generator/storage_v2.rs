@@ -1,49 +1,54 @@
 //! Code generation for `#[near(storage)]` records and `#[near(contract_state(layout = v2))]`
 //! roots (storage v2 prototype, see PROTOTYPE_NOTES.md at the repo root).
 //!
-//! For a record `S` with `#[key(n)]` on every named field this emits:
-//! - the struct itself with the `#[key]` attributes stripped;
-//! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
-//!   decode (missing tag -> `FieldDefault`, the const expression of
-//!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), a call of the `fn() -> T` of
-//!   `#[key(n, default_fn = path)]` (API round 4), or an error for `#[key(n, required)]`),
-//!   bind / detach, and `MAX_SUBPATH` summed over fields; since API round 5 each collection
-//!   field leaves its kind marker (a wire-1 field, `tag << 2 | 1, 01, kind`) in the record (a
-//!   root's writer leaves none), a nested record field is wire 2, `__RECORD = true`, and
-//!   `__unknown_collection` (the removal check: an undeclared, unreserved tag of wire 1, or a
-//!   wire-2 nested record holding one at any depth; a wire-0 scalar never matches);
-//! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
-//!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
-//!   `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested view for
-//!   records, `UseGetForScalars` for scalars) or `<T as ViewFieldMut<'a, S>>::Out` (`&'a mut`
-//!   handles from the cache arena, `UseGetMutForScalars` for scalars);
-//! - `__write_pending` walks, so a root struct literal's `Lazy::new` values are written by
-//!   the flush without `.bind()`;
-//! - `#[key(n, legacy)]` root fields (T7): encoded and decoded as plain Borsh outside `Value`
-//!   (a v1 collection's bytes are its prefix), required, no binding; rejected outside a root;
-//! - every other field's type must implement `Value` (T7): the decode and encode helpers bound
-//!   it, so a v1 collection or an un-opted Borsh struct is E0277 with `Value`'s message;
-//! - rejections: a missing `#[key]`, a reused or reserved tag, a v1 collection in a record
-//!   (v1-only names, or `store::`/`collections::`-qualified shared names), and a collection
-//!   as a map value (`Map<_, Set<_>>` and friends) at the field; and (round 7) a headerless
-//!   collection (`LookupMap`, `LookupSet`, `GroupedMap`) as a field of a record, by a const
-//!   assertion on `Value::__ROOT_ONLY` spanned at the field type (E0080): root-only, since they
-//!   give the A3 first-write rule no signal;
-//! - `SAtMut` handles remember the stored record they sit in (`__view_mut_in(path, anchor)`,
-//!   the anchor passed down through nested record fields), for the A3 first-write rule;
-//! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
-//!   the impl inapplicable instead of a compile error at the struct);
-//! - `impl Leaf for S where for<'x> T: Leaf, ...` (same trick): plain `insert` only for records
-//!   that own no collections;
-//! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
+//! For a record `S` with `#[key(n)]` on every named field this emits, besides `S` itself with
+//! the `#[key]` attributes stripped:
+//! - `impl Value`: tagged-record encode (keeping unknown stored tags; each collection field
+//!   leaves its kind marker, a nested record is wire 2), decode (a missing tag is
+//!   `FieldDefault`, the associated `const` of `default = expr` (forced, so evaluated by
+//!   `cargo check`), a call of `default_fn = path`, or an
+//!   error for `required`), bind / detach / `__write_pending` (so a struct literal's
+//!   `Lazy::new` values are written without `.bind()`), `MAX_SUBPATH` summed over fields, and
+//!   `__unknown_collection`, the removal check: a collection marker under an undeclared,
+//!   unreserved tag, at any depth of nested records;
+//! - `SAt<'a>` / `SAtMut<'a>` views (from `at` / `at_mut`) with `impl Record` and
+//!   `impl ViewField / ViewFieldMut`: one field per struct field, a handle for collections, the
+//!   nested view for records, unavailable for scalars. `SAtMut` handles carry the anchor of the
+//!   stored record they sit in, for the A3 first-write rule;
+//! - `impl Removable` and `impl Leaf` with `for<'x> T: ..` bounds (HRTB), so a field without
+//!   the trait makes the impl inapplicable instead of a compile error at the struct;
+//! - `impl Default` (unbound) unless a field is `required` or the user derives one;
+//! - per field, a const assertion on `Value::__ROOT_ONLY` (E0080 at the field type): the
+//!   headerless `LookupMap`, `LookupSet` and `GroupedMap` give the A3 first-write rule no
+//!   signal, so they are root-only.
 //!
-//! For a root: `impl Root` (encode, decode, bind), `impl Default` (decode of an empty record,
-//! unless derived), and the `ContractState` / `StateRead` / `StateWrite` impls from
-//! [`contract_state_v2`].
+//! The derive rejects a missing `#[key]`, a reused or reserved tag, a v1 collection in a
+//! record (by name, best effort) and a collection as a map value. Any other field type must
+//! implement `Value`, so the rest (an aliased v1 collection, an un-opted Borsh struct) is E0277
+//! with `Value`'s message.
+//!
+//! A root gets `impl Root` (encode without kind markers, decode, bind), `impl Default` (decode
+//! of an empty record, unless derived), and the `ContractState` / `StateRead` / `StateWrite`
+//! impls from [`contract_state_v2`]. Only a root takes `#[key(n, legacy)]`: a v1 collection
+//! stored as plain Borsh outside `Value` (its bytes are its prefix), required, never bound.
+//!
+//! Hygiene: user tokens (field types, `default`, `default_fn`, the root byte) never resolve to
+//! something the derive generates, and the generated code never resolves to a user item.
+//! - Every binding (parameter, `let`, closure or loop pattern) is mixed-site, so no user token
+//!   sees it, and is named `__near_*`: an identifier pattern resolves items at the call site
+//!   even when mixed-site, so a user `const` or unit struct of the same name would capture it
+//!   as a constant pattern. A refutable pattern with a binding is an exhaustive `match`, so
+//!   even then the capture is a compile error, not a silently skipped arm. An unused
+//!   parameter (the root hooks' key) is `_`, which no item can capture.
+//! - The views' phantom field and the `ViewField` impls' parent parameter are named apart from
+//!   the record's fields and name (raw or not: `r#__m` is the field `__m`); `state_key` reads
+//!   `Root::ROOT_BYTE`, so the root byte is spelled once, in an impl, next to no generated name.
+//! - The `__near_` prefix (any case) is reserved: the bindings above and the inherent items the
+//!   derive adds to the record (`__near_decode_fields`, `__NEAR_KEY_DEFAULT_<tag>`) use it.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use syn::{Fields, ItemStruct, LitInt, spanned::Spanned};
+use syn::{Fields, ItemStruct, ext::IdentExt, spanned::Spanned};
 
 pub struct V2Options {
     /// `Some(root byte expr)` for a contract root.
@@ -55,22 +60,18 @@ struct KeyedField {
     ident: syn::Ident,
     ty: syn::Type,
     vis: syn::Visibility,
+    key: KeyAttr,
+}
+
+struct KeyAttr {
     tag: u32,
     required: bool,
     /// `#[key(n, default = expr)]`: evaluated when the tag is missing from a stored record.
     default: Option<syn::Expr>,
     /// `#[key(n, default_fn = path)]`: a `fn() -> T` called when the tag is missing.
     default_fn: Option<syn::Path>,
-    /// `#[key(n, legacy)]` (T7): a v1 collection (or any opaque Borsh value) kept at the root,
+    /// `#[key(n, legacy)]`: a v1 collection (or any opaque Borsh value) kept at the root,
     /// stored inline as its Borsh bytes without the `Value` trait. Root only; implies required.
-    legacy: bool,
-}
-
-struct KeyAttr {
-    tag: u32,
-    required: bool,
-    default: Option<syn::Expr>,
-    default_fn: Option<syn::Path>,
     legacy: bool,
 }
 
@@ -113,15 +114,14 @@ fn collection_valued(ty: &syn::Type) -> Option<Span> {
     let syn::Type::Path(tp) = ty else { return None };
     let seg = tp.path.segments.last()?;
     let syn::PathArguments::AngleBracketed(args) = &seg.arguments else { return None };
-    let tys: Vec<&syn::Type> = args
+    let mut tys = args
         .args
         .iter()
-        .filter_map(|a| if let syn::GenericArgument::Type(t) = a { Some(t) } else { None })
-        .collect();
+        .filter_map(|a| if let syn::GenericArgument::Type(t) = a { Some(t) } else { None });
     let value = match seg.ident.to_string().as_str() {
-        "Map" | "LookupMap" => tys.get(1),
-        "GroupedMap" => tys.get(2),
-        "Vector" | "Lazy" => tys.first(),
+        "Map" | "LookupMap" => tys.nth(1),
+        "GroupedMap" => tys.nth(2),
+        "Vector" | "Lazy" => tys.next(),
         _ => None,
     }?;
     let syn::Type::Path(vp) = value else { return None };
@@ -226,10 +226,31 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
     Ok(KeyAttr { tag, required, default, default_fn, legacy })
 }
 
+/// A binding of the generated code (a parameter, `let`, closure or loop pattern). Mixed-site, so
+/// no user token (a default, a field type, the root byte) resolves to it; `__near_`-prefixed,
+/// because hygiene does not cover the other direction: an identifier PATTERN resolves items at
+/// the call site even when mixed-site, so a user `const` or unit struct of the same name would
+/// turn it into a constant pattern.
+fn local(name: &str) -> syn::Ident {
+    syn::Ident::new(&format!("__near_{name}"), Span::mixed_site())
+}
+
+/// `base` with `_` appended until it is none of `taken`, compared unrawed (`r#x` is `x`).
+fn unused_ident<'a>(
+    base: &str,
+    taken: impl IntoIterator<Item = &'a syn::Ident> + Clone,
+) -> syn::Ident {
+    let mut name = base.to_owned();
+    while taken.clone().into_iter().any(|t| t.unraw() == name) {
+        name.push('_');
+    }
+    syn::Ident::new(&name, Span::call_site())
+}
+
 pub fn expand(
     mut item: ItemStruct,
     opts: V2Options,
-    struct_attrs: TokenStream,
+    struct_attrs: Option<TokenStream>,
 ) -> syn::Result<TokenStream> {
     if !item.generics.params.is_empty() {
         return Err(syn::Error::new(
@@ -261,66 +282,58 @@ pub fn expand(
             return Err(e);
         }
         let ident = f.ident.clone().expect("named");
-        let Some(KeyAttr { tag, required, default, default_fn, legacy }) = found else {
+        let Some(key) = found else {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("field `{ident}` needs a `#[key(n)]` tag: the tags are the storage layout"),
             ));
         };
+        let tag = key.tag;
         if opts.reserved.contains(&tag) {
             return Err(syn::Error::new(ident.span(), format!("tag {tag} is reserved")));
         }
-        if let Some(prev) = fields.iter().find(|k: &&KeyedField| k.tag == tag) {
+        if let Some(prev) = fields.iter().find(|k: &&KeyedField| k.key.tag == tag) {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("tag {tag} is already used by `{}`", prev.ident),
             ));
         }
-        if legacy && !is_root {
+        if key.legacy && !is_root {
             return Err(syn::Error::new(
                 ident.span(),
                 "`#[key(n, legacy)]` is only for fields of a `contract_state(layout = v2)` root: \
                  v1 collections cannot live inside a storage record",
             ));
         }
-        if !is_root && let Some(n) = v1_name(&f.ty) {
-            return Err(syn::Error::new(
-                f.ty.span(),
-                format!(
-                    "v1 collection `{n}` inside a storage record: v1 collections are allowed only \
-                     as root fields marked `#[key(n, legacy)]` (their write-on-drop and removal do \
-                     not compose with records); use the `near_sdk::state` type here"
-                ),
-            ));
-        }
-        if is_root && !legacy && let Some(n) = v1_name(&f.ty) {
-            return Err(syn::Error::new(
-                f.ty.span(),
-                format!(
-                    "v1 collection `{n}` at the root needs `#[key({tag}, legacy)]`: v1 collections \
-                     are not storage v2 values and are kept as their Borsh bytes (their prefix)"
-                ),
-            ));
-        }
-        if v1_name(&f.ty).is_none()
-            && let Some(span) = collection_valued(&f.ty)
-        {
+        if let Some(n) = v1_name(&f.ty) {
+            if !is_root {
+                return Err(syn::Error::new(
+                    f.ty.span(),
+                    format!(
+                        "v1 collection `{n}` inside a storage record: v1 collections are allowed \
+                         only as root fields marked `#[key(n, legacy)]` (their write-on-drop and \
+                         removal do not compose with records); use the `near_sdk::state` type here"
+                    ),
+                ));
+            }
+            if !key.legacy {
+                return Err(syn::Error::new(
+                    f.ty.span(),
+                    format!(
+                        "v1 collection `{n}` at the root needs `#[key({tag}, legacy)]`: v1 \
+                         collections are not storage v2 values and are kept as their Borsh bytes \
+                         (their prefix)"
+                    ),
+                ));
+            }
+        } else if let Some(span) = collection_valued(&f.ty) {
             return Err(syn::Error::new(
                 span,
                 "a map value cannot be a collection; put it in a `#[near(storage)]` record \
                  (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order> }`)",
             ));
         }
-        fields.push(KeyedField {
-            ident,
-            ty: f.ty.clone(),
-            vis: f.vis.clone(),
-            tag,
-            required: required || legacy,
-            default,
-            default_fn,
-            legacy,
-        });
+        fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), key });
     }
 
     let name = &item.ident;
@@ -329,87 +342,76 @@ pub fn expand(
     let view_mut = format_ident!("{}AtMut", name);
     let s = quote!(::near_sdk::state);
     let p = quote!(::near_sdk::state::__private);
-    let tag_lit = |t: u32| LitInt::new(&format!("{t}u32"), Span::call_site());
 
-    let mut max_terms = Vec::new();
+    // `reserved(n)` tags, like legacy fields, are known-and-empty: not kept from the stored bytes
+    // and never a removal blocker (the version that owned a reserved collection tag cleared it).
+    let mut known_arms: Vec<_> = opts.reserved.iter().map(|t| quote! { #t => false, }).collect();
+    let mut unknown_arms: Vec<_> =
+        opts.reserved.iter().map(|t| quote! { #t => ::core::option::Option::None, }).collect();
+    // every binding of the template; see `local`
+    let [l_bytes, l_orig, l_of, l_w, l_f, l_path, l_t, l_b, l_hit, l_trail, l_k] =
+        ["bytes", "orig", "of", "w", "f", "path", "t", "b", "hit", "trail", "k"].map(local);
+    let [l_anchor, l_budget, l_v, l_e] = ["anchor", "budget", "v", "e"].map(local);
     let mut enc = Vec::new();
-    let mut known_arms = Vec::new();
     let mut dec = Vec::new();
-    let mut bind = Vec::new();
-    let mut pending = Vec::new();
-    let mut detach = Vec::new();
-    let mut view_fields = Vec::new();
-    let mut view_inits = Vec::new();
-    let mut view_mut_fields = Vec::new();
-    let mut view_mut_inits = Vec::new();
-    let mut removable_bounds = Vec::new();
-    let mut leaf_bounds = Vec::new();
-    let mut clear = Vec::new();
-    let mut clear_some = Vec::new();
-    // API round 5 (A3): one arm per declared tag for `__unknown_collection`.
-    let mut unknown_arms = Vec::new();
-    // Round 7: one const check per field of a record that it is not a root-only collection.
+    let (mut defaults, mut defaults_forced) = (Vec::new(), Vec::new());
     let mut root_only = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, tag, required, default, default_fn, legacy } in &fields {
-        let t = tag_lit(*tag);
-        if *legacy {
-            // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
-            // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
-            enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
-            known_arms.push(quote! { #t => false, });
-            unknown_arms.push(quote! { #t => ::core::option::Option::None, });
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::legacy_field::<#ty>(f, #t)?, });
-            continue;
-        }
-        max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
-        enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
-        known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
-        // a declared field: a nested record checks its own bytes, anything else is known
-        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
+    for KeyedField { ident, ty, key, .. } in &fields {
+        let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
         // Spanned at the field type, so a missing `Default` points at the field.
-        if *required {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
+        let span = ty.span();
+        let decode = if *legacy {
+            quote_spanned! {span=> #p::legacy_field::<#ty>(#l_f, #t) }
+        } else if *required {
+            quote_spanned! {span=> #p::field_required::<#ty>(#l_f, #t, #l_path) }
         } else if let Some(d) = default {
-            // T6: `expr` is a `const` item, so it is evaluated at compile time and a non-const
-            // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
-            // error at the expression (E0015). Re-evaluating it on every decode of an old
-            // record is then harmless: it is the same value every time.
-            let c = quote_spanned! {d.span()=>
-                const __KEY_DEFAULT: #ty = #d;
-            };
-            dec.push(quote_spanned! {ty.span()=>
-                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT })?,
+            // `expr` is an associated `const` of the record, so it is evaluated at compile time
+            // and a non-const expression (`env::predecessor_account_id()`, `vec![..]`,
+            // `.parse()`) is a compile error at the expression (E0015). Re-evaluating it on
+            // every decode of an old record is then harmless: it is the same value every time.
+            // It sits in an `impl` with no generated binding, so it resolves like code the user
+            // writes there (`Self::X` is the record's). An associated const is evaluated only
+            // where it is used, so a free `const _` uses it: a failing `expr` (a panicking
+            // `const fn`, an index out of bounds) is E0080 at `cargo check`, used or not.
+            let c = format_ident!("__NEAR_KEY_DEFAULT_{}", t, span = d.span());
+            defaults.push(quote_spanned! {d.span()=>
+                #[doc(hidden)]
+                const #c: #ty = #d;
             });
+            defaults_forced.push(quote_spanned! {d.span()=>
+                const _: () = {
+                    let _ = ::core::mem::ManuallyDrop::new(<#name>::#c);
+                };
+            });
+            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || Self::#c) }
         } else if let Some(fp) = default_fn {
-            // `default_fn = path` (API round 4): the escape hatch from T6's const rule, for a
-            // type with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
+            // `default_fn = path`: the escape hatch from the const rule above, for a type
+            // with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
             // a closure, a method needing arguments or a wrong return type is an error at the
             // path. Called on EVERY decode where the tag is absent, until some other change
             // rewrites the record (the flush writes the tag then); it must be pure.
-            let c = quote_spanned! {fp.span()=>
-                let __key_default_fn: fn() -> #ty = #fp;
-            };
-            dec.push(quote_spanned! {ty.span()=>
-                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __key_default_fn() })?,
-            });
+            let dfn = local("default_fn");
+            let c = quote_spanned! {fp.span()=> let #dfn: fn() -> #ty = #fp; };
+            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || { #c #dfn() }) }
         } else {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
+            quote_spanned! {span=> #p::field::<#ty>(#l_f, #t, #l_path) }
+        };
+        dec.push(quote_spanned! {span=> #ident: #decode?, });
+        if *legacy {
+            // A root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
+            // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
+            enc.push(quote! { #p::encode_legacy_field(&mut #l_w, #t, &self.#ident); });
+            known_arms.push(quote! { #t => false, });
+            unknown_arms.push(quote! { #t => ::core::option::Option::None, });
+            continue;
         }
-        bind.push(quote! { #s::Value::bind(&mut self.#ident, &path.field(#t)); });
-        pending.push(quote! { #s::Value::__write_pending(&self.#ident, &path.field(#t)); });
-        detach.push(quote! { #s::Value::detach(&mut self.#ident); });
-        view_fields.push(quote! { #fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out, });
-        view_inits.push(quote! {
-            #ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#t)),
-        });
-        view_mut_fields
-            .push(quote! { #fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out, });
-        view_mut_inits.push(quote! {
-            #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t), anchor),
-        });
+        enc.push(quote! { #p::encode_field(&mut #l_w, #l_of.as_ref(), #t, &self.#ident); });
+        known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
+        // a declared field: a nested record checks its own bytes, anything else is known
+        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(#l_w, #l_b), });
         if !is_root {
-            // Round 7 (A3 first-write rule): a headerless collection has no first-write signal,
+            // A3 first-write rule: a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
             // and a shadowing `use near_sdk::store::LookupMap` still fails first with
             // `Value`'s E0277 (a v1 collection is no value at all).
@@ -426,59 +428,28 @@ pub fn expand(
                 const _: () = ::core::assert!(!<#ty as #s::Value>::__ROOT_ONLY, #msg);
             });
         }
-        removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
-        leaf_bounds.push(quote! { for<'__x> #ty: #s::Leaf, });
-        clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
-        clear_some.push(quote! {
-            if !<#ty as #s::Removable>::clear_children_some(&path.field(#t), budget) {
-                return false;
-            }
-        });
     }
-    let reserved_arms = opts.reserved.iter().map(|r| {
-        let t = tag_lit(*r);
-        quote! { #t => false, }
-    });
-    // `reserved(n)` tags are known-and-empty for removal: the version that owned a reserved
-    // collection tag must have cleared it.
-    let reserved_unknown_arms: Vec<_> = opts
-        .reserved
-        .iter()
-        .map(|r| {
-            let t = tag_lit(*r);
-            quote! { #t => ::core::option::Option::None, }
-        })
-        .collect();
-    let unknown_collection_body = quote! {
-        let f = #p::parse(bytes).ok()?;
-        for &(t, w, b) in f.iter() {
-            let hit = match t {
-                #(#reserved_unknown_arms)*
-                #(#unknown_arms)*
-                _ => #p::unknown_field_collection(w, b),
-            };
-            if let ::core::option::Option::Some((mut trail, k)) = hit {
-                trail.insert(0, t);
-                return ::core::option::Option::Some((trail, k));
-            }
-        }
-        ::core::option::Option::None
-    };
+    // The rest is per `Value` field only: a legacy field owns no storage the v2 cache knows.
+    let v2: Vec<_> = fields.iter().filter(|f| !f.key.legacy).collect();
+    let ident: Vec<_> = v2.iter().map(|f| &f.ident).collect();
+    let ty: Vec<_> = v2.iter().map(|f| &f.ty).collect();
+    let tag: Vec<_> = v2.iter().map(|f| f.key.tag).collect();
+    let fvis: Vec<_> = v2.iter().map(|f| &f.vis).collect();
+    let bind = quote! { #(#s::Value::bind(&mut self.#ident, &#l_path.field(#tag));)* };
+    let pending = quote! { #(#s::Value::__write_pending(&self.#ident, &#l_path.field(#tag));)* };
 
-    let max_subpath = quote! {{
-        let mut m = 0usize;
-        #(#max_terms)*
-        m
-    }};
-    // A root never leaves kind markers (it is never removed); a record does (API round 5).
+    // `max(.. max(max(0, a), b) .., z)`: no binding for a field type to meet
+    let max_subpath = ty.iter().zip(&tag).fold(quote!(0usize), |m, (ty, tag)| {
+        quote! { #p::max(#m, #p::field_subpath::<#ty>(#tag)) }
+    });
+    // A root never leaves kind markers (it is never removed); a record does.
     let writer = if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
     let encode_body = quote! {
-        let of = #p::parse_orig(orig);
-        let mut w = #writer;
+        let #l_of = #p::parse_orig(#l_orig);
+        let mut #l_w = #writer;
         #(#enc)*
         // keep a stored tag iff the code does not know it inline and it is not reserved
-        w.finish(orig, |t| match t {
-            #(#reserved_arms)*
+        #l_w.finish(#l_orig, |#l_t| match #l_t {
             #(#known_arms)*
             _ => true,
         })
@@ -487,19 +458,21 @@ pub fn expand(
     // `decode_value` and the generated `Default`, so a missing `Default` is reported once.
     let decode_fields = quote! {
         impl #name {
+            #(#defaults)*
             #[doc(hidden)]
             #[allow(dead_code)]
-            fn __decode_fields(
-                f: &#p::Fields<'_>,
-                path: ::core::option::Option<&#s::Path>,
+            fn __near_decode_fields(
+                #l_f: &#p::Fields<'_>,
+                #l_path: ::core::option::Option<&#s::Path>,
             ) -> ::core::result::Result<Self, #s::RecordError> {
                 ::core::result::Result::Ok(Self { #(#dec)* })
             }
         }
+        #(#defaults_forced)*
     };
     let decode_body = quote! {
-        let f = #p::parse(bytes)?;
-        Self::__decode_fields(&f, ::core::option::Option::Some(path))
+        let #l_f = #p::parse(#l_bytes)?;
+        Self::__near_decode_fields(&#l_f, ::core::option::Option::Some(#l_path))
     };
     let user_default = derives(&item, &["Default", "PanicOnDefault", "SmartDefault"]);
 
@@ -511,10 +484,11 @@ pub fn expand(
             quote! {
                 impl ::core::default::Default for #name {
                     fn default() -> Self {
-                        let path = <Self as #s::Root>::root_path();
-                        <Self as #s::Root>::__decode_root(&[], &path).unwrap_or_else(|e| {
+                        let #l_path = <Self as #s::Root>::root_path();
+                        <Self as #s::Root>::__decode_root(&[], &#l_path).unwrap_or_else(|#l_e| {
                             ::near_sdk::env::panic_str(&::std::format!(
-                                "state: `Default` for a v2 root decodes an empty record: {e}"
+                                "state: `Default` for a v2 root decodes an empty record: {}",
+                                #l_e
                             ))
                         })
                     }
@@ -529,19 +503,19 @@ pub fn expand(
                 impl #s::Root for #name {
                     const ROOT_BYTE: u8 = #root;
                     const MAX_SUBPATH: usize = #max_subpath;
-                    fn __encode_root(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
+                    fn __encode_root(&self, #l_orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                         #encode_body
                     }
-                    fn __decode_root(bytes: &[u8], path: &#s::Path)
+                    fn __decode_root(#l_bytes: &[u8], #l_path: &#s::Path)
                         -> ::core::result::Result<Self, #s::RecordError>
                     {
                         #decode_body
                     }
-                    fn __bind_root(&mut self, path: &#s::Path) {
-                        #(#bind)*
+                    fn __bind_root(&mut self, #l_path: &#s::Path) {
+                        #bind
                     }
-                    fn __write_pending_root(&self, path: &#s::Path) {
-                        #(#pending)*
+                    fn __write_pending_root(&self, #l_path: &#s::Path) {
+                        #pending
                     }
                 }
                 #decode_fields
@@ -560,15 +534,15 @@ pub fn expand(
         });
     }
 
-    let has_required = fields.iter().any(|f| f.required);
+    let has_required = fields.iter().any(|f| f.key.required);
     let default_impl = (!user_default && !has_required).then(|| {
         quote! {
             impl ::core::default::Default for #name {
                 fn default() -> Self {
                     // no `required` field, so decoding an empty record cannot fail
-                    match Self::__decode_fields(&::std::vec::Vec::new(), ::core::option::Option::None) {
-                        ::core::result::Result::Ok(v) => v,
-                        ::core::result::Result::Err(e) => ::core::panic!("state: {e}"),
+                    match Self::__near_decode_fields(&::std::vec::Vec::new(), ::core::option::Option::None) {
+                        ::core::result::Result::Ok(#l_v) => #l_v,
+                        ::core::result::Result::Err(#l_e) => ::core::panic!("state: {}", #l_e),
                     }
                 }
             }
@@ -589,6 +563,11 @@ pub fn expand(
          `map.get_mut(&k)` to change them."
     );
 
+    // Not reserved names: the view's phantom field differs from every field, the `ViewField`
+    // impls' parent parameter from the record's name.
+    let marker = unused_ident("__m", fields.iter().map(|f| &f.ident));
+    let parent = unused_ident("__R", [name]);
+
     Ok(quote! {
         #struct_attrs
         #item
@@ -596,89 +575,116 @@ pub fn expand(
         #[doc = #view_doc]
         #[allow(dead_code)]
         #vis struct #view<'a> {
-            #(#view_fields)*
+            #(#fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out,)*
             #[doc(hidden)]
-            pub __m: ::core::marker::PhantomData<&'a ()>,
+            pub #marker: ::core::marker::PhantomData<&'a ()>,
         }
 
         #[doc = #view_mut_doc]
         #[allow(dead_code)]
         #vis struct #view_mut<'a> {
-            #(#view_mut_fields)*
+            #(#fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out,)*
             #[doc(hidden)]
-            pub __m: ::core::marker::PhantomData<&'a mut ()>,
+            pub #marker: ::core::marker::PhantomData<&'a mut ()>,
         }
 
         const _: () = {
             impl #s::Value for #name {
                 const MAX_SUBPATH: usize = #max_subpath;
                 const __RECORD: bool = true;
-                fn __unknown_collection(bytes: &[u8])
+                fn __unknown_collection(#l_bytes: &[u8])
                     -> ::core::option::Option<(::std::vec::Vec<u32>, u8)>
                 {
-                    #unknown_collection_body
+                    let #l_f = #p::parse(#l_bytes).ok()?;
+                    for &(#l_t, #l_w, #l_b) in #l_f.iter() {
+                        let #l_hit = match #l_t {
+                            #(#unknown_arms)*
+                            _ => #p::unknown_field_collection(#l_w, #l_b),
+                        };
+                        // exhaustive, so a binding captured as a constant pattern is E0004,
+                        // never a silently skipped hit
+                        match #l_hit {
+                            ::core::option::Option::Some((mut #l_trail, #l_k)) => {
+                                #l_trail.insert(0, #l_t);
+                                return ::core::option::Option::Some((#l_trail, #l_k));
+                            }
+                            ::core::option::Option::None => {}
+                        }
+                    }
+                    ::core::option::Option::None
                 }
-                fn encode_value(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
+                fn encode_value(&self, #l_orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                     #encode_body
                 }
-                fn decode_value(bytes: &[u8], path: &#s::Path)
+                fn decode_value(#l_bytes: &[u8], #l_path: &#s::Path)
                     -> ::core::result::Result<Self, #s::RecordError>
                 {
                     #decode_body
                 }
-                fn bind(&mut self, path: &#s::Path) {
-                    #(#bind)*
+                fn bind(&mut self, #l_path: &#s::Path) {
+                    #bind
                 }
                 fn detach(&mut self) {
-                    #(#detach)*
+                    #(#s::Value::detach(&mut self.#ident);)*
                 }
-                fn __write_pending(&self, path: &#s::Path) {
-                    #(#pending)*
+                fn __write_pending(&self, #l_path: &#s::Path) {
+                    #pending
                 }
             }
 
             impl #s::Record for #name {
                 type View<'a> = #view<'a>;
                 type ViewMut<'a> = #view_mut<'a>;
-                fn __view<'a>(path: #s::Path) -> #view<'a> {
-                    #view { #(#view_inits)* __m: ::core::marker::PhantomData }
+                fn __view<'a>(#l_path: #s::Path) -> #view<'a> {
+                    #view {
+                        #(#ident: <#ty as #s::ViewField<'a, #name>>::__view_field(#l_path.field(#tag)),)*
+                        #marker: ::core::marker::PhantomData
+                    }
                 }
                 #[allow(unused_variables)]
-                fn __view_mut_in<'a>(path: #s::Path, anchor: usize) -> #view_mut<'a> {
-                    #view_mut { #(#view_mut_inits)* __m: ::core::marker::PhantomData }
+                fn __view_mut_in<'a>(#l_path: #s::Path, #l_anchor: usize) -> #view_mut<'a> {
+                    #view_mut {
+                        #(#ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(
+                            #l_path.field(#tag),
+                            #l_anchor
+                        ),)*
+                        #marker: ::core::marker::PhantomData
+                    }
                 }
             }
 
-            impl<'a, __R: #s::Value> #s::ViewField<'a, __R> for #name {
+            impl<'a, #parent: #s::Value> #s::ViewField<'a, #parent> for #name {
                 type Out = #view<'a>;
-                fn __view_field(field_path: #s::Path) -> #view<'a> {
-                    <#name as #s::Record>::__view(field_path)
+                fn __view_field(#l_path: #s::Path) -> #view<'a> {
+                    <#name as #s::Record>::__view(#l_path)
                 }
             }
 
-            impl<'a, __R: #s::Value> #s::ViewFieldMut<'a, __R> for #name {
+            impl<'a, #parent: #s::Value> #s::ViewFieldMut<'a, #parent> for #name {
                 type Out = #view_mut<'a>;
-                fn __view_field_mut(field_path: #s::Path, anchor: usize) -> #view_mut<'a> {
+                fn __view_field_mut(#l_path: #s::Path, #l_anchor: usize) -> #view_mut<'a> {
                     // a nested record field: its collections live in the enclosing stored record
-                    <#name as #s::Record>::__view_mut_in(field_path, anchor)
+                    <#name as #s::Record>::__view_mut_in(#l_path, #l_anchor)
                 }
             }
 
             #[allow(unused_lifetimes)]
-            impl #s::Removable for #name where #(#removable_bounds)* {
-                fn clear_children(path: &#s::Path) {
-                    #(#clear)*
+            impl #s::Removable for #name where #(for<'__x> #ty: #s::Removable,)* {
+                fn clear_children(#l_path: &#s::Path) {
+                    #(<#ty as #s::Removable>::clear_children(&#l_path.field(#tag));)*
                 }
-                fn clear_children_some(path: &#s::Path, budget: &mut u32) -> bool {
-                    #(#clear_some)*
+                fn clear_children_some(#l_path: &#s::Path, #l_budget: &mut u32) -> bool {
+                    #(if !<#ty as #s::Removable>::clear_children_some(&#l_path.field(#tag), #l_budget) {
+                        return false;
+                    })*
                     true
                 }
             }
 
-            // D6: a record owns no storage iff every field is a `Leaf`; plain `insert` (which
+            // A record owns no storage iff every field is a `Leaf`; plain `insert` (which
             // overwrites) is only available for such records.
             #[allow(unused_lifetimes)]
-            impl #s::Leaf for #name where #(#leaf_bounds)* {}
+            impl #s::Leaf for #name where #(for<'__x> #ty: #s::Leaf,)* {}
 
             #(#root_only)*
             #decode_fields
@@ -690,26 +696,26 @@ pub fn expand(
 /// `ContractState` and the wrapper hooks for a v2 root. No Borsh impls: the wrapper's
 /// `state_read()` / `state_write()` are bounded on `StateRead` / `StateWrite`, which v1 roots
 /// get from a Borsh blanket and v2 roots get here.
-pub fn contract_state_v2(ident: &syn::Ident, root: &TokenStream) -> TokenStream {
+pub fn contract_state_v2(ident: &syn::Ident) -> TokenStream {
     quote! {
         const _: () = {
             impl ::near_sdk::state::ContractState for #ident {
                 #[inline]
                 fn state_key() -> &'static [u8] {
-                    const KEY: [u8; 1] = [#root];
-                    &KEY
+                    // the root byte is spelled once, in `impl Root`
+                    const { &[<Self as ::near_sdk::state::Root>::ROOT_BYTE] }
                 }
                 fn state_exists() -> bool {
                     ::near_sdk::state::root_exists::<Self>()
                 }
             }
             impl ::near_sdk::state::StateRead for #ident {
-                fn read_state(_key: &[u8]) -> ::core::option::Option<Self> {
+                fn read_state(_: &[u8]) -> ::core::option::Option<Self> {
                     ::core::option::Option::Some(::near_sdk::state::load_root::<Self>())
                 }
             }
             impl ::near_sdk::state::StateWrite for #ident {
-                fn write_state(&self, _key: &[u8]) -> bool {
+                fn write_state(&self, _: &[u8]) -> bool {
                     ::near_sdk::state::flush_root(self);
                     true
                 }
