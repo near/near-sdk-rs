@@ -29,6 +29,8 @@ enum Variant {
     V2H8,
     /// v2 h16 with the Oct 18 methods (`ext` feature); used only for the rows added then.
     V2H16X,
+    /// v2 h16 with a `Map<AccountId, ()>` (`zst` feature); used only for its remove rows.
+    V2H16Z,
 }
 use Variant::*;
 
@@ -39,6 +41,7 @@ impl Variant {
             V2H16 => "v2_h16",
             V2H8 => "v2_h8",
             V2H16X => "v2_h16_ext",
+            V2H16Z => "v2_h16_zst",
         };
         // `GAS_RES_DIR` points at another build's wasms (the per-commit bisection in
         // GAS_MEASUREMENTS.md, Oct 18); default `../res`.
@@ -245,6 +248,14 @@ fn layout(v: Variant, which: &str, range: std::ops::Range<u32>, len: u32) -> Vec
                 let h = &sha(&kb)[..v.h()];
                 out.push(([&[V2_ROOT, 4, 0][..], h, &kb].concat(), val));
             }
+            (V2H16Z, "units") => {
+                // A `()` value has no bytes: the entry is written with an empty value.
+                let h = &sha(&kb)[..v.h()];
+                let base = [V2_ROOT, 9];
+                out.push(([&base[..], &[0], h, &kb].concat(), vec![]));
+                out.push(([&base[..], &[1], h, &kb].concat(), i.to_le_bytes().to_vec()));
+                out.push(([&base[..], &[2], &i.to_le_bytes()].concat(), kb));
+            }
             (V2H16X, "accounts") => {
                 // `Account { nonce: i, balances }`: field key `04` (tag 1, scalar) len 8 nonce,
                 // then `09` (tag 2, marker) len 1 and the `Map` kind 0x81 (API round 5, wire
@@ -264,6 +275,9 @@ fn layout(v: Variant, which: &str, range: std::ops::Range<u32>, len: u32) -> Vec
     }
     if which == "accounts" {
         out.push((vec![V2_ROOT, 6, 3], len.to_le_bytes().to_vec()));
+    }
+    if which == "units" {
+        out.push((vec![V2_ROOT, 9, 3], len.to_le_bytes().to_vec()));
     }
     out
 }
@@ -322,6 +336,44 @@ fn a3_ops(n: u32) -> Vec<(String, Vec<Cost>)> {
         ("at_mut: Lazy<u64>::set, value absent".to_string(), lazy1),
         ("at_mut: Lazy<u64>::set, value present".to_string(), lazy2),
     ]
+}
+
+/// `Map<AccountId, ()>` holding `n` keys (`zst` wasm): `remove` of a present non-last key, of
+/// an absent key, and `discard` of a present non-last key (what `Set::remove` pays). K distinct
+/// keys each.
+fn zst_ops(n: u32) -> Vec<(&'static str, Vec<Cost>)> {
+    let v = V2H16Z;
+    let mut sim = world(v);
+    populate(&mut sim, v, "units", n);
+    let (mut rm, mut miss, mut dis) = (vec![], vec![], vec![]);
+    for j in 0..K {
+        let o = call(&mut sim, "unit_remove", json!({"id": gen_id((j * 7919 + n / 2 + 1) % (n - 1))}));
+        assert!(o.json::<bool>(), "unit_remove of a present key");
+        rm.push(cost(&o));
+        let o = call(&mut sim, "unit_remove", json!({"id": gen_id(n + 1000 + j)}));
+        assert!(!o.json::<bool>(), "unit_remove of an absent key");
+        miss.push(cost(&o));
+        let o = call(&mut sim, "unit_discard", json!({"id": gen_id((j * 7919 + n / 3 + 1) % (n - 1))}));
+        assert!(o.json::<bool>(), "unit_discard of a present key");
+        dis.push(cost(&o));
+    }
+    vec![
+        ("Map<AccountId, ()>::remove (non-last)", rm),
+        ("Map<AccountId, ()>::remove, absent key", miss),
+        ("Map<AccountId, ()>::discard (non-last) = Set::remove", dis),
+    ]
+}
+
+/// Prints the `Map<AccountId, ()>` remove rows, for the slim-down before/after of Oct 22.
+/// `cargo +1.95.0 test --test storage_v2_gas zst_rows -- --include-ignored --nocapture`
+#[test]
+#[ignore = "zero-sized-value remove before/after helper; run with --nocapture"]
+fn zst_rows() {
+    let n: u32 = std::env::var("GAS_A3_N").map(|s| s.parse().unwrap()).unwrap_or(10_000);
+    println!("{HEADER}");
+    for (op, cs) in zst_ops(n) {
+        println!("{}", row("v2 (h16, zst)", n, op, &cs));
+    }
 }
 
 /// Prints only the A3 rows and the rows the fix could touch (insert/update/remove at 10k on
@@ -387,6 +439,9 @@ fn populate(sim: &mut Sim, v: Variant, which: &str, n: u32) {
     }
     if which == "map" {
         assert_eq!(sim.view(C, "map_len", json!({})).json::<u32>(), n);
+    }
+    if which == "units" {
+        assert_eq!(sim.view(C, "units_len", json!({})).json::<u32>(), n);
     }
     if which == "accounts" {
         assert_eq!(sim.view(C, "accounts_len", json!({})).json::<u32>(), n);
@@ -525,6 +580,8 @@ fn layouts_match_contract_writes() {
     }
     let mut sim = world(V2H16X);
     populate(&mut sim, V2H16X, "accounts", 200);
+    let mut sim = world(V2H16Z);
+    populate(&mut sim, V2H16Z, "units", 200);
 }
 
 #[test]
