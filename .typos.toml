@@ -1,1 +1,7 @@
 [default.extend-words]
+
+# Short commit hashes cited in the storage v2 prototype notes and results.
+[default.extend-identifiers]
+ba11af14 = "ba11af14"
+a85afe2a = "a85afe2a"
+7b199caf = "7b199caf"
