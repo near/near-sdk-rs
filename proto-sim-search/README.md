@@ -30,8 +30,9 @@ results, the port and the sim team's triage are in `PROTOTYPE_NOTES.md`, section
   `Audit::reached` per method. The positive control plants an orphan key with a harness-only
   op, `PlantOrphan`, and asserts that the model check finds it.
 - `results/`: `*_20261020.txt` are the b328d067 runs, from the old API, and are not comparable
-  line by line. `*_20261020b.txt` are the main runs. `opt_level_ab_20261020b.txt` is the
-  profile A/B.
+  line by line. `*_20261020b.txt` are the main runs on ec29bf6f, and `*_20261022.txt` are the main
+  runs on round 7 (the A3 first-write rule), which are unchanged. `opt_level_ab_20261020b.txt`
+  is the profile A/B.
 
 ## Setup
 
