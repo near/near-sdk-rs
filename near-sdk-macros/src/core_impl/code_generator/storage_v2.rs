@@ -310,11 +310,8 @@ pub fn expand(
     // `reserved(n)` tags, like legacy fields, are known-and-empty: not kept from the stored bytes
     // and never a removal blocker (the version that owned a reserved collection tag cleared it).
     let mut known_arms: Vec<_> = opts.reserved.iter().map(|t| quote! { #t => false, }).collect();
-    let mut unknown_arms: Vec<_> = opts
-        .reserved
-        .iter()
-        .map(|t| quote! { #t => ::core::option::Option::None, })
-        .collect();
+    let mut unknown_arms: Vec<_> =
+        opts.reserved.iter().map(|t| quote! { #t => ::core::option::Option::None, }).collect();
     let mut enc = Vec::new();
     let mut dec = Vec::new();
     let mut root_only = Vec::new();
