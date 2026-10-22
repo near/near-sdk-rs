@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-d1eb8fef37aad6e5)
+
+running 1 test
+search of 2000 case(s) per seed case 80/2000 · 10s elapsed, ~4m03s left (from the mean case time)
+mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+search of 2000 case(s) per seed case 137/2000 · 20s elapsed, ~4m36s left (from the mean case time)

@@ -1611,7 +1611,11 @@ fn scan_out_of_gas() {
             .blocks(1)
             .op(up(Ver::V2b, false))
             .op(UpOp::AddMember { g: 0, m: 0, v: 3 })
-            .op(UpOp::RemoveStep { g: 0, n: 12 }),
+            .op(UpOp::RemoveStep { g: 0, n: 12 })
+            // The chain may finish clearing g0 first, and `add_member` is then refused ("no such
+            // group", a documented refusal the model judges). On main a written witness whose
+            // transaction fails is a harness error unless it is marked refused.
+            .refused(),
         Plan::new()
             .op(up(Ver::V2b, false))
             .op(UpOp::AddFlag { g: 0, f: 0 })
