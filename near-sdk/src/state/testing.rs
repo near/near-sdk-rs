@@ -324,13 +324,13 @@ pub fn env_log_stop() {
 }
 
 /// Snapshot of the mocked blockchain's storage (what `env::storage_*` sees), sorted by key.
-#[cfg(feature = "unit-testing")]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub fn env_store() -> BTreeMap<Vec<u8>, Vec<u8>> {
     crate::mock::with_mocked_blockchain(|b| b.storage_snapshot()).into_iter().collect()
 }
 
 /// Sets the mocked blockchain context: predecessor (and signer) `who`, attached `deposit`.
-#[cfg(feature = "unit-testing")]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub fn set_context(who: &str, deposit: crate::NearToken) {
     let who: crate::AccountId = who.parse().expect("valid account id");
     let ctx = crate::test_utils::VMContextBuilder::new()
@@ -344,12 +344,12 @@ pub fn set_context(who: &str, deposit: crate::NearToken) {
 /// Runs contract methods the way the `#[near]` wrapper does, against the counting mock:
 /// read the root, run the method, write the root (for `call`), and return the call's
 /// [`Receipt`]. The store persists across calls on the same thread.
-#[cfg(feature = "unit-testing")]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub struct Harness<T> {
     _m: core::marker::PhantomData<fn() -> T>,
 }
 
-#[cfg(feature = "unit-testing")]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 impl<T> Harness<T>
 where
     T: super::ContractState + super::StateRead + super::StateWrite,
