@@ -1,0 +1,84 @@
+# Slim-down pass A, round 2 (collections.rs): Map<K, ()>::remove reuses the entry path (Oct 22 2026)
+# Fix: 87e8eaba. `remove_inner` takes the entry path its caller already computed, so
+# `Map<K, ()>::remove` hashes the key twice (entry + index), as `discard` does, instead of 3 times.
+# `remove_step`'s finishing call reuses its path too: the 'finishing call' and 'n=64' rows below
+# drop one sha256 each. Storage bytes and host ops are unchanged (r/w/d/h identical on every row).
+#
+# before: proto-gas/build.sh at 4cc4af52 (zst rows added, collections.rs as at 099810ec).
+# after: at 87e8eaba (collections.rs identical at HEAD). Both built at the same worktree path.
+# zst rows: cd proto-gas/sim && GAS_RES_DIR=<wasm dir> cargo +1.95.0 test --test storage_v2_gas zst_rows -- --include-ignored --nocapture
+# other rows: the same command with `a3_rows` (the round-1 rows).
+# 10k keys. Tgas is the median of 7 keys; delta in Ggas.
+#
+# `Set::remove` and `LookupSet::remove` already call `discard`, so they are unchanged. The affected
+# call is `Map<K, ()>::remove` (and `GroupedMap<G, K, ()>` through `group_mut().remove`). The zst
+# wasm is new this round (feature `zst`: the Bench root plus `#[key(9)] units: Map<AccountId, ()>`),
+# so it has no earlier baseline.
+
+## Map<AccountId, ()> (new rows, zst wasm)
+
+| contract | op | before Tgas | after Tgas | delta | r/w/d/h before -> after |
+|---|---|---:|---:|---:|---|
+| v2 (h16, zst) | Map<AccountId, ()>::remove (non-last) | 2.114 | 2.093 | -21 | 4/3/3/0 -> 4/3/3/0 |
+| v2 (h16, zst) | Map<AccountId, ()>::remove, absent key | 1.337 | 1.316 | -21 | 2/0/0/0 -> 2/0/0/0 |
+| v2 (h16, zst) | Map<AccountId, ()>::discard (non-last) = Set::remove | 2.093 | 2.093 | +0 | 4/3/3/0 -> 4/3/3/0 |
+
+sha256 column (Ggas): remove (non-last) 20.6 -> 15.4 (3 hashes -> 2, = discard's 15.4);
+remove of an absent key 15.4 -> 10.3 (3 -> 2). remove now costs exactly what discard costs.
+
+## Round-1 rows (a3_rows)
+
+| contract | op | before Tgas | after Tgas | delta | r/w/d/h before -> after |
+|---|---|---:|---:|---:|---|
+| v2 Map (h16) | insert new | 1.800 | 1.800 | +0 | 3/4/0/0 -> 3/4/0/0 |
+| v2 Map (h16) | update existing | 1.426 | 1.426 | +0 | 2/1/0/0 -> 2/1/0/0 |
+| v2 Map (h16) | remove (non-last) | 2.154 | 2.154 | +0 | 5/3/3/0 -> 5/3/3/0 |
+| v2 LookupMap (h16) | insert new | 1.319 | 1.319 | +0 | 1/1/0/0 -> 1/1/0/0 |
+| v2 LookupMap (h16) | update existing | 1.327 | 1.327 | +0 | 1/1/0/0 -> 1/1/0/0 |
+| v2 LookupMap (h16) | remove (non-last) | 1.381 | 1.381 | +0 | 2/0/1/0 -> 2/0/1/0 |
+| v2 (h16, ext) | page_with(after, 50) of Map<AccountId, u128> | 10.517 | 10.517 | +0 | 103/0/0/0 -> 103/0/0/0 |
+| v2 (h16, ext) | ping (same wasm) | 1.110 | 1.110 | +0 | 0/0/0/0 -> 0/0/0/0 |
+| v2 (h16, ext) | Map::try_insert record owning a Map (new key) | 1.855 | 1.855 | +0 | 3/4/0/0 -> 3/4/0/0 |
+| v2 (h16, ext) | LookupMap::try_insert record owning a Map (new key) | 1.487 | 1.487 | +0 | 1/1/0/2 -> 1/1/0/2 |
+| v2 (h16, ext) | remove_step(n=3), first call (Pending), record + 10-entry Map | 1.772 | 1.772 | +0 | 4/1/1/0 -> 4/1/1/0 |
+| v2 (h16, ext) | remove_step(n=3), finishing call (Done); calls to finish 13-13 | 2.114 | 2.092 | -22 | 6/1/3/0 -> 6/1/3/0 |
+| v2 (h16, ext) | remove_step(n=64), one call (Done), record + 10-entry Map | 7.439 | 7.418 | -21 | 15/1/34/0 -> 15/1/34/0 |
+| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record has marker) | 2.055 | 2.055 | +0 | 4/4/0/1 -> 4/4/0/1 |
+| v2 (h16, ext) | at_mut: 2nd write, new key, same nested Map | 2.033 | 2.033 | +0 | 3/4/0/1 -> 3/4/0/1 |
+| v2 (h16, ext) | at_mut: update existing key in nested Map | 1.584 | 1.584 | +0 | 2/1/0/1 -> 2/1/0/1 |
+| v2 (h16, ext) | at_mut: 1st write into empty nested Map (record without marker) | 2.163 | 2.163 | +0 | 4/5/0/1 -> 4/5/0/1 |
+| v2 (h16, ext) | at_mut: 2nd write into that Map | 2.033 | 2.033 | +0 | 3/4/0/1 -> 3/4/0/1 |
+| v2 (h16, ext) | at_mut: Lazy<u64>::set, value absent | 1.572 | 1.572 | +0 | 2/1/0/2 -> 2/1/0/2 |
+| v2 (h16, ext) | at_mut: Lazy<u64>::set, value present | 1.508 | 1.508 | +0 | 1/1/0/2 -> 1/1/0/2 |
+| v2 root (h16) | deposit (new account via entry().or_default(), 1st token) | 2.310 | 2.310 | +0 | 6/8/0/0 -> 6/8/0/0 |
+| v2 root (h16) | deposit (existing account, new token) | 1.939 | 1.939 | +0 | 4/4/0/0 -> 4/4/0/0 |
+| v2 root (h16) | balance_of (2 hops) | 1.297 | 1.297 | +0 | 2/0/0/0 -> 2/0/0/0 |
+| v2 (h16, ext) | remove_step(n=3), whole sequence, 35 removes | 27.797 | 27.775 | -22 | - |
+
+sha256 column (Ggas): remove_step finishing call 20.6 -> 15.4; n=64 114.3 -> 109.1. Every other
+row is identical in every column but `load`, which moves by <= 0.1 Ggas (ext 221.5 -> 221.4).
+
+## wasm
+
+Sizes and SHA-256 (wasms are gitignored). The 'before' sizes equal round 1's 'after'
+(gas_slim_a_20261021.txt), but the SHAs differ: adding the zst lines to proto-gas/contract/src/lib.rs
+moves one `#[track_caller]` line number (1 byte of data). A rebuild at HEAD reproduces the 'after'
+SHAs.
+  v1.wasm  before 136373 B 67b60e08ad1e86377b59c8d57762131afad22adb3b8bd5829a4618ad24823157  after 136373 B 67b60e08ad1e86377b59c8d57762131afad22adb3b8bd5829a4618ad24823157
+  v2_h8.wasm  before 166110 B 3ba40999cbec962c333a06865047842a28ef8453e64d3d97059a5bd4a8706019  after 166115 B 501cc24a605abb92da518b237af7873fd2027fa94d231d1918765b823e3795c2
+  v2_h16.wasm  before 166130 B 82bf1e6a6472527740b6cb1b78e398d4be6c117e41ed9fdd04d8fa1ceae2d4a4  after 166135 B 9dd30701ef3a500e1ae4bc43d13596836fa8c0d1552c2ef4fca713494c14f4b4
+  v2_h16_ext.wasm  before 203273 B 296e733a3513299be5489ae527ae1bec250bd58e689f1629c5cd4826ea0d9ce2  after 203255 B 936d3aedb2a89ab2b1c57c3e6c63884e631ba843a67f4aacb9176d234adda667
+  v2_h16_zst.wasm  before 171051 B d02f8c6b0ab0feb88dbeb1c8229d30467c9d878c55f12f9c1dee8a4fc9c781c2  after 171072 B 8e32de798dee0f157d2adfbdc5b0088208a49993211d64f15976569318e0c2f6
+
+So v2_h16 and v2_h8 grow 5 B, ext shrinks 18 B and zst grows 21 B. This misses the strict "no worse
+wasm" bar on three builds. The growth is LTO code layout: 2 functions change in h16/h8 (+2, +3 B),
+3 in ext (+4, +3, -25) and 5 in zst (-25, +37, +4, +2, +3). It moves no gas row. Contract load is
+about 1.1 Mgas per byte, so 21 B is about 0.02 Ggas, below the 1 Ggas the rows resolve
+(zst load 186.4 -> 186.4).
+Two other shapes were built and both were worse: `remove_inner(path: Path)` by value made
+v2_h16 166175 B (+45). Moving the zero-sized decode into `remove_inner` without changing its
+signature gave h16 166158 (+28), h8 166110 (0), ext 203234 (-39) and zst 170978 (-73), but it
+reshuffles about 20 functions in h16 and loses the remove_step saving.
+
+Full harness output (worktree-local, not committed): slim-logs/gas-a2-{before,after}.txt and
+slim-logs/zst-a2-{before,after}.txt.
