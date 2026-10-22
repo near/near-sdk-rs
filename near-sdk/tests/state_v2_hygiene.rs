@@ -336,7 +336,9 @@ fn defaults_resolve_in_the_record_impl() {
 }
 
 /// A failing `default = expr` fails `cargo check`, not only `cargo build`, even when the record
-/// is never used. trybuild runs `cargo check` when every case is `compile_fail`.
+/// is never used. trybuild runs `cargo check` when every case is `compile_fail`. The `.stderr`
+/// snapshots are from rustc 1.98.0.
+#[rustversion::stable]
 #[test]
 fn failing_defaults_fail_cargo_check() {
     trybuild::TestCases::new().compile_fail("compilation_tests/storage_v2/*.rs");
