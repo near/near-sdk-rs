@@ -326,23 +326,11 @@ pub fn expand(
         .iter()
         .map(|t| quote! { #t => ::core::option::Option::None, })
         .collect();
-    let mut max_terms = Vec::new();
     let mut enc = Vec::new();
     let mut dec = Vec::new();
-    let mut bind = Vec::new();
-    let mut pending = Vec::new();
-    let mut detach = Vec::new();
-    let mut view_fields = Vec::new();
-    let mut view_inits = Vec::new();
-    let mut view_mut_fields = Vec::new();
-    let mut view_mut_inits = Vec::new();
-    let mut removable_bounds = Vec::new();
-    let mut leaf_bounds = Vec::new();
-    let mut clear = Vec::new();
-    let mut clear_some = Vec::new();
     let mut root_only = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, key } in &fields {
+    for KeyedField { ident, ty, key, .. } in &fields {
         let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
         if *legacy {
             // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
@@ -353,7 +341,6 @@ pub fn expand(
             dec.push(quote_spanned! {ty.span()=> #ident: #p::legacy_field::<#ty>(f, #t)?, });
             continue;
         }
-        max_terms.push(quote! { m = #p::max(m, #p::field_subpath::<#ty>(#t)); });
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
         // a declared field: a nested record checks its own bytes, anything else is known
@@ -387,18 +374,6 @@ pub fn expand(
         } else {
             dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
         }
-        bind.push(quote! { #s::Value::bind(&mut self.#ident, &path.field(#t)); });
-        pending.push(quote! { #s::Value::__write_pending(&self.#ident, &path.field(#t)); });
-        detach.push(quote! { #s::Value::detach(&mut self.#ident); });
-        view_fields.push(quote! { #fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out, });
-        view_inits.push(quote! {
-            #ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#t)),
-        });
-        view_mut_fields
-            .push(quote! { #fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out, });
-        view_mut_inits.push(quote! {
-            #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t), anchor),
-        });
         if !is_root {
             // Round 7 (A3 first-write rule): a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
@@ -417,15 +392,15 @@ pub fn expand(
                 const _: () = ::core::assert!(!<#ty as #s::Value>::__ROOT_ONLY, #msg);
             });
         }
-        removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
-        leaf_bounds.push(quote! { for<'__x> #ty: #s::Leaf, });
-        clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
-        clear_some.push(quote! {
-            if !<#ty as #s::Removable>::clear_children_some(&path.field(#t), budget) {
-                return false;
-            }
-        });
     }
+    // The rest is per `Value` field only: a legacy field owns no storage the v2 cache knows.
+    let v2: Vec<_> = fields.iter().filter(|f| !f.key.legacy).collect();
+    let ident: Vec<_> = v2.iter().map(|f| &f.ident).collect();
+    let ty: Vec<_> = v2.iter().map(|f| &f.ty).collect();
+    let tag: Vec<_> = v2.iter().map(|f| f.key.tag).collect();
+    let fvis: Vec<_> = v2.iter().map(|f| &f.vis).collect();
+    let bind = quote! { #(#s::Value::bind(&mut self.#ident, &path.field(#tag));)* };
+    let pending = quote! { #(#s::Value::__write_pending(&self.#ident, &path.field(#tag));)* };
     let unknown_collection_body = quote! {
         let f = #p::parse(bytes).ok()?;
         for &(t, w, b) in f.iter() {
@@ -443,7 +418,7 @@ pub fn expand(
 
     let max_subpath = quote! {{
         let mut m = 0usize;
-        #(#max_terms)*
+        #(m = #p::max(m, #p::field_subpath::<#ty>(#tag));)*
         m
     }};
     // A root never leaves kind markers (it is never removed); a record does (API round 5).
@@ -513,10 +488,10 @@ pub fn expand(
                         #decode_body
                     }
                     fn __bind_root(&mut self, path: &#s::Path) {
-                        #(#bind)*
+                        #bind
                     }
                     fn __write_pending_root(&self, path: &#s::Path) {
-                        #(#pending)*
+                        #pending
                     }
                 }
                 #decode_fields
@@ -571,7 +546,7 @@ pub fn expand(
         #[doc = #view_doc]
         #[allow(dead_code)]
         #vis struct #view<'a> {
-            #(#view_fields)*
+            #(#fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out,)*
             #[doc(hidden)]
             pub __m: ::core::marker::PhantomData<&'a ()>,
         }
@@ -579,7 +554,7 @@ pub fn expand(
         #[doc = #view_mut_doc]
         #[allow(dead_code)]
         #vis struct #view_mut<'a> {
-            #(#view_mut_fields)*
+            #(#fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out,)*
             #[doc(hidden)]
             pub __m: ::core::marker::PhantomData<&'a mut ()>,
         }
@@ -602,13 +577,13 @@ pub fn expand(
                     #decode_body
                 }
                 fn bind(&mut self, path: &#s::Path) {
-                    #(#bind)*
+                    #bind
                 }
                 fn detach(&mut self) {
-                    #(#detach)*
+                    #(#s::Value::detach(&mut self.#ident);)*
                 }
                 fn __write_pending(&self, path: &#s::Path) {
-                    #(#pending)*
+                    #pending
                 }
             }
 
@@ -616,11 +591,20 @@ pub fn expand(
                 type View<'a> = #view<'a>;
                 type ViewMut<'a> = #view_mut<'a>;
                 fn __view<'a>(path: #s::Path) -> #view<'a> {
-                    #view { #(#view_inits)* __m: ::core::marker::PhantomData }
+                    #view {
+                        #(#ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#tag)),)*
+                        __m: ::core::marker::PhantomData
+                    }
                 }
                 #[allow(unused_variables)]
                 fn __view_mut_in<'a>(path: #s::Path, anchor: usize) -> #view_mut<'a> {
-                    #view_mut { #(#view_mut_inits)* __m: ::core::marker::PhantomData }
+                    #view_mut {
+                        #(#ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(
+                            path.field(#tag),
+                            anchor,
+                        ),)*
+                        __m: ::core::marker::PhantomData
+                    }
                 }
             }
 
@@ -640,12 +624,14 @@ pub fn expand(
             }
 
             #[allow(unused_lifetimes)]
-            impl #s::Removable for #name where #(#removable_bounds)* {
+            impl #s::Removable for #name where #(for<'__x> #ty: #s::Removable,)* {
                 fn clear_children(path: &#s::Path) {
-                    #(#clear)*
+                    #(<#ty as #s::Removable>::clear_children(&path.field(#tag));)*
                 }
                 fn clear_children_some(path: &#s::Path, budget: &mut u32) -> bool {
-                    #(#clear_some)*
+                    #(if !<#ty as #s::Removable>::clear_children_some(&path.field(#tag), budget) {
+                        return false;
+                    })*
                     true
                 }
             }
@@ -653,7 +639,7 @@ pub fn expand(
             // D6: a record owns no storage iff every field is a `Leaf`; plain `insert` (which
             // overwrites) is only available for such records.
             #[allow(unused_lifetimes)]
-            impl #s::Leaf for #name where #(#leaf_bounds)* {}
+            impl #s::Leaf for #name where #(for<'__x> #ty: #s::Leaf,)* {}
 
             #(#root_only)*
             #decode_fields
