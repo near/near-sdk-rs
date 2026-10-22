@@ -520,11 +520,16 @@ impl<C> At<'_, C> {
     }
 }
 
+/// `Default`, `Debug`, `path` and `__bound_at` for a collection handle whose fields besides
+/// `path` start as `{ field: init }` (default `_m: PhantomData`).
 macro_rules! collection_value {
     ($ty:ident < $($g:ident),* >) => {
+        collection_value!($ty<$($g),*> { _m: PhantomData });
+    };
+    ($ty:ident < $($g:ident),* > { $($f:ident: $init:expr),* }) => {
         impl<$($g),*> Default for $ty<$($g),*> {
             fn default() -> Self {
-                Self { path: Binding::Unbound, _m: PhantomData }
+                Self { path: Binding::Unbound, $($f: $init),* }
             }
         }
         impl<$($g),*> core::fmt::Debug for $ty<$($g),*> {
@@ -542,7 +547,7 @@ macro_rules! collection_value {
             }
             #[doc(hidden)]
             pub fn __bound_at(path: Path) -> Self {
-                Self { path: Binding::at(path), _m: PhantomData }
+                Self { path: Binding::at(path), $($f: $init),* }
             }
         }
     };
@@ -1676,31 +1681,12 @@ pub struct Lazy<T> {
     pending: core::cell::Cell<Option<T>>,
 }
 
-impl<T> Default for Lazy<T> {
-    fn default() -> Self {
-        Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(None) }
-    }
-}
-impl<T> core::fmt::Debug for Lazy<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Lazy({:?})", self.path)
-    }
-}
+collection_value!(Lazy<T> { pending: core::cell::Cell::new(None) });
+
 impl<T> Lazy<T> {
     /// A `Lazy` holding `v`, written when its record is placed. See the type docs.
     pub fn new(v: T) -> Self {
         Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(Some(v)) }
-    }
-    /// The path this handle is bound to, if any.
-    pub fn path(&self) -> Option<&Path> {
-        match &self.path {
-            Binding::Bound(p, ..) => Some(p),
-            _ => None,
-        }
-    }
-    #[doc(hidden)]
-    pub fn __bound_at(path: Path) -> Self {
-        Lazy { path: Binding::at(path), pending: core::cell::Cell::new(None) }
     }
     fn bound_anchored(path: Path, anchor: usize) -> Self {
         Lazy {
