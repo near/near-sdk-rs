@@ -38,7 +38,8 @@
 //!   sees it, and is named `__near_*`: an identifier pattern resolves items at the call site
 //!   even when mixed-site, so a user `const` or unit struct of the same name would capture it
 //!   as a constant pattern. A refutable pattern with a binding is an exhaustive `match`, so
-//!   even then the capture is a compile error, not a silently skipped arm.
+//!   even then the capture is a compile error, not a silently skipped arm. An unused
+//!   parameter (the root hooks' key) is `_`, which no item can capture.
 //! - The views' phantom field and the `ViewField` impls' parent parameter are named apart from
 //!   the record's fields and name; `state_key` reads `Root::ROOT_BYTE`, so the root byte is
 //!   spelled once, in an impl, next to no generated name.
@@ -709,12 +710,12 @@ pub fn contract_state_v2(ident: &syn::Ident) -> TokenStream {
                 }
             }
             impl ::near_sdk::state::StateRead for #ident {
-                fn read_state(_key: &[u8]) -> ::core::option::Option<Self> {
+                fn read_state(_: &[u8]) -> ::core::option::Option<Self> {
                     ::core::option::Option::Some(::near_sdk::state::load_root::<Self>())
                 }
             }
             impl ::near_sdk::state::StateWrite for #ident {
-                fn write_state(&self, _key: &[u8]) -> bool {
+                fn write_state(&self, _: &[u8]) -> bool {
                     ::near_sdk::state::flush_root(self);
                     true
                 }

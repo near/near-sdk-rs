@@ -335,6 +335,38 @@ fn defaults_resolve_in_the_record_impl() {
     assert_eq!((v.a, v.b, v.c, v.d.as_str()), (4, 9, 6, ""));
 }
 
+/// A glob-imported `const _key`: the root hooks' unused key parameter used to be `_key`, an
+/// identifier pattern the const captured (E0005, refutable pattern in function argument). It is
+/// now `_`.
+#[allow(non_upper_case_globals, unused_imports)]
+mod glob_key {
+    mod defs {
+        pub const _key: &[u8] = &[];
+    }
+    use defs::*;
+    use near_sdk::near;
+
+    #[near(contract_state(layout = v2, root = 0xF8))]
+    pub struct Root {
+        #[key(1)]
+        pub n: u8,
+    }
+}
+
+#[test]
+fn root_hooks_ignore_user_consts() {
+    use near_sdk::state::{ContractState, testing};
+
+    testing::use_mock();
+    assert_eq!(<glob_key::Root as ContractState>::state_key(), &[0xF8]);
+    let mut root = glob_key::Root::default();
+    root.n = 9;
+    root.state_write();
+    drop(root);
+    testing::begin_call();
+    assert_eq!(glob_key::Root::state_read().map(|r| r.n), Some(9));
+}
+
 /// A failing `default = expr` fails `cargo check`, not only `cargo build`, even when the record
 /// is never used. trybuild runs `cargo check` when every case is `compile_fail`. The `.stderr`
 /// snapshots are from rustc 1.98.0.
