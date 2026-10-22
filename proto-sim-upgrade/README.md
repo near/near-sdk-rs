@@ -44,7 +44,7 @@ export CARGO_TARGET_DIR=~/Developer/near-contract-sim-scenario/target   # reuse 
 cargo +1.95.0 test --test storage_v2_upgrade                            # hand tests, ~1 s
 NEAR_SIM_CASES=2000 NEAR_SIM_SEED=0x102 cargo +1.95.0 test --test storage_v2_upgrade search_from_v2a -- --ignored --nocapture --exact
 cargo +1.95.0 test --test storage_v2_upgrade scan_out_of_gas -- --ignored --nocapture --exact
-cd .. && ./run_campaign.sh                   # 3 x 512 search cases + the scan, ~6 min, into results/
+cd .. && ./run_campaign.sh                   # b328d067-era: 3 x 512 cases + the scan, undated names; CASES=2000 to scale
 ```
 
 The near-sdk mock pin: `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features
@@ -52,8 +52,11 @@ unstable,unit-testing --test state_v2_verify hazard_a3_marker`.
 
 ## Timings
 
-The b328d067 runs (Oct 20, debug profile, 512 cases) took 145 to 200 ms per case, and the scan
-93 ms per variant. On main with `opt-level = 2` for dependencies, see
-`results/*_20261020b.txt` and `PROTOTYPE_NOTES.md`. In the profile A/B on 128 fixed plans
+The b328d067 runs (Oct 20, debug profile, 512 cases, lightly loaded) took 145 to 200 ms per
+case, and the scan 93 ms per variant. The main runs (`results/*_20261020b.txt`, `opt-level = 2`
+for dependencies, 2,000 cases, machine at load 80 to 150) took 235 (v1), 152 (v2a) and 364 (v2b)
+ms per case with shrinking excluded, and 9 to 20 min of wall time per search, most of it
+shrinking the expected retag finding. Those runs are not comparable to the old ones because the
+load differs. In the profile A/B on 128 fixed plans
 (`timing_probe`), opt-level 0 took 479 and 620 ms per case and opt-level 2 took 189 and 214 ms,
 on a machine at load 48 to 86 (`results/opt_level_ab_20261020b.txt`).
