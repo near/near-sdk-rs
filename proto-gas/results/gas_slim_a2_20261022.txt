@@ -23,7 +23,8 @@
 | v2 (h16, zst) | Map<AccountId, ()>::remove, absent key | 1.337 | 1.316 | -21 | 2/0/0/0 -> 2/0/0/0 |
 | v2 (h16, zst) | Map<AccountId, ()>::discard (non-last) = Set::remove | 2.093 | 2.093 | +0 | 4/3/3/0 -> 4/3/3/0 |
 
-sha256 column (Ggas): remove (non-last) 20.6 -> 15.4 (3 hashes -> 2, = discard's 15.4);
+sha256 column (Ggas): remove (non-last) 20.6 -> 15.4 (4 hashes -> 3, = discard's 15.4: the
+removed key goes 3 -> 2, and the moved key's index update hashes once, as before);
 remove of an absent key 15.4 -> 10.3 (3 -> 2). remove now costs exactly what discard costs.
 
 ## Round-1 rows (a3_rows)
