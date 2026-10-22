@@ -6,6 +6,10 @@ Branch `proto/storage-v2-gas2` from `proto/storage-v2` @ `5030854b` (API round 5
 (near-contract-sim, nearcore 2.14.0-rc.2, protocol 87, no source change since Oct 17), same
 harness, same key counts and keys. Raw output: `proto-gas/results/*_20261018.txt`.
 
+The harness (`proto-gas/sim`) depends on near-contract-sim and is not on this branch. It is kept
+on the local branch `proto/storage-v2-sim-archive`; the contract, `build.sh` and the raw
+results stay here.
+
 **Headline.** No storage-op count or trie-node count moved on any Oct 17 row, and byte counts moved
 only on `Map` removal (below). Every
 v2 row costs 6-30 Ggas more for exactly two reasons: a 5.7 KB larger wasm (+6.2 Ggas of contract
@@ -43,7 +47,7 @@ write-path rows are back at or below their Oct 17 op-only gas.
 - **Bisection.** To attribute the wasm-instruction growth, the non-ext contract was built against
   17 commits from `9382156c` to `b4c69bdb` and measured on a 1k-key subset (`bisect_rows`,
   `GAS_RES_DIR`; output `gas_bisect_20261018.txt`).
-- **Harness hazard found.** Two copies of `proto-gas/sim` (two worktrees) sharing one
+- **Harness hazard found.** Two copies of the sim harness (two worktrees) sharing one
   `CARGO_TARGET_DIR` build to the same test binary name. Running them at the same time makes one
   silently run the other's binary and wasm paths. Run one at a time.
 
@@ -248,7 +252,8 @@ Not measured: h8, the `ext` rows (`try_insert`, `remove_step`, page) and the 1k/
 They run the same flush and read path, so they should move the same way per slot and per read.
 The `ext` (188,950 B) and h8 (163,341 B) builds compile.
 
-Reproduce (from `proto-gas/sim`, after building the wasm into a directory):
+Reproduce (from `proto-gas/sim` on `proto/storage-v2-sim-archive`, after building the wasm into a
+directory):
 `CARGO_TARGET_DIR=<own target dir> GAS_RES_DIR=<dir with v2_h16.wasm> cargo +1.95.0 test --test storage_v2_gas perf_rows -- --include-ignored --nocapture`
 (`GAS_SIZES` overrides the default 10k).
 
@@ -304,8 +309,8 @@ insert/update/remove row covers 7 distinct keys, given as median (min-max).
   near-sdk feature `unstable-state-hash8`, which sets `state::key::ENTRY_HASH_LEN = 8`). Keys are
   21-byte `AccountId`s (`hex(sha256("u{i}"))[..16].near`), values `u128`. Arguments are JSON. All
   three builds use the same release profile and are optimized with wasm-opt by cargo-near.
-- **Harness** `proto-gas/sim/tests/storage_v2_gas.rs`: every scenario gets a fresh `Sim` with one
-  contract and one populated collection. The contract seeds 8 keys itself. The harness checks
+- **Harness** `proto-gas/sim/tests/storage_v2_gas.rs` (on `proto/storage-v2-sim-archive`): every
+  scenario gets a fresh `Sim` with one contract and one populated collection. The contract seeds 8 keys itself. The harness checks
   every stored key and value byte for byte against its own layout model, then writes the other
   n-8 keys as state records in that layout. For v2 `Map` that covers entries, index, slots and
   header; for v1 it covers `ValueAndIndex` values, key slots and the length inside `STATE`. After
@@ -324,6 +329,8 @@ insert/update/remove row covers 7 distinct keys, given as median (min-max).
   one map entry each), which deepens the path to every key, as on a real chain.
 
 ### Reproduce
+
+The `cd sim` steps need a checkout of `proto/storage-v2-sim-archive`.
 
 ```sh
 cd proto-gas && ./build.sh                       # -> proto-gas/res/{v1,v2_h16,v2_h8,v2_h16_ext}.wasm (cargo-near, toolchain 1.95.0)

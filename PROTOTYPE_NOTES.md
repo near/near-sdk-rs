@@ -2,6 +2,9 @@
 
 For the author of "NEAR SDK storage v2" (Oct 16, 2026 draft). Branch `proto/storage-v2`.
 Everything is behind `unstable`. `store` and `collections` are untouched.
+The near-contract-sim harnesses (`proto-sim-search/`, `proto-sim-upgrade/`, `proto-migration-sim/`,
+`proto-gas/sim/`) and their raw results are not on this branch. They are kept on the local branch
+`proto/storage-v2-sim-archive`; the findings below are unchanged.
 
 How to run:
 
@@ -513,10 +516,10 @@ How to run:
 ```text
 (cd examples/fungible-token && NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p fungible-token-v2)          # migration.rs (16), nested_trap.rs (1)
 NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features unstable,unit-testing --test state_v2_migrate  # 5
-(cd proto-migration-sim && CARGO_TARGET_DIR=~/Developer/near-contract-sim-scenario/target cargo +1.95.0 test --test ft_upgrade -- --nocapture --include-ignored)  # 2
+# ft_upgrade (2, near-contract-sim) is in proto-migration-sim/ on branch proto/storage-v2-sim-archive
 ```
 
-Wasms in `proto-migration-sim/tests/res`, built with `cargo near build non-reproducible-wasm --no-abi`:
+Wasms in `proto-migration-sim/tests/res` (branch `proto/storage-v2-sim-archive`), built with `cargo near build non-reproducible-wasm --no-abi`:
 
 | wasm | built from | size | sha256 |
 | --- | --- | --- | --- |
@@ -1915,7 +1918,7 @@ A proof over the record codec or the key builder costs far more than the size of
 
 **Question.** The mock-host harnesses already test storage v2's invariants. Does a stateful property search on near-contract-sim find anything they cannot? The sim runs nearcore's runtime in-process, on main @ b328d067, its first release after the breaking "primitives" API change. **Answer: no SDK finding.** Every campaign below came back clean once two harness bugs were fixed. That is a result about the cases tried, not a proof. What the sim added is coverage the mock cannot give, listed below.
 
-**What was built** (`proto-sim-search/`, commands in its README):
+**What was built** (`proto-sim-search/` on branch `proto/storage-v2-sim-archive`, commands in its README):
 
 - **Contract.** One v2 root, written with the real derive: a root `u64`, `Map<AccountId, Account>` (`Account` = `u64` + nested `Map<String, u64>` + `Vector<u64>` + `Lazy<Vec<u8>>`), a `LookupMap` and a `Set`. 29 methods cover the model's op set:
   - inserts, overwrites and removes at the root and below a record through `at_mut`;
@@ -1956,7 +1959,7 @@ Behaviour reached in the mixed search, counted per receipt:
 - 975 `remove_step` receipts on a present record returned a value, plus the chained Pending links; each was judged against the budget and the liveness bound.
 - Natural out of gas: 428, mostly bulk inserts and chain links.
 
-The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt`. The scan, the gas walk and both searches were rerun after the liveness bound was added, and all stayed clean.
+The wide search gave similar counts. Logs are in `proto-sim-search/results/*_20261020.txt` on the archive branch. The scan, the gas walk and both searches were rerun after the liveness bound was added, and all stayed clean.
 
 **Findings, triaged.** None is an SDK bug, so no production code changed.
 
@@ -1994,7 +1997,7 @@ What it did not add: cross-receipt SDK state leaks are structurally impossible o
 - The sim crate shares the simulator's `CARGO_TARGET_DIR`, and its `Cargo.lock` is copied from the simulator (committed with `git add -f`, since the root `.gitignore` drops lockfiles). The first build recompiled some of nearcore's dependencies; later builds take seconds.
 ## Sim upgrade search (Oct 20)
 
-Branch `proto/storage-v2-sim-b`, crate `proto-sim-upgrade/` (README there has the commands).
+Branch `proto/storage-v2-sim-b`, crate `proto-sim-upgrade/` (now on `proto/storage-v2-sim-archive`; README there has the commands).
 near-contract-sim main @ b328d067 (the "primitives" explore API). Question: do the multi-call
 features (redeploys with schema evolution, `Migrating` + `migrate_batch`, `remove_step` across
 calls) have interaction bugs the single-call mock harnesses cannot reach?
@@ -2178,7 +2181,7 @@ The slow path on its own: +22 Ggas (record read) over a later write when the mar
 ### Verification
 
 - near-sdk lib 708 passed, 1 ignored; doctests 349 passed, 7 ignored, plus 8; `state_v2_*`: dao 15, exchange 36, ft 16, migrate 17, nft 17, verify 22; near-sdk-macros 49 + 1; proto-wasm-check ok; ft-v2 16 + 2 doctests. `abi_tests` and `deny_unknown_arguments_tests` fail in this worktree for environment reasons (a nested package that cargo places in the outer workspace; no sandbox binary), as on ec29bf6f.
-- Sim upgrade: hand tests 9/9; campaign regenerated (`proto-sim-upgrade/results/`): 3 x 512 search cases and the 472-case scan; "no collection outlives its record" 0 failed everywhere (the scan had 50); A3 refusals in the scan 137 (was 42). Knowns left: the re-used tag 4 and continuation refusals, as before.
+- Sim upgrade: hand tests 9/9; campaign regenerated (`proto-sim-upgrade/results/` on the archive branch): 3 x 512 search cases and the 472-case scan; "no collection outlives its record" 0 failed everywhere (the scan had 50); A3 refusals in the scan 137 (was 42). Knowns left: the re-used tag 4 and continuation refusals, as before.
 - Sim search: smoke and positive control pass; 512-case search (seed 0x20261020) and wide-gas search (0x20261021) Clean; scan_witnesses Clean; gas walk passes.
 - cargo-mutants 27.1.0, `--in-diff` of `git diff ec29bf6f` over cache.rs, collections.rs, record.rs, value.rs and migrating.rs, testing the lib (`BOLERO_RANDOM_ITERATIONS=300`, skipping `g3_no_debt_after_10000`) plus `state_v2_verify`, `state_v2_dao`, `state_v2_exchange` and `state_v2_migrate`, -j 4, with `.cargo/mutants.toml`. First pass: 77 mutants, 54 caught, 6 missed, 16 unviable, 1 timeout. Closed: the record key in the refusal message (`hex -> String::new()` / `"xyzzy"`) by an assertion in `a3_first_write_below_a_clearing_or_removed_record_is_refused`; `delete_impl -> None` by `gaps_cache_remove_hands_out_the_decoded_value`; the three `||` -> `&&` on the removed/clearing terms of `ensure_marker` are unreachable (A2 generation check and `at_mut`'s clearing guard fire first) and now sit in `Slot::gone_in_this_call`, excluded with the reason, as is `with_marker`'s `t > tag` -> `>=` (the field at `tag` is skipped either way). Second pass: 74 mutants, 56 caught, 1 missed, 16 unviable, 1 timeout. The missed one is the second `||` -> `&&` in `known || patch || gone`. It reads `known || patch && gone`, i.e. `known || (patch && gone)`, not `(known || patch) && gone` as first written here. A patch is only set on a record read present, so it implies `known` and the mutant is equivalent. The `Lazy::set` assertion added for it (no existence check once the record is patched in the call) does not kill it, and it was still missed at 7623d388. Slim pass B (6e86b9b5) dropped the `patch` term, so the mutant no longer exists. The timeout is `delete_impl -> None`, which hangs another test before the new one runs; each of the four kills was confirmed by applying the mutant by hand. The macro crate was not mutated.
 - Miri (nightly, `-Zmiri-ignore-leaks`) on the 10 A1/A2 handle tests, the 16 `tests_gaps_cache` tests (one new), `at_mut_writes_below_the_record_without_decoding_it`, `at_mut_on_an_absent_record_is_none`, `hazard_old_in_record_flag_passes_at_mut_but_fails_get` and `record::tests::with_marker_adds_only_a_missing_marker`: 30/30 under Stacked Borrows (9 min 37 s) and 30/30 under Tree Borrows (11 min 13 s). No UB; the known integer-to-pointer warning from the mock's host ABI.
@@ -2313,5 +2316,5 @@ Merge conflicts: only `near-sdk/src/state/tests.rs`, where A and B both appended
 - Miri (nightly 2026-10-15, `-Zmiri-ignore-leaks`, one test per invocation) on round 7's 30, plus `audit_a2_discarded_value_is_parked_until_the_flush` and the five `review_*` re-entry tests: 36/36 under Stacked Borrows (8 min 14 s) and 36/36 under Tree Borrows (17 min 46 s). No UB, only the known integer-to-pointer warning from the mock's host ABI. `review_decoder_reenters_the_cache_for_its_own_key` is the discriminating case: UB under SB before e4142690.
 - cargo-mutants 27.1.0, `--in-diff` of `git diff 7623d388 -- near-sdk/src/state/`: cache.rs 64, collections.rs 84, record.rs 14, key.rs 3. Round 7's test selection and `.cargo/mutants.toml`, -j 4, 30 min. Result: 165 mutants, 111 caught, **0 missed**, 48 unviable, 6 timeouts. The six still time out when re-run alone at 600 s. Each is a removal that never finishes, stuck in a test that loops until `Done`: `Slot::is_clearing -> false`, `Slot::stored_at -> (true, false)` and `stored_at`'s `&&` -> `||` hang `c5_budget_below_three_panics_and_three_progresses`; `remove_step_in`'s `<=` -> `>` and `+` -> `*` hang `audit_a2_taken_handle_bypasses_remove_some_clearing_guard`; Vector `clear_children_some`'s `-` -> `/` hangs `g4_nothing_happens_in_drop`. B's un-excluded `stored_bytes` mutants are caught. The `Slot::gone_in_this_call` exclusions still match code (`ensure_marker` keeps that term). The macro crate was not mutated.
 - proto-gas (`gas_slim_merged_20261022.txt`): above.
-- Sim harnesses rebuilt from the merged SDK. Search smoke + positive control pass. Mixed-gas search, seed 0x20261020, 300 cases: clean, with the same counts as round 7 (2,156 / 223 ok, 0 not judged; faults 76 drawn, 0 landed), at 8 ms/case on an idle machine. Upgrade hand tests 9/9. Logs: `proto-sim-*/results/*_slim_merged_20261022.txt`.
+- Sim harnesses rebuilt from the merged SDK. Search smoke + positive control pass. Mixed-gas search, seed 0x20261020, 300 cases: clean, with the same counts as round 7 (2,156 / 223 ok, 0 not judged; faults 76 drawn, 0 landed), at 8 ms/case on an idle machine. Upgrade hand tests 9/9. Logs: `proto-sim-*/results/*_slim_merged_20261022.txt` on the archive branch.
 - `abi_tests` and `deny_unknown_arguments_tests` not run (they fail in a worktree for environment reasons, as before).

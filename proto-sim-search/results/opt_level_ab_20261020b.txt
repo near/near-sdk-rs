@@ -1,4 +1,0 @@
-round 1 opt-level 0 search: TIMING 128 plans (904 steps) in 43.3 s: 338 ms per case load 86.89 72.24 54.95
-round 1 opt-level 2 search: TIMING 128 plans (904 steps) in 16.2 s: 127 ms per case load 89.29 74.88 56.72
-round 2 opt-level 0 search: TIMING 128 plans (904 steps) in 47.5 s: 371 ms per case load 96.73 79.39 59.44
-round 2 opt-level 2 search: TIMING 128 plans (904 steps) in 15.9 s: 124 ms per case load 89.19 78.55 59.49

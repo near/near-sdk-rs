@@ -681,7 +681,8 @@ mod a3 {
     }
 
     /// Round 7, the A3 first-write rule. Was `hazard_a3_marker_missing_when_the_new_collection_
-    /// is_written_through_at_mut` (found by the Oct 20 sim upgrade search, `proto-sim-upgrade`),
+    /// is_written_through_at_mut` (found by the Oct 20 sim upgrade search, `proto-sim-upgrade`,
+    /// kept on `proto/storage-v2-sim-archive`),
     /// which asserted the hole: A writes record 1 (no tag-2 marker); B adds `kids[5]` through
     /// `at_mut`, which used to write below the record without touching it, so A's removal later
     /// passed the check and orphaned the child, and a new record 1 inherited it. Now B's first
