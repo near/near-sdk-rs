@@ -536,21 +536,15 @@ pub(crate) fn get_entry<V: Value>(path: &Path) -> Option<NonNull<V>> {
 
 #[track_caller]
 fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
-    let key = path.as_bytes();
-    let (mut sp, bytes) = with(|c| {
-        let mut sp = c.load(key, flaggable);
-        // SAFETY: invariant 1.
-        let s = unsafe { sp.as_mut() };
-        if s.value.is_some() || s.mode == Mode::Deleted {
-            (sp, None)
-        } else {
-            (sp, s.orig.bytes().map(<[u8]>::to_vec))
-        }
-    });
-    // SAFETY: invariant 1.
+    let mut sp = with(|c| c.load(path.as_bytes(), flaggable));
+    // SAFETY: invariant 1. The value is decoded outside the cache borrow, straight from the
+    // slot's bytes: the slot is its own allocation and nothing frees it before the flush.
     let s = unsafe { sp.as_mut() };
-    if let Some(bytes) = bytes {
-        let v = V::decode_value(&bytes, path).unwrap_or_else(|e| {
+    if s.value.is_none()
+        && s.mode != Mode::Deleted
+        && let Some(bytes) = s.orig.bytes()
+    {
+        let v = V::decode_value(bytes, path).unwrap_or_else(|e| {
             crate::env::panic_str(&format!("state: cannot decode value at {path:?}: {e}"))
         });
         let b: Box<dyn Erased> = Box::new(v);
