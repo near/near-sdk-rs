@@ -35,9 +35,11 @@
 | v2 root (h16) | balance_of (2 hops) | 1.298 | 1.298 | 1.297 | -1 | 45.4 -> 44.6 | 2/0/0/0 -> 2/0/0/0 |
 
 Where it comes from: the smaller wasm loads 0.5 (h16) and 0.8 (ext) Ggas cheaper on every row, and get_impl no longer copies
-a value's stored bytes before decoding it (one allocation + memcpy fewer per decoded value), which is most of the wasm-execution drop on read-heavy rows: page_with(50)
+a value's stored bytes before decoding it (one allocation + memcpy fewer per decoded value), which is nearly all of the wasm-execution drop: page_with(50)
 decodes 50+ values, -63 Ggas; remove_step(n=64) -14. The wasm column ticks +0.1 Ggas on the LookupMap
 insert/update and Lazy::set rows (code layout); their totals still go down.
+Checked by measurement: slim-b with only the get_impl commit (75aabbda) reverted gives page_with 10.518,
+remove_step(n=64) 7.438, the whole remove_step(n=3) sequence 27.807, every other row within 1 Ggas of base.
 
 wasm sizes and SHA-256 (wasms are gitignored):
   v1.wasm  base 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  slim-b 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  (0 B)
