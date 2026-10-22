@@ -162,8 +162,9 @@ fn gaps_cache_unknown_map_tag_trips_the_removal_guard() {
 }
 
 /// After a read and a blind `insert` (a whole replace), `discard` checks nothing: the old
-/// bytes are not what it removes. Kills `stored_bytes` guard `!s.merge -> false` and the
-/// deleted `!` (line 640): either returns the old bytes and the guard panics.
+/// bytes are not what it removes. Kills the deleted `Mode::Deleted | Mode::Dirty` arm of
+/// `stored_bytes` for its `Dirty` half: the replaced slot returns the old bytes and the guard
+/// panics.
 #[test]
 fn gaps_cache_discard_after_whole_replace_skips_the_old_bytes() {
     testing::use_mock();
@@ -349,10 +350,10 @@ fn gaps_cache_lazy_record_set_after_remove() {
 }
 
 /// After an in-place `get_mut` (the slot is `Touched`, and the stored unknown tags survive the
-/// flush), `discard` still checks the stored bytes and refuses the record. Pins the behaviour
-/// behind the equivalent `stored_bytes` mutant `!s.merge -> true` (line 640): `Dirty` is only
-/// ever set by a whole `put`, which clears `merge` at the same time, so a merging slot is never
-/// `Dirty` and the guard is always true.
+/// flush), `discard` still checks the stored bytes and refuses the record: `stored_bytes`
+/// skips them only for a `Deleted` or `Dirty` (whole `put`) slot. This used to pin the
+/// equivalent mutant `!s.merge -> true`; `Slot::merge`, which always equalled
+/// `mode == Touched`, is gone, and with it that mutant.
 #[test]
 #[should_panic(expected = "refusing to remove the record")]
 fn gaps_cache_discard_after_in_place_mutation_still_checks_the_stored_bytes() {
