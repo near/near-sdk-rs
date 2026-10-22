@@ -2248,3 +2248,29 @@ Opt-level explains most of the search's per-case drop, as the triage said. Wide 
 - The triage asked for faults "as the report prints it". 8e8642db prints nothing, so the line is computed harness-side, with the same definition as open-gaps' 51b71786.
 - The `storage_usage` checks are runtime properties too, so they are labelled and kept out of the SDK table.
 - Curves don't replace the walk's coverage. At 8e8642db the caller-gas ladder starts at 1 Tgas and climbs fourfold (`curves.rs` `ladder`), with at most 8 refinements, so it finds the region where a step starts passing but doesn't sweep death positions the way the walk did (714 mid-flush deaths). Six of the 13 steps (3 to 7, and 12) need under 1 Tgas, so their curves ran 3 passing cases each and never saw a failure. Mid-op exhaustion now comes from the searches' gas strategies and the scan's least-caller-gas edges. F3 position coverage stays with the mock. A walk below 1 Tgas would need a pinned `StepGas::Exactly` sweep in the harness. That is worth raising with the sim team.
+
+### After merging round 7 (Oct 22)
+
+`proto/storage-v2` (round 7, through 7623d388) was merged into the port branch. The conflicts were in this file, `proto-sim-upgrade/README.md` and the upgrade harness. Each was resolved by keeping the main-API port and round 7's semantics. The wasms were rebuilt from the merged `near-sdk`, and each carries the round 7 refusal "refusing to create a collection below the record".
+
+**Harness changes for round 7.**
+
+- `expected` no longer lists the A3 orphan. "no collection outlives its record" is a plain SDK property again, so a hit fails any campaign. The constant `A3_CAUSE` is gone.
+- `a3_first_write_through_at_mut_marks_the_record_so_removal_refuses` came from round 7 unchanged, since it only uses `Sim` calls.
+- `a3_orphan_replay` now asserts that no A3 finding shows, that the run is not a harness error, and that some receipt panicked with "refusing to remove". The only findings it allows are the re-used tag 4 and a refused `clear_loop` continuation. Its plan is loaded with `.refused()`: its last step, v2a's `remove_step`, now refuses, and on main a written witness whose transaction fails is a harness error.
+- For the same reason, scan witness 4 (the A3 witness: V2b, `add_flag`, `clear_loop`, V2a, `remove_step`) is now `.refused()`. The first scan run on round 7 stopped on exactly that harness error.
+- Round 7's model change (`GroupM::first_write`), its new expected panic and its probe line all merged without conflict.
+
+**Runs on round 7 (`*_20261022*.txt`, machine at load 100 to 160).**
+
+| Campaign | Result |
+| --- | --- |
+| Upgrade hand tests | 9/9. The A3 pin and the replay pass, and the replay shows only the retag finding and the refused continuation |
+| Upgrade search from v2b, seed 0x103, 300 cases | `no collection outlives its record` 2,157 ok, 0 failed. Findings: retag (300 cases) and unhandled `clear_loop` (2 + 2), both expected. 94 A3 removal refusals. 0 not judged, 0 incomplete. Faults: 71 drawn, 14 landed. 412 ms/case |
+| Upgrade search from v2a, seed 0x102, 300 cases | A3 check 2,147 ok, 0 failed. Only finding: retag (37 cases). 7 A3 refusals. Faults: 88 drawn, 14 landed. 354 ms/case |
+| Upgrade OutOfGas scan, 8 witnesses | 630 variants / 638 cases, 96 s. A3 check 2,561 ok, 0 failed (it failed 58 times, in 57 cases, on ec29bf6f). 170 A3 removal refusals. Findings: retag 303 cases, unhandled `clear_loop` 102 + 4, all expected. 0 incomplete |
+| Search smoke + positive control | pass |
+| Search scan of 2 witnesses | 734 cases, 0 findings, 19,245 / 1,980 ok, 0 not judged |
+| Search, mixed gas, seed 0x20261020, 300 cases | clean, all 29 methods reached, 2,156 / 223 ok, 0 not judged. Faults: 76 drawn, 0 landed. 187 ms/case |
+
+On the round 7 SDK, the A3 findings are gone from every campaign. The removals that used to orphan are now refused. That accounts for the higher A3 refusal counts, and for the extra unhandled `clear_loop` cases in the scan (102, against 50 before), where a detached link meets the refusal after the downgrade. The search harness's results are unchanged: its contract keeps `LookupMap` and `Set` at the root, so round 7's root-only rule doesn't touch it.
