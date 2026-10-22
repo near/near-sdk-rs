@@ -422,7 +422,8 @@ fn raw_names_are_avoided() {
 
 /// A failing `default = expr` fails `cargo check`, not only `cargo build`, even when the record
 /// is never used. trybuild runs `cargo check` when every case is `compile_fail`. The `.stderr`
-/// snapshots are from rustc 1.98.0.
+/// snapshots are from the pinned CI toolchain (1.95); the floating-stable CI row skips this test,
+/// as it does `store_performance_tests`. Re-record with `TRYBUILD=overwrite cargo +1.95 test`.
 #[rustversion::stable]
 #[test]
 fn failing_defaults_fail_cargo_check() {
