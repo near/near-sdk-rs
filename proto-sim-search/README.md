@@ -70,7 +70,7 @@ SEARCH_GAS=wide NEAR_SIM_SEED=0x20261021 NEAR_SIM_CASES=2000 cargo +1.95.0 test 
 # every default fault at every receipt of two witnesses, plus the caller-gas and argument edges
 cargo +1.95.0 test --test storage_v2_search -- scan_witnesses --exact --nocapture
 
-# the caller's gas of each step of a 13-step witness, climbed by curves (replaces the gas walk)
+# caller-gas curves for each step of a 13-step witness (replace the gas walk; the ladder starts at 1 Tgas)
 cargo +1.95.0 test --test storage_v2_search -- caller_gas_curves --exact --nocapture
 
 # profile A/B: the same TIMING_CASES (128) drawn plans, run one by one
