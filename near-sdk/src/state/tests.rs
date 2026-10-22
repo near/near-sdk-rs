@@ -1986,3 +1986,85 @@ fn review_decoder_reenters_the_cache_for_its_own_key() {
     let r = end_call();
     assert_eq!((r.reads(), r.has_keys(), r.writes(), r.removes()), (1, 0, 0, 0));
 }
+
+const REWRITER_TAG: u32 = 44;
+
+#[derive(Clone, Copy)]
+enum Rewrite {
+    Get,
+    Insert,
+    Discard,
+}
+
+std::thread_local! {
+    /// What the next `Rewriter` decoder does to its own key through a second handle.
+    static REWRITE: core::cell::Cell<Option<Rewrite>> = const { core::cell::Cell::new(None) };
+    /// The value the decoder's own `get` returned.
+    static INNER: core::cell::Cell<*const Rewriter> = const { core::cell::Cell::new(core::ptr::null()) };
+}
+
+/// A leaf whose decoder (once) reads, overwrites or discards its own key through a second
+/// handle, then reads the rest of its bytes.
+#[derive(borsh::BorshSerialize)]
+struct Rewriter(u32, u8);
+impl BorshLeaf for Rewriter {}
+impl borsh::BorshDeserialize for Rewriter {
+    fn deserialize_reader<R: borsh::io::Read>(r: &mut R) -> borsh::io::Result<Self> {
+        let key = u32::deserialize_reader(r)?;
+        let mut m: LookupMap<u32, Rewriter> = at(REWRITER_TAG);
+        match REWRITE.with(core::cell::Cell::take) {
+            Some(Rewrite::Get) => {
+                let inner = m.get(&key).map_or(core::ptr::null(), |v| v as *const Rewriter);
+                INNER.with(|c| c.set(inner));
+            }
+            Some(Rewrite::Insert) => m.insert(key, Rewriter(key, 77)),
+            Some(Rewrite::Discard) => m.discard(&key),
+            None => {}
+        }
+        Ok(Rewriter(key, u8::deserialize_reader(r)?))
+    }
+}
+
+/// `Rewriter(5, 9)` stored; the next `get(5)` decodes with `rewrite`.
+fn rewriter_fixture(rewrite: Rewrite) -> LookupMap<u32, Rewriter> {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Rewriter> = at(REWRITER_TAG);
+    m.insert(5, Rewriter(5, 9));
+    end_call();
+    REWRITE.with(|c| c.set(Some(rewrite)));
+    m
+}
+
+/// A decoder that `get`s its own key decodes it first (the inner `get`); the outer `get` then
+/// hands out that same value, not a second copy, and the stored bytes are read once.
+#[test]
+fn review_decoder_gets_its_own_key_and_both_gets_share_the_value() {
+    let m = rewriter_fixture(Rewrite::Get);
+    let outer: *const Rewriter = m.get(&5).expect("stored");
+    assert!(core::ptr::eq(outer, INNER.with(core::cell::Cell::get)), "one value for the key");
+    assert_eq!(m.get(&5).map(|v| v.1), Some(9));
+    assert_eq!(end_call().rwd(), (1, 0, 0));
+}
+
+/// A decoder that `insert`s over its own key: the inserted value stands, and it is what the
+/// flush writes.
+#[test]
+fn review_decoder_inserts_over_its_own_key_and_the_insert_stands() {
+    let m = rewriter_fixture(Rewrite::Insert);
+    assert_eq!(m.get(&5).map(|v| v.1), Some(77));
+    assert_eq!(end_call().rwd(), (1, 1, 0));
+    assert_eq!(m.get(&5).map(|v| v.1), Some(77));
+    end_call();
+}
+
+/// A decoder that `discard`s its own key: the key is gone for the outer `get` too, and the
+/// flush removes it.
+#[test]
+fn review_decoder_discards_its_own_key_and_the_discard_stands() {
+    let m = rewriter_fixture(Rewrite::Discard);
+    assert!(m.get(&5).is_none());
+    assert!(!m.contains_key(&5));
+    assert_eq!(end_call().rwd(), (1, 0, 1));
+    assert!(m.get(&5).is_none());
+    end_call();
+}

@@ -31,6 +31,13 @@
 //!    returns); code calling `state_write(&root)` by hand while holding a reference does not,
 //!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
 //!    what makes a v1 collection nested in a v2 record run its write-on-drop.
+//! 5. No slot reference is used across a call into user code (a value's decoder, encoder or
+//!    `Drop`): user code may re-enter the cache for the same key, and the `&mut Slot` that
+//!    operation forms would invalidate it (Stacked Borrows). `get` decodes holding no slot
+//!    reference and re-checks the slot after. The encoders run inside the cache borrow (the
+//!    flush, `has_pending_writes`), where a re-entry panics on the `RefCell` instead of
+//!    aliasing. A value is dropped only once it has left its slot (`free_slots`, or by the
+//!    caller of `take`).
 
 use super::key::{Path, flag_key_bytes as flag_key};
 use super::value::Value;
@@ -533,22 +540,44 @@ pub(crate) fn get_entry<V: Value>(path: &Path) -> Option<NonNull<V>> {
 
 #[track_caller]
 fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
-    let mut sp = with(|c| c.load(path.as_bytes(), flaggable));
-    // SAFETY: invariant 1. The value is decoded outside the cache borrow, straight from the
-    // slot's bytes: the slot is its own allocation and nothing frees it before the flush.
-    let s = unsafe { sp.as_mut() };
+    let sp = with(|c| c.load(path.as_bytes(), flaggable));
+    // SAFETY: invariant 1; a shared borrow, not used once the decoder runs (invariant 5).
+    let s = unsafe { sp.as_ref() };
     if s.value.is_none()
         && s.mode != Mode::Deleted
         && let Some(bytes) = s.orig.bytes()
     {
+        // Decoded outside the cache borrow, straight from the slot's bytes: they are their own
+        // allocation, a cache operation never replaces them once read, and nothing frees them
+        // before the flush.
         let v = V::decode_value(bytes, path).unwrap_or_else(|e| {
             crate::env::panic_str(&format!("state: cannot decode value at {path:?}: {e}"))
         });
-        let b: Box<dyn Erased> = Box::new(v);
-        s.value = Some(NonNull::from(Box::leak(b)));
+        let p = NonNull::from(Box::leak(Box::new(v)));
+        if settle(sp, p) {
+            return Some(p);
+        }
     }
-    let p = s.value?;
+    // SAFETY: invariant 1; a fresh borrow.
+    let p = unsafe { sp.as_ref() }.value?;
     Some(typed::<V>(p, path))
+}
+
+/// Stores `p`, just decoded, as the slot's value and returns true, unless the decoder
+/// re-entered the cache for this key and decided the slot itself: a value it put (or decoded)
+/// there, or its delete, stands, and `p` is freed. Not generic, so one copy serves every
+/// `get::<V>`.
+fn settle(mut sp: NonNull<Slot>, p: NonNull<dyn Erased>) -> bool {
+    // SAFETY: invariant 1; a fresh borrow, after the decoder returned.
+    let s = unsafe { sp.as_mut() };
+    let undecided = s.value.is_none() && s.mode != Mode::Deleted;
+    if undecided {
+        s.value = Some(p);
+    } else {
+        // SAFETY: `p` was just leaked by the caller and is referenced nowhere else.
+        unsafe { drop(Box::from_raw(p.as_ptr())) };
+    }
+    undecided
 }
 
 /// `p` as a `NonNull<V>`, after checking through a shared borrow that it holds a `V`. The
@@ -920,9 +949,9 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
         }
         let mut wrote_root = false;
         if let Some((path, encode)) = root {
-            let mut sp = c.slot(path.as_bytes());
+            let sp = c.slot(path.as_bytes());
             // SAFETY: invariant 1.
-            let s = unsafe { sp.as_mut() };
+            let s = unsafe { sp.as_ref() };
             let enc = encode(s.orig.bytes());
             if s.orig.bytes() != Some(&enc[..]) {
                 c.host.write(path.as_bytes(), &enc);
