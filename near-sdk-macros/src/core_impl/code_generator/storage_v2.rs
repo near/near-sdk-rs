@@ -1,45 +1,35 @@
 //! Code generation for `#[near(storage)]` records and `#[near(contract_state(layout = v2))]`
 //! roots (storage v2 prototype, see PROTOTYPE_NOTES.md at the repo root).
 //!
-//! For a record `S` with `#[key(n)]` on every named field this emits:
-//! - the struct itself with the `#[key]` attributes stripped;
-//! - `impl Value for S`: tagged-record encode (merging unknown tags from the stored bytes),
-//!   decode (missing tag -> `FieldDefault`, the const expression of
-//!   `#[key(n, default = expr)]` (emitted as a `const` item, T6), a call of the `fn() -> T` of
-//!   `#[key(n, default_fn = path)]` (API round 4), or an error for `#[key(n, required)]`),
-//!   bind / detach, and `MAX_SUBPATH` summed over fields; since API round 5 each collection
-//!   field leaves its kind marker (a wire-1 field, `tag << 2 | 1, 01, kind`) in the record (a
-//!   root's writer leaves none), a nested record field is wire 2, `__RECORD = true`, and
-//!   `__unknown_collection` (the removal check: an undeclared, unreserved tag of wire 1, or a
-//!   wire-2 nested record holding one at any depth; a wire-0 scalar never matches);
-//! - `SAt<'a>` (from `at`) and `SAtMut<'a>` (from `at_mut`), plus `impl Record for S` and
-//!   `impl ViewField / ViewFieldMut for S`: one field per struct field, typed
-//!   `<T as ViewField<'a, S>>::Out` (an `At` handle for collections, the nested view for
-//!   records, `UseGetForScalars` for scalars) or `<T as ViewFieldMut<'a, S>>::Out` (`&'a mut`
-//!   handles from the cache arena, `UseGetMutForScalars` for scalars);
-//! - `__write_pending` walks, so a root struct literal's `Lazy::new` values are written by
-//!   the flush without `.bind()`;
-//! - `#[key(n, legacy)]` root fields (T7): encoded and decoded as plain Borsh outside `Value`
-//!   (a v1 collection's bytes are its prefix), required, no binding; rejected outside a root;
-//! - every other field's type must implement `Value` (T7): the decode and encode helpers bound
-//!   it, so a v1 collection or an un-opted Borsh struct is E0277 with `Value`'s message;
-//! - rejections: a missing `#[key]`, a reused or reserved tag, a v1 collection in a record
-//!   (v1-only names, or `store::`/`collections::`-qualified shared names), and a collection
-//!   as a map value (`Map<_, Set<_>>` and friends) at the field; and (round 7) a headerless
-//!   collection (`LookupMap`, `LookupSet`, `GroupedMap`) as a field of a record, by a const
-//!   assertion on `Value::__ROOT_ONLY` spanned at the field type (E0080): root-only, since they
-//!   give the A3 first-write rule no signal;
-//! - `SAtMut` handles remember the stored record they sit in (`__view_mut_in(path, anchor)`,
-//!   the anchor passed down through nested record fields), for the A3 first-write rule;
-//! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
-//!   the impl inapplicable instead of a compile error at the struct);
-//! - `impl Leaf for S where for<'x> T: Leaf, ...` (same trick): plain `insert` only for records
-//!   that own no collections;
-//! - `impl Default for S` (unbound) when no field is `required` and the user did not derive one.
+//! For a record `S` with `#[key(n)]` on every named field this emits, besides `S` itself with
+//! the `#[key]` attributes stripped:
+//! - `impl Value`: tagged-record encode (keeping unknown stored tags; each collection field
+//!   leaves its kind marker, a nested record is wire 2), decode (a missing tag is
+//!   `FieldDefault`, the `const` of `default = expr`, a call of `default_fn = path`, or an
+//!   error for `required`), bind / detach / `__write_pending` (so a struct literal's
+//!   `Lazy::new` values are written without `.bind()`), `MAX_SUBPATH` summed over fields, and
+//!   `__unknown_collection`, the removal check: a collection marker under an undeclared,
+//!   unreserved tag, at any depth of nested records;
+//! - `SAt<'a>` / `SAtMut<'a>` views (from `at` / `at_mut`) with `impl Record` and
+//!   `impl ViewField / ViewFieldMut`: one field per struct field, a handle for collections, the
+//!   nested view for records, unavailable for scalars. `SAtMut` handles carry the anchor of the
+//!   stored record they sit in, for the A3 first-write rule;
+//! - `impl Removable` and `impl Leaf` with `for<'x> T: ..` bounds (HRTB), so a field without
+//!   the trait makes the impl inapplicable instead of a compile error at the struct;
+//! - `impl Default` (unbound) unless a field is `required` or the user derives one;
+//! - per field, a const assertion on `Value::__ROOT_ONLY` (E0080 at the field type): the
+//!   headerless `LookupMap`, `LookupSet` and `GroupedMap` give the A3 first-write rule no
+//!   signal, so they are root-only.
 //!
-//! For a root: `impl Root` (encode, decode, bind), `impl Default` (decode of an empty record,
-//! unless derived), and the `ContractState` / `StateRead` / `StateWrite` impls from
-//! [`contract_state_v2`].
+//! The derive rejects a missing `#[key]`, a reused or reserved tag, a v1 collection in a
+//! record (by name, best effort) and a collection as a map value. Any other field type must
+//! implement `Value`, so the rest (an aliased v1 collection, an un-opted Borsh struct) is E0277
+//! with `Value`'s message.
+//!
+//! A root gets `impl Root` (encode without kind markers, decode, bind), `impl Default` (decode
+//! of an empty record, unless derived), and the `ContractState` / `StateRead` / `StateWrite`
+//! impls from [`contract_state_v2`]. Only a root takes `#[key(n, legacy)]`: a v1 collection
+//! stored as plain Borsh outside `Value` (its bytes are its prefix), required, never bound.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
@@ -339,15 +329,15 @@ pub fn expand(
         } else if *required {
             quote_spanned! {span=> #p::field_required::<#ty>(f, #t, path) }
         } else if let Some(d) = default {
-            // T6: `expr` is a `const` item, so it is evaluated at compile time and a non-const
+            // `expr` is a `const` item, so it is evaluated at compile time and a non-const
             // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
             // error at the expression (E0015). Re-evaluating it on every decode of an old
             // record is then harmless: it is the same value every time.
             let c = quote_spanned! {d.span()=> const __KEY_DEFAULT: #ty = #d; };
             quote_spanned! {span=> #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT }) }
         } else if let Some(fp) = default_fn {
-            // `default_fn = path` (API round 4): the escape hatch from T6's const rule, for a
-            // type with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
+            // `default_fn = path`: the escape hatch from the const rule above, for a type
+            // with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
             // a closure, a method needing arguments or a wrong return type is an error at the
             // path. Called on EVERY decode where the tag is absent, until some other change
             // rewrites the record (the flush writes the tag then); it must be pure.
@@ -358,7 +348,7 @@ pub fn expand(
         };
         dec.push(quote_spanned! {span=> #ident: #decode?, });
         if *legacy {
-            // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
+            // A root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
             // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
             enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
             known_arms.push(quote! { #t => false, });
@@ -370,7 +360,7 @@ pub fn expand(
         // a declared field: a nested record checks its own bytes, anything else is known
         unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
         if !is_root {
-            // Round 7 (A3 first-write rule): a headerless collection has no first-write signal,
+            // A3 first-write rule: a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
             // and a shadowing `use near_sdk::store::LookupMap` still fails first with
             // `Value`'s E0277 (a v1 collection is no value at all).
@@ -416,7 +406,7 @@ pub fn expand(
         #(m = #p::max(m, #p::field_subpath::<#ty>(#tag));)*
         m
     }};
-    // A root never leaves kind markers (it is never removed); a record does (API round 5).
+    // A root never leaves kind markers (it is never removed); a record does.
     let writer = if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
     let encode_body = quote! {
         let of = #p::parse_orig(orig);
@@ -631,7 +621,7 @@ pub fn expand(
                 }
             }
 
-            // D6: a record owns no storage iff every field is a `Leaf`; plain `insert` (which
+            // A record owns no storage iff every field is a `Leaf`; plain `insert` (which
             // overwrites) is only available for such records.
             #[allow(unused_lifetimes)]
             impl #s::Leaf for #name where #(for<'__x> #ty: #s::Leaf,)* {}
