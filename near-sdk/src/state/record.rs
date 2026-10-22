@@ -298,12 +298,16 @@ impl RecordWriter {
         }
         let mut out = Vec::new();
         for (tag, wire, body) in &self.fields {
-            write_varint(&mut out, field_key(*tag, *wire));
-            write_varint(&mut out, body.len() as u64);
-            out.extend_from_slice(body);
+            write_field(&mut out, *tag, *wire, body);
         }
         out
     }
+}
+
+fn write_field(out: &mut Vec<u8>, tag: u32, wire: Wire, body: &[u8]) {
+    write_varint(out, field_key(tag, wire));
+    write_varint(out, body.len() as u64);
+    out.extend_from_slice(body);
 }
 
 /// The A3 first-write rule (round 7): the stored record `bytes` with the kind marker `kind`
@@ -326,23 +330,18 @@ pub fn with_marker(bytes: &[u8], trail: &[u32], kind: u8) -> Result<Option<Vec<u
     };
     // `parse` checked the tags ascend, so the field goes in by splicing (no re-sort).
     let mut out = Vec::with_capacity(bytes.len() + body.1.len() + 6);
-    let mut put = |t: u32, wire: Wire, b: &[u8]| {
-        write_varint(&mut out, field_key(t, wire));
-        write_varint(&mut out, b.len() as u64);
-        out.extend_from_slice(b);
-    };
     let mut placed = false;
     for (t, wire, b) in fields {
         if t > tag && !placed {
-            put(tag, body.0, &body.1);
+            write_field(&mut out, tag, body.0, &body.1);
             placed = true;
         }
         if t != tag {
-            put(t, wire, b);
+            write_field(&mut out, t, wire, b);
         }
     }
     if !placed {
-        put(tag, body.0, &body.1);
+        write_field(&mut out, tag, body.0, &body.1);
     }
     Ok(Some(out))
 }

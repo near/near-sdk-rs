@@ -5,9 +5,6 @@
 # the mutant's full name as printed by `cargo mutants --list`; none is anchored on a line
 # number so the list survives edits. Add an entry only with the reason next to it.
 exclude_re = [
-    # cache.rs `stored_bytes`: `Mode::Dirty` is only set by a whole `put`, which clears `merge`
-    # in the same statement, so `!s.merge` is always true for a Dirty slot.
-    'replace match guard !s\.merge with true in stored_bytes',
     # cache.rs `root_orig -> None`: `raw_root` then falls back to `read_root`, which serves the
     # same cached bytes.
     'replace root_orig -> Option<Vec<u8>> with None',

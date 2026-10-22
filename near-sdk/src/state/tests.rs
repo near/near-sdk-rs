@@ -1998,3 +1998,153 @@ fn audit_a2_discarded_value_is_parked_until_the_flush() {
     assert_eq!((m.len(), l.contains_key(&0), l.contains_key(&1)), (0, false, false));
     end_call();
 }
+
+// ---------------------------------------------------------------------------------------
+// Review round (slim-b, Oct 22): a value's decoder is user code (a hand-written `Value`, or a
+// Borsh `deserialize_reader`) and may call back into the cache, through another handle, for
+// the very key being decoded. `get` must not hold a `&mut` to the slot across that call: the
+// inner operation's own `&mut` to the slot invalidates it under Stacked Borrows. Miri verdict
+// as for the audit tests above.
+// ---------------------------------------------------------------------------------------
+
+const REENTRANT_TAG: u32 = 43;
+
+std::thread_local! {
+    static REENTRANT_SAW: core::cell::Cell<Option<bool>> = const { core::cell::Cell::new(None) };
+}
+
+/// A leaf whose decoder asks the map it is stored in whether its own key exists, then reads
+/// the rest of its bytes (still the slot's, after the re-entry).
+#[derive(borsh::BorshSerialize)]
+struct Reentrant(u32, u8);
+impl BorshLeaf for Reentrant {}
+impl borsh::BorshDeserialize for Reentrant {
+    fn deserialize_reader<R: borsh::io::Read>(r: &mut R) -> borsh::io::Result<Self> {
+        let key = u32::deserialize_reader(r)?;
+        let m: LookupMap<u32, Reentrant> = at(REENTRANT_TAG);
+        REENTRANT_SAW.with(|c| c.set(Some(m.contains_key(&key))));
+        Ok(Reentrant(key, u8::deserialize_reader(r)?))
+    }
+}
+
+/// `get(k)` whose decoder calls `contains_key(k)` through a second handle. Under Miri Stacked
+/// Borrows this was UB at f683e42e: `get` held `&mut Slot` across the decoder and wrote the
+/// decoded value through it after `contains_key` had retagged the same slot.
+#[test]
+fn review_decoder_reenters_the_cache_for_its_own_key() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Reentrant> = at(REENTRANT_TAG);
+    m.insert(5, Reentrant(5, 9));
+    end_call();
+    REENTRANT_SAW.with(|c| c.set(None));
+    assert_eq!(m.get(&5).map(|v| (v.0, v.1)), Some((5, 9)));
+    assert_eq!(REENTRANT_SAW.with(core::cell::Cell::get), Some(true), "the decoder saw its key");
+    assert_eq!(m.get(&5).map(|v| (v.0, v.1)), Some((5, 9)), "decoded once, then served from the cache");
+    let r = end_call();
+    assert_eq!((r.reads(), r.has_keys(), r.writes(), r.removes()), (1, 0, 0, 0));
+}
+
+const REWRITER_TAG: u32 = 44;
+
+#[derive(Clone, Copy)]
+enum Rewrite {
+    Get,
+    Insert,
+    Discard,
+}
+
+std::thread_local! {
+    /// What the next `Rewriter` decoder does to its own key through a second handle.
+    static REWRITE: core::cell::Cell<Option<Rewrite>> = const { core::cell::Cell::new(None) };
+    /// The value the decoder's own `get` returned.
+    static INNER: core::cell::Cell<*const Rewriter> = const { core::cell::Cell::new(core::ptr::null()) };
+}
+
+/// A leaf whose decoder (once) reads, overwrites or discards its own key through a second
+/// handle, then reads the rest of its bytes.
+#[derive(borsh::BorshSerialize)]
+struct Rewriter(u32, u8);
+impl BorshLeaf for Rewriter {}
+impl borsh::BorshDeserialize for Rewriter {
+    fn deserialize_reader<R: borsh::io::Read>(r: &mut R) -> borsh::io::Result<Self> {
+        let key = u32::deserialize_reader(r)?;
+        let mut m: LookupMap<u32, Rewriter> = at(REWRITER_TAG);
+        match REWRITE.with(core::cell::Cell::take) {
+            Some(Rewrite::Get) => {
+                let inner = m.get(&key).map_or(core::ptr::null(), |v| v as *const Rewriter);
+                INNER.with(|c| c.set(inner));
+            }
+            Some(Rewrite::Insert) => m.insert(key, Rewriter(key, 77)),
+            Some(Rewrite::Discard) => m.discard(&key),
+            None => {}
+        }
+        Ok(Rewriter(key, u8::deserialize_reader(r)?))
+    }
+}
+
+/// `Rewriter(5, 9)` stored; the next `get(5)` decodes with `rewrite`.
+fn rewriter_fixture(rewrite: Rewrite) -> LookupMap<u32, Rewriter> {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Rewriter> = at(REWRITER_TAG);
+    m.insert(5, Rewriter(5, 9));
+    end_call();
+    REWRITE.with(|c| c.set(Some(rewrite)));
+    m
+}
+
+/// A decoder that `get`s its own key decodes it first (the inner `get`); the outer `get` then
+/// hands out that same value, not a second copy, and the stored bytes are read once.
+#[test]
+fn review_decoder_gets_its_own_key_and_both_gets_share_the_value() {
+    let m = rewriter_fixture(Rewrite::Get);
+    let outer: *const Rewriter = m.get(&5).expect("stored");
+    assert!(core::ptr::eq(outer, INNER.with(core::cell::Cell::get)), "one value for the key");
+    assert_eq!(m.get(&5).map(|v| v.1), Some(9));
+    assert_eq!(end_call().rwd(), (1, 0, 0));
+}
+
+/// A decoder that `insert`s over its own key: the inserted value stands, and it is what the
+/// flush writes.
+#[test]
+fn review_decoder_inserts_over_its_own_key_and_the_insert_stands() {
+    let m = rewriter_fixture(Rewrite::Insert);
+    assert_eq!(m.get(&5).map(|v| v.1), Some(77));
+    assert_eq!(end_call().rwd(), (1, 1, 0));
+    assert_eq!(m.get(&5).map(|v| v.1), Some(77));
+    end_call();
+}
+
+/// A decoder that `discard`s its own key: the key is gone for the outer `get` too, and the
+/// flush removes it.
+#[test]
+fn review_decoder_discards_its_own_key_and_the_discard_stands() {
+    let m = rewriter_fixture(Rewrite::Discard);
+    assert!(m.get(&5).is_none());
+    assert!(!m.contains_key(&5));
+    assert_eq!(end_call().rwd(), (1, 0, 1));
+    assert!(m.get(&5).is_none());
+    end_call();
+}
+
+/// A leaf whose encoder asks its map whether its own key exists.
+#[derive(borsh::BorshDeserialize)]
+struct ReentrantEncode(u32);
+impl BorshLeaf for ReentrantEncode {}
+impl borsh::BorshSerialize for ReentrantEncode {
+    fn serialize<W: borsh::io::Write>(&self, w: &mut W) -> borsh::io::Result<()> {
+        let m: LookupMap<u32, ReentrantEncode> = at(REENTRANT_TAG);
+        let _ = m.contains_key(&self.0);
+        self.0.serialize(w)
+    }
+}
+
+/// An encoder runs inside the cache borrow (the flush), so an encoder that re-enters the cache
+/// panics on the `RefCell` instead of aliasing a slot (cache invariant 5).
+#[test]
+#[should_panic(expected = "already borrowed")]
+fn review_encoder_reentering_the_cache_at_the_flush_panics() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, ReentrantEncode> = at(REENTRANT_TAG);
+    m.insert(5, ReentrantEncode(5));
+    end_call();
+}

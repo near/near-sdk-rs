@@ -31,12 +31,20 @@
 //!    returns); code calling `state_write(&root)` by hand while holding a reference does not,
 //!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
 //!    what makes a v1 collection nested in a v2 record run its write-on-drop.
+//! 5. No slot reference is used across a call into user code (a value's decoder, encoder or
+//!    `Drop`): user code may re-enter the cache for the same key, and the `&mut Slot` that
+//!    operation forms would invalidate it (Stacked Borrows). `get` decodes holding no slot
+//!    reference and re-checks the slot after. The encoders run inside the cache borrow (the
+//!    flush, `has_pending_writes`), where a re-entry panics on the `RefCell` instead of
+//!    aliasing. A value is dropped only once it has left its slot (`free_slots`, or by the
+//!    caller of `take`), or by `settle` when it never entered one.
 
-use super::key::Path;
+use super::key::{Path, flag_key_bytes as flag_key};
 use super::value::Value;
 use core::any::Any;
 use core::cell::RefCell;
 use core::ptr::NonNull;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 /// Every storage host call `state` makes goes through this trait. Private to the crate.
@@ -122,7 +130,8 @@ enum Mode {
     Clean,
     /// Handed out as `&mut`; written at flush only if its encoding changed.
     Touched,
-    /// Explicitly written.
+    /// Replaced whole by a blind `put`, unknown tags included, so the flush does not merge
+    /// them from `orig`. A slot never leaves Dirty or Deleted for Clean or Touched.
     Dirty,
     /// Explicitly removed.
     Deleted,
@@ -133,9 +142,6 @@ struct Slot {
     /// Current decoded value; `None` means absent (or never decoded, for raw slots).
     value: Option<NonNull<dyn Erased>>,
     mode: Mode,
-    /// Whether the flush merges unknown tags from `orig`. A blind `put` replaces the value
-    /// whole, so it clears this; read-modify-write keeps it.
-    merge: bool,
     clearing: Clearing,
     /// A map entry whose value owns storage, so it may be stored at its flag key (D9). Only
     /// such slots consult the flag key, and only after a miss at the record key.
@@ -180,17 +186,32 @@ impl Slot {
     }
 
     fn is_clearing(&self) -> bool {
-        match self.clearing {
+        self.clearing_as(self.clearing)
+    }
+
+    /// [`Slot::is_clearing`] if the slot's clearing state were `clearing`.
+    fn clearing_as(&self, clearing: Clearing) -> bool {
+        match clearing {
             Clearing::Set => true,
             Clearing::Cleared => false,
             Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
         }
     }
 
+    /// Whether storage may hold the old record at `(record key, flag key)` before the flush.
+    fn stored_at(&self) -> (bool, bool) {
+        if self.blind_delete && self.orig == Orig::Unknown {
+            // F1: a blind delete then a reinsert: either key may still hold the old record.
+            return (true, true);
+        }
+        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
+        (present && !self.at_flag, present && self.at_flag)
+    }
+
     /// The bytes the flush would write for a Touched/Dirty slot.
     fn encode(&self) -> Vec<u8> {
         let p = self.value.expect("dirty slot has a value");
-        let merge_from = if self.merge { self.orig.bytes() } else { None };
+        let merge_from = if self.mode == Mode::Touched { self.orig.bytes() } else { None };
         // SAFETY: invariant 1.
         unsafe { p.as_ref() }.encode(merge_from)
     }
@@ -201,12 +222,6 @@ impl Slot {
     /// key. Unchanged bytes at the same key are not rewritten. Allocates only the encoding of a
     /// Touched/Dirty value (none for a record moved verbatim).
     fn for_each_flush_op(&self, mut f: impl FnMut(FlushOp<'_>)) {
-        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
-        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
-        if self.blind_delete && self.orig == Orig::Unknown {
-            // F1: a blind delete then a reinsert: either key may still hold the old record.
-            (at_key, at_flag) = (true, true);
-        }
         match self.mode {
             // A3 first-write rule: a record whose only change is an added kind marker. It was
             // read at its record key (a record being cleared refuses the write below it), so
@@ -217,11 +232,11 @@ impl Slot {
                 }
             }
             Mode::Touched | Mode::Dirty => {
+                let (at_key, at_flag) = self.stored_at();
                 let clearing = self.is_clearing();
-                let verbatim = self.patch.as_deref().or(self.orig.bytes());
-                let enc: std::borrow::Cow<'_, [u8]> = match verbatim {
-                    Some(b) if self.verbatim && clearing => std::borrow::Cow::Borrowed(b),
-                    _ => std::borrow::Cow::Owned(self.encode()),
+                let enc = match self.patch.as_deref().or(self.orig.bytes()) {
+                    Some(b) if self.verbatim && clearing => Cow::Borrowed(b),
+                    _ => Cow::Owned(self.encode()),
                 };
                 let same = self.orig.bytes() == Some(&enc[..]);
                 if clearing {
@@ -266,24 +281,11 @@ impl Slot {
 
     /// [`Slot::remove_count`] if the slot had `mode` and `clearing`.
     fn remove_count_as(&self, mode: Mode, clearing: Clearing) -> u32 {
-        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
-        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
-        if self.blind_delete && self.orig == Orig::Unknown {
-            (at_key, at_flag) = (true, true);
-        }
-        let is_clearing = match clearing {
-            Clearing::Set => true,
-            Clearing::Cleared => false,
-            Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
-        };
         match mode {
             Mode::Clean => 0,
             Mode::Touched | Mode::Dirty => {
-                if is_clearing {
-                    u32::from(at_key)
-                } else {
-                    u32::from(at_flag)
-                }
+                let (at_key, at_flag) = self.stored_at();
+                u32::from(if self.clearing_as(clearing) { at_key } else { at_flag })
             }
             Mode::Deleted => match self.orig {
                 Orig::Absent => 0,
@@ -336,7 +338,6 @@ impl Cache {
             orig: Orig::Unknown,
             value: None,
             mode: Mode::Clean,
-            merge: true,
             clearing: Clearing::FromOrig,
             flaggable: false,
             at_flag: false,
@@ -524,13 +525,6 @@ pub(crate) fn slot_count() -> usize {
     with(|c| c.slots.len())
 }
 
-/// The flag key of the record whose key is `key`: one more byte, `00` (see [`Path::flag`]),
-/// length-checked like every path hop.
-#[track_caller]
-fn flag_key(key: &[u8]) -> Vec<u8> {
-    super::key::flag_key_bytes(key)
-}
-
 /// Reads and decodes the value at `path`, once per call. `None` if absent or deleted.
 #[track_caller]
 pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
@@ -546,28 +540,50 @@ pub(crate) fn get_entry<V: Value>(path: &Path) -> Option<NonNull<V>> {
 
 #[track_caller]
 fn get_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<V>> {
-    let key = path.as_bytes();
-    let (mut sp, bytes) = with(|c| {
-        let mut sp = c.load(key, flaggable);
-        // SAFETY: invariant 1.
-        let s = unsafe { sp.as_mut() };
-        if s.value.is_some() || s.mode == Mode::Deleted {
-            (sp, None)
-        } else {
-            (sp, s.orig.bytes().map(<[u8]>::to_vec))
-        }
-    });
-    // SAFETY: invariant 1.
-    let s = unsafe { sp.as_mut() };
-    if let Some(bytes) = bytes {
-        let v = V::decode_value(&bytes, path).unwrap_or_else(|e| {
+    let sp = with(|c| c.load(path.as_bytes(), flaggable));
+    // SAFETY: invariant 1; a shared borrow, not used once the decoder runs (invariant 5).
+    let s = unsafe { sp.as_ref() };
+    if s.value.is_none()
+        && s.mode != Mode::Deleted
+        && let Some(bytes) = s.orig.bytes()
+    {
+        // Decoded outside the cache borrow, straight from the slot's bytes: they are their own
+        // allocation, a cache operation never replaces them once read, and nothing frees them
+        // before the flush.
+        let v = V::decode_value(bytes, path).unwrap_or_else(|e| {
             crate::env::panic_str(&format!("state: cannot decode value at {path:?}: {e}"))
         });
-        let b: Box<dyn Erased> = Box::new(v);
-        s.value = Some(NonNull::from(Box::leak(b)));
+        let p = NonNull::from(Box::leak(Box::new(v)));
+        if settle(sp, p) {
+            // Just decoded as a `V`: no type check needed.
+            return Some(p);
+        }
     }
-    let p = s.value?;
+    // SAFETY: invariant 1; a fresh borrow.
+    let p = unsafe { sp.as_ref() }.value?;
     Some(typed::<V>(p, path))
+}
+
+/// Stores `p`, just decoded, as the slot's value and returns true, unless the decoder
+/// re-entered the cache for this key and decided the slot itself: a value it put (or decoded)
+/// there, or its delete, stands, and `p` is freed. Not generic, so one copy serves every
+/// `get::<V>`.
+fn settle(mut sp: NonNull<Slot>, p: NonNull<dyn Erased>) -> bool {
+    let undecided = {
+        // SAFETY: invariant 1; a fresh borrow, after the decoder returned, ended before the
+        // drop below runs user code.
+        let s = unsafe { sp.as_mut() };
+        let undecided = s.value.is_none() && s.mode != Mode::Deleted;
+        if undecided {
+            s.value = Some(p);
+        }
+        undecided
+    };
+    if !undecided {
+        // SAFETY: `p` was just leaked by the caller and is referenced nowhere else.
+        unsafe { drop(Box::from_raw(p.as_ptr())) };
+    }
+    undecided
 }
 
 /// `p` as a `NonNull<V>`, after checking through a shared borrow that it holds a `V`. The
@@ -676,31 +692,22 @@ pub(crate) fn set_clearing(path: &Path) {
 /// a child never comes into existence under a record that is not there.
 #[track_caller]
 pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: &dyn Fn() -> bool) {
-    let state = with(|c| {
+    let known = with(|c| {
         if c.root.as_deref() == Some(rec_key) {
             return None;
         }
-        let s = c.slots.get(rec_key).map(|sp| {
-            // SAFETY: invariant 1.
-            unsafe { sp.as_ref() }
-        });
-        Some(match s {
+        // SAFETY: invariant 1.
+        match c.slots.get(rec_key).map(|sp| unsafe { sp.as_ref() }) {
             Some(s) if matches!(s.mode, Mode::Touched | Mode::Dirty) => None,
-            // decided without a host call: the bytes are known, or the record is gone (refused)
-            Some(s)
-                if matches!(s.orig, Orig::Present(_) | Orig::Absent)
-                    || s.patch.is_some()
-                    || s.gone_in_this_call() =>
-            {
-                Some(true)
+            // decided without a host call: the bytes are known (a patched record was read), or
+            // the record is gone (refused)
+            Some(s) => {
+                Some(matches!(s.orig, Orig::Present(_) | Orig::Absent) || s.gone_in_this_call())
             }
-            _ => Some(false),
-        })
+            None => Some(false),
+        }
     });
-    let known = match state {
-        None | Some(None) => return,
-        Some(Some(known)) => known,
-    };
+    let Some(known) = known else { return };
     if !known && !child_absent() {
         return;
     }
@@ -739,8 +746,7 @@ pub(crate) fn stored_bytes(path: &Path, flaggable: bool) -> Option<Vec<u8>> {
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_ref() };
         match s.mode {
-            Mode::Deleted => None,
-            Mode::Dirty if !s.merge => None,
+            Mode::Deleted | Mode::Dirty => None,
             _ => s.orig.bytes().map(<[u8]>::to_vec),
         }
     })
@@ -831,7 +837,6 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     let p = NonNull::from(Box::leak(b));
     s.value = Some(p);
     s.mode = Mode::Dirty;
-    s.merge = false;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
     s.patch = None;
@@ -842,17 +847,17 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
 /// Removes the value at `path`, returning it if it was decoded. No host read. The value moves
 /// out of the cache, so this is only for removals that hand it back (invariant 2).
 pub(crate) fn take<V: Value>(path: &Path) -> Option<V> {
-    let p = delete_impl::<V>(path, false)?;
-    // SAFETY: invariant 2; the slot no longer points at the value, so we own it now.
-    let b = unsafe { Box::from_raw(p.as_ptr()) };
-    let any: Box<dyn Any> = b;
-    any.downcast::<V>().ok().map(|b| *b)
+    take_impl::<V>(path, false)
 }
 
 /// [`take`] for a map entry; see [`delete_entry`] for the flag key.
 pub(crate) fn take_entry<V: Value>(path: &Path) -> Option<V> {
-    let p = delete_impl::<V>(path, V::MAX_SUBPATH > 0)?;
-    // SAFETY: as in `take`.
+    take_impl::<V>(path, V::MAX_SUBPATH > 0)
+}
+
+fn take_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
+    let p = delete_impl::<V>(path, flaggable)?;
+    // SAFETY: invariant 2; the slot no longer points at the value, so we own it now.
     let b = unsafe { Box::from_raw(p.as_ptr()) };
     let any: Box<dyn Any> = b;
     any.downcast::<V>().ok().map(|b| *b)
@@ -950,9 +955,9 @@ pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) ->
         }
         let mut wrote_root = false;
         if let Some((path, encode)) = root {
-            let mut sp = c.slot(path.as_bytes());
+            let sp = c.slot(path.as_bytes());
             // SAFETY: invariant 1.
-            let s = unsafe { sp.as_mut() };
+            let s = unsafe { sp.as_ref() };
             let enc = encode(s.orig.bytes());
             if s.orig.bytes() != Some(&enc[..]) {
                 c.host.write(path.as_bytes(), &enc);

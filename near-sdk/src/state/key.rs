@@ -157,12 +157,7 @@ pub(crate) fn flag_key_bytes(record_key: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(record_key.len() + 1);
     out.extend_from_slice(record_key);
     out.push(FLAG_SEGMENT);
-    assert!(
-        out.len() <= MAX_KEY_LEN,
-        "storage key of {} bytes exceeds the protocol limit of {MAX_KEY_LEN}",
-        out.len()
-    );
-    out
+    Path(out).checked().0
 }
 
 std::thread_local! {
