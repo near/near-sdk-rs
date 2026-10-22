@@ -1,7 +1,8 @@
 # Slim-down pass B, round 2 (cache.rs get_impl re-entry fix, invariant 5): gas before/after (Oct 22 2026)
 # proto-gas sim test `a3_rows`, 10k keys, the same sim binary as round 1 (GAS_RES_DIR=<wasm dir>, --test-threads=1).
 # slim-b: proto-gas/build.sh at f683e42e (code = 6e86b9b5); its rebuild here reproduces round 1's four SHA-256s exactly.
-# slim-b2: proto-gas/build.sh at e4142690 (the fix); a rebuild at 4a5b4804 (tests and comments since) is byte-identical. Same worktree,
+# slim-b2: proto-gas/build.sh at 7b199caf (the fix, e4142690, plus settle's scoped borrow). e4142690's build gave the same
+# sizes and a byte-identical a3_rows log; its wasm differs only in 5-8 bytes of panic line numbers. Same worktree,
 # toolchain and cargo-near, MBX_LEARNED_INCREMENTAL=false. Tgas is the median of the row; delta in Ggas.
 # Host-op counts (r/w/d/h) are unchanged on every row. The two +1 rows have the same wasm-execution Ggas; the
 # 53 B larger ext wasm loads 0.1 Ggas dearer, and the median rounds up.
@@ -42,7 +43,7 @@
 | v2 root (h16) | balance_of (2 hops) | 1.297 | 1.297 | +0 | 44.6 -> 44.6 | 2/0/0/0 -> 2/0/0/0 |
 
 wasm sizes and SHA-256 (wasms are gitignored):
-  v1.wasm  slim-b 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  slim-b2 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  (0 B)
-  v2_h8.wasm  slim-b 166513 B c5efa195da68b44b5616d64b93cde371c11357c8f5c34bfaeb6c7b3b5619009f  slim-b2 166563 B 72a51d82d9a444700d37935dbd86866bd0eabcfa03eaf32d0e8250751097da4e  (50 B)
-  v2_h16.wasm  slim-b 166535 B b8db02623aefa174534b1150e0de2e26a452653f52da1ddc3890ed376a239d11  slim-b2 166585 B 1dd8cc1603877a0d35ab3540118fff1480a8e7863c4287f58e89877727e7385c  (50 B)
-  v2_h16_ext.wasm  slim-b 203447 B 56fc797e0359ef351b01aa29af133c31081f013ef3f6a37a62c496fecedf8e77  slim-b2 203500 B a254c47a8dac8dc60f663ac8886ff398390d35a335a5e98c921ee5cfa0eeef6c  (53 B)
+  v1.wasm  slim-b 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  slim-b2 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  (+0 B)
+  v2_h8.wasm  slim-b 166513 B c5efa195da68b44b5616d64b93cde371c11357c8f5c34bfaeb6c7b3b5619009f  slim-b2 166563 B b7ae61be977fe3e85fac28d34a182660256bb0227c8346a55a38e1ec68d5bf2c  (+50 B)
+  v2_h16.wasm  slim-b 166535 B b8db02623aefa174534b1150e0de2e26a452653f52da1ddc3890ed376a239d11  slim-b2 166585 B e3f89794f14859d599c11443d959c633e1e9066646793dfce26221feeb62ff92  (+50 B)
+  v2_h16_ext.wasm  slim-b 203447 B 56fc797e0359ef351b01aa29af133c31081f013ef3f6a37a62c496fecedf8e77  slim-b2 203500 B 181474d72f8d327d642d37444c0061047fe6bc84da421456bac44e1abdbcd82d  (+53 B)
