@@ -211,6 +211,15 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
     Ok(KeyAttr { tag, required, default, default_fn, legacy })
 }
 
+/// A binding of the generated code (a parameter, `let`, closure or loop pattern). Mixed-site, so
+/// no user token (a default, a field type, the root byte) resolves to it; `__near_`-prefixed,
+/// because hygiene does not cover the other direction: an identifier PATTERN resolves items at
+/// the call site even when mixed-site, so a user `const` or unit struct of the same name would
+/// turn it into a constant pattern.
+fn local(name: &str) -> syn::Ident {
+    syn::Ident::new(&format!("__near_{name}"), Span::mixed_site())
+}
+
 pub fn expand(
     mut item: ItemStruct,
     opts: V2Options,
@@ -312,6 +321,9 @@ pub fn expand(
     let mut known_arms: Vec<_> = opts.reserved.iter().map(|t| quote! { #t => false, }).collect();
     let mut unknown_arms: Vec<_> =
         opts.reserved.iter().map(|t| quote! { #t => ::core::option::Option::None, }).collect();
+    // `__unknown_collection`'s bindings
+    let [u_bytes, u_f, u_t, u_w, u_b, u_hit, u_trail, u_k] =
+        ["bytes", "f", "t", "w", "b", "hit", "trail", "k"].map(local);
     let mut enc = Vec::new();
     let mut dec = Vec::new();
     let mut root_only = Vec::new();
@@ -359,7 +371,7 @@ pub fn expand(
         enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
         // a declared field: a nested record checks its own bytes, anything else is known
-        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
+        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(#u_w, #u_b), });
         if !is_root {
             // A3 first-write rule: a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
@@ -535,18 +547,23 @@ pub fn expand(
             impl #s::Value for #name {
                 const MAX_SUBPATH: usize = #max_subpath;
                 const __RECORD: bool = true;
-                fn __unknown_collection(bytes: &[u8])
+                fn __unknown_collection(#u_bytes: &[u8])
                     -> ::core::option::Option<(::std::vec::Vec<u32>, u8)>
                 {
-                    let f = #p::parse(bytes).ok()?;
-                    for &(t, w, b) in f.iter() {
-                        let hit = match t {
+                    let #u_f = #p::parse(#u_bytes).ok()?;
+                    for &(#u_t, #u_w, #u_b) in #u_f.iter() {
+                        let #u_hit = match #u_t {
                             #(#unknown_arms)*
-                            _ => #p::unknown_field_collection(w, b),
+                            _ => #p::unknown_field_collection(#u_w, #u_b),
                         };
-                        if let ::core::option::Option::Some((mut trail, k)) = hit {
-                            trail.insert(0, t);
-                            return ::core::option::Option::Some((trail, k));
+                        // exhaustive, so a binding captured as a constant pattern is E0004,
+                        // never a silently skipped hit
+                        match #u_hit {
+                            ::core::option::Option::Some((mut #u_trail, #u_k)) => {
+                                #u_trail.insert(0, #u_t);
+                                return ::core::option::Option::Some((#u_trail, #u_k));
+                            }
+                            ::core::option::Option::None => {}
                         }
                     }
                     ::core::option::Option::None
