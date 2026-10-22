@@ -52,8 +52,8 @@ impl ContractStateArgs {
         ident: &Ident,
         generics: &Generics,
     ) -> proc_macro2::TokenStream {
-        if let Some(root) = self.v2_root() {
-            return super::storage_v2::contract_state_v2(ident, &root);
+        if self.v2_root().is_some() {
+            return super::storage_v2::contract_state_v2(ident);
         }
         let key = self.key.map(|key| {
             quote! {

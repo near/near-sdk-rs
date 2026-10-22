@@ -30,6 +30,19 @@
 //! of an empty record, unless derived), and the `ContractState` / `StateRead` / `StateWrite`
 //! impls from [`contract_state_v2`]. Only a root takes `#[key(n, legacy)]`: a v1 collection
 //! stored as plain Borsh outside `Value` (its bytes are its prefix), required, never bound.
+//!
+//! Hygiene: user tokens (field types, `default`, `default_fn`, the root byte) never resolve to
+//! something the derive generates, and the generated code never resolves to a user item.
+//! - Every binding (parameter, `let`, closure or loop pattern) is mixed-site, so no user token
+//!   sees it, and is named `__near_*`: an identifier pattern resolves items at the call site
+//!   even when mixed-site, so a user `const` or unit struct of the same name would capture it
+//!   as a constant pattern. A refutable pattern with a binding is an exhaustive `match`, so
+//!   even then the capture is a compile error, not a silently skipped arm.
+//! - The views' phantom field and the `ViewField` impls' parent parameter are named apart from
+//!   the record's fields and name; `state_key` reads `Root::ROOT_BYTE`, so the root byte is
+//!   spelled once, in an impl, next to no generated name.
+//! - The `__near_` prefix (any case) is reserved: the bindings above and the inherent items the
+//!   derive adds to the record (`__near_decode_fields`) use it.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
@@ -220,6 +233,18 @@ fn local(name: &str) -> syn::Ident {
     syn::Ident::new(&format!("__near_{name}"), Span::mixed_site())
 }
 
+/// `base` with `_` appended until it is none of `taken`.
+fn unused_ident<'a>(
+    base: &str,
+    taken: impl IntoIterator<Item = &'a syn::Ident> + Clone,
+) -> syn::Ident {
+    let mut name = base.to_owned();
+    while taken.clone().into_iter().any(|t| *t == name) {
+        name.push('_');
+    }
+    syn::Ident::new(&name, Span::call_site())
+}
+
 pub fn expand(
     mut item: ItemStruct,
     opts: V2Options,
@@ -321,25 +346,22 @@ pub fn expand(
     let mut known_arms: Vec<_> = opts.reserved.iter().map(|t| quote! { #t => false, }).collect();
     let mut unknown_arms: Vec<_> =
         opts.reserved.iter().map(|t| quote! { #t => ::core::option::Option::None, }).collect();
-    // `__unknown_collection`'s bindings
-    let [u_bytes, u_f, u_t, u_w, u_b, u_hit, u_trail, u_k] =
-        ["bytes", "f", "t", "w", "b", "hit", "trail", "k"].map(local);
+    // every binding of the template; see `local`
+    let [l_bytes, l_orig, l_of, l_w, l_f, l_path, l_t, l_b, l_hit, l_trail, l_k] =
+        ["bytes", "orig", "of", "w", "f", "path", "t", "b", "hit", "trail", "k"].map(local);
+    let [l_anchor, l_budget, l_v, l_e] = ["anchor", "budget", "v", "e"].map(local);
     let mut enc = Vec::new();
     let mut dec = Vec::new();
     let mut root_only = Vec::new();
 
-    // The decode locals are mixed-site, so a `default` / `default_fn` naming `f` or `path` means
-    // the user's item, not a generated binding.
-    let f = syn::Ident::new("f", Span::mixed_site());
-    let path = syn::Ident::new("path", Span::mixed_site());
     for KeyedField { ident, ty, key, .. } in &fields {
         let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
         // Spanned at the field type, so a missing `Default` points at the field.
         let span = ty.span();
         let decode = if *legacy {
-            quote_spanned! {span=> #p::legacy_field::<#ty>(#f, #t) }
+            quote_spanned! {span=> #p::legacy_field::<#ty>(#l_f, #t) }
         } else if *required {
-            quote_spanned! {span=> #p::field_required::<#ty>(#f, #t, #path) }
+            quote_spanned! {span=> #p::field_required::<#ty>(#l_f, #t, #l_path) }
         } else if let Some(d) = default {
             // `expr` is an inline `const`, so it is evaluated at compile time and a non-const
             // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
@@ -347,31 +369,32 @@ pub fn expand(
             // record is then harmless: it is the same value every time. Unlike a named `const`
             // item, it binds no name the expression could resolve to.
             let c = quote_spanned! {d.span()=> const { #d } };
-            quote_spanned! {span=> #p::field_or::<#ty>(#f, #t, #path, || #c) }
+            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || #c) }
         } else if let Some(fp) = default_fn {
             // `default_fn = path`: the escape hatch from the const rule above, for a type
             // with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
             // a closure, a method needing arguments or a wrong return type is an error at the
             // path. Called on EVERY decode where the tag is absent, until some other change
             // rewrites the record (the flush writes the tag then); it must be pure.
-            let c = quote_spanned! {fp.span()=> let __key_default_fn: fn() -> #ty = #fp; };
-            quote_spanned! {span=> #p::field_or::<#ty>(#f, #t, #path, || { #c __key_default_fn() }) }
+            let dfn = local("default_fn");
+            let c = quote_spanned! {fp.span()=> let #dfn: fn() -> #ty = #fp; };
+            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || { #c #dfn() }) }
         } else {
-            quote_spanned! {span=> #p::field::<#ty>(#f, #t, #path) }
+            quote_spanned! {span=> #p::field::<#ty>(#l_f, #t, #l_path) }
         };
         dec.push(quote_spanned! {span=> #ident: #decode?, });
         if *legacy {
             // A root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
             // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
-            enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
+            enc.push(quote! { #p::encode_legacy_field(&mut #l_w, #t, &self.#ident); });
             known_arms.push(quote! { #t => false, });
             unknown_arms.push(quote! { #t => ::core::option::Option::None, });
             continue;
         }
-        enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
+        enc.push(quote! { #p::encode_field(&mut #l_w, #l_of.as_ref(), #t, &self.#ident); });
         known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
         // a declared field: a nested record checks its own bytes, anything else is known
-        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(#u_w, #u_b), });
+        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(#l_w, #l_b), });
         if !is_root {
             // A3 first-write rule: a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
@@ -397,22 +420,21 @@ pub fn expand(
     let ty: Vec<_> = v2.iter().map(|f| &f.ty).collect();
     let tag: Vec<_> = v2.iter().map(|f| f.key.tag).collect();
     let fvis: Vec<_> = v2.iter().map(|f| &f.vis).collect();
-    let bind = quote! { #(#s::Value::bind(&mut self.#ident, &path.field(#tag));)* };
-    let pending = quote! { #(#s::Value::__write_pending(&self.#ident, &path.field(#tag));)* };
+    let bind = quote! { #(#s::Value::bind(&mut self.#ident, &#l_path.field(#tag));)* };
+    let pending = quote! { #(#s::Value::__write_pending(&self.#ident, &#l_path.field(#tag));)* };
 
-    let max_subpath = quote! {{
-        let mut m = 0usize;
-        #(m = #p::max(m, #p::field_subpath::<#ty>(#tag));)*
-        m
-    }};
+    // `max(.. max(max(0, a), b) .., z)`: no binding for a field type to meet
+    let max_subpath = ty.iter().zip(&tag).fold(quote!(0usize), |m, (ty, tag)| {
+        quote! { #p::max(#m, #p::field_subpath::<#ty>(#tag)) }
+    });
     // A root never leaves kind markers (it is never removed); a record does.
     let writer = if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
     let encode_body = quote! {
-        let of = #p::parse_orig(orig);
-        let mut w = #writer;
+        let #l_of = #p::parse_orig(#l_orig);
+        let mut #l_w = #writer;
         #(#enc)*
         // keep a stored tag iff the code does not know it inline and it is not reserved
-        w.finish(orig, |t| match t {
+        #l_w.finish(#l_orig, |#l_t| match #l_t {
             #(#known_arms)*
             _ => true,
         })
@@ -423,17 +445,17 @@ pub fn expand(
         impl #name {
             #[doc(hidden)]
             #[allow(dead_code)]
-            fn __decode_fields(
-                #f: &#p::Fields<'_>,
-                #path: ::core::option::Option<&#s::Path>,
+            fn __near_decode_fields(
+                #l_f: &#p::Fields<'_>,
+                #l_path: ::core::option::Option<&#s::Path>,
             ) -> ::core::result::Result<Self, #s::RecordError> {
                 ::core::result::Result::Ok(Self { #(#dec)* })
             }
         }
     };
     let decode_body = quote! {
-        let f = #p::parse(bytes)?;
-        Self::__decode_fields(&f, ::core::option::Option::Some(path))
+        let #l_f = #p::parse(#l_bytes)?;
+        Self::__near_decode_fields(&#l_f, ::core::option::Option::Some(#l_path))
     };
     let user_default = derives(&item, &["Default", "PanicOnDefault", "SmartDefault"]);
 
@@ -445,10 +467,11 @@ pub fn expand(
             quote! {
                 impl ::core::default::Default for #name {
                     fn default() -> Self {
-                        let path = <Self as #s::Root>::root_path();
-                        <Self as #s::Root>::__decode_root(&[], &path).unwrap_or_else(|e| {
+                        let #l_path = <Self as #s::Root>::root_path();
+                        <Self as #s::Root>::__decode_root(&[], &#l_path).unwrap_or_else(|#l_e| {
                             ::near_sdk::env::panic_str(&::std::format!(
-                                "state: `Default` for a v2 root decodes an empty record: {e}"
+                                "state: `Default` for a v2 root decodes an empty record: {}",
+                                #l_e
                             ))
                         })
                     }
@@ -463,18 +486,18 @@ pub fn expand(
                 impl #s::Root for #name {
                     const ROOT_BYTE: u8 = #root;
                     const MAX_SUBPATH: usize = #max_subpath;
-                    fn __encode_root(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
+                    fn __encode_root(&self, #l_orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                         #encode_body
                     }
-                    fn __decode_root(bytes: &[u8], path: &#s::Path)
+                    fn __decode_root(#l_bytes: &[u8], #l_path: &#s::Path)
                         -> ::core::result::Result<Self, #s::RecordError>
                     {
                         #decode_body
                     }
-                    fn __bind_root(&mut self, path: &#s::Path) {
+                    fn __bind_root(&mut self, #l_path: &#s::Path) {
                         #bind
                     }
-                    fn __write_pending_root(&self, path: &#s::Path) {
+                    fn __write_pending_root(&self, #l_path: &#s::Path) {
                         #pending
                     }
                 }
@@ -500,9 +523,9 @@ pub fn expand(
             impl ::core::default::Default for #name {
                 fn default() -> Self {
                     // no `required` field, so decoding an empty record cannot fail
-                    match Self::__decode_fields(&::std::vec::Vec::new(), ::core::option::Option::None) {
-                        ::core::result::Result::Ok(v) => v,
-                        ::core::result::Result::Err(e) => ::core::panic!("state: {e}"),
+                    match Self::__near_decode_fields(&::std::vec::Vec::new(), ::core::option::Option::None) {
+                        ::core::result::Result::Ok(#l_v) => #l_v,
+                        ::core::result::Result::Err(#l_e) => ::core::panic!("state: {}", #l_e),
                     }
                 }
             }
@@ -523,6 +546,11 @@ pub fn expand(
          `map.get_mut(&k)` to change them."
     );
 
+    // Not reserved names: the view's phantom field differs from every field, the `ViewField`
+    // impls' parent parameter from the record's name.
+    let marker = unused_ident("__m", fields.iter().map(|f| &f.ident));
+    let parent = unused_ident("__R", [name]);
+
     Ok(quote! {
         #struct_attrs
         #item
@@ -532,7 +560,7 @@ pub fn expand(
         #vis struct #view<'a> {
             #(#fvis #ident: <#ty as #s::ViewField<'a, #name>>::Out,)*
             #[doc(hidden)]
-            pub __m: ::core::marker::PhantomData<&'a ()>,
+            pub #marker: ::core::marker::PhantomData<&'a ()>,
         }
 
         #[doc = #view_mut_doc]
@@ -540,49 +568,49 @@ pub fn expand(
         #vis struct #view_mut<'a> {
             #(#fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out,)*
             #[doc(hidden)]
-            pub __m: ::core::marker::PhantomData<&'a mut ()>,
+            pub #marker: ::core::marker::PhantomData<&'a mut ()>,
         }
 
         const _: () = {
             impl #s::Value for #name {
                 const MAX_SUBPATH: usize = #max_subpath;
                 const __RECORD: bool = true;
-                fn __unknown_collection(#u_bytes: &[u8])
+                fn __unknown_collection(#l_bytes: &[u8])
                     -> ::core::option::Option<(::std::vec::Vec<u32>, u8)>
                 {
-                    let #u_f = #p::parse(#u_bytes).ok()?;
-                    for &(#u_t, #u_w, #u_b) in #u_f.iter() {
-                        let #u_hit = match #u_t {
+                    let #l_f = #p::parse(#l_bytes).ok()?;
+                    for &(#l_t, #l_w, #l_b) in #l_f.iter() {
+                        let #l_hit = match #l_t {
                             #(#unknown_arms)*
-                            _ => #p::unknown_field_collection(#u_w, #u_b),
+                            _ => #p::unknown_field_collection(#l_w, #l_b),
                         };
                         // exhaustive, so a binding captured as a constant pattern is E0004,
                         // never a silently skipped hit
-                        match #u_hit {
-                            ::core::option::Option::Some((mut #u_trail, #u_k)) => {
-                                #u_trail.insert(0, #u_t);
-                                return ::core::option::Option::Some((#u_trail, #u_k));
+                        match #l_hit {
+                            ::core::option::Option::Some((mut #l_trail, #l_k)) => {
+                                #l_trail.insert(0, #l_t);
+                                return ::core::option::Option::Some((#l_trail, #l_k));
                             }
                             ::core::option::Option::None => {}
                         }
                     }
                     ::core::option::Option::None
                 }
-                fn encode_value(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
+                fn encode_value(&self, #l_orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                     #encode_body
                 }
-                fn decode_value(bytes: &[u8], path: &#s::Path)
+                fn decode_value(#l_bytes: &[u8], #l_path: &#s::Path)
                     -> ::core::result::Result<Self, #s::RecordError>
                 {
                     #decode_body
                 }
-                fn bind(&mut self, path: &#s::Path) {
+                fn bind(&mut self, #l_path: &#s::Path) {
                     #bind
                 }
                 fn detach(&mut self) {
                     #(#s::Value::detach(&mut self.#ident);)*
                 }
-                fn __write_pending(&self, path: &#s::Path) {
+                fn __write_pending(&self, #l_path: &#s::Path) {
                     #pending
                 }
             }
@@ -590,46 +618,46 @@ pub fn expand(
             impl #s::Record for #name {
                 type View<'a> = #view<'a>;
                 type ViewMut<'a> = #view_mut<'a>;
-                fn __view<'a>(path: #s::Path) -> #view<'a> {
+                fn __view<'a>(#l_path: #s::Path) -> #view<'a> {
                     #view {
-                        #(#ident: <#ty as #s::ViewField<'a, #name>>::__view_field(path.field(#tag)),)*
-                        __m: ::core::marker::PhantomData
+                        #(#ident: <#ty as #s::ViewField<'a, #name>>::__view_field(#l_path.field(#tag)),)*
+                        #marker: ::core::marker::PhantomData
                     }
                 }
                 #[allow(unused_variables)]
-                fn __view_mut_in<'a>(path: #s::Path, anchor: usize) -> #view_mut<'a> {
+                fn __view_mut_in<'a>(#l_path: #s::Path, #l_anchor: usize) -> #view_mut<'a> {
                     #view_mut {
                         #(#ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(
-                            path.field(#tag),
-                            anchor
+                            #l_path.field(#tag),
+                            #l_anchor
                         ),)*
-                        __m: ::core::marker::PhantomData
+                        #marker: ::core::marker::PhantomData
                     }
                 }
             }
 
-            impl<'a, __R: #s::Value> #s::ViewField<'a, __R> for #name {
+            impl<'a, #parent: #s::Value> #s::ViewField<'a, #parent> for #name {
                 type Out = #view<'a>;
-                fn __view_field(field_path: #s::Path) -> #view<'a> {
-                    <#name as #s::Record>::__view(field_path)
+                fn __view_field(#l_path: #s::Path) -> #view<'a> {
+                    <#name as #s::Record>::__view(#l_path)
                 }
             }
 
-            impl<'a, __R: #s::Value> #s::ViewFieldMut<'a, __R> for #name {
+            impl<'a, #parent: #s::Value> #s::ViewFieldMut<'a, #parent> for #name {
                 type Out = #view_mut<'a>;
-                fn __view_field_mut(field_path: #s::Path, anchor: usize) -> #view_mut<'a> {
+                fn __view_field_mut(#l_path: #s::Path, #l_anchor: usize) -> #view_mut<'a> {
                     // a nested record field: its collections live in the enclosing stored record
-                    <#name as #s::Record>::__view_mut_in(field_path, anchor)
+                    <#name as #s::Record>::__view_mut_in(#l_path, #l_anchor)
                 }
             }
 
             #[allow(unused_lifetimes)]
             impl #s::Removable for #name where #(for<'__x> #ty: #s::Removable,)* {
-                fn clear_children(path: &#s::Path) {
-                    #(<#ty as #s::Removable>::clear_children(&path.field(#tag));)*
+                fn clear_children(#l_path: &#s::Path) {
+                    #(<#ty as #s::Removable>::clear_children(&#l_path.field(#tag));)*
                 }
-                fn clear_children_some(path: &#s::Path, budget: &mut u32) -> bool {
-                    #(if !<#ty as #s::Removable>::clear_children_some(&path.field(#tag), budget) {
+                fn clear_children_some(#l_path: &#s::Path, #l_budget: &mut u32) -> bool {
+                    #(if !<#ty as #s::Removable>::clear_children_some(&#l_path.field(#tag), #l_budget) {
                         return false;
                     })*
                     true
@@ -651,14 +679,14 @@ pub fn expand(
 /// `ContractState` and the wrapper hooks for a v2 root. No Borsh impls: the wrapper's
 /// `state_read()` / `state_write()` are bounded on `StateRead` / `StateWrite`, which v1 roots
 /// get from a Borsh blanket and v2 roots get here.
-pub fn contract_state_v2(ident: &syn::Ident, root: &TokenStream) -> TokenStream {
+pub fn contract_state_v2(ident: &syn::Ident) -> TokenStream {
     quote! {
         const _: () = {
             impl ::near_sdk::state::ContractState for #ident {
                 #[inline]
                 fn state_key() -> &'static [u8] {
-                    const KEY: [u8; 1] = [#root];
-                    &KEY
+                    // the root byte is spelled once, in `impl Root`
+                    const { &[<Self as ::near_sdk::state::Root>::ROOT_BYTE] }
                 }
                 fn state_exists() -> bool {
                     ::near_sdk::state::root_exists::<Self>()

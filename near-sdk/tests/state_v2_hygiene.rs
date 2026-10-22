@@ -105,3 +105,200 @@ fn removal_guard_ignores_user_consts() {
     testing::begin_call();
     assert_eq!(testing::store(), before, "the refused removal changed storage");
 }
+
+/// Items named like the derive's bindings (its parameters, `let`s, closure and loop patterns):
+/// each used to capture the binding as a constant pattern (E0308 / E0530). The bindings are
+/// now `__near_*` and mixed-site.
+#[allow(non_upper_case_globals, non_camel_case_types, dead_code)]
+mod binding_names {
+    use near_sdk::near;
+    use near_sdk::state::{Lazy, Map};
+
+    pub const f: u8 = 1;
+    pub const path: u8 = 2;
+    pub const m: u8 = 3;
+    pub const of: u8 = 4;
+    pub const w: u8 = 5;
+    pub const orig: u8 = 6;
+    pub const bytes: u8 = 7;
+    pub const t: u8 = 8;
+    pub const b: u8 = 9;
+    pub const hit: u8 = 10;
+    pub const k: u8 = 11;
+    pub const v: u8 = 12;
+    pub const e: u8 = 13;
+    pub const anchor: u8 = 14;
+    pub const field_path: u8 = 15;
+    pub const budget: u8 = 16;
+    /// a unit struct is a value-namespace pattern too
+    pub struct trail;
+    fn seventeen() -> u8 {
+        17
+    }
+    pub const __key_default_fn: fn() -> u8 = seventeen;
+
+    #[near(storage)]
+    pub struct Inner {
+        #[key(1, default = w)]
+        pub x: u8,
+        #[key(2)]
+        pub kids: Map<u8, u8>,
+    }
+
+    #[near(storage)]
+    pub struct Rec {
+        #[key(1, default = f)]
+        pub a: u8,
+        #[key(2, default_fn = __key_default_fn)]
+        pub c: u8,
+        #[key(3)]
+        pub inner: Inner,
+        #[key(4)]
+        pub lazy: Lazy<u8>,
+    }
+
+    #[near(contract_state(layout = v2, root = 0xF4))]
+    pub struct Root {
+        #[key(1, default = path)]
+        pub a: u8,
+        #[key(2)]
+        pub recs: Map<u8, Rec>,
+    }
+}
+
+/// Consts named like the derive's bindings, used as array lengths in field types (record and
+/// legacy root fields): a field type used to resolve to a generated local (E0435) or capture it.
+#[allow(non_upper_case_globals, dead_code)]
+mod array_lengths {
+    use near_sdk::near;
+    use near_sdk::state::Map;
+
+    pub const f: usize = 1;
+    pub const path: usize = 2;
+    pub const m: usize = 3;
+    pub const w: usize = 4;
+    pub const t: usize = 5;
+    pub const b: usize = 6;
+    pub const anchor: usize = 7;
+    pub const budget: usize = 8;
+
+    #[near(storage)]
+    pub struct Rec {
+        #[key(1, default = [7; m])]
+        pub a: [u8; m],
+        #[key(2)]
+        pub b: [u8; f],
+        #[key(3)]
+        pub c: [u8; path],
+        #[key(4)]
+        pub d: [u8; w],
+        #[key(5)]
+        pub e: [u8; t],
+        #[key(6)]
+        pub g: [u8; b],
+        #[key(7)]
+        pub h: [u8; anchor],
+        #[key(8)]
+        pub i: [u8; budget],
+        #[key(9)]
+        pub kids: Map<u8, [u8; m]>,
+    }
+
+    #[near(contract_state(layout = v2, root = 0xF5))]
+    pub struct Root {
+        #[key(1, legacy)]
+        pub l: [u8; f],
+        #[key(2)]
+        pub p: [u8; path],
+        #[key(3)]
+        pub recs: Map<u8, Rec>,
+    }
+}
+
+/// `root = KEY` with a user `const KEY`: the generated `state_key` used to define its own
+/// `const KEY`, which the root expression then resolved to.
+mod root_const {
+    use near_sdk::near;
+
+    pub const KEY: u8 = 0xF6;
+
+    #[near(contract_state(layout = v2, root = KEY))]
+    pub struct Root {
+        #[key(1)]
+        pub n: u8,
+    }
+}
+
+/// A field named like the views' phantom field, a record named like the `ViewField` impls'
+/// parent parameter.
+#[allow(non_camel_case_types)]
+mod member_names {
+    use near_sdk::near;
+    use near_sdk::state::Map;
+
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct __R {
+        #[key(1)]
+        pub __m: u8,
+        #[key(2)]
+        pub kids: Map<u8, u8>,
+    }
+
+    /// `__R` nested, so its `ViewField<'a, Holder>` impl is used
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Holder {
+        #[key(1)]
+        pub r: __R,
+    }
+
+    #[near(contract_state(layout = v2, root = 0xF7))]
+    pub struct Root {
+        #[key(1)]
+        pub recs: Map<u8, __R>,
+        #[key(2)]
+        pub holders: Map<u8, Holder>,
+    }
+}
+
+#[test]
+fn user_items_named_like_generated_bindings() {
+    use near_sdk::state::{ContractState, Map, Path, Root, Value, testing};
+
+    testing::use_mock();
+    // binding_names: defaults, encode / decode, views, removal
+    let rec = binding_names::Rec::default();
+    assert_eq!((rec.a, rec.c, rec.inner.x), (1, 17, 5));
+    let empty = binding_names::Rec::decode_value(&[], &Path::root(0xF0)).unwrap();
+    assert_eq!((empty.a, empty.c, empty.inner.x), (1, 17, 5));
+    assert_eq!(binding_names::Root::default().a, 2);
+    assert_eq!(<binding_names::Root as ContractState>::state_key(), &[0xF4]);
+    let mut recs: Map<u8, binding_names::Rec> = Map::__bound_at(Path::root(0xF0).field(1));
+    recs.try_insert(1, binding_names::Rec::default()).unwrap();
+    recs.at_mut(&1).unwrap().inner.kids.insert(2, 3);
+    testing::flush();
+    assert_eq!(recs.at(&1).inner.kids.get(&2), Some(&3));
+    assert_eq!(recs.remove(&1).map(|r| r.a), Some(1));
+    testing::flush();
+
+    // array_lengths
+    let rec = array_lengths::Rec::decode_value(&[], &Path::root(0xF0)).unwrap();
+    assert_eq!((rec.a, rec.b, rec.i), ([7; 3], [0; 1], [0; 8]));
+    let mut rec = rec;
+    rec.h = [9; 7];
+    let back = array_lengths::Rec::decode_value(&rec.encode_value(None), &Path::root(0xF0)).unwrap();
+    assert_eq!((back.a, back.h), ([7; 3], [9; 7]));
+
+    // root_const
+    assert_eq!(<root_const::Root as ContractState>::state_key(), &[0xF6]);
+    assert_eq!(<root_const::Root as Root>::ROOT_BYTE, 0xF6);
+
+    // member_names
+    let mut holders: Map<u8, member_names::Holder> = Map::__bound_at(Path::root(0xF0).field(2));
+    holders.try_insert(1, member_names::Holder::default()).unwrap();
+    holders.at_mut(&1).unwrap().r.kids.insert(4, 5);
+    testing::flush();
+    assert_eq!(holders.at(&1).r.kids.get(&4), Some(&5));
+    assert_eq!(holders.get(&1).map(|h| h.r.__m), Some(0));
+}
