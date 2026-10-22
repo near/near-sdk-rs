@@ -43,7 +43,7 @@
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use syn::{Fields, ItemStruct, LitInt, spanned::Spanned};
+use syn::{Fields, ItemStruct, spanned::Spanned};
 
 pub struct V2Options {
     /// `Some(root byte expr)` for a contract root.
@@ -55,22 +55,18 @@ struct KeyedField {
     ident: syn::Ident,
     ty: syn::Type,
     vis: syn::Visibility,
+    key: KeyAttr,
+}
+
+struct KeyAttr {
     tag: u32,
     required: bool,
     /// `#[key(n, default = expr)]`: evaluated when the tag is missing from a stored record.
     default: Option<syn::Expr>,
     /// `#[key(n, default_fn = path)]`: a `fn() -> T` called when the tag is missing.
     default_fn: Option<syn::Path>,
-    /// `#[key(n, legacy)]` (T7): a v1 collection (or any opaque Borsh value) kept at the root,
+    /// `#[key(n, legacy)]`: a v1 collection (or any opaque Borsh value) kept at the root,
     /// stored inline as its Borsh bytes without the `Value` trait. Root only; implies required.
-    legacy: bool,
-}
-
-struct KeyAttr {
-    tag: u32,
-    required: bool,
-    default: Option<syn::Expr>,
-    default_fn: Option<syn::Path>,
     legacy: bool,
 }
 
@@ -261,66 +257,58 @@ pub fn expand(
             return Err(e);
         }
         let ident = f.ident.clone().expect("named");
-        let Some(KeyAttr { tag, required, default, default_fn, legacy }) = found else {
+        let Some(key) = found else {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("field `{ident}` needs a `#[key(n)]` tag: the tags are the storage layout"),
             ));
         };
+        let tag = key.tag;
         if opts.reserved.contains(&tag) {
             return Err(syn::Error::new(ident.span(), format!("tag {tag} is reserved")));
         }
-        if let Some(prev) = fields.iter().find(|k: &&KeyedField| k.tag == tag) {
+        if let Some(prev) = fields.iter().find(|k: &&KeyedField| k.key.tag == tag) {
             return Err(syn::Error::new(
                 ident.span(),
                 format!("tag {tag} is already used by `{}`", prev.ident),
             ));
         }
-        if legacy && !is_root {
+        if key.legacy && !is_root {
             return Err(syn::Error::new(
                 ident.span(),
                 "`#[key(n, legacy)]` is only for fields of a `contract_state(layout = v2)` root: \
                  v1 collections cannot live inside a storage record",
             ));
         }
-        if !is_root && let Some(n) = v1_name(&f.ty) {
-            return Err(syn::Error::new(
-                f.ty.span(),
-                format!(
-                    "v1 collection `{n}` inside a storage record: v1 collections are allowed only \
-                     as root fields marked `#[key(n, legacy)]` (their write-on-drop and removal do \
-                     not compose with records); use the `near_sdk::state` type here"
-                ),
-            ));
-        }
-        if is_root && !legacy && let Some(n) = v1_name(&f.ty) {
-            return Err(syn::Error::new(
-                f.ty.span(),
-                format!(
-                    "v1 collection `{n}` at the root needs `#[key({tag}, legacy)]`: v1 collections \
-                     are not storage v2 values and are kept as their Borsh bytes (their prefix)"
-                ),
-            ));
-        }
-        if v1_name(&f.ty).is_none()
-            && let Some(span) = collection_valued(&f.ty)
-        {
+        if let Some(n) = v1_name(&f.ty) {
+            if !is_root {
+                return Err(syn::Error::new(
+                    f.ty.span(),
+                    format!(
+                        "v1 collection `{n}` inside a storage record: v1 collections are allowed \
+                         only as root fields marked `#[key(n, legacy)]` (their write-on-drop and \
+                         removal do not compose with records); use the `near_sdk::state` type here"
+                    ),
+                ));
+            }
+            if !key.legacy {
+                return Err(syn::Error::new(
+                    f.ty.span(),
+                    format!(
+                        "v1 collection `{n}` at the root needs `#[key({tag}, legacy)]`: v1 \
+                         collections are not storage v2 values and are kept as their Borsh bytes \
+                         (their prefix)"
+                    ),
+                ));
+            }
+        } else if let Some(span) = collection_valued(&f.ty) {
             return Err(syn::Error::new(
                 span,
                 "a map value cannot be a collection; put it in a `#[near(storage)]` record \
                  (`Map<MarketId, Market>` with `Market { orders: Map<OrderId, Order> }`)",
             ));
         }
-        fields.push(KeyedField {
-            ident,
-            ty: f.ty.clone(),
-            vis: f.vis.clone(),
-            tag,
-            required: required || legacy,
-            default,
-            default_fn,
-            legacy,
-        });
+        fields.push(KeyedField { ident, ty: f.ty.clone(), vis: f.vis.clone(), key });
     }
 
     let name = &item.ident;
@@ -329,11 +317,17 @@ pub fn expand(
     let view_mut = format_ident!("{}AtMut", name);
     let s = quote!(::near_sdk::state);
     let p = quote!(::near_sdk::state::__private);
-    let tag_lit = |t: u32| LitInt::new(&format!("{t}u32"), Span::call_site());
 
+    // `reserved(n)` tags, like legacy fields, are known-and-empty: not kept from the stored bytes
+    // and never a removal blocker (the version that owned a reserved collection tag cleared it).
+    let mut known_arms: Vec<_> = opts.reserved.iter().map(|t| quote! { #t => false, }).collect();
+    let mut unknown_arms: Vec<_> = opts
+        .reserved
+        .iter()
+        .map(|t| quote! { #t => ::core::option::Option::None, })
+        .collect();
     let mut max_terms = Vec::new();
     let mut enc = Vec::new();
-    let mut known_arms = Vec::new();
     let mut dec = Vec::new();
     let mut bind = Vec::new();
     let mut pending = Vec::new();
@@ -346,13 +340,10 @@ pub fn expand(
     let mut leaf_bounds = Vec::new();
     let mut clear = Vec::new();
     let mut clear_some = Vec::new();
-    // API round 5 (A3): one arm per declared tag for `__unknown_collection`.
-    let mut unknown_arms = Vec::new();
-    // Round 7: one const check per field of a record that it is not a root-only collection.
     let mut root_only = Vec::new();
 
-    for KeyedField { ident, ty, vis: fvis, tag, required, default, default_fn, legacy } in &fields {
-        let t = tag_lit(*tag);
+    for KeyedField { ident, ty, vis: fvis, key } in &fields {
+        let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
         if *legacy {
             // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
             // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
@@ -435,25 +426,10 @@ pub fn expand(
             }
         });
     }
-    let reserved_arms = opts.reserved.iter().map(|r| {
-        let t = tag_lit(*r);
-        quote! { #t => false, }
-    });
-    // `reserved(n)` tags are known-and-empty for removal: the version that owned a reserved
-    // collection tag must have cleared it.
-    let reserved_unknown_arms: Vec<_> = opts
-        .reserved
-        .iter()
-        .map(|r| {
-            let t = tag_lit(*r);
-            quote! { #t => ::core::option::Option::None, }
-        })
-        .collect();
     let unknown_collection_body = quote! {
         let f = #p::parse(bytes).ok()?;
         for &(t, w, b) in f.iter() {
             let hit = match t {
-                #(#reserved_unknown_arms)*
                 #(#unknown_arms)*
                 _ => #p::unknown_field_collection(w, b),
             };
@@ -478,7 +454,6 @@ pub fn expand(
         #(#enc)*
         // keep a stored tag iff the code does not know it inline and it is not reserved
         w.finish(orig, |t| match t {
-            #(#reserved_arms)*
             #(#known_arms)*
             _ => true,
         })
@@ -560,7 +535,7 @@ pub fn expand(
         });
     }
 
-    let has_required = fields.iter().any(|f| f.required);
+    let has_required = fields.iter().any(|f| f.key.required);
     let default_impl = (!user_default && !has_required).then(|| {
         quote! {
             impl ::core::default::Default for #name {

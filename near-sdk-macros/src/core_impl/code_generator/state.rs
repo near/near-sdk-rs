@@ -41,11 +41,11 @@ impl ContractStateArgs {
     }
 
     pub fn layout_error(&self) -> Option<syn::Error> {
-        match &self.layout {
-            Some(l) if l != "v2" => {
+        match (&self.layout, &self.root) {
+            (Some(l), _) if l != "v2" => {
                 Some(syn::Error::new(l.span(), "unknown storage layout; expected `layout = v2`"))
             }
-            _ if self.layout.is_none() && self.root.is_some() => Some(syn::Error::new(
+            (None, Some(_)) => Some(syn::Error::new(
                 proc_macro2::Span::call_site(),
                 "`root` requires `layout = v2`",
             )),
