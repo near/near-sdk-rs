@@ -1480,6 +1480,15 @@ mod campaign {
             }
         }
         println!("incomplete cases: {} of {}", audit.incomplete().len(), audit.cases());
+        // Why, grouped: `Audit::incomplete` holds "<case>: <why>".
+        let mut why = std::collections::BTreeMap::<String, usize>::new();
+        for s in audit.incomplete() {
+            let w = s.split_once(": ").map_or(s.as_str(), |(_, w)| w);
+            *why.entry(w.chars().take(120).collect()).or_default() += 1;
+        }
+        for (w, n) in &why {
+            println!("  {n}: {w}");
+        }
     }
 
     /// What the plan strategy drew: each distinct plan, and when the first and the last new
