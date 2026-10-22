@@ -493,6 +493,7 @@ message_error!(Occupied);
 /// a removed key's slot); restart if that matters.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema), schemars(crate = "crate::schemars"))]
 pub struct Page<K, V> {
     pub items: std::vec::Vec<(K, V)>,
     pub next: Option<K>,
@@ -502,6 +503,7 @@ pub struct Page<K, V> {
 /// One page of keys. `revision` as on [`Page`].
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "crate::serde")]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema), schemars(crate = "crate::schemars"))]
 pub struct KeyPage<K> {
     pub keys: std::vec::Vec<K>,
     pub next: Option<K>,
