@@ -44,7 +44,8 @@
 | v2 root (h16) | deposit (existing account, new token) | 1.941 | 1.937 | -4 | -1.4 | -3 | 4/4/0/0 -> 4/4/0/0 |  |
 | v2 root (h16) | balance_of (2 hops) | 1.298 | 1.296 | -2 | -1.4 | -1 | 2/0/0/0 -> 2/0/0/0 |  |
 
-The whole-sequence row: 13 calls, so the load shift is about 13 x 4.6 = +60 Ggas; beyond load about -71.
+The whole-sequence row: 13 calls, so the load shift is about 13 x 4.6 = +60 Ggas; beyond load about -74 against a3fix
+(-71 against gas_slim_c3's 7623d388 build, 27.809).
 
 ## zst rows (new in slim-a; no a3fix baseline). 'before' is gas_slim_a2_20261022.txt's 'before' (4cc4af52: the zst wasm,
 ## collections.rs after slim-a round 1, before the reused entry path; cache.rs pre-slim-b)
