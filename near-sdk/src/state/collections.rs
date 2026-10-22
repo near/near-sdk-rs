@@ -324,6 +324,36 @@ fn check_step(n: core::num::NonZeroU32) -> u32 {
     n
 }
 
+/// `remove_step` on either map, for the record at `path` in `map`, after `check_step`: clears
+/// what fits in `n` removes, then finishes with `finish` if the record's own remove plus the
+/// map's `finish_cost` still fits, else flags the record as being cleared.
+#[track_caller]
+fn remove_step_in<M, V: Record + Removable>(
+    map: &mut M,
+    path: &Path,
+    n: u32,
+    finish_cost: impl FnOnce(&M) -> u32,
+    finish: impl FnOnce(&mut M),
+) -> Removal {
+    if cache::get_entry::<V>(path).is_none() {
+        return Removal::Done;
+    }
+    guard_removal::<V>(path, true);
+    // Reserve the move to the flag key (1 remove of the record key on the first call that does
+    // not finish), so a `Pending` call also stays within `n`.
+    let pend = cache::clearing_cost(path);
+    let mut budget = n - pend;
+    if V::clear_children_some(path, &mut budget)
+        && cache::delete_cost::<V>(path, true) + finish_cost(map) <= budget + pend
+    {
+        finish(map);
+        Removal::Done
+    } else {
+        cache::set_clearing(path);
+        Removal::Pending
+    }
+}
+
 /// What one [`Map::remove_step`] / [`LookupMap::remove_step`] call left behind.
 #[must_use = "`Pending` means the record is still there, being cleared: call `remove_step` again \
               in a later call until it returns `Done`"]
@@ -533,6 +563,55 @@ macro_rules! not_inline_value {
         }
         fn detach(&mut self) {
             self.$($binding).+ = Binding::Detached;
+        }
+    };
+}
+
+/// `at` and `at_mut`, the same on `LookupMap` and `Map`.
+macro_rules! record_views {
+    () => {
+        /// A read-only view bound to the path for `k`. Reads nothing by itself.
+        #[track_caller]
+        pub fn at(&self, k: &K) -> V::View<'_>
+        where
+            V: Record,
+        {
+            V::__view(self.entry_path(k))
+        }
+
+        /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
+        /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
+        /// record itself is not read. `None` if the record does not exist (std convention: named
+        /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
+        /// flag key, and a record being cleared panics.
+        #[track_caller]
+        pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
+        where
+            V: Record,
+        {
+            self.path.live();
+            record_at_mut::<V>(self.entry_path(k))
+        }
+    };
+}
+
+/// The reads of a map's `At` view, the same on `LookupMap` and `Map`.
+macro_rules! at_map_reads {
+    () => {
+        #[track_caller]
+        pub fn get(&self, k: &K) -> Option<&'a V> {
+            cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
+        }
+        #[track_caller]
+        pub fn contains_key(&self, k: &K) -> bool {
+            self.inner.contains_key(k)
+        }
+        #[track_caller]
+        pub fn at(&self, k: &K) -> V::View<'a>
+        where
+            V: Record,
+        {
+            V::__view(self.inner.entry_path(k))
         }
     };
 }
@@ -777,23 +856,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        if cache::get_entry::<V>(&path).is_none() {
-            return Removal::Done;
-        }
-        guard_removal::<V>(&path, true);
-        // Reserve the move to the flag key (1 remove of the record key on the first call that
-        // does not finish), so a `Pending` call also stays within `n`.
-        let pend = cache::clearing_cost(&path);
-        let mut budget = n - pend;
-        if V::clear_children_some(&path, &mut budget)
-            && cache::delete_cost::<V>(&path, true) <= budget + pend
-        {
-            self.discard(k);
-            Removal::Done
-        } else {
-            cache::set_clearing(&path);
-            Removal::Pending
-        }
+        remove_step_in::<_, V>(self, &path, n, |_| 0, |s| s.discard(k))
     }
 
     #[track_caller]
@@ -803,28 +866,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         LookupMapEntry { path, _m: PhantomData }
     }
 
-    /// A read-only view bound to the path for `k`. Reads nothing by itself.
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'_>
-    where
-        V: Record,
-    {
-        V::__view(self.entry_path(k))
-    }
-
-    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
-    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. `None` if the record does not exist (std convention: named
-    /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
-    /// flag key, and a record being cleared panics.
-    #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
-    where
-        V: Record,
-    {
-        self.path.live();
-        record_at_mut::<V>(self.entry_path(k))
-    }
+    record_views!();
 }
 
 impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
@@ -838,21 +880,7 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
         entry(K);
         at_mut(&K);
     }
-    #[track_caller]
-    pub fn get(&self, k: &K) -> Option<&'a V> {
-        cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
-    }
-    #[track_caller]
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
-    }
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'a>
-    where
-        V: Record,
-    {
-        V::__view(self.inner.entry_path(k))
-    }
+    at_map_reads!();
 }
 
 pub struct LookupMapEntry<'a, K, V> {
@@ -1315,48 +1343,15 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        if cache::get_entry::<V>(&path).is_none() {
-            return Removal::Done;
-        }
-        guard_removal::<V>(&path, true);
-        let pend = cache::clearing_cost(&path);
-        let mut budget = n - pend;
-        // Finishing removes the record, its index and the last key slot (counted as 1 without
-        // reading the header to find it: every live map has its last slot stored).
-        if V::clear_children_some(&path, &mut budget)
-            && cache::delete_cost::<V>(&path, true) + cache::delete_cost::<u32>(&self.index_path(k), false) + 1
-                <= budget + pend
-        {
-            self.remove_inner(k, false);
-            Removal::Done
-        } else {
-            cache::set_clearing(&path);
-            Removal::Pending
-        }
+        // Finishing also removes the index and the last key slot (counted as 1 without reading
+        // the header to find it: every live map has its last slot stored).
+        let finish = |s: &Self| cache::delete_cost::<u32>(&s.index_path(k), false) + 1;
+        remove_step_in::<_, V>(self, &path, n, finish, |s| {
+            s.remove_inner(k, false);
+        })
     }
 
-    /// A read-only view bound to the path for `k`. Reads nothing by itself.
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'_>
-    where
-        V: Record,
-    {
-        V::__view(self.entry_path(k))
-    }
-
-    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
-    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. `None` if the record does not exist (std convention: named
-    /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
-    /// flag key, and a record being cleared panics.
-    #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
-    where
-        V: Record,
-    {
-        self.path.live();
-        record_at_mut::<V>(self.entry_path(k))
-    }
+    record_views!();
 }
 
 impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
@@ -1371,14 +1366,7 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
         at_mut(&K);
         clear();
     }
-    #[track_caller]
-    pub fn get(&self, k: &K) -> Option<&'a V> {
-        cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
-    }
-    #[track_caller]
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
-    }
+    at_map_reads!();
     pub fn len(&self) -> u32 {
         self.inner.len()
     }
@@ -1422,13 +1410,6 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
     pub fn keys(&self) -> IndexIter<impl FnMut(u32) -> K + use<'a, K, V>> {
         let map = Map::<K, V>::__bound_at(self.inner.p().clone());
         IndexIter::new(map.len(), move |i| map.key_at(i).expect("dense key vector"))
-    }
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'a>
-    where
-        V: Record,
-    {
-        V::__view(self.inner.entry_path(k))
     }
 }
 
