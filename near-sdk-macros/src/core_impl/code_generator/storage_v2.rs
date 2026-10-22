@@ -316,21 +316,26 @@ pub fn expand(
     let mut dec = Vec::new();
     let mut root_only = Vec::new();
 
+    // The decode locals are mixed-site, so a `default` / `default_fn` naming `f` or `path` means
+    // the user's item, not a generated binding.
+    let f = syn::Ident::new("f", Span::mixed_site());
+    let path = syn::Ident::new("path", Span::mixed_site());
     for KeyedField { ident, ty, key, .. } in &fields {
         let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
         // Spanned at the field type, so a missing `Default` points at the field.
         let span = ty.span();
         let decode = if *legacy {
-            quote_spanned! {span=> #p::legacy_field::<#ty>(f, #t) }
+            quote_spanned! {span=> #p::legacy_field::<#ty>(#f, #t) }
         } else if *required {
-            quote_spanned! {span=> #p::field_required::<#ty>(f, #t, path) }
+            quote_spanned! {span=> #p::field_required::<#ty>(#f, #t, #path) }
         } else if let Some(d) = default {
-            // `expr` is a `const` item, so it is evaluated at compile time and a non-const
+            // `expr` is an inline `const`, so it is evaluated at compile time and a non-const
             // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
             // error at the expression (E0015). Re-evaluating it on every decode of an old
-            // record is then harmless: it is the same value every time.
-            let c = quote_spanned! {d.span()=> const __KEY_DEFAULT: #ty = #d; };
-            quote_spanned! {span=> #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT }) }
+            // record is then harmless: it is the same value every time. Unlike a named `const`
+            // item, it binds no name the expression could resolve to.
+            let c = quote_spanned! {d.span()=> const { #d } };
+            quote_spanned! {span=> #p::field_or::<#ty>(#f, #t, #path, || #c) }
         } else if let Some(fp) = default_fn {
             // `default_fn = path`: the escape hatch from the const rule above, for a type
             // with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
@@ -338,9 +343,9 @@ pub fn expand(
             // path. Called on EVERY decode where the tag is absent, until some other change
             // rewrites the record (the flush writes the tag then); it must be pure.
             let c = quote_spanned! {fp.span()=> let __key_default_fn: fn() -> #ty = #fp; };
-            quote_spanned! {span=> #p::field_or::<#ty>(f, #t, path, || { #c __key_default_fn() }) }
+            quote_spanned! {span=> #p::field_or::<#ty>(#f, #t, #path, || { #c __key_default_fn() }) }
         } else {
-            quote_spanned! {span=> #p::field::<#ty>(f, #t, path) }
+            quote_spanned! {span=> #p::field::<#ty>(#f, #t, #path) }
         };
         dec.push(quote_spanned! {span=> #ident: #decode?, });
         if *legacy {
@@ -407,8 +412,8 @@ pub fn expand(
             #[doc(hidden)]
             #[allow(dead_code)]
             fn __decode_fields(
-                f: &#p::Fields<'_>,
-                path: ::core::option::Option<&#s::Path>,
+                #f: &#p::Fields<'_>,
+                #path: ::core::option::Option<&#s::Path>,
             ) -> ::core::result::Result<Self, #s::RecordError> {
                 ::core::result::Result::Ok(Self { #(#dec)* })
             }
