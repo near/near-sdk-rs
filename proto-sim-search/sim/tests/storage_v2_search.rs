@@ -670,6 +670,10 @@ enum Exp {
 const CLEARING: &str = "being cleared by `remove_step`";
 const KEY_TOO_LONG: &str = "over its declared MAX_LEN";
 const PLANNED: &str = "planned panic";
+/// `vec![b; size]` past wasm32's `isize::MAX` bytes: Rust's alloc panics before allocating.
+const CAPACITY: &str = "capacity overflow";
+/// The largest blob the contract can build on wasm32 (`isize::MAX` there).
+const WASM_MAX_ALLOC: u64 = i32::MAX as u64;
 
 fn page_slice<K: Clone + PartialEq + Into<Value>>(
     keys: &[K],
@@ -802,6 +806,9 @@ impl Model {
                 if rec.is_none() {
                     m.accts.push((who.clone(), Rec { a: Acct::default(), clearing: false }));
                 }
+                if u("blob")? > WASM_MAX_ALLOC {
+                    return Ok(Exp::Panic(CAPACITY));
+                }
                 let acct = m.acct_mut(&who);
                 for i in 0..u("n")? {
                     let t = format!("t{i}");
@@ -829,6 +836,9 @@ impl Model {
                 let tok = a["token"].as_str().unwrap_or_default().to_owned();
                 if matches!(method, "bal_set" | "bal_remove") && tok.len() > 512 {
                     return Ok(Exp::Panic(KEY_TOO_LONG));
+                }
+                if method == "blob_set" && u("size")? > WASM_MAX_ALLOC {
+                    return Ok(Exp::Panic(CAPACITY));
                 }
                 let acct = m.acct_mut(&who);
                 let v = match method {
