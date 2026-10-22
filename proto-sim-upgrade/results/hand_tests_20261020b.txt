@@ -1,0 +1,116 @@
+   Compiling proto-sim-upgrade-sim v0.0.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/storage-v2-sim-port/proto-sim-upgrade/sim)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.01s
+     Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-d1eb8fef37aad6e5)
+mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+
+running 14 tests
+test scan_out_of_gas ... ignored, long
+test search_from_v1 ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test search_from_v2a ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test search_from_v2b ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test timing_probe ... ignored, timing: TIMING_CASES (default 128) fixed plans, run one by one
+g0 record after v2b add_flag: [04, 05, 01, 00, 00, 00, 6f, 08, 08, 0a, 00, 00, 00, 00, 00, 00, 00, 0c, 06, 02, 00, 00, 00, 6e, 35, 10, 08, 05, 00, 00, 00, 00, 00, 00, 00, 15, 01, 81] (no 0x21 = tag 8 marker field key)
+v2b reads g0 (created by v2a, locked 5): {"claimable":5,"label":"unlabeled","level":7,"owner":"o","weight":10}
+v2a reads g1 after v2b set claimable 42: {"locked":42,"note":"","owner":"o","weight":20}
+test retag_both_directions ... ok
+v2a remove_group(g0): Ok([116, 114, 117, 101])
+keys left under g0: 4
+verdict: findings: claimable is only what schema B wrote at world
+  step 0: Upgrade { to: V2a, migrate: true }, then Settle
+  step 1: CreateGroup { g: 0, weight: 3, x: 9 }, then Settle
+  step 2: Upgrade { to: V2b, migrate: false }, then Settle
+finding at world: [claimable is only what schema B wrote] g0.claimable = 9 through V2b, but schema B never wrote it (v2a's `locked` at tag 4 was Some(9))
+  harness: seq has no gap: 4 ok, 0 failed, 0 not judged, 0 idle
+  the model saw nothing forbidden: 4 ok, 0 failed, 0 not judged, 0 idle
+  items read back through the deployed code: 4 ok, 0 failed, 0 not judged, 0 idle
+  each item lives on exactly one side: 4 ok, 0 failed, 0 not judged, 0 idle
+  group records match the model byte for byte: 4 ok, 0 failed, 0 not judged, 0 idle
+  group views match the model: 4 ok, 0 failed, 0 not judged, 0 idle
+  claimable is only what schema B wrote: 3 ok, 1 failed, 0 not judged, 0 idle
+  no collection outlives its record: 4 ok, 0 failed, 0 not judged, 0 idle
+  runtime: storage_usage is account + code + every key: 4 ok, 0 failed, 0 not judged, 0 idle
+  item subtree bytes match the spec formula: 4 ok, 0 failed, 0 not judged, 0 idle
+  probe: behaviour classes (never fails; counts include reruns): 1 ok, 0 failed, 0 not judged, 0 idle
+  failures are documented ones: 3 ok, 0 failed, 0 not judged, 0 idle
+
+g0.claimable = 9 through V2b, but schema B never wrote it (v2a's `locked` at tag 4 was Some(9))
+new g0 under v2b sees the old flag f0: true
+HOLE PRESENT (production code without the fix)
+test a3_marker_missing_after_at_mut_write_orphans_a_new_collection ... ok
+test raw_checks_can_fail ... ok
+view group(g0): Err(Panic("state: cannot decode value at f00200fe56cf2a0942253b1506d56b9d678337020000006730: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option`"))
+view members_len(g0): Ok("3")
+set_weight: Err("panicked: state: cannot decode value at f00200fe56cf2a0942253b1506d56b9d678337020000006730: Missing { tag: 9 }")
+add_member: Ok("")
+add_flag: Ok("")
+remove_member: Ok("")
+remove_step: Err("panicked: state: cannot decode value at f00200fe56cf2a0942253b1506d56b9d678337020000006730: Missing { tag: 9 }")
+remove_group: Err("panicked: state: cannot decode value at f00200fe56cf2a0942253b1506d56b9d678337020000006730: Missing { tag: 9 }")
+create_group: Ok("")
+v2b before: {"claimable":5,"label":"unlabeled","level":4,"owner":"o","weight":10}
+v2a sees:   {"locked":5,"note":"","owner":"o","weight":10}
+v2b after:  {"claimable":5,"label":"unlabeled","level":4,"owner":"o","weight":99}
+items subtree: drained 2423 bytes in 37 keys, fresh 2423 bytes in 37 keys
+root record: drained 28 bytes [04, 10, 00, 00, 00, 00, 02, 00, 00, 00, 69, 76, 02, 00, 00, 00, 69, 6d, 0c, 08, 06, 00, 00, 00, 00, 00, 00, 00], fresh 10 bytes [0c, 08, 0c, 00, 00, 00, 00, 00, 00, 00]
+storage_usage: drained 204852, fresh 204834, delta 18
+test drained_contract_matches_a_fresh_v2_one ... ok
+test downgrade_keeps_schema_b_fields ... ok
+test required_tag_on_old_records ... ok
+verdict: findings: claimable is only what schema B wrote at world and 1 more
+  step 0: Upgrade { to: V2b, migrate: false }, then Settle
+  step 1: AddFlag { g: 0, f: 0 }, then Settle
+  step 2: ClearLoop { g: 0, n: 3, rounds: 4 }, then Blocks(1)
+  step 3: Upgrade { to: V2a, migrate: false }, then Settle
+  step 4: RemoveStep { g: 0, n: 12 }, then Settle
+finding at world: [claimable is only what schema B wrote] g0.claimable = 5 through V2b, but schema B never wrote it (v2a's `locked` at tag 4 was Some(5))
+finding at world: [no collection outlives its record] g0 was removed through v2a and left its flags ["f0"] behind
+  harness: seq has no gap: 5 ok, 0 failed, 0 not judged, 0 idle
+  the model saw nothing forbidden: 5 ok, 0 failed, 0 not judged, 0 idle
+  items read back through the deployed code: 5 ok, 0 failed, 0 not judged, 0 idle
+  each item lives on exactly one side: 5 ok, 0 failed, 0 not judged, 0 idle
+  group records match the model byte for byte: 5 ok, 0 failed, 0 not judged, 0 idle
+  group views match the model: 5 ok, 0 failed, 0 not judged, 0 idle
+  claimable is only what schema B wrote: 3 ok, 2 failed, 0 not judged, 0 idle
+  no collection outlives its record: 4 ok, 1 failed, 0 not judged, 0 idle
+  runtime: storage_usage is account + code + every key: 5 ok, 0 failed, 0 not judged, 0 idle
+  item subtree bytes match the spec formula: 5 ok, 0 failed, 0 not judged, 0 idle
+  probe: behaviour classes (never fails; counts include reruns): 1 ok, 0 failed, 0 not judged, 0 idle
+  failures are documented ones: 5 ok, 0 failed, 0 not judged, 0 idle
+
+test a3_orphan_replay ... ok
+test retag_hazard_is_caught ... ok
+verdict: clean
+  step 0: Insert { k: 0, v: 5 }, then Settle
+  step 1: Upgrade { to: V2a, migrate: true }, then Settle
+  step 2: Insert { k: 1, v: 6 }, then Settle
+  step 3: Insert { k: 6, v: 9 }, then Settle
+  step 4: CreateGroup { g: 0, weight: 3, x: 0 }, then Settle
+  step 5: AddMember { g: 0, m: 1, v: 2 }, then Settle
+  step 6: MigrateBatch { n: 5 }, then Settle
+  step 7: Drain { n: 4, rounds: 5 }, then Settle
+  step 8: Upgrade { to: V2b, migrate: false }, then Settle
+  step 9: SetLevel { g: 0, x: 3 }, then Settle
+  step 10: AddFlag { g: 0, f: 1 }, then Settle
+  step 11: Upgrade { to: V3, migrate: false }, then Settle
+  step 12: Remove { k: 1 }, then Settle
+  step 13: ClearLoop { g: 0, n: 3, rounds: 6 }, then Settle
+  harness: seq has no gap: 15 ok, 0 failed, 0 not judged, 0 idle
+  the model saw nothing forbidden: 15 ok, 0 failed, 0 not judged, 0 idle
+  items read back through the deployed code: 15 ok, 0 failed, 0 not judged, 0 idle
+  each item lives on exactly one side: 15 ok, 0 failed, 0 not judged, 0 idle
+  group records match the model byte for byte: 15 ok, 0 failed, 0 not judged, 0 idle
+  group views match the model: 15 ok, 0 failed, 0 not judged, 0 idle
+  claimable is only what schema B wrote: 15 ok, 0 failed, 0 not judged, 0 idle
+  no collection outlives its record: 15 ok, 0 failed, 0 not judged, 0 idle
+  runtime: storage_usage is account + code + every key: 15 ok, 0 failed, 0 not judged, 0 idle
+  item subtree bytes match the spec formula: 15 ok, 0 failed, 0 not judged, 0 idle
+  probe: behaviour classes (never fails; counts include reruns): 1 ok, 0 failed, 0 not judged, 0 idle
+  failures are documented ones: 14 ok, 0 failed, 0 not judged, 0 idle
+
+202.858708ms
+test smoke_upgrade_path ... ok
+
+test result: ok. 9 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+mbx[cache]: 0 hits, 0 misses, 1 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 365.6 GiB logical of target/ belonged to checkouts that no longer exist. neither does it.

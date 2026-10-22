@@ -998,9 +998,17 @@ fn actual(r: &ReceiptOutcome) -> Actual {
 fn step(m: &Model, r: &ReceiptOutcome, at: &str) -> Result<Model, String> {
     let method = r.method_names[0].clone();
     let args: Value = serde_json::from_slice(&r.args[0]).map_err(|e| format!("{at}: args: {e}"))?;
-    let exp = m.exec(&method, &args)?;
+    // The outcome first: a receipt that ran out of gas left no trace, and the model is never
+    // asked what it expected (a scan's type-max edge, `Bulk { n: u32::MAX }`, would make the
+    // model loop 4 billion times for a receipt that died at the gas ceiling).
     let act = actual(r);
     let call = format!("{at}: {method}({args})");
+    match &act {
+        Actual::Gas(_) => return Ok(m.clone()),
+        Actual::Other(f) => return Err(format!("{call}: failed outside gas or a panic: {f}")),
+        _ => {}
+    }
+    let exp = m.exec(&method, &args)?;
     match (exp, act) {
         (_, Actual::Gas(_)) => Ok(m.clone()),
         (_, Actual::Other(f)) => Err(format!("{call}: failed outside gas or a panic: {f}")),
