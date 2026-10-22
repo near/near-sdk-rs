@@ -1773,11 +1773,18 @@ fn a3_first_write_through_at_mut_marks_the_record_so_removal_refuses() {
 #[test]
 fn a3_orphan_replay() {
     let path = format!("{}/tests/found/a3-orphaned-flags.json", env!("CARGO_MANIFEST_DIR"));
-    let run = harness(v2a_world()).run(&Plan::load(&path));
+    // Its last step, v2a's `remove_step`, is now refused: on main a written witness whose
+    // transaction fails is a harness error unless the plan says it is refused.
+    let run = harness(v2a_world()).run(&Plan::load(&path).refused());
     println!("{run}");
     assert!(run.verdict() != Verdict::HarnessError, "{run}");
     assert!(run.findings().iter().all(|f| f.check != A3), "the A3 orphan is gone: {run}");
-    assert!(run.findings().iter().all(|f| f.check == RETAG), "only the re-used tag 4 may show: {run}");
+    // What may still show: the re-used tag 4, and the detached `clear_loop` link meeting the
+    // same A3 refusal after the downgrade (a continuation refusal, as `expected` allows).
+    let allowed = |f: &near_contract_sim::Finding| {
+        f.check == RETAG || (f.check == builtin::UNHANDLED_FAILURE && f.site.to_string().contains("clear_loop"))
+    };
+    assert!(run.findings().iter().all(allowed), "only the re-used tag 4 or a refused continuation may show: {run}");
     let refused = run.outcomes().iter().flat_map(|o| &o.receipts).any(|r| {
         matches!(r.failure(), Some(Failure::Panic(m)) if m.contains("refusing to remove"))
     });
