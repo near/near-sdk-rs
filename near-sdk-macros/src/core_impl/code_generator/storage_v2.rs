@@ -332,48 +332,43 @@ pub fn expand(
 
     for KeyedField { ident, ty, key, .. } in &fields {
         let KeyAttr { tag: t, required, default, default_fn, legacy } = key;
-        if *legacy {
-            // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
-            // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
-            enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
-            known_arms.push(quote! { #t => false, });
-            unknown_arms.push(quote! { #t => ::core::option::Option::None, });
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::legacy_field::<#ty>(f, #t)?, });
-            continue;
-        }
-        enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
-        known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
-        // a declared field: a nested record checks its own bytes, anything else is known
-        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
         // Spanned at the field type, so a missing `Default` points at the field.
-        if *required {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field_required::<#ty>(f, #t, path)?, });
+        let span = ty.span();
+        let decode = if *legacy {
+            quote_spanned! {span=> #p::legacy_field::<#ty>(f, #t) }
+        } else if *required {
+            quote_spanned! {span=> #p::field_required::<#ty>(f, #t, path) }
         } else if let Some(d) = default {
             // T6: `expr` is a `const` item, so it is evaluated at compile time and a non-const
             // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
             // error at the expression (E0015). Re-evaluating it on every decode of an old
             // record is then harmless: it is the same value every time.
-            let c = quote_spanned! {d.span()=>
-                const __KEY_DEFAULT: #ty = #d;
-            };
-            dec.push(quote_spanned! {ty.span()=>
-                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT })?,
-            });
+            let c = quote_spanned! {d.span()=> const __KEY_DEFAULT: #ty = #d; };
+            quote_spanned! {span=> #p::field_or::<#ty>(f, #t, path, || { #c __KEY_DEFAULT }) }
         } else if let Some(fp) = default_fn {
             // `default_fn = path` (API round 4): the escape hatch from T6's const rule, for a
             // type with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
             // a closure, a method needing arguments or a wrong return type is an error at the
             // path. Called on EVERY decode where the tag is absent, until some other change
             // rewrites the record (the flush writes the tag then); it must be pure.
-            let c = quote_spanned! {fp.span()=>
-                let __key_default_fn: fn() -> #ty = #fp;
-            };
-            dec.push(quote_spanned! {ty.span()=>
-                #ident: #p::field_or::<#ty>(f, #t, path, || { #c __key_default_fn() })?,
-            });
+            let c = quote_spanned! {fp.span()=> let __key_default_fn: fn() -> #ty = #fp; };
+            quote_spanned! {span=> #p::field_or::<#ty>(f, #t, path, || { #c __key_default_fn() }) }
         } else {
-            dec.push(quote_spanned! {ty.span()=> #ident: #p::field::<#ty>(f, #t, path)?, });
+            quote_spanned! {span=> #p::field::<#ty>(f, #t, path) }
+        };
+        dec.push(quote_spanned! {span=> #ident: #decode?, });
+        if *legacy {
+            // T7: a root-only v1 field, stored inline as its Borsh bytes (its prefix), outside
+            // the `Value` trait. Owns nothing the v2 cache knows about: no subpath, no binding.
+            enc.push(quote! { #p::encode_legacy_field(&mut w, #t, &self.#ident); });
+            known_arms.push(quote! { #t => false, });
+            unknown_arms.push(quote! { #t => ::core::option::Option::None, });
+            continue;
         }
+        enc.push(quote! { #p::encode_field(&mut w, of.as_ref(), #t, &self.#ident); });
+        known_arms.push(quote! { #t => !<#ty as #s::Value>::INLINE, });
+        // a declared field: a nested record checks its own bytes, anything else is known
+        unknown_arms.push(quote! { #t => #p::declared_field_collection::<#ty>(w, b), });
         if !is_root {
             // Round 7 (A3 first-write rule): a headerless collection has no first-write signal,
             // so it is root-only. A const check, not a syntactic one: it sees through aliases,
