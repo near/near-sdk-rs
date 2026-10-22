@@ -1,0 +1,394 @@
+    Blocking waiting for file lock on package cache
+   Compiling thiserror v2.0.20
+   Compiling target-lexicon v0.13.5
+   Compiling cranelift-assembler-x64 v0.132.3
+   Compiling opentelemetry v0.32.0
+   Compiling near-primitives-core v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-config-utils v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling cobs v0.3.0
+   Compiling postcard v1.1.3
+   Compiling near-crypto v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling opentelemetry_sdk v0.32.1
+   Compiling prometheus v0.14.0
+   Compiling near-parameters v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling tracing-appender v0.2.5
+   Compiling tracing-opentelemetry v0.33.0
+   Compiling bindgen v0.72.1
+   Compiling near-fmt v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling opentelemetry-proto v0.32.0
+   Compiling near-primitives v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling object_store v0.13.2
+   Compiling reed-solomon-erasure v6.0.0
+   Compiling opentelemetry-otlp v0.32.0
+   Compiling librocksdb-sys v0.17.3+10.4.2
+   Compiling near-o11y v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-chain-primitives v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-chain-configs v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-async v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-external-storage v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+mbx[warning]: cc cache bypassed: compiler invocation names no output file
+mbx[warning]: cc result was not restored: cached action is missing blob 423a07da73d25509362076dfa73929cf85ca97b2f1cd5d38ad2e2de3bb3073fd
+mbx[warning]: cc result was not restored: cached action is missing blob b72621d3bc2b9a4f10844ccb429ef6302028943d8d55b26e12745ddf6b1c5e35
+mbx[warning]: cc result was not restored: cached action is missing blob 287f4cca12119d175980d20fef53f2f31bae5127c686c07154a29be3251b0829
+mbx[warning]: cc result was not restored: cached action is missing blob 2661138bf930c951a6d8c47b981339b1ebbe54af5361301c3c66f1f4b2ef33dc
+mbx[warning]: cc result was not restored: cached action is missing blob 1851c797196c959a315a3aa640651b897f09b3cd9c40a4602daeed05c19f7a06
+mbx[warning]: cc result was not restored: cached action is missing blob 915384e5dab9e2b8f8756f2d3c07ed574cc43da60fa3b2f9640bbd3dc1336cd7
+mbx[warning]: cc result was not restored: cached action is missing blob 7f8475f67f6313c1d2b2880e2551acb184bd00b3244f3663869383facc30d46b
+mbx[warning]: cc result was not restored: cached action is missing blob cfb30b296fe9dc3ea0d9931dd029b186452f27ba6f58ad8436e0f90c7e415cbd
+mbx[warning]: cc result was not restored: cached action is missing blob 0a713bbaecda217ee517331e884c2e8f2c1b292b4b749699621acc69ad80b550
+mbx[warning]: cc result was not restored: cached action is missing blob b84425ec907446e33de87db9dd291c8f14e7822d92119a9a669d8c2e419fcf09
+mbx[warning]: cc result was not restored: cached action is missing blob 8153f1007f2f59d122c89f740616ce56fb8f4ed916b777273b4455cbd25ffb92
+mbx[warning]: cc result was not restored: cached action is missing blob 683de5df2a2aaeeada0adea8075407fdb7f360bcdd855c78c780c6c30ec7589e
+mbx[warning]: cc result was not restored: cached action is missing blob e7f67731f76ae50b0dd8448b697f323b9713965ef13e2546906572b9bb7afd4d
+mbx[warning]: cc result was not restored: cached action is missing blob 267bc84e8339168d1eabfc9ddc819ebe7d2cf799681406ec96bfe8b0c1f33e49
+mbx[warning]: cc result was not restored: cached action is missing blob 48e6c0426c90645ff62d3d935dd0d6f81dc00ca34c85be3018dade45127930ea
+mbx[warning]: cc result was not restored: cached action is missing blob c741fbbf7666f26157d2c86007ad4cf6671d7effde834d7c3be9ee516b1ebb5f
+mbx[warning]: cc result was not restored: cached action is missing blob e9f42aa2a018d725469a628965e5a07cc8f2b588ffba3a9ba7796e50fafcd0cd
+mbx[warning]: cc result was not restored: cached action is missing blob 988d5be719f455684192f72999ac536b1ee67d37583981d78723e37517469fc3
+mbx[warning]: cc result was not restored: cached action is missing blob 24618f15b18cfc4fb4f597b070a13fb8578e5482a52efdde10e259b3d2448d5b
+mbx[warning]: cc result was not restored: cached action is missing blob 8a751f0d57d88d1122f2655ad16359dbaf6e2a5fd48c68ec02f922a1ccb8eae5
+mbx[warning]: cc result was not restored: cached action is missing blob 811fa979899bc9870a162159da8a9db315d0b9408b93abd76cd926ffb17a3a13
+mbx[warning]: cc result was not restored: cached action is missing blob 9f16ffe04b80b607ebefe17bc7603eac3915ce5c9f704706d35fb1a4c5449d5c
+   Compiling wasmtime-environ v45.0.3
+mbx[warning]: cc result was not restored: cached action is missing blob d0a57ad0eeaca613e999abb40d8a021007a9468efdd0f39d41469f4b4c436116
+mbx[warning]: cc result was not restored: cached action is missing blob 6bec21b45702ec9660177aab4bd23e9ea48947e0203ab26c62c33ad4d1a8e597
+mbx[warning]: cc result was not restored: cached action is missing blob 1747b2b21fbb8f50fb311924cc7e52c046994044f6c519e43c10255de196a252
+mbx[progress]: 15s elapsed; 28 hits, 9 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob 4c723f5c532820861943e74ffadcacaa4f379b0e155b912522bc28b7e7d92884
+mbx[warning]: cc result was not restored: cached action is missing blob 24b45c0b4d2fff3e4411a4cc96fd9cd0e2049417a6d34e636df6f1d6e142247e
+mbx[warning]: cc result was not restored: cached action is missing blob 4553cadd391fc82415266081ad8483d7fe026c476222ab8583bb84eac11596dd
+mbx[warning]: cc result was not restored: cached action is missing blob 79a19bef9bc3fbcdfa0827bec4e076379a80230672fb439a4af7bd47fafc70fd
+mbx[warning]: cc result was not restored: cached action is missing blob d2543224b756c911ed5a2a547d6503417973a52d6049bc18df833657853e26b1
+mbx[warning]: cc result was not restored: cached action is missing blob 4eec17f3da7be21c7d089464ef6a5263b19519be36de16b13039832c22c4c2fa
+mbx[warning]: cc result was not restored: cached action is missing blob 617e0ae18585db80c45ff71637bcf0e9c3ce115ed22f65e092ac1424d503f032
+mbx[warning]: cc result was not restored: cached action is missing blob 5af44314182aac3c071c843fc0cd031f3b6065bd603b6fa17c4459c5e3c4d221
+mbx[warning]: cc result was not restored: cached action is missing blob 77d40641b70857dfb7ea5fc8a78f75d93db7e5ccb1184cb02b0022b0bdb5e103
+mbx[warning]: cc result was not restored: cached action is missing blob d3238be8e2bb30d867439bcf28b4a469a0c69bb7880cf69c75daa2b4c071c90e
+mbx[progress]: 30s elapsed; 28 hits, 19 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob 4f7b408da93f84cfa6cabbdb506120b4b2d5998917e277c189fe129fdb1a8d82
+mbx[warning]: cc result was not restored: cached action is missing blob 6ce1335ba7a22c75eddbaf324a14761e6545d237bada0ae4fce5259d746ed858
+mbx[warning]: cc result was not restored: cached action is missing blob d77059f5d8581ec6de13af878eb43ce66385a921d903f6c3b880a7d58751b3e7
+mbx[warning]: cc result was not restored: cached action is missing blob f66d326088ba6fefad8fe37673eacb12fecd5ddc27eac8478347b5baedeccb65
+mbx[warning]: cc result was not restored: cached action is missing blob 61b7dd53a170a60d73dd18640eb071c97249643937081de4e05d3d05d1d25fa8
+mbx[warning]: cc result was not restored: cached action is missing blob e7892715429cbb753dab64f29d013eeb436132b100c89e3cdd0d9a4529a530c3
+mbx[warning]: cc result was not restored: cached action is missing blob fbdbd45ab2fddb554b7866e5eb88b37683475f54b4c8d7c0427cd6c7612bb854
+mbx[warning]: cc result was not restored: cached action is missing blob aaaa5bc8c672b2cdb133b67fff582eda918db206b086f4427bff8f6174904324
+mbx[warning]: cc result was not restored: cached action is missing blob 42aad16350a700661c277f9452ea620b41a401c6811c36e4326451a59cae784b
+mbx[progress]: 45s elapsed; 28 hits, 28 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob b0abd26790d06c2223e50093934f189264174f8fefd353067c661ade21271e73
+mbx[warning]: cc result was not restored: cached action is missing blob f9a48d269deb09591be953f1318816609aa97b0bf5fe434d0582cc4ee0b92641
+mbx[warning]: cc result was not restored: cached action is missing blob 93b22fbc967738af4f3c6e2436ff08954b422b87fcef67f01f0415ed84eca538
+mbx[warning]: cc result was not restored: cached action is missing blob afdbd50669ab096185a5eea0186bdcae765f6335f13ce51aefd134081d08cca6
+   Compiling cranelift-codegen v0.132.3
+   Compiling wasmtime-internal-unwinder v45.0.3
+   Compiling cranelift-native v0.132.3
+   Compiling cranelift-frontend v0.132.3
+   Compiling wasmtime-internal-cranelift v45.0.3
+   Compiling winch-codegen v45.0.3
+   Compiling wasmtime-internal-winch v45.0.3
+   Compiling wasmtime v45.0.3
+   Compiling near-vm-runner v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-wallet-contract v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+mbx[warning]: cc result was not restored: cached action is missing blob 409150d0fa93a75e82c55a074be4575d6b2811191c62345debd8f32667dd639e
+mbx[warning]: cc result was not restored: cached action is missing blob 8639edd2fe86973148631ff40a04d883077acac630ff36499a42cd822e5c4df4
+mbx[warning]: cc result was not restored: cached action is missing blob cc2cc410643132bd6b8df0445d6988f4d913f00b4502ddfbcff1119d7e51a7e5
+mbx[warning]: cc result was not restored: cached action is missing blob 465c54028aa17f9136daa4e504c8a5e6f6e53bdc6b16cca546ee187eed65359b
+mbx[warning]: cc result was not restored: cached action is missing blob 8ad215fa6de7ff9bd89b94679d067cd9b70c2c08371c7c67d97283a4dbfdd524
+mbx[warning]: cc result was not restored: cached action is missing blob 5cae355b88c15a09edb6cc3656e24f0298823a689b52d96a7eb2024be5018278
+mbx[warning]: cc result was not restored: cached action is missing blob 08a7f361f57e57744288f5e002c42ecb78b7e4507b0078e1ea48befbb0405a6c
+mbx[warning]: cc result was not restored: cached action is missing blob 14efb88bee0cdc0644b8871f96f655911dfd420482d09a933bde4ee208f353e0
+mbx[warning]: cc result was not restored: cached action is missing blob 237f3553e3fbf4960736e2e8ebaa8d95466257e5d5b0c34cdeba29c7bc8f7b99
+mbx[progress]: 1m elapsed; 39 hits, 42 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob 9778b1b38fe8b31cb91f101b0bf1736b17771386f0158cc186c68f68e375e72b
+mbx[warning]: cc result was not restored: cached action is missing blob fe208e9ee573937989cb9c4f4858859360ad55ed4cec9187a61a9eb55771b0c2
+mbx[warning]: cc result was not restored: cached action is missing blob c608da2ab1a5d6fe780888d7607c2da716df092521caad3894e0e93ba2e8ea3d
+mbx[warning]: cc result was not restored: cached action is missing blob f269cde4d20bbe2b49f4ae391052d1fd6a140c8c9be47b951fda8628d5739653
+mbx[warning]: cc result was not restored: cached action is missing blob f28011a26a81a6647881bcbf099aff534554078acf93a38aba785016d03f72ca
+mbx[warning]: cc result was not restored: cached action is missing blob 0cfa8e01508689d4d327e57719d0c20c159e986077aea66c5ae920a33e8154f5
+mbx[warning]: cc result was not restored: cached action is missing blob 83ce4416b5d681a3751e86c4d2f1281d3bb07fa56fc482e7855c45ed2f27b2c6
+mbx[warning]: cc result was not restored: cached action is missing blob 7a41a1025e5733a1b88ea22adac22bf9fc152d059f1f505cfb1d772ac3c7dfd3
+mbx[progress]: 1m 15s elapsed; 39 hits, 49 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob 83f203139d486cf4fd8a0199b8e8c6f4959238e515dd9738c1b490524151a3b8
+mbx[warning]: cc result was not restored: cached action is missing blob a046add51dd3a91b6cb57268789934920ef0c54bc735189dc73cc5169a5b7e54
+mbx[warning]: cc result was not restored: cached action is missing blob 2b9b6b6e6f20b551068047bc1921f2678ac61c756e9b32e6032d9570c7d18de7
+mbx[warning]: cc result was not restored: cached action is missing blob 6e756b0b46bee74e8ab8b3f384c91e01763e824bc2ca8875facbacca65574110
+mbx[warning]: cc result was not restored: cached action is missing blob 2ac48c6bfbbf417fbf742c8314f0580650f2dd8331aea318f95cb921ae3f209c
+mbx[warning]: cc result was not restored: cached action is missing blob 3db2be5eb436b5eb2776b74842f818058bbea5cd2971cde065105408fe51d016
+mbx[warning]: cc result was not restored: cached action is missing blob 340e9a4d49f7cc0013bd656d2f3f4d6fe29680afec7badf7ff3cb618510d66bd
+mbx[warning]: cc result was not restored: cached action is missing blob 7468da01f6a4a29e891a6de4481bb94b7eeae70f5d29e99ef096590afbeeb35a
+mbx[progress]: 1m 30s elapsed; 39 hits, 57 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob a7a1cced8993b42da8f91fa90224817db1bd2dfda8c107e650747d48673c1325
+mbx[warning]: cc result was not restored: cached action is missing blob f0dd7facb8b5814b69718d8c512cb4f9eb65584e23558857bc40d48159162f14
+mbx[warning]: cc result was not restored: cached action is missing blob 1fb559d1afee839013adeb7bf762e021bede09c0548e7e0df4843bbb8e446139
+mbx[warning]: cc result was not restored: cached action is missing blob 687a8e4859cfde5196f3e44872a1fd194afe1419403fb1f2a1f7e52f8faffe49
+mbx[warning]: cc result was not restored: cached action is missing blob 2f0d6e50f325782f807f46c31d0aecee3a9fd770eba46671d0dbf1b6199dccd1
+mbx[warning]: cc result was not restored: cached action is missing blob 779832a3ce07f2d1d9ae3ecae8967c9765eedf1aa8810fee52a0d18af70accb7
+mbx[warning]: cc result was not restored: cached action is missing blob 6c770b76e7d399474e36a0da4ee002ccad7fc5db53db5eee1d85d4dfb786e047
+mbx[warning]: cc result was not restored: cached action is missing blob adbd9e79376792afa9048e72caf7b5b56b2c05fb8c4ad43c094581bdd8aa4408
+mbx[warning]: cc result was not restored: cached action is missing blob f27b12e61010c840e5113495f6a45ac11b658ed241dfcdd9d3ab17064c765a93
+mbx[warning]: cc result was not restored: cached action is missing blob ca2273689aabb2f7beb30221aa058e7c8ac16f77cef1f3ba1ff10ec24e5a68e1
+mbx[warning]: cc result was not restored: cached action is missing blob cfc1a66564ea4170c8938b4d9cefea7b491edca8356cb3aaf397f69ae03ddb11
+mbx[warning]: cc result was not restored: cached action is missing blob 0c879cdc489db5696f927826b40ca972cb32b806028f9083f5cec642416a61e5
+mbx[progress]: 1m 45s elapsed; 39 hits, 69 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob e125b2d4ef9f0baa5f10f3ae5ca751b8f0ba06e36254fad7596f86f993a7034d
+mbx[warning]: cc result was not restored: cached action is missing blob 98d4bd2f3564057435b62737c9bad7402d06bbcf09fc43e8f80e31956d906959
+mbx[warning]: cc result was not restored: cached action is missing blob afd3a6dac4ef4b6afa9bf69ab5f802a2b8bbf38adb22b725b1680df856df4c37
+mbx[warning]: cc result was not restored: cached action is missing blob 03d8ecf38edb8bedfeb374ce374767a3c1795eee2968cc51db04b27ea2a948e1
+mbx[warning]: cc result was not restored: cached action is missing blob f3101b8417547f5f643a20eedd801150af55db3552f5fbfaa12cb1263f615428
+mbx[warning]: cc result was not restored: cached action is missing blob 9d4ad6cbc5d56c0ff1bd4535acbc12aedfb661e90f333988b5cb958103678ee3
+mbx[warning]: cc result was not restored: cached action is missing blob d3159ee472833b2e93408b12675ee3eaced7dd9299aced59036c49e39abf9fa3
+mbx[warning]: cc result was not restored: cached action is missing blob 0438c59c055201c5a27cafb6e642ae7c77b028aa4b78241990e846a67218f9e2
+mbx[warning]: cc result was not restored: cached action is missing blob db933daae7ade302d89a0f94e94c910b6f569aeaa3f587aea47afaf071564c53
+mbx[progress]: 2m elapsed; 39 hits, 78 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[warning]: cc result was not restored: cached action is missing blob b1d931ada31c7daefe6a2116996b9a250e56a4199111b1b42d852e4d23280c6c
+mbx[warning]: cc result was not restored: cached action is missing blob dfa4579c0b8b1dec8fed6f312956917f1427c2e2b85e18d9da817f0d51432e91
+mbx[warning]: cc result was not restored: cached action is missing blob 760b25355fafb2bce00e0e701ef1e27627f20eca0fdae092ca033b5a2c1d5390
+mbx[warning]: cc result was not restored: cached action is missing blob d5cf4c9b83f2ff637204f18c87577409ef4b8f537941d6e8e3752996f0f337d8
+mbx[warning]: cc result was not restored: cached action is missing blob b9a003f8946c5a6e376d2207d5076bf9d5ce9ab81e89ee060332c04a837093e0
+mbx[warning]: cc result was not restored: cached action is missing blob 31d4c603a33d9a96dcdb7e96e5703868a87034c45f230ad82cdcc66dacabb36c
+mbx[warning]: cc result was not restored: cached action is missing blob 4a7007a68b33a0fdb3401a6039cf10ed082f55bf06a22083e0fa169608d7c4ad
+mbx[warning]: cc result was not restored: cached action is missing blob 97e41b1eca4b9a4d56eb8bf1dc37f0f07701ade5c81bb8ba1142988f2bf9fbb7
+mbx[warning]: cc result was not restored: cached action is missing blob ca82712dcaa2ec5ae35a45af0845ede304c4c8a5a21b9bc2a015938de946b30a
+mbx[warning]: cc result was not restored: cached action is missing blob 1fc12285b477c4669c97fcc614444a52ef81f8fb79994660b0880dfae8140fb9
+mbx[warning]: cc result was not restored: cached action is missing blob e52d4971df1b1b51ff61fd97c1a3ca15566386da5d6793ea038beb6e241f75c9
+mbx[warning]: cc result was not restored: cached action is missing blob cf99caee500cfed03241767bafaf431c3bfa2c2daa1997e3481ed9cfa90951b5
+mbx[warning]: cc result was not restored: cached action is missing blob ab9864aff3c46b85fd11357e13166cd7e17a2b56b3351b394520d01c3c47c441
+mbx[warning]: cc result was not restored: cached action is missing blob d8d06e1486d90d94cbcbb29644941e75bb38a5991f1e925a0c9e83e341b00715
+mbx[warning]: cc result was not restored: cached action is missing blob 6e53d098ccdd727fa4b92d734794f8c06566f093c1afd3d15a8906aa2381ba53
+mbx[warning]: cc result was not restored: cached action is missing blob 01af30d333e27831e811ffb9da0a3ab962cd02c8907f3dc9576f159765ffca53
+mbx[warning]: cc result was not restored: cached action is missing blob e22cbd51653c96f204b45bb9bfb4e6d7a858bfe5ca5f8cd74308036d4dc883e9
+mbx[warning]: cc result was not restored: cached action is missing blob 8442224fe54aefdacd3cede0b3e596fe7ed8587941154266e0b5d039dc5bed4f
+mbx[warning]: cc result was not restored: cached action is missing blob 25276c5141a60606372bedd9a0aec7c8dc4d052cd599eea413a05b304e2057c8
+mbx[warning]: cc result was not restored: cached action is missing blob 8c821d43d62f578aeecd7dd22ff21020dd366b84f14a006ddd9230625a9d662a
+mbx[warning]: cc result was not restored: cached action is missing blob 2f165c116d2e75284d63981864c7f1431dee2135fccb75443a61c72c1d25e4d8
+mbx[warning]: cc result was not restored: cached action is missing blob a335ac5c1fe414a7b3e21afee92e50fd5a46983642f020880903651c548cbf6b
+mbx[warning]: cc result was not restored: cached action is missing blob 58f15b26bcfb21525db178b221489f92f194872b0fda846e1dad289dd41a0a87
+mbx[warning]: cc result was not restored: cached action is missing blob 57e13f481bf7f89929ebea0581054fbebf1b9e0ba41a585ac6fcb3644e37326c
+mbx[warning]: cc result was not restored: cached action is missing blob 15df2c5150d67523638c27d4a66a863b6fc1bfcf093a0fed0534bcfed4c25274
+mbx[warning]: cc result was not restored: cached action is missing blob fd5acb237691315aa217ef632dfef5a22170ad6aaa3e43af50620887dd71e03d
+mbx[warning]: cc result was not restored: cached action is missing blob 9a41fcb07f77d199051c2521f4e9da121bf8fb10561206b3a18058683ed5d334
+mbx[warning]: cc result was not restored: cached action is missing blob 838442c5a3d30b5142c5ff6bb359281c744d2c818c476d5d283b939a5402bdaa
+mbx[warning]: cc result was not restored: cached action is missing blob 9472bcc6663593e3d7f2f6286ffcf80fec1502b84d7b0553da08812f1a8fd6d7
+mbx[warning]: cc result was not restored: cached action is missing blob 0fb1946d1dc8822c4e8c15a7033553aaeab5d0ebec98e5ee7e07aabee646a863
+mbx[warning]: cc result was not restored: cached action is missing blob 7feb0647ee9c4e25f467a898935544c9e750b5b3da71374ddf723a93b291f920
+mbx[warning]: cc result was not restored: cached action is missing blob 615f973486bd84489b39ea09a3342956a0cf3dfebee46f2bf8e6d108a74a77e4
+mbx[warning]: cc result was not restored: cached action is missing blob e06aaa8c5554a60e3cdfa55ff759bd4a7028af6b299fd4793cbb30c5dcced7ab
+mbx[progress]: 3m elapsed; 39 hits, 146 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 4m elapsed; 40 hits, 221 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 5m elapsed; 40 hits, 293 misses, 1 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 6m elapsed; 40 hits, 330 misses, 2 bypassed, 1 not looked up; ~0s compiler work saved
+   Compiling rocksdb v0.24.0
+   Compiling near-store v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+mbx[progress]: 7m elapsed; 40 hits, 333 misses, 2 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 8m elapsed; 40 hits, 333 misses, 2 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 9m elapsed; 40 hits, 333 misses, 2 bypassed, 1 not looked up; ~0s compiler work saved
+mbx[progress]: 10m elapsed; 40 hits, 333 misses, 2 bypassed, 1 not looked up; ~0s compiler work saved
+   Compiling node-runtime v2.14.0-rc.2 (https://github.com/near/nearcore?tag=2.14.0-rc.2#21ec809d)
+   Compiling near-contract-sim v0.1.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/near-contract-sim-main)
+   Compiling proto-sim-upgrade-sim v0.0.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/storage-v2-sim-port/proto-sim-upgrade/sim)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11m 52s
+     Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-d1eb8fef37aad6e5)
+
+running 1 test
+search of 2000 case(s) per seed case 14/2000 · 10s elapsed, ~25m19s left (from the mean case time)
+search of 2000 case(s) per seed case 30/2000 · 21s elapsed, ~23m50s left (from the mean case time)
+search of 2000 case(s) per seed case 46/2000 · 34s elapsed, ~24m22s left (from the mean case time)
+search of 2000 case(s) per seed case 65/2000 · 44s elapsed, ~22m03s left (from the mean case time)
+search of 2000 case(s) per seed case 82/2000 · 54s elapsed, ~21m22s left (from the mean case time)
+test search_from_v2b has been running for over 60 seconds
+search of 2000 case(s) per seed case 100/2000 · 1m06s elapsed, ~21m01s left (from the mean case time)
+search of 2000 case(s) per seed case 115/2000 · 1m17s elapsed, ~21m03s left (from the mean case time)
+search of 2000 case(s) per seed case 133/2000 · 1m27s elapsed, ~20m27s left (from the mean case time)
+search of 2000 case(s) per seed case 152/2000 · 1m37s elapsed, ~19m49s left (from the mean case time)
+search of 2000 case(s) per seed case 174/2000 · 1m48s elapsed, ~18m55s left (from the mean case time)
+search of 2000 case(s) per seed case 187/2000 · 1m58s elapsed, ~19m08s left (from the mean case time)
+search of 2000 case(s) per seed case 211/2000 · 2m09s elapsed, ~18m15s left (from the mean case time)
+search of 2000 case(s) per seed case 230/2000 · 2m19s elapsed, ~17m51s left (from the mean case time)
+search of 2000 case(s) per seed case 249/2000 · 2m30s elapsed, ~17m40s left (from the mean case time)
+search of 2000 case(s) per seed case 270/2000 · 2m41s elapsed, ~17m13s left (from the mean case time)
+search of 2000 case(s) per seed case 295/2000 · 2m52s elapsed, ~16m36s left (from the mean case time)
+mbx[progress]: 15m elapsed; 42 hits, 335 misses, 2 bypassed, 1 not looked up; ~1m 50s compiler work saved
+search of 2000 case(s) per seed case 319/2000 · 3m02s elapsed, ~16m01s left (from the mean case time)
+search of 2000 case(s) per seed case 342/2000 · 3m12s elapsed, ~15m33s left (from the mean case time)
+search of 2000 case(s) per seed case 369/2000 · 3m23s elapsed, ~14m58s left (from the mean case time)
+search of 2000 case(s) per seed case 402/2000 · 3m33s elapsed, ~14m09s left (from the mean case time)
+search of 2000 case(s) per seed case 437/2000 · 3m43s elapsed, ~13m20s left (from the mean case time)
+search of 2000 case(s) per seed case 479/2000 · 3m53s elapsed, ~12m22s left (from the mean case time)
+search of 2000 case(s) per seed case 520/2000 · 4m04s elapsed, ~11m35s left (from the mean case time)
+search of 2000 case(s) per seed case 558/2000 · 4m14s elapsed, ~10m57s left (from the mean case time)
+search of 2000 case(s) per seed case 597/2000 · 4m24s elapsed, ~10m21s left (from the mean case time)
+search of 2000 case(s) per seed case 636/2000 · 4m34s elapsed, ~9m49s left (from the mean case time)
+search of 2000 case(s) per seed case 681/2000 · 4m44s elapsed, ~9m11s left (from the mean case time)
+search of 2000 case(s) per seed case 729/2000 · 4m55s elapsed, ~8m34s left (from the mean case time)
+search of 2000 case(s) per seed case 775/2000 · 5m05s elapsed, ~8m02s left (from the mean case time)
+search of 2000 case(s) per seed case 822/2000 · 5m15s elapsed, ~7m31s left (from the mean case time)
+search of 2000 case(s) per seed case 867/2000 · 5m25s elapsed, ~7m05s left (from the mean case time)
+search of 2000 case(s) per seed case 909/2000 · 5m35s elapsed, ~6m42s left (from the mean case time)
+search of 2000 case(s) per seed case 953/2000 · 5m45s elapsed, ~6m19s left (from the mean case time)
+search of 2000 case(s) per seed case 988/2000 · 5m55s elapsed, ~6m04s left (from the mean case time)
+search of 2000 case(s) per seed case 1017/2000 · 6m06s elapsed, ~5m53s left (from the mean case time)
+search of 2000 case(s) per seed case 1054/2000 · 6m16s elapsed, ~5m37s left (from the mean case time)
+search of 2000 case(s) per seed case 1078/2000 · 6m27s elapsed, ~5m31s left (from the mean case time)
+search of 2000 case(s) per seed case 1112/2000 · 6m37s elapsed, ~5m17s left (from the mean case time)
+search of 2000 case(s) per seed case 1149/2000 · 6m48s elapsed, ~5m02s left (from the mean case time)
+search of 2000 case(s) per seed case 1171/2000 · 6m58s elapsed, ~4m55s left (from the mean case time)
+search of 2000 case(s) per seed case 1204/2000 · 7m08s elapsed, ~4m43s left (from the mean case time)
+search of 2000 case(s) per seed case 1233/2000 · 7m18s elapsed, ~4m32s left (from the mean case time)
+search of 2000 case(s) per seed case 1260/2000 · 7m29s elapsed, ~4m23s left (from the mean case time)
+search of 2000 case(s) per seed case 1287/2000 · 7m39s elapsed, ~4m14s left (from the mean case time)
+search of 2000 case(s) per seed case 1319/2000 · 7m49s elapsed, ~4m02s left (from the mean case time)
+mbx[progress]: 20m elapsed; 42 hits, 335 misses, 2 bypassed, 1 not looked up; ~1m 50s compiler work saved
+search of 2000 case(s) per seed case 1351/2000 · 8m00s elapsed, ~3m50s left (from the mean case time)
+search of 2000 case(s) per seed case 1389/2000 · 8m10s elapsed, ~3m35s left (from the mean case time)
+search of 2000 case(s) per seed case 1423/2000 · 8m20s elapsed, ~3m23s left (from the mean case time)
+search of 2000 case(s) per seed case 1449/2000 · 8m31s elapsed, ~3m14s left (from the mean case time)
+search of 2000 case(s) per seed case 1472/2000 · 8m41s elapsed, ~3m06s left (from the mean case time)
+search of 2000 case(s) per seed case 1495/2000 · 8m52s elapsed, ~2m59s left (from the mean case time)
+search of 2000 case(s) per seed case 1518/2000 · 9m03s elapsed, ~2m52s left (from the mean case time)
+search of 2000 case(s) per seed case 1545/2000 · 9m13s elapsed, ~2m43s left (from the mean case time)
+search of 2000 case(s) per seed case 1570/2000 · 9m24s elapsed, ~2m34s left (from the mean case time)
+search of 2000 case(s) per seed case 1595/2000 · 9m34s elapsed, ~2m25s left (from the mean case time)
+search of 2000 case(s) per seed case 1625/2000 · 9m44s elapsed, ~2m14s left (from the mean case time)
+search of 2000 case(s) per seed case 1654/2000 · 9m54s elapsed, ~2m04s left (from the mean case time)
+search of 2000 case(s) per seed case 1700/2000 · 10m04s elapsed, ~1m46s left (from the mean case time)
+search of 2000 case(s) per seed case 1741/2000 · 10m14s elapsed, ~1m31s left (from the mean case time)
+search of 2000 case(s) per seed case 1783/2000 · 10m24s elapsed, ~1m16s left (from the mean case time)
+search of 2000 case(s) per seed case 1815/2000 · 10m35s elapsed, ~1m04s left (from the mean case time)
+search of 2000 case(s) per seed case 1838/2000 · 10m45s elapsed, ~56s left (from the mean case time)
+search of 2000 case(s) per seed case 1858/2000 · 10m56s elapsed, ~50s left (from the mean case time)
+search of 2000 case(s) per seed case 1879/2000 · 11m06s elapsed, ~42s left (from the mean case time)
+search of 2000 case(s) per seed case 1898/2000 · 11m16s elapsed, ~36s left (from the mean case time)
+search of 2000 case(s) per seed case 1914/2000 · 11m27s elapsed, ~30s left (from the mean case time)
+search of 2000 case(s) per seed case 1928/2000 · 11m37s elapsed, ~26s left (from the mean case time)
+search of 2000 case(s) per seed case 1951/2000 · 11m47s elapsed, ~17s left (from the mean case time)
+search of 2000 case(s) per seed case 1978/2000 · 11m58s elapsed, ~7s left (from the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · 12m08s elapsed, ~0s left (from the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 0, 3m02s left of its share · 12m08s elapsed, ~12m08s left (at most 12m08s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 51, 2m51s left of its share · 12m18s elapsed, ~11m58s left (at most 11m58s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 102, 2m41s left of its share · 12m28s elapsed, ~11m48s left (at most 11m48s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 156, 2m31s left of its share · 12m38s elapsed, ~11m38s left (at most 11m38s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 201, 2m21s left of its share · 12m49s elapsed, ~11m28s left (at most 11m28s shrinking, then the mean case time)
+mbx[progress]: 25m elapsed; 42 hits, 335 misses, 2 bypassed, 1 not looked up; ~1m 50s compiler work saved
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 5, claimable is only what schema B wrote at world: candidate 249, 2m11s left of its share · 12m59s elapsed, ~11m17s left (at most 11m17s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 2 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 0, 3m43s left of its share · 13m07s elapsed, ~11m10s left (at most 11m10s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 2 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 44, 3m33s left of its share · 13m17s elapsed, ~10m59s left (at most 10m59s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 2 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 87, 3m23s left of its share · 13m27s elapsed, ~10m49s left (at most 10m49s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 2 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 135, 3m13s left of its share · 13m37s elapsed, ~10m39s left (at most 10m39s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 3 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 0, 5m16s left of its share · 13m45s elapsed, ~10m32s left (at most 10m32s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 3 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 53, 5m06s left of its share · 13m55s elapsed, ~10m22s left (at most 10m22s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 4 of 5, no collection outlives its record at world: candidate 0, 10m18s left of its share · 13m59s elapsed, ~10m18s left (at most 10m18s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 4 of 5, no collection outlives its record at world: candidate 35, 10m08s left of its share · 14m09s elapsed, ~10m08s left (at most 10m08s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 5 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 0, 10m07s left of its share · 14m09s elapsed, ~10m07s left (at most 10m07s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 5 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 29, 9m57s left of its share · 14m19s elapsed, ~9m57s left (at most 9m57s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 5 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 61, 9m47s left of its share · 14m30s elapsed, ~9m47s left (at most 9m47s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 5 of 5, unhandled failure at app.near::clear_loop (ClearLoop): candidate 88, 9m37s left of its share · 14m40s elapsed, ~9m37s left (at most 9m37s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 1 of 4, unhandled failure at app.near::clear_loop (ClearLoop): candidate 0, 2m22s left of its share · 14m48s elapsed, ~9m28s left (at most 9m28s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 2 of 4, no collection outlives its record at world: candidate 0, 3m08s left of its share · 14m50s elapsed, ~9m26s left (at most 9m26s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 3 of 4, no collection outlives its record at world: candidate 0, 4m42s left of its share · 14m53s elapsed, ~9m24s left (at most 9m24s shrinking, then the mean case time)
+search of 2000 case(s) per seed case 2000/2000 · shrinking row 4 of 4, no collection outlives its record at world: candidate 0, 9m21s left of its share · 14m55s elapsed, ~9m21s left (at most 9m21s shrinking, then the mean case time)
+search of 2000 case(s) per seed: done, 2000 case(s) in 14m57s
+4 finding(s), 4 shown and 0 forced; 0 item(s) open.
+Only what was tried.
+search of 2000 case(s) per seed: 2000 case(s), 4 finding(s), 0 to do
+coverage: 16 of 16 value paths exercised (app.near)
+read only (ran as views), not value paths: app.near::get, app.near::group, app.near::groups_len, app.near::member, app.near::members_len, app.near::new_l...
+seed 0x103 (NEAR_SIM_SEED repeats it), 1 seed(s)
+1. [check] claimable is only what schema B wrote at world: shown
+   g0.claimable = 5 through V2b, but schema B never wrote it (v2a's `locked` at tag 4 was Some(5))
+   replay: /Users/ricky/Developer/near-contract-sim-scenario/target/near-contract-sim/found/search_from_v2b/claimable-is-only-what-schema-B-wrote@world-b661925b.json
+2. [check] no collection outlives its record at world: shown (+3 folded in)
+   g1 was removed through v2a and left its flags ["f0"] behind
+   step 0: Op(AddFlag { g: 1, f: 0 })
+   step 1: Op(Upgrade { to: V2a, migrate: false })
+   step 2: Op(RemoveStep { g: 1, n: 3 })
+   step 3: Op(MigrateBatch { n: 1 })
+   replay: /Users/ricky/Developer/near-contract-sim-scenario/target/near-contract-sim/found/search_from_v2b/no-collection-outlives-its-record@world-687989e5.json
+3. [failed receipt] unhandled failure at app.near::clear_loop (ClearLoop): shown
+   app.near.clear_loop (63dyHP…): panicked: state: cannot decode value at f00200b77e1756157d25057d9868cc208fd455020000006732: Missing { tag: 9 }: required field tag 9 is absent from the stored record; `required` is only for fields present since the record's first write, a field added later needs `#[key(9, default = ..)]`, a `Default` type, or `Option` [attached 289.28 Tgas, burnt 1.56 Tgas (0.68 + 0.89 exec fees)]
+   step 0: Op(ClearLoop { g: 2, n: 3, rounds: 2 })
+   step 1: Op(Upgrade { to: V2c, migrate: false })
+   replay: /Users/ricky/Developer/near-contract-sim-scenario/target/near-contract-sim/found/search_from_v2b/unhandled-failure@app.near-clear_loop-ClearLoop-78f049e3.json
+4. [failed receipt] unhandled failure at app.near::clear_loop (ClearLoop): shown
+   app.near.clear_loop (63dyHP…): panicked: state: refusing to remove the record at f00200b77e1756157d25057d9868cc208fd455020000006732: its stored bytes carry tag 8, a `Set` field this version of the record does not declare (another version of the contract wrote it). Removing the record would leave that collection's keys behind, and a new record at this key would inherit them. Roll forward to the version that declares tag 8 and remove the record there, or, if that version cleared the collection before the field was dropped, list the tag in `#[near(storage, reserved(8))]` [attached 289.28 Tgas, burnt 1.62 Tgas (0.73 + 0.89 exec fees)]
+
+WALL 898.4 s for 2000 cases: 449 ms per case (shrinking included)
+checks, SDK properties, over the 2000 counted case(s):
+  claimable is only what schema B wrote: 3699 ok, 10751 failed, 0 not judged, 0 idle
+  each item lives on exactly one side: 14450 ok, 0 failed, 0 not judged, 0 idle
+  failures are documented ones: 17702 ok, 0 failed, 0 not judged, 0 idle
+  group records match the model byte for byte: 14450 ok, 0 failed, 0 not judged, 0 idle
+  group views match the model: 14450 ok, 0 failed, 0 not judged, 0 idle
+  item subtree bytes match the spec formula: 14450 ok, 0 failed, 0 not judged, 0 idle
+  items read back through the deployed code: 14450 ok, 0 failed, 0 not judged, 0 idle
+  no collection outlives its record: 14448 ok, 2 failed, 0 not judged, 0 idle
+  the model saw nothing forbidden: 14450 ok, 0 failed, 0 not judged, 0 idle
+checks, not SDK properties (runtime sanity, harness, probes), over the 2000 counted case(s):
+  harness: seq has no gap: 14450 ok, 0 failed, 0 not judged, 0 idle
+  probe: behaviour classes (never fails; counts include reruns): 2000 ok, 0 failed, 0 not judged, 0 idle
+  runtime: storage_usage is account + code + every key: 14450 ok, 0 failed, 0 not judged, 0 idle
+incomplete cases: 0 of 2000
+364 ms per case, shrinking excluded (cases 0..1999)
+mbx[progress]: 30m elapsed; 42 hits, 335 misses, 2 bypassed, 1 not looked up; ~1m 50s compiler work saved
+faults: 495 drawn, 79 landed (of 2000 distinct plans drawn; the rest fit no receipt their case spawned: a transaction's first receipt is its caller's gas, faults.md)
+coverage, distinct cases reaching each method (Audit::reached):
+  app.near::insert: 1080
+  app.near::remove: 819
+  app.near::migrate: 431
+  app.near::migrate_batch: 798
+  app.near::drain: 779
+  app.near::create_group: 1057
+  app.near::set_weight: 793
+  app.near::set_field4: 775
+  app.near::set_level: 412
+  app.near::set_label: 427
+  app.near::add_member: 1274
+  app.near::remove_member: 482
+  app.near::add_flag: 399
+  app.near::remove_step: 1085
+  app.near::clear_loop: 809
+  app.near::remove_group: 456
+behaviour classes, over every execution (shrinking, fault baselines and case 0's rerun included; an upper bound):
+  continuation ran on other code: clear_loop V2b -> V3: 1
+  continuation ran on other code: drain V2b -> V2a: 4
+  continuation ran on other code: drain V2b -> V2c: 20
+  continuation ran on other code: drain V2c -> V2a: 1
+  continuation ran on other code: drain V2c -> V2b: 6
+  continuation ran: clear_loop: 770
+  continuation ran: drain: 1217
+  insert moved a key off the old side: 1019
+  method missing on the deployed code: 10
+  migrate_batch on an empty old side: 592
+  ran out of explored gas: add_flag: 8
+  ran out of explored gas: add_member: 5
+  ran out of explored gas: clear_loop: 44
+  ran out of explored gas: drain: 75
+  ran out of explored gas: insert: 23
+  ran out of explored gas: migrate_batch: 68
+  ran out of explored gas: remove: 10
+  ran out of explored gas: remove_group: 8
+  ran out of explored gas: remove_step: 27
+  refused: A3 unknown collection tag on removal: 332
+  refused: migrate twice: 680
+  refused: record decode (v2c required tag): 1305
+  refused: remove_step below 3: 479
+  refused: write below a clearing record: 636
+  remove_group of a clearing record: 42
+  remove_step resumed a clearing record: 953
+  remove_step resumed under another schema: 26
+  remove_step started: 2636
+  schema B rewrote a record carrying reserved tag 3: 4256
+  schema B rewrote a record whose tag 4 is v2a's locked: 5301
+  starved clear_loop: 32
+  starved drain: 24
+  v2a rewrote a record carrying schema-B tags (downgrade): 174
+
+finding 1: [expected] claimable is only what schema B wrote at world (shown), 2000 case(s): by design: v2b re-uses tag 4 (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check); leaves v2a's `locked` readable and writable as `claimable`
+finding 2: [expected] no collection outlives its record at world (shown), 1 case(s): the A3 hole on ec29bf6f (FOUND Oct 20): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags; leaves the flags orphaned on removal through v2a and inherited by the next record at that key
+finding 3: [expected] unhandled failure at app.near::clear_loop (ClearLoop) (shown), 5 case(s): by design: drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and fails atomically with nobody told; leaves nothing (the failed link changes no state)
+finding 4: [expected] unhandled failure at app.near::clear_loop (ClearLoop) (shown), 9 case(s): by design: drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and fails atomically with nobody told; leaves nothing (the failed link changes no state)
+test search_from_v2b ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 1195.68s
+
+mbx[cache]: 42 hits, 335 misses, 1 not looked up, 2 bypassed; 0 B downloaded, 0 B uploaded, 107.3 MiB stored locally
+mbx[savings]: the sweep found 811.3 GiB logical nobody would miss. nobody has.
