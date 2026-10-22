@@ -579,7 +579,7 @@ pub fn expand(
                     #view_mut {
                         #(#ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(
                             path.field(#tag),
-                            anchor,
+                            anchor
                         ),)*
                         __m: ::core::marker::PhantomData
                     }
