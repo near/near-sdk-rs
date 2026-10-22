@@ -145,12 +145,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error()
             .into();
         };
-        let struct_attrs = if v2_root.is_some() {
+        let struct_attrs = v2_root.is_some().then(|| {
             let near_bindgen_args = near_macro_args.near_bindgen_args;
             quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args)]}
-        } else {
-            quote! {}
-        };
+        });
         let opts = core_impl::storage_v2::V2Options {
             root: v2_root,
             reserved: near_macro_args.reserved.map(|r| r.0).unwrap_or_default(),

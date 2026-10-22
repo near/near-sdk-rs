@@ -15,16 +15,10 @@ pub struct ContractStateArgs {
 
 impl quote::ToTokens for ContractStateArgs {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let mut parts = Vec::new();
-        if let Some(key) = &self.key {
-            parts.push(quote! {key = #key});
-        }
-        if let Some(layout) = &self.layout {
-            parts.push(quote! {layout = #layout});
-        }
-        if let Some(root) = &self.root {
-            parts.push(quote! {root = #root});
-        }
+        let key = self.key.iter().map(|key| quote! {key = #key});
+        let layout = self.layout.iter().map(|layout| quote! {layout = #layout});
+        let root = self.root.iter().map(|root| quote! {root = #root});
+        let parts = key.chain(layout).chain(root);
         tokens.extend(quote! {#(#parts),*});
     }
 }

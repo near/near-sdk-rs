@@ -99,15 +99,14 @@ fn collection_valued(ty: &syn::Type) -> Option<Span> {
     let syn::Type::Path(tp) = ty else { return None };
     let seg = tp.path.segments.last()?;
     let syn::PathArguments::AngleBracketed(args) = &seg.arguments else { return None };
-    let tys: Vec<&syn::Type> = args
+    let mut tys = args
         .args
         .iter()
-        .filter_map(|a| if let syn::GenericArgument::Type(t) = a { Some(t) } else { None })
-        .collect();
+        .filter_map(|a| if let syn::GenericArgument::Type(t) = a { Some(t) } else { None });
     let value = match seg.ident.to_string().as_str() {
-        "Map" | "LookupMap" => tys.get(1),
-        "GroupedMap" => tys.get(2),
-        "Vector" | "Lazy" => tys.first(),
+        "Map" | "LookupMap" => tys.nth(1),
+        "GroupedMap" => tys.nth(2),
+        "Vector" | "Lazy" => tys.next(),
         _ => None,
     }?;
     let syn::Type::Path(vp) = value else { return None };
@@ -215,7 +214,7 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
 pub fn expand(
     mut item: ItemStruct,
     opts: V2Options,
-    struct_attrs: TokenStream,
+    struct_attrs: Option<TokenStream>,
 ) -> syn::Result<TokenStream> {
     if !item.generics.params.is_empty() {
         return Err(syn::Error::new(
