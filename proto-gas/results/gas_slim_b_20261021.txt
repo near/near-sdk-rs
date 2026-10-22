@@ -1,11 +1,12 @@
 # Slim-down pass B (cache.rs, record.rs, key.rs): gas before/after (Oct 21 2026)
 # proto-gas sim test `a3_rows`, 10k keys: cd proto-gas/sim && CARGO_TARGET_DIR=<private> GAS_RES_DIR=<wasm dir> \
 #   cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture
-# base: proto-gas/build.sh at 7623d388 in this worktree. slim-b: proto-gas/build.sh at the pass's last commit, same
+# base: proto-gas/build.sh at 7623d388 in this worktree. slim-b: proto-gas/build.sh at 6e86b9b5 (the pass's last code commit), same
 # worktree, toolchain and cargo-near, so the two columns differ only by the pass. The Oct 20 column is
 # gas_a3fix_20261020.txt's "after" (another worktree: its wasms are 51 B larger from path strings in panic
 # locations; the Tgas medians match base within 1 Ggas). Tgas is the median of the row; delta in Ggas.
-# Host-op counts (r/w/d/h) are unchanged on every row. No row goes up.
+# Host-op counts (r/w/d/h) are unchanged on every row. No row goes up. (e54dfc18, before the last
+# ensure_marker cut, measured the same to within 1 Ggas on every row, 14 B more wasm.)
 
 | contract | op | Oct 20 after Tgas | base Tgas | slim-b Tgas | delta Ggas | wasm Ggas base -> slim-b | r/w/d/h base -> slim-b |
 |---|---|---:|---:|---:|---:|---|---|
@@ -25,7 +26,7 @@
 | v2 (h16, ext) | remove_step(n=64), one call (Done), record + 10-entry Map | 7.442 | 7.440 | 7.426 | -14 | 1273.6 -> 1260.5 | 15/1/34/0 -> 15/1/34/0 |
 | v2 (h16, ext) | at_mut: 1st write into empty nested Map (record has marker) | 2.056 | 2.056 | 2.055 | -1 | 143.6 -> 143.6 | 4/4/0/1 -> 4/4/0/1 |
 | v2 (h16, ext) | at_mut: 2nd write, new key, same nested Map | 2.034 | 2.034 | 2.032 | -2 | 140.1 -> 139.3 | 3/4/0/1 -> 3/4/0/1 |
-| v2 (h16, ext) | at_mut: update existing key in nested Map | 1.585 | 1.585 | 1.584 | -1 | 96.9 -> 96.1 | 2/1/0/1 -> 2/1/0/1 |
+| v2 (h16, ext) | at_mut: update existing key in nested Map | 1.585 | 1.585 | 1.583 | -2 | 96.9 -> 96.1 | 2/1/0/1 -> 2/1/0/1 |
 | v2 (h16, ext) | at_mut: 1st write into empty nested Map (record without marker) | 2.164 | 2.164 | 2.163 | -1 | 145.0 -> 145.0 | 4/5/0/1 -> 4/5/0/1 |
 | v2 (h16, ext) | at_mut: 2nd write into that Map | 2.034 | 2.034 | 2.032 | -2 | 140.1 -> 139.3 | 3/4/0/1 -> 3/4/0/1 |
 | v2 (h16, ext) | at_mut: Lazy<u64>::set, value absent | 1.573 | 1.573 | 1.572 | -1 | 84.9 -> 85.0 | 2/1/0/2 -> 2/1/0/2 |
@@ -38,11 +39,11 @@ Where it comes from: the smaller wasm loads 0.5 (h16) and 0.8 (ext) Ggas cheaper
 a value's stored bytes before decoding it (one allocation + memcpy fewer per decoded value), which is nearly all of the wasm-execution drop: page_with(50)
 decodes 50+ values, -63 Ggas; remove_step(n=64) -14. The wasm column ticks +0.1 Ggas on the LookupMap
 insert/update and Lazy::set rows (code layout); their totals still go down.
-Checked by measurement: slim-b with only the get_impl commit (75aabbda) reverted gives page_with 10.518,
+Checked by measurement: e54dfc18 with only the get_impl commit (75aabbda) reverted gives page_with 10.518,
 remove_step(n=64) 7.438, the whole remove_step(n=3) sequence 27.807, every other row within 1 Ggas of base.
 
 wasm sizes and SHA-256 (wasms are gitignored):
   v1.wasm  base 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  slim-b 136373 B 6865dd585eb1617ffc76c84513cc15b91a47cff7eb1545ff0a1d84e4b401f10f  (0 B)
-  v2_h8.wasm  base 167065 B ad1fdb83d03a445fbea5727b8deee958a46daa06bb63a7ecd346e6e06b4adf9a  slim-b 166527 B c043cbd3a1d41d65f9b85a169ff4a6a89bb08042ba05c37ca309270925840cd5  (-538 B)
-  v2_h16.wasm  base 167087 B e14ad6a6fb0c79e05210987fb4f544e111e924a3868d69e30e2993583024d1d6  slim-b 166549 B b007bd9e1403ac75a3464372651bf3650ad2fd7a6f4dc1b97fe95236da51b0ee  (-538 B)
-  v2_h16_ext.wasm  base 204197 B 4aa662101eeb34b393c213e693723c80f0062deedbbce4a86db9b93831a9afd8  slim-b 203461 B 140d87e34a0eed01d6121beaf6870e6a95fc23cc2e198b27cdb4adca72c080e0  (-736 B)
+  v2_h8.wasm  base 167065 B ad1fdb83d03a445fbea5727b8deee958a46daa06bb63a7ecd346e6e06b4adf9a  slim-b 166513 B c5efa195da68b44b5616d64b93cde371c11357c8f5c34bfaeb6c7b3b5619009f  (-552 B)
+  v2_h16.wasm  base 167087 B e14ad6a6fb0c79e05210987fb4f544e111e924a3868d69e30e2993583024d1d6  slim-b 166535 B b8db02623aefa174534b1150e0de2e26a452653f52da1ddc3890ed376a239d11  (-552 B)
+  v2_h16_ext.wasm  base 204197 B 4aa662101eeb34b393c213e693723c80f0062deedbbce4a86db9b93831a9afd8  slim-b 203447 B 56fc797e0359ef351b01aa29af133c31081f013ef3f6a37a62c496fecedf8e77  (-750 B)
