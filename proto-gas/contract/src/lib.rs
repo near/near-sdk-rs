@@ -56,6 +56,15 @@ mod v2 {
         #[key(5)] blobs: Map<AccountId, Vec<u8>>,
         #[key(6)] accounts: Map<AccountId, Account>,
         #[key(7)] laccounts: LookupMap<AccountId, Account>,
+        #[key(8)] profiles: Map<AccountId, Profile>,
+    }
+
+    /// A record owning a `Lazy` (`ext` only), for the A3 first-write rows (Oct 20).
+    #[cfg(feature = "ext")]
+    #[near(storage)]
+    pub struct Profile {
+        #[key(1)] n: u64,
+        #[key(2)] note: near_sdk::state::Lazy<u64>,
     }
 
     #[near(storage)]
@@ -174,6 +183,20 @@ mod v2 {
         }
         pub fn account_nonce(&self, id: AccountId) -> Option<U64> {
             self.accounts.get(&id).map(|a| U64(a.nonce))
+        }
+
+        // A3 first-write rows (Oct 20).
+        /// Writes one balance below an existing account through `at_mut` (the record is not
+        /// read on the hot path). The first write into an empty `balances` is the A3 slow path.
+        pub fn account_balance_set(&mut self, id: AccountId, token: String, v: U128) {
+            let _ = self.accounts.at_mut(&id).expect("no account").balances.insert(token, v.0);
+        }
+        pub fn profile_try_insert(&mut self, id: AccountId) {
+            self.profiles.try_insert(id, Profile { n: 1, ..Default::default() }).expect("profile exists");
+        }
+        /// `Lazy::set` below an existing profile through `at_mut`.
+        pub fn profile_note_set(&mut self, id: AccountId, v: U64) {
+            self.profiles.at_mut(&id).expect("no profile").note.set(v.0);
         }
     }
 }

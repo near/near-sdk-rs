@@ -246,9 +246,10 @@ fn layout(v: Variant, which: &str, range: std::ops::Range<u32>, len: u32) -> Vec
                 out.push(([&[V2_ROOT, 4, 0][..], h, &kb].concat(), val));
             }
             (V2H16X, "accounts") => {
-                // `Account { nonce: i, balances }`: tag 1 len 8 nonce, then tag 2 len 1 and the
-                // `Map` kind marker 0x81 (API round 5); the empty map writes no keys.
-                let rec = [&[1u8, 8][..], &(i as u64).to_le_bytes(), &[2, 1, 0x81]].concat();
+                // `Account { nonce: i, balances }`: field key `04` (tag 1, scalar) len 8 nonce,
+                // then `09` (tag 2, marker) len 1 and the `Map` kind 0x81 (API round 5, wire
+                // type since Verification round 2); the empty map writes no keys.
+                let rec = account_rec(i as u64, true);
                 let h = &sha(&kb)[..v.h()];
                 let base = [V2_ROOT, 6];
                 out.push(([&base[..], &[0], h, &kb].concat(), rec));
@@ -265,6 +266,91 @@ fn layout(v: Variant, which: &str, range: std::ops::Range<u32>, len: u32) -> Vec
         out.push((vec![V2_ROOT, 6, 3], len.to_le_bytes().to_vec()));
     }
     out
+}
+
+/// An `Account` record's bytes; `marker: false` is a record an older schema without
+/// `balances` wrote (no `09 01 81`).
+fn account_rec(nonce: u64, marker: bool) -> Vec<u8> {
+    let mut rec = [&[4u8, 8][..], &nonce.to_le_bytes()].concat();
+    if marker {
+        rec.extend_from_slice(&[9, 1, 0x81]);
+    }
+    rec
+}
+
+/// `accounts`' record key for `gen_id(i)`.
+fn account_key(i: u32) -> Vec<u8> {
+    let kb = borsh_id(i);
+    [&[V2_ROOT, 6, 0][..], &sha(&kb)[..16], &kb].concat()
+}
+
+/// A3 first-write rows (Oct 20), on the `ext` wasm beside `n` accounts. Each first write goes
+/// into an empty nested collection below a record that already exists (created in an earlier
+/// call), through `at_mut`, then the same handle path writes again:
+/// - `balances` of a record created by `try_insert` (its marker is present);
+/// - `balances` of a record an older schema wrote (seeded as state, no marker);
+/// - `Profile.note`, a `Lazy<u64>`, set twice.
+fn a3_ops(n: u32) -> Vec<(String, Vec<Cost>)> {
+    let v = V2H16X;
+    let mut sim = world(v);
+    populate(&mut sim, v, "accounts", n);
+    let (mut first, mut second, mut update, mut first_nm, mut second_nm, mut lazy1, mut lazy2) =
+        (vec![], vec![], vec![], vec![], vec![], vec![], vec![]);
+    for j in 0..K {
+        let id = gen_id(n + 6000 + j);
+        call(&mut sim, "account_try_insert", json!({"id": id, "nonce": 5})).assert_success();
+        first.push(cost(&call(&mut sim, "account_balance_set", json!({"id": id, "token": "t0", "v": "1"}))));
+        second.push(cost(&call(&mut sim, "account_balance_set", json!({"id": id, "token": "t1", "v": "2"}))));
+        update.push(cost(&call(&mut sim, "account_balance_set", json!({"id": id, "token": "t1", "v": "3"}))));
+        // An account record without the `balances` marker (written before the field existed).
+        let i = n + 7000 + j;
+        sim.set_state(C, &account_key(i), Some(&account_rec(5, false)));
+        let id = gen_id(i);
+        first_nm.push(cost(&call(&mut sim, "account_balance_set", json!({"id": id, "token": "t0", "v": "1"}))));
+        second_nm.push(cost(&call(&mut sim, "account_balance_set", json!({"id": id, "token": "t1", "v": "2"}))));
+        let id = gen_id(n + 8000 + j);
+        call(&mut sim, "profile_try_insert", json!({"id": id})).assert_success();
+        lazy1.push(cost(&call(&mut sim, "profile_note_set", json!({"id": id, "v": "1"}))));
+        lazy2.push(cost(&call(&mut sim, "profile_note_set", json!({"id": id, "v": "2"}))));
+    }
+    vec![
+        ("at_mut: 1st write into empty nested Map (record has marker)".to_string(), first),
+        ("at_mut: 2nd write, new key, same nested Map".to_string(), second),
+        ("at_mut: update existing key in nested Map".to_string(), update),
+        ("at_mut: 1st write into empty nested Map (record without marker)".to_string(), first_nm),
+        ("at_mut: 2nd write into that Map".to_string(), second_nm),
+        ("at_mut: Lazy<u64>::set, value absent".to_string(), lazy1),
+        ("at_mut: Lazy<u64>::set, value present".to_string(), lazy2),
+    ]
+}
+
+/// Prints only the A3 rows and the rows the fix could touch (insert/update/remove at 10k on
+/// both v2 maps, the ext rows), for the before/after comparison of Oct 20.
+/// `cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture`
+#[test]
+#[ignore = "A3 before/after helper; run with --nocapture"]
+fn a3_rows() {
+    let n: u32 = std::env::var("GAS_A3_N").map(|s| s.parse().unwrap()).unwrap_or(10_000);
+    println!("{HEADER}");
+    for which in ["map", "lookup"] {
+        for (op, cs) in ops(V2H16, which, n) {
+            println!("{}", row(&V2H16.label(which), n, op, &cs));
+        }
+    }
+    for (op, cs) in ext_ops(n) {
+        if cs.is_empty() {
+            println!("| v2 (h16, ext) | {n} | {op} | | | | | | | | | |");
+        } else {
+            println!("{}", row("v2 (h16, ext)", n, &op, &cs));
+        }
+    }
+    for (op, cs) in a3_ops(n) {
+        println!("{}", row("v2 (h16, ext)", n, &op, &cs));
+    }
+    let mut sim = world(V2H16);
+    println!("{}", row("v2 root (h16)", 0, "deposit (new account via entry().or_default(), 1st token)", &[cost(&call(&mut sim, "deposit", json!({"token": "usdt", "amount": "5"})))]));
+    println!("{}", row("v2 root (h16)", 1, "deposit (existing account, new token)", &[cost(&call(&mut sim, "deposit", json!({"token": "usdc", "amount": "5"})))]));
+    println!("{}", row("v2 root (h16)", 1, "balance_of (2 hops)", &[cost(&call(&mut sim, "balance_of", json!({"id": ALICE, "token": "usdt"})))]));
 }
 
 fn data(kv: Vec<(Vec<u8>, Vec<u8>)>) -> impl Iterator<Item = StateRecord> {

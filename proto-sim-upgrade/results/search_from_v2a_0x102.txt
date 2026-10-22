@@ -1,26 +1,27 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.24s
      Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-a5df88af7c7154b1)
 
 running 1 test
-search case 54/512 · 10s elapsed, ~1m26s left (from the mean case time)
+search case 49/512 · 10s elapsed, ~1m35s left (from the mean case time)
 mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 114/512 · 20s elapsed, ~1m10s left (from the mean case time)
+search case 108/512 · 20s elapsed, ~1m15s left (from the mean case time)
 mbx[progress]: 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 175/512 · 30s elapsed, ~58s left (from the mean case time)
-search case 235/512 · 40s elapsed, ~47s left (from the mean case time)
+search case 164/512 · 30s elapsed, ~1m04s left (from the mean case time)
+search case 225/512 · 40s elapsed, ~51s left (from the mean case time)
 mbx[progress]: 45s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 297/512 · 50s elapsed, ~36s left (from the mean case time)
+search case 279/512 · 50s elapsed, ~42s left (from the mean case time)
 mbx[progress]: 1m elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
 test search_from_v2a has been running for over 60 seconds
-search case 356/512 · 1m00s elapsed, ~26s left (from the mean case time)
-search case 413/512 · 1m11s elapsed, ~17s left (from the mean case time)
+search case 342/512 · 1m00s elapsed, ~30s left (from the mean case time)
+search case 389/512 · 1m11s elapsed, ~22s left (from the mean case time)
 mbx[progress]: 1m 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search case 465/512 · 1m21s elapsed, ~8s left (from the mean case time)
+search case 436/512 · 1m21s elapsed, ~14s left (from the mean case time)
 mbx[progress]: 1m 30s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
-search: done, 512 case(s) in 1m30s
+search case 483/512 · 1m31s elapsed, ~5s left (from the mean case time)
+search: done, 512 case(s) in 1m37s
 Known: known findings only, not clean: claimable is only what schema B wrote at world
 search: 512 cases, 7019 blocks, seed 0x102; 22 injected, 116 drew a fault nothing fits, 0 incomplete, 0 every op skipped; 535 runs
-gas explored on 4049 of 4049 calls (4049 unpinned); the least-gas bisection ran a transaction 10268 times; drawn exactly and ±1 gas: 10, 20, 30, 300, 1000 Tgas
+gas explored on 4049 of 4049 calls (4049 unpinned); the least-gas bisection ran a transaction 10278 times; drawn exactly and ±1 gas: 10, 20, 30, 300, 1000 Tgas
 AUDIT: excused, not covered: app.near::clear_loop: a public entry point the contract calls itself; ClearLoop ops witness it
 AUDIT: excused, not covered: app.near::drain: a public entry point the contract calls itself; Drain ops witness it
 
@@ -28,15 +29,12 @@ known (not clean), each Known with what it suppressed; AUDIT the 1 flagged:
   1. "claimable is only what schema B wrote" anywhere, cause "tag 4 re-used: v2a's locked bytes read as claimable": "v2b re-uses tag 4 on purpose (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check)"
      leaves: v2a's `locked` value readable and writable as `claimable` in every pre-upgrade record
      suppressed 115 of 512 case(s): world (115)
-     sample: target/near-contract-sim/found/search_from_v2a/search-0x102-973f2d7e/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-a35702cc.json
+     sample: target/near-contract-sim/found/search_from_v2a/search-0x102-eada0608/known-claimable-is-only-what-schema-B-wrote@world-tag-4-re-used-v2a-s-locked-bytes-read-as-claimable-974a7be4.json
      AUDIT: broad: suppressed 115 of 512 cases, more than max(8, 5%): read its sample, and narrow it to the cause
-  2. "no collection outlives its record" anywhere, cause "A3 hole: a collection written through at_mut under a record without its marker": "FOUND Oct 20 (a3_marker_missing_after_at_mut_write_orphans_a_new_collection): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags"
-     leaves: the flag entries of a v2a-written record, orphaned on removal through v2a and inherited by the next record at that key
-     suppressed 0 of 512 case(s)
-  3. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+  2. "unhandled failure" at app.near::clear_loop, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
      suppressed 0 of 512 case(s)
-  4. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
+  3. "unhandled failure" at app.near::drain, when a detached continuation landed on code that refuses (documented SDK refusal): "drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and the receipt fails atomically"
      leaves: nothing: the failed link changes no state; the chain stops and the next call reports the refusal
      suppressed 0 of 512 case(s)
 
@@ -70,7 +68,7 @@ logs, per site, against the host's limit:
   (12 more sites, all smaller)
 
 replay files: 1
-WALL 90.6 s for 512 cases: 177 ms per case
+WALL 97.2 s for 512 cases: 190 ms per case
 reached (op runs, shrinking included):
   continuation ran on other code: drain V2a -> V2b: 3
   continuation ran on other code: drain V2b -> V2c: 2
@@ -101,5 +99,5 @@ reached (op runs, shrinking included):
 
 test search_from_v2a ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 90.75s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 97.30s
 

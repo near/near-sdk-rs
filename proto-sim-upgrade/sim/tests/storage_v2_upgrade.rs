@@ -21,10 +21,10 @@
 //!
 //! Ported Oct 20 to near-contract-sim main @ 8e8642db (the primitives layer). There a finding is
 //! never excused (harness.md, Excuses: `Known` is gone), so the findings this build shows by
-//! design or as the A3 hole are asserted by check, cause and site ([`expected`]), and nothing
-//! else may show. Checks labelled `harness:` / `runtime:` are sanity, not SDK properties.
+//! design are asserted by check, cause and site ([`expected`]), and nothing else may show. The
+//! A3 orphan, expected on ec29bf6f, is closed by round 7's first-write rule and now fails a run. Checks labelled `harness:` / `runtime:` are sanity, not SDK properties.
 
-use near_contract_sim::explore::{Audit, Fail, Faults, Found, Harness, Op, OpDone, Plan, Run, Skip, builtin, plans};
+use near_contract_sim::explore::{Audit, Fail, Faults, Found, Harness, Op, OpDone, Plan, Run, Skip, Verdict, builtin, plans};
 use near_contract_sim::nearcore::near_primitives::hash::hash as sha256;
 use near_contract_sim::{Balance, Failure, Sim};
 use proptest::prelude::*;
@@ -519,6 +519,14 @@ fn declared(v: Ver) -> (&'static [u32], &'static [u32]) {
 }
 
 impl GroupM {
+    /// The A3 first-write rule: a write through `at_mut` into a collection with no header adds
+    /// the collection's kind marker to the record if no marker is stored at its tag.
+    fn first_write(&mut self, tag: u32, kind: u8, had_header: bool) {
+        if !had_header && !matches!(self.tags.get(&tag), Some(TagV::Marker(_))) {
+            self.tags.insert(tag, TagV::Marker(kind));
+        }
+    }
+
     /// Decoding through `v`; `Err` where the SDK must refuse (a missing `required` tag).
     fn decode(&self, v: Ver) -> Result<Decoded, String> {
         let t = &self.tags;
@@ -849,6 +857,7 @@ impl Model {
                             Some(slot) => slot.1 = val,
                             None => gm.members.push((m, val)),
                         }
+                        gm.first_write(5, MAP_KIND, gm.members_hdr);
                         gm.members_hdr = true;
                     }
                     "remove_member" => {
@@ -862,6 +871,7 @@ impl Model {
                         if !gm.flags.contains(&f) {
                             gm.flags.push(f);
                         }
+                        gm.first_write(8, SET_KIND, gm.flags_hdr);
                         gm.flags_hdr = true;
                     }
                 }
@@ -1209,6 +1219,7 @@ const EXPECTED_PANICS: &[&str] = &[
     "is being cleared by `remove_step`",
     "the budget counts host removes and must be at least",
     "refusing to remove the record",
+    "refusing to create a collection below the record",
     "state: cannot decode root",
     "state: cannot decode value",
     "The contract has already been initialized",
@@ -1280,6 +1291,7 @@ fn probe(sim: &Sim) -> Result<(), Fail> {
                     for (p, what) in [
                         ("is being cleared", "refused: write below a clearing record"),
                         ("refusing to remove", "refused: A3 unknown collection tag on removal"),
+                        ("refusing to create a collection", "refused: first write below a record that is not stored"),
                         ("cannot decode value", "refused: record decode (v2c required tag)"),
                         ("cannot decode root", "refused: v2 code before migrate"),
                         ("must be at least", "refused: remove_step below 3"),
@@ -1365,7 +1377,6 @@ fn harness(world: Sim) -> Harness<UpOp> {
 const RETAG: &str = "claimable is only what schema B wrote";
 const RETAG_CAUSE: &str = "tag 4 re-used: v2a's locked bytes read as claimable";
 const A3: &str = "no collection outlives its record";
-const A3_CAUSE: &str = "A3 hole: a collection written through at_mut under a record without its marker";
 
 /// SDK refusals a detached continuation can hit after a redeploy (it then fails with nobody
 /// to tell): the A3 refusal, v2c's undecodable records, the clearing guard, code without the
@@ -1380,17 +1391,15 @@ fn continuation_refusal(run: &Run<UpOp>) -> bool {
     })
 }
 
-/// The findings this build shows by design or as the known A3 hole, each with why. On main a
-/// finding is never excused (the `Known`s of b328d067 are gone), so a campaign asserts that
-/// every finding is one of these, and reports each.
+/// The findings this build shows by design, each with why. On main a finding is never excused
+/// (the `Known`s of b328d067 are gone), so a campaign asserts that every finding is one of these,
+/// and reports each. The A3 orphan was one on ec29bf6f; round 7's first-write rule closed it, so
+/// an A3 finding now fails the campaign.
 fn expected(f: &Found<UpOp>) -> Option<&'static str> {
     let (check, cause, site) = (f.finding.check.as_str(), f.finding.cause.as_deref(), f.finding.site.to_string());
     match check {
         RETAG if cause == Some(RETAG_CAUSE) => Some(
             "by design: v2b re-uses tag 4 (spec: reusing a tag is a build error against the deployed ABI; --no-abi skips that check); leaves v2a's `locked` readable and writable as `claimable`",
-        ),
-        A3 if cause == Some(A3_CAUSE) => Some(
-            "the A3 hole on ec29bf6f (FOUND Oct 20): the kind marker is written only when the record is rewritten; at_mut writes below without rewriting, so v2a's A3 check cannot see v2b's flags; leaves the flags orphaned on removal through v2a and inherited by the next record at that key",
         ),
         builtin::UNHANDLED_FAILURE if (site.contains("clear_loop") || site.contains("drain")) && continuation_refusal(&f.run) => Some(
             "by design: drain/clear_loop chain themselves with detached self-calls; after a redeploy the next link can meet A3, v2c's required tag or a missing method, and fails atomically with nobody told; leaves nothing (the failed link changes no state)",
@@ -1733,44 +1742,46 @@ fn retag_both_directions() {
 
 /// FOUND by `scan_out_of_gas` (witness 5), minimised by hand: a record written by v2a carries
 /// no marker for v2b's `flags` (tag 8). v2b adds a flag through `at_mut`, which writes below the
-/// record without rewriting it, so the marker is never written. Rolled back to v2a, removing
-/// the record passes the A3 check (no unknown marker in its bytes) and leaves the flag entries
-/// behind; a new g0 then inherits them once v2b is back: exactly hazard A3.
+/// record without rewriting it. Before the first-write rule the marker was never written, so
+/// v2a's removal passed the A3 check and left the flags for the next g0 to inherit. With the
+/// rule, that first write adds the tag 8 marker to the record, and v2a refuses the removal.
 #[test]
-fn a3_marker_missing_after_at_mut_write_orphans_a_new_collection() {
+fn a3_first_write_through_at_mut_marks_the_record_so_removal_refuses() {
     let mut sim = v2a_world(); // g0 written by v2a: tags 1-5, no tag 8
     sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
     tx_ok(&mut sim, "add_flag", json!({ "g": "g0", "f": "f0" })).unwrap();
     let rec = raw(&sim, &group_rec("g0")).unwrap();
-    println!("g0 record after v2b add_flag: {rec:02x?} (no 0x21 = tag 8 marker field key)");
+    println!("g0 record after v2b add_flag: {rec:02x?}");
+    assert!(rec.windows(3).any(|w| w == [0x21, 0x01, SET_KIND]), "the first write adds the tag 8 SET marker: {rec:02x?}");
+    let keys_before = sim.view_state(APP, &group_rec("g0")).len();
     sim.tx(APP, APP).deploy(Ver::V2a.wasm()).transact().assert_success();
     let removed = tx_ok(&mut sim, "remove_group", json!({ "g": "g0" }));
     println!("v2a remove_group(g0): {removed:?}");
-    let left = sim.view_state(APP, &group_rec("g0"));
-    println!("keys left under g0: {}", left.len());
-    tx_ok(&mut sim, "create_group", json!({ "g": "g0", "weight": 1, "x": 1 })).unwrap();
+    assert!(removed.unwrap_err().contains("refusing to remove"), "v2a refuses to remove a record with an unknown collection");
+    assert_eq!(sim.view_state(APP, &group_rec("g0")).len(), keys_before, "the refused removal changes nothing");
+    assert_eq!(raw(&sim, &group_rec("g0")).unwrap(), rec, "the record and its marker stay");
     sim.tx(APP, APP).deploy(Ver::V2b.wasm()).transact().assert_success();
-    let inherited = sim.state(APP, &coll_entry("g0", 8, "f0")).is_some();
-    println!("new g0 under v2b sees the old flag f0: {inherited}");
-    if removed.is_ok() {
-        assert!(!left.is_empty() && inherited, "the hole: removal passed and orphaned the flags");
-        println!("HOLE PRESENT (production code without the fix)");
-    } else {
-        assert!(removed.unwrap_err().contains("refusing to remove"), "fixed: removal refuses");
-        println!("FIXED: v2a refuses the removal");
-    }
+    assert!(tx_ok(&mut sim, "remove_group", json!({ "g": "g0" })).is_ok(), "v2b knows the flags and removes them");
+    assert!(sim.view_state(APP, &group_rec("g0")).is_empty(), "nothing is left under g0");
+    tx_ok(&mut sim, "create_group", json!({ "g": "g0", "weight": 1, "x": 1 })).unwrap();
+    assert!(sim.state(APP, &coll_entry("g0", 8, "f0")).is_none(), "a new g0 inherits no flag");
 }
 
 /// The scan's saved case (`tests/found/a3-orphaned-flags.json`, converted to main's plan
-/// format): on ec29bf6f the A3 hole shows, which makes this the upgrade harness's positive
-/// control. Once fixed, the removal through v2a is refused and the case is clean of it.
+/// format): it showed the A3 hole on ec29bf6f, before the first-write rule. Now v2b's first
+/// `add_flag` marks the record, the removal through v2a is refused, and the case is clean of it.
 #[test]
 fn a3_orphan_replay() {
     let path = format!("{}/tests/found/a3-orphaned-flags.json", env!("CARGO_MANIFEST_DIR"));
     let run = harness(v2a_world()).run(&Plan::load(&path));
     println!("{run}");
-    let f = run.assert_found(A3, "world");
-    assert_eq!(f.cause.as_deref(), Some(A3_CAUSE), "{run}");
+    assert!(run.verdict() != Verdict::HarnessError, "{run}");
+    assert!(run.findings().iter().all(|f| f.check != A3), "the A3 orphan is gone: {run}");
+    assert!(run.findings().iter().all(|f| f.check == RETAG), "only the re-used tag 4 may show: {run}");
+    let refused = run.outcomes().iter().flat_map(|o| &o.receipts).any(|r| {
+        matches!(r.failure(), Some(Failure::Panic(m)) if m.contains("refusing to remove"))
+    });
+    assert!(refused, "v2a refuses to remove the record that carries v2b's tag 8 marker: {run}");
 }
 
 /// Per-case time without the search around it: the same N plans (drawn from a fixed seed by the

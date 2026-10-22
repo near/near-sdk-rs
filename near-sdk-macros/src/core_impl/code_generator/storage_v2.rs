@@ -25,7 +25,12 @@
 //!   it, so a v1 collection or an un-opted Borsh struct is E0277 with `Value`'s message;
 //! - rejections: a missing `#[key]`, a reused or reserved tag, a v1 collection in a record
 //!   (v1-only names, or `store::`/`collections::`-qualified shared names), and a collection
-//!   as a map value (`Map<_, Set<_>>` and friends) at the field;
+//!   as a map value (`Map<_, Set<_>>` and friends) at the field; and (round 7) a headerless
+//!   collection (`LookupMap`, `LookupSet`, `GroupedMap`) as a field of a record, by a const
+//!   assertion on `Value::__ROOT_ONLY` spanned at the field type (E0080): root-only, since they
+//!   give the A3 first-write rule no signal;
+//! - `SAtMut` handles remember the stored record they sit in (`__view_mut_in(path, anchor)`,
+//!   the anchor passed down through nested record fields), for the A3 first-write rule;
 //! - `impl Removable for S where for<'x> T: Removable, ...` (HRTB so a non-removable field makes
 //!   the impl inapplicable instead of a compile error at the struct);
 //! - `impl Leaf for S where for<'x> T: Leaf, ...` (same trick): plain `insert` only for records
@@ -343,6 +348,8 @@ pub fn expand(
     let mut clear_some = Vec::new();
     // API round 5 (A3): one arm per declared tag for `__unknown_collection`.
     let mut unknown_arms = Vec::new();
+    // Round 7: one const check per field of a record that it is not a root-only collection.
+    let mut root_only = Vec::new();
 
     for KeyedField { ident, ty, vis: fvis, tag, required, default, default_fn, legacy } in &fields {
         let t = tag_lit(*tag);
@@ -399,8 +406,26 @@ pub fn expand(
         view_mut_fields
             .push(quote! { #fvis #ident: <#ty as #s::ViewFieldMut<'a, #name>>::Out, });
         view_mut_inits.push(quote! {
-            #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t)),
+            #ident: <#ty as #s::ViewFieldMut<'a, #name>>::__view_field_mut(path.field(#t), anchor),
         });
+        if !is_root {
+            // Round 7 (A3 first-write rule): a headerless collection has no first-write signal,
+            // so it is root-only. A const check, not a syntactic one: it sees through aliases,
+            // and a shadowing `use near_sdk::store::LookupMap` still fails first with
+            // `Value`'s E0277 (a v1 collection is no value at all).
+            let msg = format!(
+                "field `{ident}` of `#[near(storage)]` record `{name}`: `LookupMap`, `LookupSet` \
+                 and `GroupedMap` can only be fields of the contract root \
+                 (`contract_state(layout = v2)`). They have no header, so the first write below \
+                 a record cannot tell whether the record declares them, and another version of \
+                 the contract could then remove the record and leave their keys behind (hazard \
+                 A3). Use `Map` (for `LookupMap`) or `Set` (for `LookupSet`) inside a record. \
+                 (`Migrating` is root-only too: it holds a v1 map.)"
+            );
+            root_only.push(quote_spanned! {ty.span()=>
+                const _: () = ::core::assert!(!<#ty as #s::Value>::__ROOT_ONLY, #msg);
+            });
+        }
         removable_bounds.push(quote! { for<'__x> #ty: #s::Removable, });
         leaf_bounds.push(quote! { for<'__x> #ty: #s::Leaf, });
         clear.push(quote! { <#ty as #s::Removable>::clear_children(&path.field(#t)); });
@@ -618,7 +643,8 @@ pub fn expand(
                 fn __view<'a>(path: #s::Path) -> #view<'a> {
                     #view { #(#view_inits)* __m: ::core::marker::PhantomData }
                 }
-                fn __view_mut<'a>(path: #s::Path) -> #view_mut<'a> {
+                #[allow(unused_variables)]
+                fn __view_mut_in<'a>(path: #s::Path, anchor: usize) -> #view_mut<'a> {
                     #view_mut { #(#view_mut_inits)* __m: ::core::marker::PhantomData }
                 }
             }
@@ -632,8 +658,9 @@ pub fn expand(
 
             impl<'a, __R: #s::Value> #s::ViewFieldMut<'a, __R> for #name {
                 type Out = #view_mut<'a>;
-                fn __view_field_mut(field_path: #s::Path) -> #view_mut<'a> {
-                    <#name as #s::Record>::__view_mut(field_path)
+                fn __view_field_mut(field_path: #s::Path, anchor: usize) -> #view_mut<'a> {
+                    // a nested record field: its collections live in the enclosing stored record
+                    <#name as #s::Record>::__view_mut_in(field_path, anchor)
                 }
             }
 
@@ -653,6 +680,7 @@ pub fn expand(
             #[allow(unused_lifetimes)]
             impl #s::Leaf for #name where #(#leaf_bounds)* {}
 
+            #(#root_only)*
             #decode_fields
             #default_impl
         };

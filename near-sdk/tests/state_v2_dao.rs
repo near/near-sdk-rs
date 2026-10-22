@@ -403,9 +403,22 @@ fn proposals_paginate_and_stop_at_the_end() {
 
 #[test]
 fn vote_op_counts() {
-    setup(&["a.near", "b.near"]);
-    let (pid, _) = call("a.near", |c| c.propose("x".repeat(2_000)));
-    let (_, r) = call("b.near", |c| c.vote(pid, Vote::Yes));
+    setup(&["a.near", "b.near", "c.near"]);
+    let (p0, _) = call("a.near", |c| c.propose("x".repeat(2_000)));
+    let (p1, _) = call("a.near", |c| c.propose("y".repeat(2_000)));
+    // Round 7, the A3 first-write rule: the first write into an empty nested collection reads
+    // the record holding it (its marker is there, so it is not rewritten). b's first vote is
+    // the first into both p0's `votes` and b's `votes`: 2 more reads, the 2,000-byte proposal
+    // among them; c's first vote reads only c's member record; b on p1 only p1.
+    let (_, r) = call("b.near", |c| c.vote(p0, Vote::Yes));
+    assert_eq!((r.rwd(), r.has_keys()), ((7, 8, 0), 2));
+    assert!(r.read_bytes() > 2_000, "the first vote on p0 reads the proposal once");
+    let (_, r) = call("c.near", |c| c.vote(p0, Vote::No));
+    assert_eq!((r.rwd(), r.has_keys()), ((6, 8, 0), 2));
+    assert!(r.read_bytes() < 2_000, "read {} bytes: only c's member record", r.read_bytes());
+    let (_, r) = call("b.near", |c| c.vote(p1, Vote::Yes));
+    assert_eq!((r.rwd(), r.has_keys()), ((6, 8, 0), 2));
+    let (_, r) = call("c.near", |c| c.vote(p1, Vote::Yes));
     // Revision 3, with `at_mut` and `insert -> bool`. reads: root, votes index + header
     // (insert), member votes-set index + header. has_key: member and proposal existence
     // (`at_mut` reuses them from the cache). writes: 4 for the votes Map entry, 4 for the
@@ -414,7 +427,7 @@ fn vote_op_counts() {
     // API round 2 (D9, flag key): a record being cleared lives at its flag key with its record
     // key absent, so `at_mut` on a present record stays 1 `storage_has_key` and reads nothing.
     // (The in-record `00 00` flag had made this (7, 8, 0) + 1 has_key, rereading the 2,000-byte
-    // description.) Back to the revision-3 numbers.
+    // description.) Back to the revision-3 numbers once both collections hold an entry.
     assert_eq!(r.rwd(), (5, 8, 0));
     assert_eq!(r.has_keys(), 2);
     assert!(r.read_bytes() < 2_000, "read {} bytes: the proposal is not read", r.read_bytes());

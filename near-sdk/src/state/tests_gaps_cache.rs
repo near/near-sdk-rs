@@ -290,6 +290,25 @@ fn gaps_cache_buried_value_is_dropped_at_the_flush() {
     assert_eq!(drops(), before + 2, "both buried values dropped at the flush");
 }
 
+/// `remove` hands the decoded value itself out of the cache: dropping it is the only drop, and
+/// the flush has nothing left to free. Kills `delete_impl -> None`, under which `remove`
+/// decodes a second copy from the stored bytes and the first is freed at the flush.
+#[test]
+fn gaps_cache_remove_hands_out_the_decoded_value() {
+    testing::use_mock();
+    let mut m: LookupMap<u32, Dropper> = at(1);
+    m.insert(1, Dropper(1));
+    end_call();
+    assert_eq!(m.get(&1).map(|d| d.0), Some(1));
+    let before = drops();
+    let v = m.remove(&1);
+    assert_eq!(v.as_ref().map(|d| d.0), Some(1));
+    drop(v);
+    assert_eq!(drops(), before + 1, "the cached value was handed out and dropped by the caller");
+    end_call();
+    assert_eq!(drops(), before + 1, "nothing left for the flush to drop");
+}
+
 // ---------------------------------------------------------------------------------------
 // 4. `check_live`: a fresh handle, and a handle at the removed key itself
 // ---------------------------------------------------------------------------------------

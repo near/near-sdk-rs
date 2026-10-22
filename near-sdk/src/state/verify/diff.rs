@@ -133,7 +133,7 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
 }
 
 /// The Verification round 2 ops: records owning a `Lazy`, a `Set` and a `Vector` (`xrecs`), and
-/// records owning a `LookupSet` (`lrecs`). Writes go through `at_mut`, reads through `at`.
+/// records owning a `Set` (`lrecs`; a `LookupSet` until round 7). Writes go through `at_mut`, reads through `at`.
 fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
     use super::fixture::{RecL, RecX};
     let push = |v: &mut Vec<u8>, x: Option<u8>| {
@@ -223,17 +223,11 @@ fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
         })),
         Op::LSetInsert(k, x) => match root.lrecs.at_mut(&k.0) {
             None => Ret::OptU64(None),
-            Some(r) => {
-                r.lset.insert(x.0);
-                Ret::Bool(true)
-            }
+            Some(r) => Ret::Bool(r.lset.insert(x.0)),
         },
         Op::LSetRemove(k, x) => match root.lrecs.at_mut(&k.0) {
             None => Ret::OptU64(None),
-            Some(r) => {
-                r.lset.remove(&x.0);
-                Ret::Bool(true)
-            }
+            Some(r) => Ret::Bool(r.lset.remove(&x.0)),
         },
         Op::LSetContains(k, x) => Ret::Bool(root.lrecs.at(&k.0).lset.contains(&x.0)),
         _ => unreachable!("not a nested op: {op:?}"),
@@ -442,7 +436,7 @@ fn differential_fixed_sequences() {
 }
 
 /// Verification round 2: fixed sequences over records owning a `Lazy`, a `Set` and a `Vector`
-/// (`xrecs`) and a `LookupSet` (`lrecs`), every nested op at least once, including a
+/// (`xrecs`) and a `Set` under a `LookupMap` (`lrecs`), every nested op at least once, including a
 /// `remove_step` that takes several calls (Lazy, Set entries, Vector slots, headers) and one
 /// interrupted by writes from the same call.
 #[test]

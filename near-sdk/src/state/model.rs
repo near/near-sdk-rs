@@ -8,7 +8,7 @@
 //! 2. [`MState`]: the abstract contract state (a counter, a key-vector map, a lookup map, a map
 //!    of records owning a map, a vector; since Verification round 2 also a map of records each
 //!    owning a `Lazy`, a `Set` and a `Vector`, and a lookup map of records each owning a
-//!    `LookupSet`) and [`MState::concretize`], the bytes the spec says that state occupies in
+//!    `Set`, a `LookupSet` until round 7) and [`MState::concretize`], the bytes the spec says that state occupies in
 //!    storage.
 //! 3. [`CacheModel`]: the spec's per-call cache rule ("each key is read at most once per call,
 //!    written once at the end in key order with the root last; a value is rewritten only if its
@@ -30,6 +30,11 @@
 //! `at_mut`), `at_mut` checks existence and never reads, a `Map` header carries a removal
 //! revision and survives emptying (it goes only with the record owning the map), and
 //! `try_insert` is first-write-wins on every value type.
+//!
+//! Round 7 (the A3 first-write rule): a write that brings a nested collection into existence
+//! (a `Map`/`Set`/`Vector` with no header, a `Lazy` set whose value is absent) below a record
+//! reached through `at_mut` makes sure the record declares it ([`CacheModel::rec_declare`]): 1
+//! read of the record unless this call writes it or already knows its bytes.
 //!
 //! Generation-stamped handles (API round 4) need no case here: every operation below takes a
 //! fresh handle from the root (`root.recs.at_mut(&k)`), so none is ever stale. The escaped-handle
@@ -188,7 +193,6 @@ pub const RX_VEC: u32 = 4;
 pub const RL_N: u32 = 1;
 pub const RL_LSET: u32 = 2;
 /// Spec, Records: kind bytes.
-pub const KIND_LOOKUP_SET: u8 = 0x84;
 pub const KIND_SET: u8 = 0x83;
 pub const KIND_VECTOR: u8 = 0x85;
 pub const KIND_LAZY: u8 = 0x86;
@@ -327,15 +331,17 @@ impl RecXM {
     }
 }
 
-/// A `RecL` (Verification round 2): `n` and a `LookupSet<u8>`. Not `Removable`.
+/// A `RecL` (Verification round 2): `n` and a `Set<u8>` in key-vector order with its revision
+/// (a `LookupSet` until round 7, when headerless collections became root-only).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RecLM {
     pub n: u64,
-    pub lset: std::collections::BTreeSet<u8>,
+    pub lset: Vec<(u8, ())>,
+    pub lset_rev: u64,
 }
 impl RecLM {
     pub fn bytes(&self) -> Vec<u8> {
-        enc_record(&BTreeMap::from([(RL_N, self.n.to_le_bytes().to_vec())]), &BTreeMap::from([(RL_LSET, KIND_LOOKUP_SET)]))
+        enc_record(&BTreeMap::from([(RL_N, self.n.to_le_bytes().to_vec())]), &BTreeMap::from([(RL_LSET, KIND_SET)]))
     }
 }
 
@@ -436,9 +442,7 @@ impl MState {
         }
         for (k, rec) in &self.lrecs {
             out.insert(lrecs().entry(*k), rec.bytes());
-            for e in &rec.lset {
-                out.insert(lset(*k).entry(*e), Vec::new());
-            }
+            concretize_set(&mut out, &lset(*k), &rec.lset, rec.lset_rev);
         }
         out
     }
@@ -645,6 +649,25 @@ impl CacheModel {
             s.blind_delete = true;
         }
         s.pending = Some(None);
+    }
+
+    /// Round 7, spec "A3 first-write rule": a collection nested in the record at `key` (reached
+    /// through `at_mut`) is about to come into existence, so the record must declare it with
+    /// its kind marker. Free when this call writes the record anyway or already knows its
+    /// bytes; otherwise `child_absent` decides (a `Lazy` asks with a `storage_has_key`, a map or
+    /// vector with no header passes `true`), and an absent child costs 1 read of the record.
+    /// The record is rewritten only if the marker is missing, which never happens here: every
+    /// record this model holds was written by this schema, markers included.
+    pub fn rec_declare(&mut self, key: &[u8], child_absent: impl FnOnce(&mut Self) -> bool) {
+        if self.rslot(key).pending.is_some() {
+            return;
+        }
+        let known = matches!(self.rslot(key).orig, ROrig::Present(..));
+        if !known && !child_absent(self) {
+            return;
+        }
+        let (_, clearing) = self.rec_read(key).expect("MODEL BUG: a nested write below an absent record");
+        assert!(!clearing, "MODEL BUG: a nested write below a record being cleared");
     }
 
     fn slot(&mut self, key: &[u8]) -> &mut MSlot {
@@ -920,7 +943,7 @@ pub enum Op {
     /// `at(&k).vect.iter().rev().skip(s)`: its `size_hint`, then `take(2)` (exercises
     /// `IndexIter::{next_back, nth_back, size_hint}`).
     XVecIterBack(K, #[generator(0..4)] u8),
-    // `lrecs: LookupMap<u8, RecL>`, records owning a `LookupSet` (not `Removable`).
+    // `lrecs: LookupMap<u8, RecL>`, records owning a `Set` (a `LookupSet` until round 7).
     LTryInsert(K, #[generator(0..3)] u8),
     LGet(K),
     LGetMut(K, #[generator(0..3)] u8),
@@ -981,6 +1004,9 @@ struct KV<'a, V> {
     v: &'a mut Vec<(u8, V)>,
     rev: &'a mut u64,
     records: bool,
+    /// The key of the record storing this map, for a map nested in one (round 7, the A3
+    /// first-write rule); `None` for a root field.
+    parent: Option<Vec<u8>>,
 }
 
 impl<V: Clone> KV<'_, V> {
@@ -1019,8 +1045,15 @@ impl<V: Clone> KV<'_, V> {
         if self.records { c.rec_delete(&self.mk.entry(k)) } else { c.delete(&self.mk.entry(k)) }
     }
     /// Appends `k` (its value is written by the caller): header read, index, slot, header.
+    /// Round 7 (spec, A3 first-write rule): with no header (the map never held an entry), a
+    /// nested map's record must declare it first (`CacheModel::rec_declare`).
     fn push_key(&mut self, c: &mut CacheModel, k: u8, v: V) {
         let n = self.len(c);
+        if header_stored(n, *self.rev).is_none()
+            && let Some(p) = &self.parent
+        {
+            c.rec_declare(p, |_| true);
+        }
         c.write(&self.mk.index(k), enc_u32(n));
         c.write(&self.mk.slot(n), vec![k]);
         self.set_len(c, n + 1);
@@ -1179,9 +1212,15 @@ fn vset_len(c: &mut CacheModel, vk: &MapKeys, n: u32) {
     if n == 0 { c.delete(&vk.header()) } else { c.write(&vk.header(), enc_u32(n)) }
 }
 
-/// Header read, slot write, header write.
-fn vpush(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, x: Vec<u8>) {
+/// Header read, slot write, header write. `parent`: the key of the record storing a nested
+/// vector; a push into an empty one (no header) declares it there first (round 7, A3).
+fn vpush(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, x: Vec<u8>, parent: Option<&[u8]>) {
     let n = vlen(c, vk, v);
+    if n == 0
+        && let Some(p) = parent
+    {
+        c.rec_declare(p, |_| true);
+    }
     c.write(&vk.vslot(n), enc_bytes(&x));
     vset_len(c, vk, n + 1);
     v.push(x);
@@ -1295,29 +1334,35 @@ impl Default for Model {
 
 macro_rules! flat_kv {
     ($s:expr) => {
-        KV { mk: flat(), v: &mut $s.cur.flat, rev: &mut $s.cur.flat_rev, records: false }
+        KV { mk: flat(), v: &mut $s.cur.flat, rev: &mut $s.cur.flat_rev, records: false, parent: None }
     };
 }
 macro_rules! recs_kv {
     ($s:expr) => {
-        KV { mk: recs(), v: &mut $s.cur.recs, rev: &mut $s.cur.recs_rev, records: true }
+        KV { mk: recs(), v: &mut $s.cur.recs, rev: &mut $s.cur.recs_rev, records: true, parent: None }
     };
 }
 macro_rules! xrecs_kv {
     ($s:expr) => {
-        KV { mk: xrecs(), v: &mut $s.cur.xrecs, rev: &mut $s.cur.xrecs_rev, records: true }
+        KV { mk: xrecs(), v: &mut $s.cur.xrecs, rev: &mut $s.cur.xrecs_rev, records: true, parent: None }
     };
 }
 macro_rules! xset_kv {
     ($s:expr, $k:expr, $i:expr) => {{
         let r = &mut $s.cur.xrecs[$i].1;
-        KV { mk: xset($k), v: &mut r.set, rev: &mut r.set_rev, records: false }
+        KV { mk: xset($k), v: &mut r.set, rev: &mut r.set_rev, records: false, parent: Some(xrecs().entry($k)) }
     }};
 }
 macro_rules! items_kv {
     ($s:expr, $k:expr, $i:expr) => {{
         let r = &mut $s.cur.recs[$i].1;
-        KV { mk: items($k), v: &mut r.items, rev: &mut r.items_rev, records: false }
+        KV { mk: items($k), v: &mut r.items, rev: &mut r.items_rev, records: false, parent: Some(recs().entry($k)) }
+    }};
+}
+macro_rules! lset_kv {
+    ($s:expr, $k:expr) => {{
+        let r = $s.cur.lrecs.get_mut(&$k).expect("checked present");
+        KV { mk: lset($k), v: &mut r.lset, rev: &mut r.lset_rev, records: false, parent: Some(lrecs().entry($k)) }
     }};
 }
 
@@ -1529,6 +1574,9 @@ impl Model {
             }
             Op::XLazySet(K(k), v) => {
                 let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
+                // round 7 (A3 first-write rule): unless this call knows the record's bytes, 1
+                // `storage_has_key` of the value; absent, the record is read (its marker is there)
+                self.cache.rec_declare(&xrecs().entry(k), |c| !c.exists(&xlazy(k)));
                 self.cache.write(&xlazy(k), enc_bytes(&v.bytes()));
                 self.cur.xrecs[i].1.lazy = Some(v.bytes());
                 Ret::Bool(true)
@@ -1583,7 +1631,7 @@ impl Model {
             })),
             Op::XVecPush(K(k), v) => {
                 let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
-                vpush(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, v.bytes());
+                vpush(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, v.bytes(), Some(&xrecs().entry(k)));
                 Ret::Bool(true)
             }
             Op::XVecPop(K(k)) => {
@@ -1642,22 +1690,18 @@ impl Model {
                 if !self.l_exists(k) {
                     return Ret::OptU64(None);
                 }
-                self.cache.write(&lset(k).entry(x), Vec::new());
-                self.cur.lrecs.get_mut(&k).unwrap().lset.insert(x);
-                Ret::Bool(true)
+                Ret::Bool(lset_kv!(self, k).set_insert(&mut self.cache, x))
             }
             Op::LSetRemove(K(k), K(x)) => {
-                // 1 remove, blind
                 if !self.l_exists(k) {
                     return Ret::OptU64(None);
                 }
-                self.cache.delete(&lset(k).entry(x));
-                self.cur.lrecs.get_mut(&k).unwrap().lset.remove(&x);
-                Ret::Bool(true)
+                Ret::Bool(lset_kv!(self, k).set_remove(&mut self.cache, x))
             }
             Op::LSetContains(K(k), K(x)) => {
                 let e = self.cache.exists(&lset(k).entry(x));
-                assert_eq!(e, self.cur.lrecs.get(&k).is_some_and(|r| r.lset.contains(&x)), "MODEL BUG: lookup set");
+                let want = self.cur.lrecs.get(&k).is_some_and(|r| pos(&r.lset, x).is_some());
+                assert_eq!(e, want, "MODEL BUG: lrecs set contains");
                 Ret::Bool(e)
             }
             _ => unreachable!("not a nested op: {op:?}"),
@@ -1679,7 +1723,7 @@ impl Model {
             }
             None => (&mut empty, &mut zero),
         };
-        f(&mut self.cache, &KV { mk: xset(k), v, rev, records: false })
+        f(&mut self.cache, &KV { mk: xset(k), v, rev, records: false, parent: None })
     }
 
     /// The record at `k` (1 read, 2 on a miss: the flag key), checked against the abstract
@@ -1945,7 +1989,7 @@ impl Model {
                 Ret::RecPage(r)
             }
             Op::VecPush(v) => {
-                vpush(&mut self.cache, &vect(), &mut self.cur.vec, v.bytes());
+                vpush(&mut self.cache, &vect(), &mut self.cur.vec, v.bytes(), None);
                 Ret::Unit
             }
             Op::VecPop => Ret::Bytes(vpop(&mut self.cache, &vect(), &mut self.cur.vec)),
@@ -1987,7 +2031,7 @@ impl Model {
             }
             None => (&mut empty, &mut zero),
         };
-        KV { mk: items(k), v, rev, records: false }.len(&mut self.cache)
+        KV { mk: items(k), v, rev, records: false, parent: None }.len(&mut self.cache)
     }
 
     /// The re-typed call: `Map<u8, RecV2>::get_mut(k)`, `note += x`. Own call.

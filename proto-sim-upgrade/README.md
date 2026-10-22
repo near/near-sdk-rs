@@ -19,17 +19,22 @@ port to primitives main (Oct 20)".
 - `sim/tests/storage_v2_upgrade.rs`: the op enum, a model folded from every receipt's
   `ev v=<version> seq=<n>` log, the checks, hand tests, three searches and a scan. On main a
   finding is never excused (`Known` is gone). Each campaign therefore prints every finding and
-  asserts it is one of three expected ones (`expected`): the re-used tag 4 (by design), the A3
-  hole (open on ec29bf6f), and "unhandled failure" at a `clear_loop` or `drain` continuation
-  that met a documented refusal after a redeploy. Anything else fails the test. `harness: seq
-  has no gap` and `runtime: storage_usage ...` are sanity checks, not SDK properties. `probe:
-  behaviour classes` never fails, and its counts include reruns. Distinct-case coverage is
-  `Audit::reached` per method.
+  asserts it is one of two expected ones (`expected`): the re-used tag 4 (by design), and
+  "unhandled failure" at a `clear_loop` or `drain` continuation that met a documented refusal
+  after a redeploy. Anything else fails the test. That includes the A3 orphan ("no collection
+  outlives its record"), which was open on ec29bf6f and is fixed by round 7's first-write rule.
+  `harness: seq has no gap` and `runtime: storage_usage ...` are sanity checks, not SDK
+  properties. `probe: behaviour classes` never fails, and its counts include reruns.
+  Distinct-case coverage is `Audit::reached` per method.
 - `sim/tests/found/a3-orphaned-flags.json`: the scan's saved case for the A3 marker hole,
-  converted to main's plan format. `a3_orphan_replay` replays it and must find the orphan on
-  ec29bf6f. It is this harness's positive control.
-- `results/`: `*_20261020b.txt` are the main runs, and the other files are the b328d067 runs.
-  `run_campaign.sh` still writes the b328d067-era file names at 512 cases.
+  converted to main's plan format. It has been clean since round 7's first-write rule:
+  `a3_orphan_replay` asserts that the orphan finding is gone and that v2a's removal is refused.
+  `a3_first_write_through_at_mut_marks_the_record_so_removal_refuses` pins the rule by hand. The
+  harness's positive control is the retag finding (`retag_hazard_is_caught`), plus
+  `raw_checks_can_fail`.
+- `results/`: `*_20261020b.txt` are the main runs on ec29bf6f, before round 7, and
+  `*_20261022*.txt` are the main runs on round 7. The undated files are the b328d067 harness's
+  runs, regenerated on round 7 by `run_campaign.sh`, which still writes those names at 512 cases.
 
 ## Commands
 
@@ -48,7 +53,7 @@ cd .. && ./run_campaign.sh                   # b328d067-era: 3 x 512 cases + the
 ```
 
 The near-sdk mock pin: `NEAR_SANDBOX_BIN_PATH=/usr/bin/true cargo test -p near-sdk --features
-unstable,unit-testing --test state_v2_verify hazard_a3_marker`.
+unstable,unit-testing --test state_v2_verify a3_first_write`.
 
 ## Timings
 
@@ -60,3 +65,7 @@ shrinking the expected retag finding. Those runs are not comparable to the old o
 load differs. In the profile A/B on 128 fixed plans
 (`timing_probe`), opt-level 0 took 479 and 620 ms per case and opt-level 2 took 189 and 214 ms,
 on a machine at load 48 to 86 (`results/opt_level_ab_20261020b.txt`).
+
+On proto/storage-v2 before this merge, the b328d067 harness was rerun on round 7, on a loaded
+machine: 97 s, 88 s, 114 s and 51 s (the undated `results/`). The scan's "no collection outlives
+its record" failures went from 50 to 0, and its A3 removal refusals went from 42 to 137.

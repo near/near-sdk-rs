@@ -150,6 +150,11 @@ struct Slot {
     /// bytes to the flag key verbatim instead of re-encoding it, which could materialise
     /// `default = ..` fields and change its size (review F3).
     verbatim: bool,
+    /// Round 7 (A3 first-write rule): the stored record with a kind marker added by
+    /// [`ensure_marker`], written by the flush while the slot is otherwise Clean (and moved to
+    /// the flag key instead of `orig` by a verbatim `set_clearing`). A typed re-encode (Touched,
+    /// Dirty) writes every declared marker itself, so it ignores this.
+    patch: Option<Vec<u8>>,
 }
 
 /// Which key a flush op targets: the slot's own key, or its D9 flag key (the key plus `00`).
@@ -168,6 +173,12 @@ enum FlushOp<'a> {
 }
 
 impl Slot {
+    /// Removed, or set clearing, in this call. Defensive in `ensure_marker`: a handle bound
+    /// before such a removal fails `check_live` first, and `at_mut` refuses a clearing record.
+    fn gone_in_this_call(&self) -> bool {
+        self.mode == Mode::Deleted || self.is_clearing()
+    }
+
     fn is_clearing(&self) -> bool {
         match self.clearing {
             Clearing::Set => true,
@@ -197,10 +208,18 @@ impl Slot {
             (at_key, at_flag) = (true, true);
         }
         match self.mode {
-            Mode::Clean => {}
+            // A3 first-write rule: a record whose only change is an added kind marker. It was
+            // read at its record key (a record being cleared refuses the write below it), so
+            // the patch goes there.
+            Mode::Clean => {
+                if let Some(p) = &self.patch {
+                    f(FlushOp::Write(At::Key, p));
+                }
+            }
             Mode::Touched | Mode::Dirty => {
                 let clearing = self.is_clearing();
-                let enc: std::borrow::Cow<'_, [u8]> = match self.orig.bytes() {
+                let verbatim = self.patch.as_deref().or(self.orig.bytes());
+                let enc: std::borrow::Cow<'_, [u8]> = match verbatim {
                     Some(b) if self.verbatim && clearing => std::borrow::Cow::Borrowed(b),
                     _ => std::borrow::Cow::Owned(self.encode()),
                 };
@@ -323,6 +342,7 @@ impl Cache {
             at_flag: false,
             blind_delete: false,
             verbatim: false,
+            patch: None,
         })));
         self.slots.insert(key.to_vec(), s);
         s
@@ -641,6 +661,73 @@ pub(crate) fn set_clearing(path: &Path) {
     })
 }
 
+/// Round 7, the A3 first-write rule: a collection (or `Lazy`) reached through `at_mut` is about
+/// to come into existence below the record stored at `rec_key`, at the field the tag `trail`
+/// leads to; make sure that record declares it with the kind marker `kind`, so that removing
+/// the record under a version that does not declare the field fails closed.
+///
+/// Costs nothing when this call already decided the record's bytes: a record it re-encodes
+/// (Touched or Dirty) writes every declared marker, and bytes it read (or patched) are checked
+/// in memory. Otherwise `child_absent` is asked first (a `Lazy` answers with its existence
+/// check; a `Map`, `Set` or `Vector` calls this only when its header was absent): a child that
+/// exists came into existence under this rule, so its marker is there. Then 1 read of the record,
+/// and, only if the marker is missing, 1 write of the record at the flush (the patched bytes;
+/// still one write per key). Panics if the record was removed in this call or is being cleared:
+/// a child never comes into existence under a record that is not there.
+#[track_caller]
+pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: &dyn Fn() -> bool) {
+    let state = with(|c| {
+        if c.root.as_deref() == Some(rec_key) {
+            return None;
+        }
+        let s = c.slots.get(rec_key).map(|sp| {
+            // SAFETY: invariant 1.
+            unsafe { sp.as_ref() }
+        });
+        Some(match s {
+            Some(s) if matches!(s.mode, Mode::Touched | Mode::Dirty) => None,
+            // decided without a host call: the bytes are known, or the record is gone (refused)
+            Some(s)
+                if matches!(s.orig, Orig::Present(_) | Orig::Absent)
+                    || s.patch.is_some()
+                    || s.gone_in_this_call() =>
+            {
+                Some(true)
+            }
+            _ => Some(false),
+        })
+    });
+    let known = match state {
+        None | Some(None) => return,
+        Some(Some(known)) => known,
+    };
+    if !known && !child_absent() {
+        return;
+    }
+    with(|c| {
+        let mut sp = c.load(rec_key, false);
+        // SAFETY: invariant 1.
+        let s = unsafe { sp.as_mut() };
+        if s.orig == Orig::Absent || s.gone_in_this_call() {
+            panic!(
+                "state: refusing to create a collection below the record at {}: the record is \
+                 not stored (removed, absent, or being cleared by `remove_step`)",
+                hex(rec_key)
+            );
+        }
+        let cur = s.patch.as_deref().or(s.orig.bytes()).expect("a present record was read");
+        match super::record::with_marker(cur, trail, kind) {
+            Ok(None) => {}
+            Ok(Some(b)) => s.patch = Some(b),
+            Err(e) => panic!("state: cannot decode the record at {}: {e}", hex(rec_key)),
+        }
+    });
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
 /// The bytes stored at `path` before this call, for the removal check (API round 5, A3):
 /// 1 read unless this call already read the key (a flaggable entry that misses reads its flag
 /// key too, as `get_entry`). `None` if nothing is stored, or if this call already replaced the
@@ -747,6 +834,7 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     s.merge = false;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
+    s.patch = None;
     // Just allocated as a `V`; `cast` keeps the box's provenance.
     p.cast::<V>()
 }
@@ -805,6 +893,7 @@ fn delete_impl<V: Value>(path: &Path, flaggable: bool) -> Option<NonNull<dyn Era
     s.mode = Mode::Deleted;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
+    s.patch = None;
     s.value.take()
 }
 
@@ -898,7 +987,8 @@ pub(crate) fn has_unflushed_changes() -> bool {
     with(|c| {
         c.slots.values().any(|s| {
             // SAFETY: invariant 1.
-            unsafe { s.as_ref() }.mode != Mode::Clean
+            let s = unsafe { s.as_ref() };
+            s.mode != Mode::Clean || s.patch.is_some()
         })
     })
 }

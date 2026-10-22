@@ -21,6 +21,18 @@ unsafe fn m<'a, V>(p: NonNull<V>) -> &'a mut V {
     unsafe { &mut *p.as_ptr() }
 }
 
+/// Round 7 (the A3 first-write rule): where a handle reached through `at_mut` sits in the
+/// record that stores it. `rec_len` is that record's key length, a prefix of the handle's path
+/// (the rest of the path is the field tags leading to the collection); 0 means none: a root
+/// field, or a handle bound by decoding its record, which is then Touched or Dirty and
+/// re-encoded with every marker at the flush. `kind` is the marker the collection's field
+/// leaves (`Set`, not the `Map` inside it).
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+struct Anchor {
+    rec_len: u32,
+    kind: u8,
+}
+
 /// Where a collection handle points.
 #[derive(Clone, PartialEq, Eq, Default)]
 enum Binding {
@@ -28,8 +40,9 @@ enum Binding {
     #[default]
     Unbound,
     /// Bound to a path, stamped with the removal epoch it was last known live at (audit A2,
-    /// [`cache::check_live`]): set when bound, advanced by `live()`.
-    Bound(Path, u64),
+    /// [`cache::check_live`]): set when bound, advanced by `live()`. The anchor is set only for
+    /// handles from `at_mut` views.
+    Bound(Path, u64, Anchor),
     /// The record holding this collection was removed; its children were cleared.
     Detached,
 }
@@ -38,7 +51,7 @@ impl core::fmt::Debug for Binding {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Binding::Unbound => f.write_str("Unbound"),
-            Binding::Bound(p, _) => f.debug_tuple("Bound").field(p).finish(),
+            Binding::Bound(p, ..) => f.debug_tuple("Bound").field(p).finish(),
             Binding::Detached => f.write_str("Detached"),
         }
     }
@@ -47,7 +60,40 @@ impl core::fmt::Debug for Binding {
 impl Binding {
     /// A handle bound to `path` now.
     fn at(path: Path) -> Self {
-        Binding::Bound(path, cache::epoch())
+        Binding::Bound(path, cache::epoch(), Anchor::default())
+    }
+
+    /// A handle bound to `path` now, inside the record stored at the first `anchor` bytes of
+    /// `path` (an `at_mut` view field), whose field leaves the marker `kind`.
+    fn anchored(path: Path, anchor: usize, kind: u8) -> Self {
+        debug_assert!(anchor > 0 && anchor < path.len(), "an anchor is a proper prefix");
+        let rec_len = u32::try_from(anchor).expect("a key is at most 2,048 bytes");
+        Binding::Bound(path, cache::epoch(), Anchor { rec_len, kind })
+    }
+
+    /// Round 7, the A3 first-write rule. Called by a write that would bring this collection
+    /// into existence (a `Map`/`Set`/`Vector` whose header is absent, a `Lazy` set): if the
+    /// handle came from `at_mut`, the record storing it must declare it, so its kind marker is
+    /// added to the stored record when missing ([`cache::ensure_marker`]). `child_absent` is
+    /// asked only when the record's bytes are not known in this call. Free for root fields and
+    /// for handles of a decoded record.
+    #[track_caller]
+    #[inline(never)]
+    fn declare(&self, child_absent: &dyn Fn() -> bool) {
+        if let Binding::Bound(p, _, a) = self
+            && a.rec_len > 0
+        {
+            let (rec, hops) = p.as_bytes().split_at(a.rec_len as usize);
+            let mut trail = std::vec::Vec::new();
+            let mut pos = 0;
+            while pos < hops.len() {
+                match super::record::read_varint_u32(hops, &mut pos) {
+                    Ok(t) => trail.push(t),
+                    Err(_) => panic!("field hops are LEB128 tags"),
+                }
+            }
+            cache::ensure_marker(rec, &trail, a.kind, child_absent);
+        }
     }
 
     /// Audit A2: before every write through a handle, panics if the record it lives under was
@@ -57,7 +103,7 @@ impl Binding {
     /// detached handles fall through to `bound`'s panics.
     #[track_caller]
     fn live(&mut self) {
-        if let Binding::Bound(p, seen) = self {
+        if let Binding::Bound(p, seen, _) = self {
             cache::check_live(p, seen);
         }
     }
@@ -66,7 +112,7 @@ impl Binding {
 #[track_caller]
 fn bound(b: &Binding) -> &Path {
     match b {
-        Binding::Bound(p, _) => p,
+        Binding::Bound(p, ..) => p,
         Binding::Unbound => panic!(
             "state: collection is not bound to a path; place its record with `insert` or \
              `or_default()` first (in `#[init]`, call `.bind()` on the root). If the record was \
@@ -79,7 +125,7 @@ fn bound(b: &Binding) -> &Path {
 #[track_caller]
 fn bind_slot(slot: &mut Binding, path: &Path) {
     match slot {
-        Binding::Bound(old, _) if old != path => panic!(
+        Binding::Bound(old, ..) if old != path => panic!(
             "state: collection already bound to {old:?}; a record cannot move to another key \
              (`mem::take`/`mem::replace` on a stored record is unsupported; remove it and build \
              a new one)"
@@ -443,13 +489,17 @@ macro_rules! collection_value {
             /// The path this handle is bound to, if any.
             pub fn path(&self) -> Option<&Path> {
                 match &self.path {
-                    Binding::Bound(p, _) => Some(p),
+                    Binding::Bound(p, ..) => Some(p),
                     _ => None,
                 }
             }
             #[doc(hidden)]
             pub fn __bound_at(path: Path) -> Self {
                 Self { path: Binding::at(path), _m: PhantomData }
+            }
+            #[allow(dead_code)]
+            fn bound_anchored(path: Path, anchor: usize, kind: u8) -> Self {
+                Self { path: Binding::anchored(path, anchor, kind), _m: PhantomData }
             }
         }
     };
@@ -486,6 +536,7 @@ collection_value!(LookupMap<K, V>);
 impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::LOOKUP_MAP;
+    const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
     not_inline_value!();
 }
@@ -940,8 +991,15 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         Some(unsafe { m(p) })
     }
 
+    /// Appends `k` to the key vector. A header absent before this write (the map has never held
+    /// an entry, or its record was just created) is the A3 first-write signal (round 7): the
+    /// record storing this map must declare it, see `Binding::declare`.
+    #[track_caller]
     fn push_key(&mut self, k: &K) {
         let h = self.head();
+        if h == MapHeader::default() {
+            self.path.declare(&|| true);
+        }
         cache::put(&self.index_path(k), h.len);
         cache::put(&self.slot_path(h.len), k.clone());
         self.set_head(MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h });
@@ -1513,9 +1571,17 @@ impl<T: Value> Vector<T> {
     }
 
     /// 1 header read, 1 write, 1 header write.
+    ///
+    /// A push into an empty vector (no header) below a record reached through `at_mut` is the A3
+    /// first-write case (round 7): 1 read of the record, and 1 write of it if its kind marker
+    /// for this field is missing.
+    #[track_caller]
     pub fn push(&mut self, mut v: T) {
         self.path.live();
         let len = self.len();
+        if len == 0 {
+            self.path.declare(&|| true);
+        }
         let path = self.slot(len);
         v.bind(&path);
         cache::put(&path, v);
@@ -1662,13 +1728,19 @@ impl<T> Lazy<T> {
     /// The path this handle is bound to, if any.
     pub fn path(&self) -> Option<&Path> {
         match &self.path {
-            Binding::Bound(p, _) => Some(p),
+            Binding::Bound(p, ..) => Some(p),
             _ => None,
         }
     }
     #[doc(hidden)]
     pub fn __bound_at(path: Path) -> Self {
         Lazy { path: Binding::at(path), pending: core::cell::Cell::new(None) }
+    }
+    fn bound_anchored(path: Path, anchor: usize) -> Self {
+        Lazy {
+            path: Binding::anchored(path, anchor, super::record::marker::LAZY),
+            pending: core::cell::Cell::new(None),
+        }
     }
 }
 
@@ -1754,11 +1826,17 @@ impl<T: Value> Lazy<T> {
     }
     /// 1 write (a record that owns collections: panics if one is already stored, since
     /// overwriting it would orphan its collections).
+    ///
+    /// Through `at_mut`, when this call has not read the record holding the `Lazy`, 1
+    /// `storage_has_key` of the value first (round 7, the A3 first-write rule; free for a record
+    /// value, whose insert-new check already made it): if the value is absent, 1 read of the
+    /// record, and 1 write of it if its kind marker for this field is missing.
     #[track_caller]
     pub fn set(&mut self, mut v: T) {
         self.path.live();
         let path = self.p().clone();
         assert_insert_new::<T>(&path);
+        self.path.declare(&|| !cache::exists(&path));
         v.bind(&path);
         cache::put(&path, v);
     }
@@ -1805,6 +1883,7 @@ impl<K> Default for LookupSet<K> {
 impl<K: StorageKey + 'static> Value for LookupSet<K> {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::LOOKUP_SET;
+    const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = <LookupMap<K, ()> as Value>::MAX_SUBPATH;
     fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
         unreachable!()
@@ -1972,6 +2051,7 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
 {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::GROUPED_MAP;
+    const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <Map<K, V> as Value>::MAX_SUBPATH;
     not_inline_value!();
 }
@@ -2064,27 +2144,34 @@ impl<'a, R: Value, K: StorageKey + Clone + 'static> ViewField<'a, R> for Set<K> 
 // Mutable view fields: collections appear as `&'a mut` handles from the cache arena
 // ---------------------------------------------------------------------------------------
 
+// The header-bearing collections and `Lazy` remember the record that stores them (round 7, the
+// A3 first-write rule). The root-only ones (`LookupMap`, `LookupSet`, `GroupedMap`) never sit in
+// a record (the derive refuses them there), so their handles carry no anchor.
 macro_rules! view_mut_as_arena {
     ($ty:ty, [$($g:tt)*], $make:expr) => {
         impl<'a, R: Value, $($g)*> ViewFieldMut<'a, R> for $ty {
             type Out = &'a mut $ty;
-            fn __view_field_mut(field_path: Path) -> Self::Out {
-                let make: fn(Path) -> $ty = $make;
+            fn __view_field_mut(field_path: Path, anchor: usize) -> Self::Out {
+                let make: fn(Path, usize) -> $ty = $make;
                 // SAFETY: `at_mut` holds `&'a mut` on the parent collection, every field has a
                 // distinct path, and the handle lives in the arena until the flush.
-                unsafe { arena_mut(make(field_path)) }
+                unsafe { arena_mut(make(field_path, anchor)) }
             }
         }
     };
 }
-view_mut_as_arena!(LookupMap<K, V>, [K: StorageKey + 'static, V: Value], LookupMap::__bound_at);
-view_mut_as_arena!(Map<K, V>, [K: StorageKey + Clone + 'static, V: Value], Map::__bound_at);
-view_mut_as_arena!(Vector<T>, [T: Value], Vector::__bound_at);
-view_mut_as_arena!(Lazy<T>, [T: Value], Lazy::__bound_at);
+view_mut_as_arena!(LookupMap<K, V>, [K: StorageKey + 'static, V: Value], |p, _| LookupMap::__bound_at(p));
+view_mut_as_arena!(Map<K, V>, [K: StorageKey + Clone + 'static, V: Value], |p, a| {
+    Map::bound_anchored(p, a, super::record::marker::MAP)
+});
+view_mut_as_arena!(Vector<T>, [T: Value], |p, a| Vector::bound_anchored(p, a, super::record::marker::VECTOR));
+view_mut_as_arena!(Lazy<T>, [T: Value], Lazy::bound_anchored);
 view_mut_as_arena!(
     GroupedMap<G, K, V>,
     [G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value],
-    |p| GroupedMap { path: Binding::at(p), _m: PhantomData }
+    |p, _| GroupedMap { path: Binding::at(p), _m: PhantomData }
 );
-view_mut_as_arena!(LookupSet<K>, [K: StorageKey + 'static], |p| LookupSet(LookupMap::__bound_at(p)));
-view_mut_as_arena!(Set<K>, [K: StorageKey + Clone + 'static], |p| Set(Map::__bound_at(p)));
+view_mut_as_arena!(LookupSet<K>, [K: StorageKey + 'static], |p, _| LookupSet(LookupMap::__bound_at(p)));
+view_mut_as_arena!(Set<K>, [K: StorageKey + Clone + 'static], |p, a| {
+    Set(Map::bound_anchored(p, a, super::record::marker::SET))
+});

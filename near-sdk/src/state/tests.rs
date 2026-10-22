@@ -99,11 +99,11 @@ impl Record for Account {
             _m: PhantomData,
         }
     }
-    fn __view_mut<'a>(path: Path) -> AccountAtMut<'a> {
+    fn __view_mut_in<'a>(path: Path, anchor: usize) -> AccountAtMut<'a> {
         AccountAtMut {
-            nonce: <u64 as ViewFieldMut<'a, Account>>::__view_field_mut(path.field(1)),
+            nonce: <u64 as ViewFieldMut<'a, Account>>::__view_field_mut(path.field(1), anchor),
             balances: <Map<String, u128> as ViewFieldMut<'a, Account>>::__view_field_mut(
-                path.field(2),
+                path.field(2), anchor,
             ),
             _m: PhantomData,
         }
@@ -1277,14 +1277,19 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     let mut m: Map<u32, Account> = at(8);
     m.entry(1).or_default().nonce = 7;
     end_call();
+    let rec = Path::root(DEFAULT_ROOT).field(8).kind(kind::ENTRIES).entry(&1u32);
+    // Round 7: the first write into the empty `balances` (no header) is the A3 first-write
+    // case: 1 read of the record, whose marker is already there, so no rewrite.
     let _ = m.at_mut(&1).unwrap().balances.insert("usdt".into(), 5);
     let r = end_call();
     assert_eq!(r.has_keys(), 1, "the record's existence; D9's flag key is not checked on a hit");
-    assert_eq!(
-        r.rwd(),
-        (2, 4, 0),
-        "balances index + header reads, 4 writes; the record is neither read nor rewritten"
-    );
+    assert_eq!(r.rwd(), (3, 4, 0), "the record, balances index + header reads, 4 writes");
+    assert_eq!(r.ops.iter().filter(|o| o.key == rec.as_bytes()).count(), 2, "has_key + 1 read of the record, no write");
+    // Every later write below it: the record is neither read nor rewritten.
+    let _ = m.at_mut(&1).unwrap().balances.insert("usdc".into(), 6);
+    let r = end_call();
+    assert_eq!(r.has_keys(), 1);
+    assert_eq!(r.rwd(), (2, 4, 0), "balances index + header reads, 4 writes; the record is neither read nor rewritten");
     assert_eq!(m.get(&1).unwrap().balances.get(&"usdt".to_string()), Some(&5));
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
@@ -1588,8 +1593,10 @@ fn reinsert_after_blind_discard_of_a_clearing_record_drops_its_flag_key() {
 /// Review F2, pinned as a hazard: a record written by a pre-flag-key prototype build carries
 /// the old leading `00 00` clearing flag in its bytes and sits at its record key. `get` and
 /// `get_mut` reject it (`TagZero`), but `at_mut` only checks that the record key exists, so it
-/// permits writes below a record that build was halfway through clearing. Storage written by
-/// earlier prototype builds must be reset; nothing detects it cheaply.
+/// permits writes below a record that build was halfway through clearing, into a collection
+/// that already exists. Storage written by earlier prototype builds must be reset; nothing
+/// detects it cheaply. Round 7: the FIRST write of a collection below it now reads the record
+/// (the A3 first-write rule) and fails closed on the same `TagZero`.
 #[test]
 fn hazard_old_in_record_flag_passes_at_mut_but_fails_get() {
     testing::use_mock();
@@ -1600,6 +1607,15 @@ fn hazard_old_in_record_flag_passes_at_mut_but_fails_get() {
     old.extend(w.finish(None, |_| true));
     seed(rec.as_bytes(), &old);
     let mut lm: LookupMap<u32, Account> = at(43);
+    let first = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = lm.at_mut(&1).expect("the record key exists").balances.insert("x".into(), 1);
+    }));
+    let msg = first.expect_err("the first write below it reads the record and fails closed");
+    assert!(msg.downcast_ref::<String>().is_some_and(|m| m.contains("TagZero")));
+    testing::begin_call();
+    // the hazard that remains: `balances` already holds an entry (written before the old flag)
+    let hdr = rec.field(2).kind(kind::HEADER);
+    seed(hdr.as_bytes(), &1u32.to_le_bytes());
     let _ = lm.at_mut(&1).expect("the record key exists").balances.insert("x".into(), 1);
     end_call();
     assert_eq!(lm.at(&1).balances.get(&"x".to_string()), Some(&1), "written below it");
