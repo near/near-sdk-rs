@@ -31,6 +31,7 @@ pub struct Vector<T> {
 
 impl<T> Vector<T> {
     /// The prefix every storage key of this vector starts with.
+    #[cfg(feature = "unstable")]
     pub(crate) fn key_prefix(&self) -> &[u8] {
         &self.prefix
     }

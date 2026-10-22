@@ -190,7 +190,7 @@ fn g4_cache_flush_writes_each_key_once_in_order_root_last() {
                 }
                 CacheOp::Delete(i) => {
                     view_only = false;
-                    let _ = cache::delete::<u8>(&key(i));
+                    cache::delete::<u8>(&key(i));
                 }
                 CacheOp::Touch(i, v) => {
                     if let Some(p) = cache::get::<u8>(&key(i)) {

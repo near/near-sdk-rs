@@ -45,7 +45,7 @@ pub fn root_exists<T: Root>() -> bool {
 pub fn load_root<T: Root>() -> T {
     const {
         assert!(
-            1 + T::MAX_SUBPATH <= MAX_KEY_LEN,
+            T::MAX_SUBPATH < MAX_KEY_LEN,
             "this schema can produce a storage key over the 2,048-byte protocol limit"
         )
     };

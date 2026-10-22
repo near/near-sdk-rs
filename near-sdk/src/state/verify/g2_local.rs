@@ -14,6 +14,7 @@ use crate::state::testing;
 use crate::state::{flush_root, load_root};
 
 /// Keys an operation on `k` may touch, given the key vectors before it.
+#[allow(clippy::type_complexity)]
 fn allowed(op: CostOp, flat: &[u8], recs: &[u8], vlen: u32) -> Box<dyn Fn(&[u8]) -> bool> {
     let map_keys = |mk: model::spec_key::MapKeys, order: &[u8], k: u8| -> std::vec::Vec<std::vec::Vec<u8>> {
         let mut v = vec![mk.entry(k), mk.index(k), mk.header()];

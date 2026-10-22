@@ -34,7 +34,7 @@ fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
         }
         CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => {
             let entry = if matches!(op, CostOp::MapRemove(_)) { val(k) } else { val(k).map(|_| 0) };
-            let Some(e) = entry else { return Some((if matches!(op, CostOp::MapRemove(_)) { 0 } else { 0 }, 0)) };
+            let Some(e) = entry else { return Some((0, 0)) };
             let old = val(k).unwrap();
             match at_of(&order, k) {
                 // entry?, index, header, last slot | moved slot, moved index, header | removes

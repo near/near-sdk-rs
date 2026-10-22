@@ -192,6 +192,7 @@ where
 
     /// Every prefix the map's raw (unhashed) storage keys start with: the key vector's, and
     /// the value map's when it uses the `Identity` hasher.
+    #[cfg(feature = "unstable")]
     pub(crate) fn raw_prefixes(&self) -> Vec<Vec<u8>> {
         let mut v = vec![self.keys.values.prefix.to_vec()];
         v.extend(self.values.raw_prefix().map(<[u8]>::to_vec));

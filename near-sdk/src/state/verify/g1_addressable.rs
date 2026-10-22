@@ -578,7 +578,7 @@ fn g1_identical_hashes_still_give_distinct_keys() {
 /// engine, 2,000 cases, seeds of up to 12 items over 5 x 5 keys.
 #[test]
 fn g1_nested_get_reads_only_its_own_key() {
-    use super::fixture::{MRoot, Rec};
+    use super::fixture::MRoot;
     use crate::state::model::{self, K, Val};
     use crate::state::testing;
     use crate::state::{flush_root, load_root};
@@ -587,7 +587,7 @@ fn g1_nested_get_reads_only_its_own_key() {
         testing::use_mock();
         let mut root = load_root::<MRoot>();
         for (a, b, v) in seed.iter().take(12) {
-            root.recs.entry(a.0).or_insert_with(Rec::default).items.insert(b.0, v.bytes());
+            root.recs.entry(a.0).or_default().items.insert(b.0, v.bytes());
         }
         flush_root(&root);
         drop(root);

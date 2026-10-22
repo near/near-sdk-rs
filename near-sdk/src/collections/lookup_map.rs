@@ -38,6 +38,7 @@ impl<K, V> LookupMap<K, V> {
     }
 
     /// The prefix every storage key of this map starts with.
+    #[cfg(feature = "unstable")]
     pub(crate) fn key_prefix(&self) -> &[u8] {
         &self.key_prefix
     }

@@ -929,6 +929,7 @@ pub(crate) fn root_orig(path: &Path) -> Option<Vec<u8>> {
 ///
 /// `root` is `(root path, encoder)`; the encoder receives the root's original bytes so it can
 /// preserve unknown tags. Returns whether the root was written.
+#[allow(clippy::type_complexity)]
 pub(crate) fn flush(root: Option<(&Path, &dyn Fn(Option<&[u8]>) -> Vec<u8>)>) -> bool {
     let (wrote_root, slots) = with(|c| {
         // Disjoint borrows: the slots are walked in place (no key is copied) while the host is

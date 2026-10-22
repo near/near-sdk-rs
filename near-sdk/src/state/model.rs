@@ -791,17 +791,11 @@ impl CacheModel {
                 continue;
             }
             match &s.pending {
-                None => {}
-                Some(Some(b)) => {
-                    if s.orig != Orig::Present(b.clone()) {
-                        ops.push((key.clone(), Some(b.clone())));
-                    }
+                Some(Some(b)) if s.orig != Orig::Present(b.clone()) => {
+                    ops.push((key.clone(), Some(b.clone())));
                 }
-                Some(None) => {
-                    if s.orig != Orig::Absent {
-                        ops.push((key.clone(), None));
-                    }
-                }
+                Some(None) if s.orig != Orig::Absent => ops.push((key.clone(), None)),
+                _ => {}
             }
         }
         for (key, r) in &rslots {
@@ -969,6 +963,7 @@ impl Op {
 
 /// What an operation returned, in a form both sides can produce.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(clippy::type_complexity)]
 pub enum Ret {
     Unit,
     Bool(bool),
@@ -1559,7 +1554,7 @@ impl Model {
                 let pend = self.cache.rec_clearing_cost(&key);
                 let mut budget = n as u32 - pend;
                 let done = self.x_clear_some(k, i, &mut budget)
-                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&xrecs().index(k)) + 1 <= budget + pend;
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&xrecs().index(k)) < budget + pend;
                 if done {
                     self.x_clear_all(k, i);
                     xrecs_kv!(self).unlink(&mut self.cache, k);
@@ -1955,7 +1950,7 @@ impl Model {
                 let pend = self.cache.rec_clearing_cost(&key);
                 let mut budget = n as u32 - pend;
                 let done = items_kv!(self, k, i).clear_budgeted(&mut self.cache, &mut budget)
-                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&recs().index(k)) + 1 <= budget + pend;
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&recs().index(k)) < budget + pend;
                 if done {
                     // `remove_inner(k, false)`: clear_children again (the header, already
                     // gone), then unlink.

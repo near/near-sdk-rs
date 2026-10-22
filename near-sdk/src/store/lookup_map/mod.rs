@@ -174,6 +174,7 @@ where
 
     /// The prefix the map's keys start with, when they are `prefix ++ borsh(key)` (the
     /// [`Identity`](crate::store::key::Identity) hasher); `None` for hashed keys.
+    #[cfg(feature = "unstable")]
     pub(crate) fn raw_prefix(&self) -> Option<&[u8]> {
         H::RAW_PREFIX.then_some(&*self.prefix)
     }

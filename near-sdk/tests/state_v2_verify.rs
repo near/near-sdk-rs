@@ -144,7 +144,7 @@ fn g6_derive_removed_fields_survive_a_rewrite_and_a_rollback() {
         assert_eq!(tags(), vec![1, 2, 3, 5]);
         testing::begin_call();
         let back: LookupMap<u32, S1> = LookupMap::__bound_at(root());
-        assert_eq!(&*back.get(&1).unwrap(), &S1 { a: s.a.wrapping_add(1), ..s });
+        assert_eq!(back.get(&1).unwrap(), &S1 { a: s.a.wrapping_add(1), ..s });
     });
 }
 
@@ -202,7 +202,7 @@ fn g6_derive_reserved_tag_dropped_on_rewrite_only() {
         assert!(!tags().contains(&2));
         testing::begin_call();
         let back: LookupMap<u32, S1> = LookupMap::__bound_at(root());
-        assert_eq!(&*back.get(&1).unwrap(), &S1 { a: 9, b: vec![], ..s });
+        assert_eq!(back.get(&1).unwrap(), &S1 { a: 9, b: vec![], ..s });
     });
 }
 
@@ -525,7 +525,7 @@ mod a3 {
             "B's record carries the kids marker"
         );
         let nz = std::num::NonZeroU32::new(3).unwrap();
-        assert_refused("remove", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove(&1)));
+        assert_refused("remove", "2", || { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1); });
         assert_refused("discard", "2", || {
             let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
         });
@@ -539,10 +539,10 @@ mod a3 {
         testing::begin_call();
         testing::seed(&lkey, &stored);
         testing::flush();
-        assert_refused("LookupMap::remove", "2", || drop(LookupMap::<u32, RecA>::__bound_at(lroot.clone()).remove(&1)));
+        assert_refused("LookupMap::remove", "2", || { let _ = LookupMap::<u32, RecA>::__bound_at(lroot.clone()).remove(&1); });
         assert_refused("LookupMap::discard", "2", || LookupMap::<u32, RecA>::__bound_at(lroot.clone()).discard(&1));
         assert_refused("LookupMap::replace", "2", || {
-            drop(LookupMap::<u32, RecA>::__bound_at(lroot.clone()).replace(1, RecA { n: 2 }))
+            let _ = LookupMap::<u32, RecA>::__bound_at(lroot.clone()).replace(1, RecA { n: 2 });
         });
         // rolling forward works: B removes its own record and its child
         testing::begin_call();
@@ -663,7 +663,7 @@ mod a3 {
             let before = testing::store();
             let e = quiet(|| {
                 if which == 0 {
-                    drop(Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&1));
+                    let _ = Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&1);
                 } else {
                     let _ = Map::<u32, OuterA>::__bound_at(root()).discard(&1);
                 }
@@ -722,7 +722,7 @@ mod a3 {
         assert_eq!(on_rec, vec![testing::OpKind::HasKey], "the hot path does not touch the record");
         // Rolled back to A, every removal path is refused and changes nothing.
         let nz = std::num::NonZeroU32::new(3).unwrap();
-        assert_refused("remove", "2", || drop(Map::<u32, RecA>::__bound_at(root()).remove(&1)));
+        assert_refused("remove", "2", || { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1); });
         assert_refused("discard", "2", || {
             let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
         });
@@ -866,7 +866,7 @@ mod a3 {
         // A refuses to remove a record carrying any of them
         for k in [1u32, 2] {
             testing::begin_call();
-            let e = quiet(|| drop(Map::<u32, RecA>::__bound_at(root()).remove(&k))).expect_err("refused");
+            let e = quiet(|| { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&k); }).expect_err("refused");
             assert!(msg(e).contains("refusing to remove"));
         }
     }
@@ -946,7 +946,7 @@ mod a3 {
             let before = testing::store();
             let e = quiet(|| {
                 if which == 0 {
-                    drop(Map::<u32, Top1>::__bound_at(root()).remove(&1));
+                    let _ = Map::<u32, Top1>::__bound_at(root()).remove(&1);
                 } else {
                     let _ = Map::<u32, Top2Mid1>::__bound_at(root()).remove_step(&1, std::num::NonZeroU32::new(30).unwrap());
                 }
@@ -993,7 +993,7 @@ mod a3 {
             testing::begin_call();
             let e = quiet(|| {
                 if which == 0 {
-                    drop(Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&key));
+                    let _ = Map::<u32, OuterKnowsInnerA>::__bound_at(root()).remove(&key);
                 } else {
                     let _ = Map::<u32, OuterA>::__bound_at(root()).discard(&key);
                 }
@@ -1316,8 +1316,14 @@ mod c2_nested {
                 testing::begin_call();
                 let mut m: Map<u32, Deep> = Map::__bound_at(root.clone());
                 let again = match how {
-                    0 => m.remove(&1).is_some() && false,
-                    1 => m.discard(&1) && false,
+                    0 => {
+                        let _ = m.remove(&1);
+                        false
+                    }
+                    1 => {
+                        let _ = m.discard(&1);
+                        false
+                    }
                     _ => m.remove_step(&1, std::num::NonZeroU32::new(*n).unwrap()) == near_sdk::state::Removal::Pending,
                 };
                 testing::flush();

@@ -1982,6 +1982,7 @@ impl<'a, K: StorageKey + Clone + 'static> At<'a, Set<K>> {
 /// `keys().skip(from).take(n)` / `keys_page` enumerate one group.
 pub struct GroupedMap<G, K, V> {
     path: Binding,
+    #[allow(clippy::type_complexity)]
     _m: PhantomData<fn() -> (G, K, V)>,
 }
 collection_value!(GroupedMap<G, K, V>);

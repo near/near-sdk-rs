@@ -542,10 +542,10 @@ fn g6_kind_markers_are_wire_typed_preserved_and_checked_on_removal() {
         let keep = |t: u32| (t as usize) <= TAGS && s2[t as usize - 1] == Declares::Unknown;
         let rewritten = w.finish(Some(&stored), keep);
         let after = record::parse(&rewritten).expect("parses");
-        for i in 0..TAGS {
+        for (i, d) in s2.iter().enumerate() {
             let t = i as u32 + 1;
             let got = after.iter().find(|(x, _, _)| *x == t).copied();
-            match s2[i] {
+            match *d {
                 Declares::Unknown => {
                     assert_eq!(got, f.iter().find(|(x, _, _)| *x == t).copied(), "unknown tag {t} not preserved")
                 }

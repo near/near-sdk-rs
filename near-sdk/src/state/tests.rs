@@ -367,7 +367,7 @@ fn offset_paging_skips_a_key_after_a_removal_behind_the_offset() {
         let _ = m.insert(i, 0);
     }
     end_call();
-    let p1: StdVec<u32> = m.keys().skip(0).take(3).collect(); // 0,1,2
+    let p1: StdVec<u32> = m.keys().take(3).collect(); // 0,1,2
     end_call();
     m.discard(&0); // key 5 moves to slot 0
     end_call();
@@ -1488,7 +1488,7 @@ fn page_revision_changes_only_across_a_removal() {
 
     // Empty the map, then bring the cursor key back: still a different revision.
     let p4 = m.page(None, 1).unwrap();
-    let cursor = p4.next.clone().unwrap();
+    let cursor = p4.next.unwrap();
     end_call();
     m.clear();
     end_call();

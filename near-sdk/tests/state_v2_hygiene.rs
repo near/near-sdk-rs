@@ -98,7 +98,7 @@ fn removal_guard_ignores_user_consts() {
     testing::begin_call();
     let before = testing::store();
     let removed = catch_unwind(AssertUnwindSafe(|| {
-        drop(Map::<u8, Old>::__bound_at(root.clone()).remove(&1));
+        let _ = Map::<u8, Old>::__bound_at(root.clone()).remove(&1);
         testing::flush();
     }));
     assert!(removed.is_err(), "the removal of a record with an unknown `Map` tag must be refused");
@@ -359,10 +359,8 @@ fn root_hooks_ignore_user_consts() {
 
     testing::use_mock();
     assert_eq!(<glob_key::Root as ContractState>::state_key(), &[0xF8]);
-    let mut root = glob_key::Root::default();
-    root.n = 9;
+    let root = glob_key::Root { n: 9 };
     root.state_write();
-    drop(root);
     testing::begin_call();
     assert_eq!(glob_key::Root::state_read().map(|r| r.n), Some(9));
 }

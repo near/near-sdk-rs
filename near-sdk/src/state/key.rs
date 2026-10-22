@@ -93,7 +93,7 @@ impl Path {
 
     /// LookupMap entry hop: `h16(borsh(k)) ++ borsh(k)`.
     #[track_caller]
-    pub fn entry<K: StorageKey + ?Sized>(&self, k: &K) -> Path {
+    pub fn entry<K: StorageKey>(&self, k: &K) -> Path {
         let enc = borsh::to_vec(k).expect("borsh serialization of a storage key cannot fail");
         assert!(
             enc.len() <= K::MAX_LEN,

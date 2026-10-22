@@ -12,6 +12,7 @@ use crate::state::key::{DEFAULT_ROOT, Path};
 use crate::state::testing;
 use crate::state::{LookupMap, Map};
 
+#[allow(clippy::type_complexity)]
 fn maps() -> (Map<Vec<u8>, Vec<u8>>, Map<Vec<u8>, Vec<u8>>, LookupMap<String, Vec<u8>>, Map<Vec<u8>, Rec>) {
     let r = Path::root(DEFAULT_ROOT);
     (Map::__bound_at(r.field(10)), Map::__bound_at(r.field(11)), LookupMap::__bound_at(r.field(138)), Map::__bound_at(r.field(12)))

@@ -159,6 +159,7 @@ fn gaps_varint_len_boundaries() {
 /// inline record that owns collections, a collection, and a `Lazy` of a leaf (not inline but
 /// `MAX_SUBPATH == 0`: still costs its tag).
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn gaps_field_subpath_shapes() {
     let acct = <Account as Value>::MAX_SUBPATH;
     assert!(<Account as Value>::INLINE && acct > 0);
