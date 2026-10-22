@@ -1,6 +1,7 @@
 # Gas-measurement contract for the storage v2 prototype. One source, three wasms:
 #   --features v2        storage v2 (`near_sdk::state`), 16-byte entry hash
 #   --features v2,h8     storage v2 with the 8-byte entry hash
+#   --features zst       storage v2, h16, plus a `Map<AccountId, ()>` (remove/discard rows)
 #   --features v1        v1 `near_sdk::store` collections under a Borsh STATE root
 # Built by ../build.sh; measured by ../sim.
 [package]
@@ -18,6 +19,8 @@ v2 = ["near-sdk/unstable"]
 h8 = ["v2", "near-sdk/unstable-state-hash8"]
 # Methods for the Oct 18 rows (page, remove_step, try_insert of records).
 ext = ["v2"]
+# A `Map<AccountId, ()>` for the zero-sized-value remove rows (Oct 22).
+zst = ["v2"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk" }

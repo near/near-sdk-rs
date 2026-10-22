@@ -33,7 +33,7 @@ mod v2 {
     use near_sdk::state::Page;
     use near_sdk::{AccountId, env, near};
 
-    #[cfg(not(feature = "ext"))]
+    #[cfg(not(any(feature = "ext", feature = "zst")))]
     #[near(contract_state(layout = v2))]
     pub struct Bench {
         #[key(1)] owner: Option<AccountId>,
@@ -57,6 +57,20 @@ mod v2 {
         #[key(6)] accounts: Map<AccountId, Account>,
         #[key(7)] laccounts: LookupMap<AccountId, Account>,
         #[key(8)] profiles: Map<AccountId, Profile>,
+    }
+
+    /// The `zst` build: the same root plus a `Map` with a zero-sized value, for the
+    /// `Map<AccountId, ()>::remove` rows (slim-down pass A, round 2, Oct 22).
+    #[cfg(feature = "zst")]
+    #[near(contract_state(layout = v2))]
+    pub struct Bench {
+        #[key(1)] owner: Option<AccountId>,
+        #[key(2)] fee_bps: u16,
+        #[key(3)] map: Map<AccountId, u128>,
+        #[key(4)] lookup: LookupMap<AccountId, u128>,
+        #[key(5)] blobs: Map<AccountId, Vec<u8>>,
+        #[key(6)] accounts: Map<AccountId, Account>,
+        #[key(9)] units: Map<AccountId, ()>,
     }
 
     /// A record owning a `Lazy` (`ext` only), for the A3 first-write rows (Oct 20).
@@ -118,6 +132,10 @@ mod v2 {
                     #[cfg(feature = "ext")]
                     "accounts" => {
                         let _ = self.accounts.try_insert(id, Account { nonce: i as u64, ..Default::default() });
+                    }
+                    #[cfg(feature = "zst")]
+                    "units" => {
+                        self.units.insert(id, ());
                     }
                     _ => env::panic_str("which"),
                 }
@@ -184,6 +202,20 @@ mod v2 {
         pub fn account_nonce(&self, id: AccountId) -> Option<U64> {
             self.accounts.get(&id).map(|a| U64(a.nonce))
         }
+        /// `account_fill` and `account_remove_step` on `laccounts`, for the `LookupMap::remove_step`
+        /// rows (slim-down pass A, round 3, Oct 22).
+        pub fn laccount_fill(&mut self, id: AccountId, n: u32) {
+            let a = self.laccounts.entry(id).or_default();
+            for i in 0..n {
+                let _ = a.balances.insert(format!("t{i}"), i as u128 + 1);
+            }
+        }
+        pub fn laccount_remove_step(&mut self, id: AccountId, n: u32) -> bool {
+            self.laccounts.remove_step(&id, NonZeroU32::new(n).expect("n > 0")).is_done()
+        }
+        pub fn laccount_nonce(&self, id: AccountId) -> Option<U64> {
+            self.laccounts.get(&id).map(|a| U64(a.nonce))
+        }
 
         // A3 first-write rows (Oct 20).
         /// Writes one balance below an existing account through `at_mut` (the record is not
@@ -197,6 +229,22 @@ mod v2 {
         /// `Lazy::set` below an existing profile through `at_mut`.
         pub fn profile_note_set(&mut self, id: AccountId, v: U64) {
             self.profiles.at_mut(&id).expect("no profile").note.set(v.0);
+        }
+    }
+
+    /// `Map<AccountId, ()>` removal (`zst` build only): `remove` (which hands back the `()`)
+    /// against `discard`, the cost `Set::remove` pays.
+    #[cfg(feature = "zst")]
+    #[near]
+    impl Bench {
+        pub fn unit_remove(&mut self, id: AccountId) -> bool {
+            self.units.remove(&id).is_some()
+        }
+        pub fn unit_discard(&mut self, id: AccountId) -> bool {
+            self.units.discard(&id)
+        }
+        pub fn units_len(&self) -> u32 {
+            self.units.len()
         }
     }
 }

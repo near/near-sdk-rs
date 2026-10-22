@@ -177,15 +177,12 @@ impl Value for MapHeader {
     }
 }
 
-fn len_at(header: &Path) -> u32 {
-    cache::get::<u32>(header).map(|p| unsafe { *r(p) }).unwrap_or(0)
-}
-
-fn set_len_at(header: &Path, n: u32) {
-    if n == 0 {
-        cache::delete::<u32>(header);
+/// Writes a collection header. The default header (empty, never removed from) is no key at all.
+fn put_header<H: Value + Default + PartialEq>(path: &Path, h: H) {
+    if h == H::default() {
+        cache::delete::<H>(path);
     } else {
-        cache::put(header, n);
+        cache::put(path, h);
     }
 }
 
@@ -219,6 +216,18 @@ fn assert_not_clearing<V: Value>(path: &Path) {
     if V::MAX_SUBPATH > 0 && cache::is_clearing(path) {
         clearing_panic(path);
     }
+}
+
+/// The stored value at `path` for writing (1 read): refused if its record is being cleared (D9),
+/// touched so the flush writes it if it changed.
+///
+/// SAFETY: as `m`.
+#[track_caller]
+unsafe fn get_entry_mut<'a, V: Value>(path: &Path) -> Option<&'a mut V> {
+    let p = cache::get_entry::<V>(path)?;
+    assert_not_clearing::<V>(path);
+    cache::touch(path);
+    Some(unsafe { m(p) })
 }
 
 /// Moves a bound handle into the per-call arena and returns `&'a mut` to it.
@@ -265,6 +274,17 @@ fn unknown_collection_panic(path: &Path, trail: &[u32], k: u8) -> ! {
     ))
 }
 
+/// Removes the value just read at `path`, its collections first, and hands it back detached.
+/// Panics, changing nothing, on an undeclared collection tag (`guard_removal`).
+#[track_caller]
+fn take_read<V: Removable>(path: &Path) -> V {
+    guard_removal::<V>(path, true);
+    V::clear_children(path);
+    let mut v = cache::take_entry::<V>(path).expect("value was just read");
+    v.detach();
+    v
+}
+
 /// Panics if `V` owns collections and a value already exists at `path`.
 #[track_caller]
 fn assert_insert_new<V: Value>(path: &Path) {
@@ -302,6 +322,38 @@ fn check_step(n: core::num::NonZeroU32) -> u32 {
         );
     }
     n
+}
+
+/// `remove_step` on either map, for the record at `path` in `map`, after `check_step`: clears
+/// what fits in `n` removes, then finishes with `finish` if the record's own remove plus the
+/// map's `finish_cost` still fits, else flags the record as being cleared. `finish_cost` also
+/// returns what `finish` needs (the `Map` index path), so it is computed once, and only here.
+#[track_caller]
+fn remove_step_in<M, V: Record + Removable, C>(
+    map: &mut M,
+    path: &Path,
+    n: u32,
+    finish_cost: impl FnOnce(&M) -> (u32, C),
+    finish: impl FnOnce(&mut M, C),
+) -> Removal {
+    if cache::get_entry::<V>(path).is_none() {
+        return Removal::Done;
+    }
+    guard_removal::<V>(path, true);
+    // Reserve the move to the flag key (1 remove of the record key on the first call that does
+    // not finish), so a `Pending` call also stays within `n`.
+    let pend = cache::clearing_cost(path);
+    let mut budget = n - pend;
+    if V::clear_children_some(path, &mut budget) {
+        let own = cache::delete_cost::<V>(path, true);
+        let (cost, c) = finish_cost(map);
+        if own + cost <= budget + pend {
+            finish(map, c);
+            return Removal::Done;
+        }
+    }
+    cache::set_clearing(path);
+    Removal::Pending
 }
 
 /// What one [`Map::remove_step`] / [`LookupMap::remove_step`] call left behind.
@@ -388,6 +440,23 @@ macro_rules! read_only {
     };
 }
 
+/// `Display`, `AsRef<str>` and `Error` for a unit error type, all from its `MSG`.
+macro_rules! message_error {
+    ($ty:ident) => {
+        impl core::fmt::Display for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str(Self::MSG)
+            }
+        }
+        impl AsRef<str> for $ty {
+            fn as_ref(&self) -> &str {
+                Self::MSG
+            }
+        }
+        impl std::error::Error for $ty {}
+    };
+}
+
 /// The cursor key passed to `page` / `page_with` / `keys_page` was removed since the page that
 /// returned it, so there is no position to continue from. Restart from a key you still hold,
 /// from `None`, or switch to offset paging (`iter().skip(from).take(n)`).
@@ -401,17 +470,7 @@ impl CursorGone {
     const MSG: &'static str = "state: page cursor key no longer exists (removed since the last \
                                page); restart from a known key or use offset paging";
 }
-impl core::fmt::Display for CursorGone {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(Self::MSG)
-    }
-}
-impl AsRef<str> for CursorGone {
-    fn as_ref(&self) -> &str {
-        Self::MSG
-    }
-}
-impl std::error::Error for CursorGone {}
+message_error!(CursorGone);
 
 /// `try_insert(k, v)` found the key already present. Nothing was written and the stored value
 /// was not read (only its existence was checked). Carries nothing, so `.expect("..")` works for
@@ -424,17 +483,7 @@ pub struct Occupied;
 impl Occupied {
     const MSG: &'static str = "state: key already present; nothing was inserted";
 }
-impl core::fmt::Display for Occupied {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(Self::MSG)
-    }
-}
-impl AsRef<str> for Occupied {
-    fn as_ref(&self) -> &str {
-        Self::MSG
-    }
-}
-impl std::error::Error for Occupied {}
+message_error!(Occupied);
 
 /// One page of a cursor-paginated collection.
 ///
@@ -473,11 +522,16 @@ impl<C> At<'_, C> {
     }
 }
 
+/// `Default`, `Debug`, `path` and `__bound_at` for a collection handle whose fields besides
+/// `path` start as `{ field: init }` (default `_m: PhantomData`).
 macro_rules! collection_value {
     ($ty:ident < $($g:ident),* >) => {
+        collection_value!($ty<$($g),*> { _m: PhantomData });
+    };
+    ($ty:ident < $($g:ident),* > { $($f:ident: $init:expr),* }) => {
         impl<$($g),*> Default for $ty<$($g),*> {
             fn default() -> Self {
-                Self { path: Binding::Unbound, _m: PhantomData }
+                Self { path: Binding::Unbound, $($f: $init),* }
             }
         }
         impl<$($g),*> core::fmt::Debug for $ty<$($g),*> {
@@ -495,18 +549,16 @@ macro_rules! collection_value {
             }
             #[doc(hidden)]
             pub fn __bound_at(path: Path) -> Self {
-                Self { path: Binding::at(path), _m: PhantomData }
-            }
-            #[allow(dead_code)]
-            fn bound_anchored(path: Path, anchor: usize, kind: u8) -> Self {
-                Self { path: Binding::anchored(path, anchor, kind), _m: PhantomData }
+                Self { path: Binding::at(path), $($f: $init),* }
             }
         }
     };
 }
 
+/// `Value` for a collection whose `Binding` is `self.$binding` (`path`, or `0.path` for the
+/// `Set` newtypes).
 macro_rules! not_inline_value {
-    () => {
+    ($($binding:tt).+) => {
         fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
             unreachable!("collections are not stored inline")
         }
@@ -514,10 +566,59 @@ macro_rules! not_inline_value {
             not_inline()
         }
         fn bind(&mut self, path: &Path) {
-            bind_slot(&mut self.path, path)
+            bind_slot(&mut self.$($binding).+, path)
         }
         fn detach(&mut self) {
-            self.path = Binding::Detached;
+            self.$($binding).+ = Binding::Detached;
+        }
+    };
+}
+
+/// `at` and `at_mut`, the same on `LookupMap` and `Map`.
+macro_rules! record_views {
+    () => {
+        /// A read-only view bound to the path for `k`. Reads nothing by itself.
+        #[track_caller]
+        pub fn at(&self, k: &K) -> V::View<'_>
+        where
+            V: Record,
+        {
+            V::__view(self.entry_path(k))
+        }
+
+        /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
+        /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
+        /// record itself is not read. `None` if the record does not exist (std convention: named
+        /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
+        /// flag key, and a record being cleared panics.
+        #[track_caller]
+        pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
+        where
+            V: Record,
+        {
+            self.path.live();
+            record_at_mut::<V>(self.entry_path(k))
+        }
+    };
+}
+
+/// The reads of a map's `At` view, the same on `LookupMap` and `Map`.
+macro_rules! at_map_reads {
+    () => {
+        #[track_caller]
+        pub fn get(&self, k: &K) -> Option<&'a V> {
+            cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
+        }
+        #[track_caller]
+        pub fn contains_key(&self, k: &K) -> bool {
+            self.inner.contains_key(k)
+        }
+        #[track_caller]
+        pub fn at(&self, k: &K) -> V::View<'a>
+        where
+            V: Record,
+        {
+            V::__view(self.inner.entry_path(k))
         }
     };
 }
@@ -538,7 +639,7 @@ impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
     const KIND: u8 = super::record::marker::LOOKUP_MAP;
     const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
-    not_inline_value!();
+    not_inline_value!(path);
 }
 
 impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
@@ -566,11 +667,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     #[track_caller]
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         self.path.live();
-        let path = self.entry_path(k);
-        let p = cache::get_entry::<V>(&path)?;
-        assert_not_clearing::<V>(&path);
-        cache::touch(&path);
-        Some(unsafe { m(p) })
+        unsafe { get_entry_mut(&self.entry_path(k)) }
     }
 
     /// Always overwrites: 1 write, no read, replaces the stored value whole (unknown tags
@@ -652,14 +749,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
     {
         self.path.live();
         let path = self.entry_path(&k);
-        let mut old = None;
-        if cache::get_entry::<V>(&path).is_some() {
-            guard_removal::<V>(&path, true);
-            V::clear_children(&path);
-            let mut o = cache::take_entry::<V>(&path).expect("value was just read");
-            o.detach();
-            old = Some(o);
-        }
+        let old = cache::get_entry::<V>(&path).map(|_| take_read::<V>(&path));
         v.bind(&path);
         cache::put(&path, v);
         old
@@ -677,11 +767,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let path = self.entry_path(k);
         cache::get_entry::<V>(&path)?;
-        guard_removal::<V>(&path, true);
-        V::clear_children(&path);
-        let mut v = cache::take_entry::<V>(&path).expect("value was just read");
-        v.detach();
-        Some(v)
+        Some(take_read(&path))
     }
 
     /// 1 remove, no read, plus clearing the value's collections. The remove is blind: it is
@@ -699,10 +785,18 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         V: Removable,
     {
         self.path.live();
-        let path = self.entry_path(k);
-        guard_removal::<V>(&path, true);
-        V::clear_children(&path);
-        cache::delete_entry::<V>(&path);
+        Self::discard_at(&self.entry_path(k));
+    }
+
+    /// `discard` at `self.entry_path(k)`, which the caller already holds.
+    #[track_caller]
+    fn discard_at(path: &Path)
+    where
+        V: Removable,
+    {
+        guard_removal::<V>(path, true);
+        V::clear_children(path);
+        cache::delete_entry::<V>(path);
     }
 
     /// Removes the record at `k` in bounded steps (D9): each call issues at most `n`
@@ -777,23 +871,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        if cache::get_entry::<V>(&path).is_none() {
-            return Removal::Done;
-        }
-        guard_removal::<V>(&path, true);
-        // Reserve the move to the flag key (1 remove of the record key on the first call that
-        // does not finish), so a `Pending` call also stays within `n`.
-        let pend = cache::clearing_cost(&path);
-        let mut budget = n - pend;
-        if V::clear_children_some(&path, &mut budget)
-            && cache::delete_cost::<V>(&path, true) <= budget + pend
-        {
-            self.discard(k);
-            Removal::Done
-        } else {
-            cache::set_clearing(&path);
-            Removal::Pending
-        }
+        remove_step_in::<_, V, _>(self, &path, n, |_| (0, ()), |_, ()| Self::discard_at(&path))
     }
 
     #[track_caller]
@@ -803,28 +881,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         LookupMapEntry { path, _m: PhantomData }
     }
 
-    /// A read-only view bound to the path for `k`. Reads nothing by itself.
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'_>
-    where
-        V: Record,
-    {
-        V::__view(self.entry_path(k))
-    }
-
-    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
-    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. `None` if the record does not exist (std convention: named
-    /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
-    /// flag key, and a record being cleared panics.
-    #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
-    where
-        V: Record,
-    {
-        self.path.live();
-        record_at_mut::<V>(self.entry_path(k))
-    }
+    record_views!();
 }
 
 impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
@@ -838,21 +895,7 @@ impl<'a, K: StorageKey + 'static, V: Value> At<'a, LookupMap<K, V>> {
         entry(K);
         at_mut(&K);
     }
-    #[track_caller]
-    pub fn get(&self, k: &K) -> Option<&'a V> {
-        cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
-    }
-    #[track_caller]
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
-    }
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'a>
-    where
-        V: Record,
-    {
-        V::__view(self.inner.entry_path(k))
-    }
+    at_map_reads!();
 }
 
 pub struct LookupMapEntry<'a, K, V> {
@@ -864,10 +907,8 @@ impl<'a, K, V: Value> LookupMapEntry<'a, K, V> {
     /// 1 read; if absent, 1 write at flush.
     #[track_caller]
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
-        if let Some(p) = cache::get_entry::<V>(&self.path) {
-            assert_not_clearing::<V>(&self.path);
-            cache::touch(&self.path);
-            return unsafe { m(p) };
+        if let Some(v) = unsafe { get_entry_mut(&self.path) } {
+            return v;
         }
         let mut v = f();
         v.bind(&self.path);
@@ -901,7 +942,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Value for Map<K, V> {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::MAP;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + K::MAX_LEN + V::MAX_SUBPATH;
-    not_inline_value!();
+    not_inline_value!(path);
 }
 
 impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
@@ -933,24 +974,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     fn header(&self) -> Path {
         self.p().kind(kind::HEADER)
     }
+    fn bound_anchored(path: Path, anchor: usize, kind: u8) -> Self {
+        Map { path: Binding::anchored(path, anchor, kind), _m: PhantomData }
+    }
 
     fn head(&self) -> MapHeader {
         cache::get::<MapHeader>(&self.header()).map(|p| unsafe { *r(p) }).unwrap_or_default()
     }
 
-    /// Writes the header. An all-zero header (empty, never removed from) is no key at all.
-    fn set_head(&self, h: MapHeader) {
-        if h == MapHeader::default() {
-            cache::delete::<MapHeader>(&self.header());
-        } else {
-            cache::put(&self.header(), h);
-        }
-    }
-
     /// One removal (or one batch of removals) that leaves `len` entries: bumps the revision.
     fn set_len_after_removal(&self, len: u32) {
         let h = self.head();
-        self.set_head(MapHeader { len, revision: h.revision.wrapping_add(1) });
+        put_header(&self.header(), MapHeader { len, revision: h.revision.wrapping_add(1) });
     }
 
     /// 1 read.
@@ -984,11 +1019,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     #[track_caller]
     pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         self.path.live();
-        let path = self.entry_path(k);
-        let p = cache::get_entry::<V>(&path)?;
-        assert_not_clearing::<V>(&path);
-        cache::touch(&path);
-        Some(unsafe { m(p) })
+        unsafe { get_entry_mut(&self.entry_path(k)) }
     }
 
     /// Appends `k` to the key vector. A header absent before this write (the map has never held
@@ -1002,7 +1033,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         }
         cache::put(&self.index_path(k), h.len);
         cache::put(&self.slot_path(h.len), k.clone());
-        self.set_head(MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h });
+        put_header(&self.header(), MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h });
     }
 
     /// Always overwrites. Returns `true` if the key was new (free: the index read says so).
@@ -1059,30 +1090,30 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         MapEntry { map: self, k }
     }
 
-    fn remove_inner(&mut self, k: &K, read_value: bool) -> Option<Option<V>>
+    /// `path` and `idx_path` are `self.entry_path(k)` and `self.index_path(k)`, which the
+    /// caller already holds (no hash here).
+    fn remove_inner(&mut self, path: &Path, idx_path: &Path, read_value: bool) -> Option<Option<V>>
     where
         V: Removable,
     {
-        let path = self.entry_path(k);
-        let idx_path = self.index_path(k);
         let mut value = None;
         if read_value {
-            cache::get_entry::<V>(&path)?;
+            cache::get_entry::<V>(path)?;
         }
-        let i = unsafe { *r(cache::get::<u32>(&idx_path)?) };
-        guard_removal::<V>(&path, true);
+        let i = unsafe { *r(cache::get::<u32>(idx_path)?) };
+        guard_removal::<V>(path, true);
         let len = self.len();
-        V::clear_children(&path);
+        V::clear_children(path);
         if read_value || core::mem::size_of::<V>() == 0 {
-            if let Some(mut v) = cache::take_entry::<V>(&path) {
+            if let Some(mut v) = cache::take_entry::<V>(path) {
                 v.detach();
                 value = Some(v);
             }
         } else {
             // `discard`: nothing is handed back, so a cached value is buried, not freed.
-            cache::delete_entry::<V>(&path);
+            cache::delete_entry::<V>(path);
         }
-        cache::delete::<u32>(&idx_path);
+        cache::delete::<u32>(idx_path);
         let last = len - 1;
         let last_slot = self.slot_path(last);
         if i != last {
@@ -1109,9 +1140,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
+        let path = self.entry_path(k);
+        let idx_path = self.index_path(k);
         if core::mem::size_of::<V>() == 0 {
-            let path = self.entry_path(k);
-            return match self.remove_inner(k, false)? {
+            return match self.remove_inner(&path, &idx_path, false)? {
                 Some(v) => Some(v),
                 // Not cached: rebuild the (byte-less) value instead of reading it.
                 None => Some(V::decode_value(&[], &path).unwrap_or_else(|e| {
@@ -1119,7 +1151,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
                 })),
             };
         }
-        self.remove_inner(k, true).flatten()
+        self.remove_inner(&path, &idx_path, true).flatten()
     }
 
     /// As `remove` without the entry read. For a `#[near(storage)]` record value the entry is
@@ -1132,16 +1164,12 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
-        self.remove_inner(k, false).is_some()
-    }
-
-    fn key_at_ptr(&self, i: u32) -> Option<NonNull<K>> {
-        cache::get::<K>(&self.slot_path(i))
+        self.remove_inner(&self.entry_path(k), &self.index_path(k), false).is_some()
     }
 
     /// The `i`th key in key-vector order: 1 read.
     pub fn key_at(&self, i: u32) -> Option<K> {
-        self.key_at_ptr(i).map(|p| unsafe { r(p) }.clone())
+        cache::get::<K>(&self.slot_path(i)).map(|p| unsafe { r(p) }.clone())
     }
 
     fn cursor_start(&self, after: Option<&K>) -> Result<u32, CursorGone> {
@@ -1240,7 +1268,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
-        while self.clear_some(u32::MAX) {}
+        self.clear_some(u32::MAX);
     }
 
     /// Removes at most `n` entries from the end. Returns `true` if entries remain. Bumps the
@@ -1331,48 +1359,18 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        if cache::get_entry::<V>(&path).is_none() {
-            return Removal::Done;
-        }
-        guard_removal::<V>(&path, true);
-        let pend = cache::clearing_cost(&path);
-        let mut budget = n - pend;
-        // Finishing removes the record, its index and the last key slot (counted as 1 without
-        // reading the header to find it: every live map has its last slot stored).
-        if V::clear_children_some(&path, &mut budget)
-            && cache::delete_cost::<V>(&path, true) + cache::delete_cost::<u32>(&self.index_path(k), false) + 1
-                <= budget + pend
-        {
-            self.remove_inner(k, false);
-            Removal::Done
-        } else {
-            cache::set_clearing(&path);
-            Removal::Pending
-        }
+        // Finishing also removes the index and the last key slot (counted as 1 without reading
+        // the header to find it: every live map has its last slot stored).
+        let finish = |s: &Self| {
+            let idx_path = s.index_path(k);
+            (cache::delete_cost::<u32>(&idx_path, false) + 1, idx_path)
+        };
+        remove_step_in::<_, V, _>(self, &path, n, finish, |s, idx_path| {
+            s.remove_inner(&path, &idx_path, false);
+        })
     }
 
-    /// A read-only view bound to the path for `k`. Reads nothing by itself.
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'_>
-    where
-        V: Record,
-    {
-        V::__view(self.entry_path(k))
-    }
-
-    /// A mutable view of the record at `k`: its collections and `Lazy` fields as `&mut`
-    /// handles, its scalars unavailable. 1 `storage_has_key` (no bytes) unless cached; the
-    /// record itself is not read. `None` if the record does not exist (std convention: named
-    /// accessors return `Option`); an absent record costs a 2nd `storage_has_key`, of its D9
-    /// flag key, and a record being cleared panics.
-    #[track_caller]
-    pub fn at_mut(&mut self, k: &K) -> Option<V::ViewMut<'_>>
-    where
-        V: Record,
-    {
-        self.path.live();
-        record_at_mut::<V>(self.entry_path(k))
-    }
+    record_views!();
 }
 
 impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
@@ -1387,14 +1385,7 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
         at_mut(&K);
         clear();
     }
-    #[track_caller]
-    pub fn get(&self, k: &K) -> Option<&'a V> {
-        cache::get_entry::<V>(&self.inner.entry_path(k)).map(|p| unsafe { r(p) })
-    }
-    #[track_caller]
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.inner.contains_key(k)
-    }
+    at_map_reads!();
     pub fn len(&self) -> u32 {
         self.inner.len()
     }
@@ -1439,13 +1430,6 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> At<'a, Map<K, V>> {
         let map = Map::<K, V>::__bound_at(self.inner.p().clone());
         IndexIter::new(map.len(), move |i| map.key_at(i).expect("dense key vector"))
     }
-    #[track_caller]
-    pub fn at(&self, k: &K) -> V::View<'a>
-    where
-        V: Record,
-    {
-        V::__view(self.inner.entry_path(k))
-    }
 }
 
 pub struct MapEntry<'a, K, V> {
@@ -1459,10 +1443,8 @@ impl<'a, K: StorageKey + Clone + 'static, V: Value> MapEntry<'a, K, V> {
     #[track_caller]
     pub fn or_insert_with(self, f: impl FnOnce() -> V) -> &'a mut V {
         let path = self.map.entry_path(&self.k);
-        if let Some(p) = cache::get_entry::<V>(&path) {
-            assert_not_clearing::<V>(&path);
-            cache::touch(&path);
-            return unsafe { m(p) };
+        if let Some(v) = unsafe { get_entry_mut(&path) } {
+            return v;
         }
         let mut v = f();
         v.bind(&path);
@@ -1498,7 +1480,7 @@ impl<T: Value> Value for Vector<T> {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::VECTOR;
     const MAX_SUBPATH: usize = 1 + 4 + T::MAX_SUBPATH;
-    not_inline_value!();
+    not_inline_value!(path);
 }
 
 impl<T: Removable> Removable for Vector<T> {
@@ -1522,7 +1504,7 @@ impl<T: Removable> Removable for Vector<T> {
             let header = if len == 1 { cache::delete_cost::<u32>(&v.header(), false) } else { 0 };
             if !spend(budget, cache::delete_cost::<T>(&slot, false) + header, || {
                 cache::delete::<T>(&slot);
-                set_len_at(&v.header(), len - 1);
+                put_header(&v.header(), len - 1);
             }) {
                 return false;
             }
@@ -1548,10 +1530,13 @@ impl<T: Value> Vector<T> {
     fn header(&self) -> Path {
         self.p().kind(kind::HEADER)
     }
+    fn bound_anchored(path: Path, anchor: usize) -> Self {
+        Vector { path: Binding::anchored(path, anchor, super::record::marker::VECTOR), _m: PhantomData }
+    }
 
     /// 1 read.
     pub fn len(&self) -> u32 {
-        len_at(&self.header())
+        cache::get::<u32>(&self.header()).map(|p| unsafe { *r(p) }).unwrap_or(0)
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -1585,7 +1570,7 @@ impl<T: Value> Vector<T> {
         let path = self.slot(len);
         v.bind(&path);
         cache::put(&path, v);
-        set_len_at(&self.header(), len + 1);
+        put_header(&self.header(), len + 1);
     }
 
     /// 1 header read, 1 slot read (the returned value), 1 remove, 1 header write.
@@ -1606,7 +1591,7 @@ impl<T: Value> Vector<T> {
         if let Some(v) = v.as_mut() {
             v.detach();
         }
-        set_len_at(&self.header(), len - 1);
+        put_header(&self.header(), len - 1);
         v
     }
 
@@ -1630,7 +1615,7 @@ impl<T: Value> Vector<T> {
             let moved = cache::take::<T>(&last_path).expect("just read");
             cache::put(&path, moved);
         }
-        set_len_at(&self.header(), last);
+        put_header(&self.header(), last);
         v
     }
 
@@ -1649,7 +1634,7 @@ impl<T: Value> Vector<T> {
             T::clear_children(&path);
             cache::delete::<T>(&path);
         }
-        set_len_at(&self.header(), 0);
+        put_header(&self.header(), 0);
     }
 
     /// 1 read per element yielded, plus 1 for the length. `skip(n)` is free.
@@ -1710,31 +1695,12 @@ pub struct Lazy<T> {
     pending: core::cell::Cell<Option<T>>,
 }
 
-impl<T> Default for Lazy<T> {
-    fn default() -> Self {
-        Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(None) }
-    }
-}
-impl<T> core::fmt::Debug for Lazy<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Lazy({:?})", self.path)
-    }
-}
+collection_value!(Lazy<T> { pending: core::cell::Cell::new(None) });
+
 impl<T> Lazy<T> {
     /// A `Lazy` holding `v`, written when its record is placed. See the type docs.
     pub fn new(v: T) -> Self {
         Lazy { path: Binding::Unbound, pending: core::cell::Cell::new(Some(v)) }
-    }
-    /// The path this handle is bound to, if any.
-    pub fn path(&self) -> Option<&Path> {
-        match &self.path {
-            Binding::Bound(p, ..) => Some(p),
-            _ => None,
-        }
-    }
-    #[doc(hidden)]
-    pub fn __bound_at(path: Path) -> Self {
-        Lazy { path: Binding::at(path), pending: core::cell::Cell::new(None) }
     }
     fn bound_anchored(path: Path, anchor: usize) -> Self {
         Lazy {
@@ -1849,10 +1815,7 @@ impl<T: Value> Lazy<T> {
         T: Removable,
     {
         self.path.live();
-        let path = self.p().clone();
-        guard_removal::<T>(&path, false);
-        T::clear_children(&path);
-        cache::delete::<T>(&path);
+        Self::clear_children(self.p());
     }
 }
 
@@ -1885,18 +1848,7 @@ impl<K: StorageKey + 'static> Value for LookupSet<K> {
     const KIND: u8 = super::record::marker::LOOKUP_SET;
     const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = <LookupMap<K, ()> as Value>::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!()
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        self.0.bind(path)
-    }
-    fn detach(&mut self) {
-        self.0.detach()
-    }
+    not_inline_value!(0.path);
 }
 impl<K: StorageKey + 'static> LookupSet<K> {
     /// 1 `storage_has_key`.
@@ -1935,18 +1887,7 @@ impl<K: StorageKey + Clone + 'static> Value for Set<K> {
     const INLINE: bool = false;
     const KIND: u8 = super::record::marker::SET;
     const MAX_SUBPATH: usize = <Map<K, ()> as Value>::MAX_SUBPATH;
-    fn encode_value(&self, _: Option<&[u8]>) -> std::vec::Vec<u8> {
-        unreachable!()
-    }
-    fn decode_value(_: &[u8], _: &Path) -> Result<Self, RecordError> {
-        not_inline()
-    }
-    fn bind(&mut self, path: &Path) {
-        self.0.bind(path)
-    }
-    fn detach(&mut self) {
-        self.0.detach()
-    }
+    not_inline_value!(0.path);
 }
 impl<K: StorageKey + Clone + 'static> Removable for Set<K> {
     fn clear_children(path: &Path) {
@@ -2041,11 +1982,7 @@ pub struct GroupedMap<G, K, V> {
     path: Binding,
     _m: PhantomData<fn() -> (G, K, V)>,
 }
-impl<G, K, V> Default for GroupedMap<G, K, V> {
-    fn default() -> Self {
-        Self { path: Binding::Unbound, _m: PhantomData }
-    }
-}
+collection_value!(GroupedMap<G, K, V>);
 impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
     for GroupedMap<G, K, V>
 {
@@ -2053,7 +1990,7 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Value
     const KIND: u8 = super::record::marker::GROUPED_MAP;
     const __ROOT_ONLY: bool = true;
     const MAX_SUBPATH: usize = 1 + ENTRY_HASH_LEN + G::MAX_LEN + <Map<K, V> as Value>::MAX_SUBPATH;
-    not_inline_value!();
+    not_inline_value!(path);
 }
 
 /// A group's `Map`, read-only, with reads living as long as the `GroupedMap` borrow.
@@ -2078,11 +2015,9 @@ impl<G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value> Grouped
     #[track_caller]
     pub fn group_mut(&mut self, g: &G) -> GroupMut<'_, K, V> {
         self.path.live();
-        let p = cache::arena(Map::<K, V>::__bound_at(self.group_path(g)));
-        // SAFETY: the handle is a fresh allocation owned by the cache arena and freed only at
-        // the flush / `begin_call` (invariant 4). `&mut self` for `'_` makes this the only
-        // `&mut` reachable from this `GroupedMap` during the borrow.
-        unsafe { &mut *p.as_ptr() }
+        // SAFETY: `&mut self` for `'_` makes this the only `&mut` reachable from this
+        // `GroupedMap` during the borrow.
+        unsafe { arena_mut(Map::__bound_at(self.group_path(g))) }
     }
 }
 
@@ -2118,15 +2053,7 @@ view_as_at!(LookupMap<K, V> where K: StorageKey + 'static, V: Value);
 view_as_at!(Map<K, V> where K: StorageKey + Clone + 'static, V: Value);
 view_as_at!(Vector<T> where T: Value);
 view_as_at!(Lazy<T> where T: Value);
-
-impl<'a, R: Value, G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value>
-    ViewField<'a, R> for GroupedMap<G, K, V>
-{
-    type Out = At<'a, GroupedMap<G, K, V>>;
-    fn __view_field(field_path: Path) -> Self::Out {
-        At::new(GroupedMap { path: Binding::at(field_path), _m: PhantomData })
-    }
-}
+view_as_at!(GroupedMap<G, K, V> where G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value);
 impl<'a, R: Value, K: StorageKey + 'static> ViewField<'a, R> for LookupSet<K> {
     type Out = At<'a, LookupSet<K>>;
     fn __view_field(field_path: Path) -> Self::Out {
@@ -2164,12 +2091,12 @@ view_mut_as_arena!(LookupMap<K, V>, [K: StorageKey + 'static, V: Value], |p, _| 
 view_mut_as_arena!(Map<K, V>, [K: StorageKey + Clone + 'static, V: Value], |p, a| {
     Map::bound_anchored(p, a, super::record::marker::MAP)
 });
-view_mut_as_arena!(Vector<T>, [T: Value], |p, a| Vector::bound_anchored(p, a, super::record::marker::VECTOR));
+view_mut_as_arena!(Vector<T>, [T: Value], Vector::bound_anchored);
 view_mut_as_arena!(Lazy<T>, [T: Value], Lazy::bound_anchored);
 view_mut_as_arena!(
     GroupedMap<G, K, V>,
     [G: StorageKey + 'static, K: StorageKey + Clone + 'static, V: Value],
-    |p, _| GroupedMap { path: Binding::at(p), _m: PhantomData }
+    |p, _| GroupedMap::__bound_at(p)
 );
 view_mut_as_arena!(LookupSet<K>, [K: StorageKey + 'static], |p, _| LookupSet(LookupMap::__bound_at(p)));
 view_mut_as_arena!(Set<K>, [K: StorageKey + Clone + 'static], |p, a| {
