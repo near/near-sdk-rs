@@ -302,3 +302,42 @@ fn user_items_named_like_generated_bindings() {
     assert_eq!(holders.at(&1).r.kids.get(&4), Some(&5));
     assert_eq!(holders.get(&1).map(|h| h.r.__m), Some(0));
 }
+
+/// `default` and `default_fn` resolve in an `impl` of the record: `Self::` names the user's own
+/// associated items, including one named like the derive's old default const.
+mod self_items {
+    use near_sdk::near;
+
+    #[near(storage)]
+    pub struct S {
+        #[key(1, default = Self::X)]
+        pub a: u8,
+        #[key(2, default = Self::__KEY_DEFAULT_1)]
+        pub b: u8,
+        #[key(3, default_fn = Self::mk)]
+        pub c: u8,
+        #[key(4, default = String::new())]
+        pub d: String,
+    }
+
+    impl S {
+        const X: u8 = 4;
+        const __KEY_DEFAULT_1: u8 = 9;
+        fn mk() -> u8 {
+            6
+        }
+    }
+}
+
+#[test]
+fn defaults_resolve_in_the_record_impl() {
+    let v = self_items::S::default();
+    assert_eq!((v.a, v.b, v.c, v.d.as_str()), (4, 9, 6, ""));
+}
+
+/// A failing `default = expr` fails `cargo check`, not only `cargo build`, even when the record
+/// is never used. trybuild runs `cargo check` when every case is `compile_fail`.
+#[test]
+fn failing_defaults_fail_cargo_check() {
+    trybuild::TestCases::new().compile_fail("compilation_tests/storage_v2/*.rs");
+}

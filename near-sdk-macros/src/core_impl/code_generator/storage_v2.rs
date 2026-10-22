@@ -5,7 +5,8 @@
 //! the `#[key]` attributes stripped:
 //! - `impl Value`: tagged-record encode (keeping unknown stored tags; each collection field
 //!   leaves its kind marker, a nested record is wire 2), decode (a missing tag is
-//!   `FieldDefault`, the `const` of `default = expr`, a call of `default_fn = path`, or an
+//!   `FieldDefault`, the associated `const` of `default = expr` (forced, so evaluated by
+//!   `cargo check`), a call of `default_fn = path`, or an
 //!   error for `required`), bind / detach / `__write_pending` (so a struct literal's
 //!   `Lazy::new` values are written without `.bind()`), `MAX_SUBPATH` summed over fields, and
 //!   `__unknown_collection`, the removal check: a collection marker under an undeclared,
@@ -42,7 +43,7 @@
 //!   the record's fields and name; `state_key` reads `Root::ROOT_BYTE`, so the root byte is
 //!   spelled once, in an impl, next to no generated name.
 //! - The `__near_` prefix (any case) is reserved: the bindings above and the inherent items the
-//!   derive adds to the record (`__near_decode_fields`) use it.
+//!   derive adds to the record (`__near_decode_fields`, `__NEAR_KEY_DEFAULT_<tag>`) use it.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
@@ -352,6 +353,7 @@ pub fn expand(
     let [l_anchor, l_budget, l_v, l_e] = ["anchor", "budget", "v", "e"].map(local);
     let mut enc = Vec::new();
     let mut dec = Vec::new();
+    let (mut defaults, mut defaults_forced) = (Vec::new(), Vec::new());
     let mut root_only = Vec::new();
 
     for KeyedField { ident, ty, key, .. } in &fields {
@@ -363,13 +365,25 @@ pub fn expand(
         } else if *required {
             quote_spanned! {span=> #p::field_required::<#ty>(#l_f, #t, #l_path) }
         } else if let Some(d) = default {
-            // `expr` is an inline `const`, so it is evaluated at compile time and a non-const
-            // expression (`env::predecessor_account_id()`, `vec![..]`, `.parse()`) is a compile
-            // error at the expression (E0015). Re-evaluating it on every decode of an old
-            // record is then harmless: it is the same value every time. Unlike a named `const`
-            // item, it binds no name the expression could resolve to.
-            let c = quote_spanned! {d.span()=> const { #d } };
-            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || #c) }
+            // `expr` is an associated `const` of the record, so it is evaluated at compile time
+            // and a non-const expression (`env::predecessor_account_id()`, `vec![..]`,
+            // `.parse()`) is a compile error at the expression (E0015). Re-evaluating it on
+            // every decode of an old record is then harmless: it is the same value every time.
+            // It sits in an `impl` with no generated binding, so it resolves like code the user
+            // writes there (`Self::X` is the record's). An associated const is evaluated only
+            // where it is used, so a free `const _` uses it: a failing `expr` (a panicking
+            // `const fn`, an index out of bounds) is E0080 at `cargo check`, used or not.
+            let c = format_ident!("__NEAR_KEY_DEFAULT_{}", t, span = d.span());
+            defaults.push(quote_spanned! {d.span()=>
+                #[doc(hidden)]
+                const #c: #ty = #d;
+            });
+            defaults_forced.push(quote_spanned! {d.span()=>
+                const _: () = {
+                    let _ = ::core::mem::ManuallyDrop::new(<#name>::#c);
+                };
+            });
+            quote_spanned! {span=> #p::field_or::<#ty>(#l_f, #t, #l_path, || Self::#c) }
         } else if let Some(fp) = default_fn {
             // `default_fn = path`: the escape hatch from the const rule above, for a type
             // with no const constructor (`AccountId`, `Vec`). Coerced to `fn() -> T`, so
@@ -443,6 +457,7 @@ pub fn expand(
     // `decode_value` and the generated `Default`, so a missing `Default` is reported once.
     let decode_fields = quote! {
         impl #name {
+            #(#defaults)*
             #[doc(hidden)]
             #[allow(dead_code)]
             fn __near_decode_fields(
@@ -452,6 +467,7 @@ pub fn expand(
                 ::core::result::Result::Ok(Self { #(#dec)* })
             }
         }
+        #(#defaults_forced)*
     };
     let decode_body = quote! {
         let #l_f = #p::parse(#l_bytes)?;
