@@ -376,6 +376,22 @@ fn zst_rows() {
     }
 }
 
+/// Prints the `remove_step` rows of both maps, for the slim-down before/after of Oct 22 (round 3).
+/// `cargo +1.95.0 test --test storage_v2_gas remove_step_rows -- --include-ignored --nocapture`
+#[test]
+#[ignore = "remove_step before/after helper; run with --nocapture"]
+fn remove_step_rows() {
+    let n: u32 = std::env::var("GAS_A3_N").map(|s| s.parse().unwrap()).unwrap_or(10_000);
+    println!("{HEADER}");
+    for (op, cs) in remove_step_ops(n) {
+        if cs.is_empty() {
+            println!("| v2 (h16, ext) | {n} | {op} | | | | | | | | | |");
+        } else {
+            println!("{}", row("v2 (h16, ext)", n, &op, &cs));
+        }
+    }
+}
+
 /// Prints only the A3 rows and the rows the fix could touch (insert/update/remove at 10k on
 /// both v2 maps, the ext rows), for the before/after comparison of Oct 20.
 /// `cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture`
@@ -552,6 +568,54 @@ fn ext_ops(n: u32) -> Vec<(String, Vec<Cost>)> {
     let m = totals[totals.len() / 2];
     out.push((format!("remove_step(n=3), whole sequence: total {} Tgas, {} removes", t(m.total), m.removes), vec![]));
     out.push((format!("remove_step(n=64), one call (Done), record + {BAL}-entry Map"), whole));
+    out
+}
+
+/// `remove_step` rows for both maps (slim-down pass A, round 3, Oct 22), on the `ext` wasm with
+/// `accounts` holding `n` records: as in `ext_ops`, a record owning a 10-entry map removed at the
+/// minimum budget (first call, finishing call, whole sequence) and in one call (n=64), through
+/// `accounts` (`Map`) and `laccounts` (`LookupMap`). K distinct keys each.
+fn remove_step_ops(n: u32) -> Vec<(String, Vec<Cost>)> {
+    const BAL: u32 = 10;
+    let mut sim = world(V2H16X);
+    populate(&mut sim, V2H16X, "accounts", n);
+    let mut out = vec![];
+    for (m, label) in [("account", "Map"), ("laccount", "LookupMap")] {
+        let (mut first, mut last, mut whole, mut calls, mut totals) = (vec![], vec![], vec![], vec![], vec![]);
+        for j in 0..K {
+            let id = gen_id(n + 5000 + j);
+            call(&mut sim, &format!("{m}_fill"), json!({"id": id, "n": BAL})).assert_success();
+            let mut cs = vec![];
+            loop {
+                let o = call(&mut sim, &format!("{m}_remove_step"), json!({"id": id, "n": 3}));
+                let done: bool = o.json();
+                let c = cost(&o);
+                assert!(c.removes <= 3, "remove_step(3) made {} removes", c.removes);
+                cs.push(c);
+                if done {
+                    break;
+                }
+                assert!(cs.len() < 100);
+            }
+            assert!(sim.view(C, &format!("{m}_nonce"), json!({"id": id})).json::<Option<String>>().is_none());
+            calls.push(cs.len());
+            totals.push(Cost { total: cs.iter().map(|c| c.total).sum(), removes: cs.iter().map(|c| c.removes).sum(), ..Default::default() });
+            first.push(cs[0]);
+            last.push(*cs.last().unwrap());
+            let id = gen_id(n + 6000 + j);
+            call(&mut sim, &format!("{m}_fill"), json!({"id": id, "n": BAL})).assert_success();
+            let o = call(&mut sim, &format!("{m}_remove_step"), json!({"id": id, "n": 64}));
+            assert!(o.json::<bool>(), "n = 64 finishes a 10-entry record in one call");
+            whole.push(cost(&o));
+        }
+        calls.sort();
+        out.push((format!("{label}::remove_step(n=3), first call (Pending), record + {BAL}-entry Map"), first));
+        out.push((format!("{label}::remove_step(n=3), finishing call (Done); calls to finish {}-{}", calls[0], calls[calls.len() - 1]), last));
+        totals.sort_by_key(|c| c.total);
+        let m = totals[totals.len() / 2];
+        out.push((format!("{label}::remove_step(n=3), whole sequence: total {} Tgas, {} removes", t(m.total), m.removes), vec![]));
+        out.push((format!("{label}::remove_step(n=64), one call (Done), record + {BAL}-entry Map"), whole));
+    }
     out
 }
 

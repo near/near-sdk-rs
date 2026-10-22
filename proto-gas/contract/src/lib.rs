@@ -202,6 +202,20 @@ mod v2 {
         pub fn account_nonce(&self, id: AccountId) -> Option<U64> {
             self.accounts.get(&id).map(|a| U64(a.nonce))
         }
+        /// `account_fill` and `account_remove_step` on `laccounts`, for the `LookupMap::remove_step`
+        /// rows (slim-down pass A, round 3, Oct 22).
+        pub fn laccount_fill(&mut self, id: AccountId, n: u32) {
+            let a = self.laccounts.entry(id).or_default();
+            for i in 0..n {
+                let _ = a.balances.insert(format!("t{i}"), i as u128 + 1);
+            }
+        }
+        pub fn laccount_remove_step(&mut self, id: AccountId, n: u32) -> bool {
+            self.laccounts.remove_step(&id, NonZeroU32::new(n).expect("n > 0")).is_done()
+        }
+        pub fn laccount_nonce(&self, id: AccountId) -> Option<U64> {
+            self.laccounts.get(&id).map(|a| U64(a.nonce))
+        }
 
         // A3 first-write rows (Oct 20).
         /// Writes one balance below an existing account through `at_mut` (the record is not
