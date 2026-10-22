@@ -32,11 +32,12 @@
 //!    and borrowck cannot catch it because both borrows are shared. Freeing at the flush is
 //!    what makes a v1 collection nested in a v2 record run its write-on-drop.
 
-use super::key::Path;
+use super::key::{Path, flag_key_bytes as flag_key};
 use super::value::Value;
 use core::any::Any;
 use core::cell::RefCell;
 use core::ptr::NonNull;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 /// Every storage host call `state` makes goes through this trait. Private to the crate.
@@ -180,11 +181,26 @@ impl Slot {
     }
 
     fn is_clearing(&self) -> bool {
-        match self.clearing {
+        self.clearing_as(self.clearing)
+    }
+
+    /// [`Slot::is_clearing`] if the slot's clearing state were `clearing`.
+    fn clearing_as(&self, clearing: Clearing) -> bool {
+        match clearing {
             Clearing::Set => true,
             Clearing::Cleared => false,
             Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
         }
+    }
+
+    /// Whether storage may hold the old record at `(record key, flag key)` before the flush.
+    fn stored_at(&self) -> (bool, bool) {
+        if self.blind_delete && self.orig == Orig::Unknown {
+            // F1: a blind delete then a reinsert: either key may still hold the old record.
+            return (true, true);
+        }
+        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
+        (present && !self.at_flag, present && self.at_flag)
     }
 
     /// The bytes the flush would write for a Touched/Dirty slot.
@@ -201,12 +217,6 @@ impl Slot {
     /// key. Unchanged bytes at the same key are not rewritten. Allocates only the encoding of a
     /// Touched/Dirty value (none for a record moved verbatim).
     fn for_each_flush_op(&self, mut f: impl FnMut(FlushOp<'_>)) {
-        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
-        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
-        if self.blind_delete && self.orig == Orig::Unknown {
-            // F1: a blind delete then a reinsert: either key may still hold the old record.
-            (at_key, at_flag) = (true, true);
-        }
         match self.mode {
             // A3 first-write rule: a record whose only change is an added kind marker. It was
             // read at its record key (a record being cleared refuses the write below it), so
@@ -217,11 +227,11 @@ impl Slot {
                 }
             }
             Mode::Touched | Mode::Dirty => {
+                let (at_key, at_flag) = self.stored_at();
                 let clearing = self.is_clearing();
-                let verbatim = self.patch.as_deref().or(self.orig.bytes());
-                let enc: std::borrow::Cow<'_, [u8]> = match verbatim {
-                    Some(b) if self.verbatim && clearing => std::borrow::Cow::Borrowed(b),
-                    _ => std::borrow::Cow::Owned(self.encode()),
+                let enc = match self.patch.as_deref().or(self.orig.bytes()) {
+                    Some(b) if self.verbatim && clearing => Cow::Borrowed(b),
+                    _ => Cow::Owned(self.encode()),
                 };
                 let same = self.orig.bytes() == Some(&enc[..]);
                 if clearing {
@@ -266,24 +276,11 @@ impl Slot {
 
     /// [`Slot::remove_count`] if the slot had `mode` and `clearing`.
     fn remove_count_as(&self, mode: Mode, clearing: Clearing) -> u32 {
-        let present = matches!(self.orig, Orig::Present(_) | Orig::PresentUnread);
-        let (mut at_key, mut at_flag) = (present && !self.at_flag, present && self.at_flag);
-        if self.blind_delete && self.orig == Orig::Unknown {
-            (at_key, at_flag) = (true, true);
-        }
-        let is_clearing = match clearing {
-            Clearing::Set => true,
-            Clearing::Cleared => false,
-            Clearing::FromOrig => self.at_flag && self.orig != Orig::Absent,
-        };
         match mode {
             Mode::Clean => 0,
             Mode::Touched | Mode::Dirty => {
-                if is_clearing {
-                    u32::from(at_key)
-                } else {
-                    u32::from(at_flag)
-                }
+                let (at_key, at_flag) = self.stored_at();
+                u32::from(if self.clearing_as(clearing) { at_key } else { at_flag })
             }
             Mode::Deleted => match self.orig {
                 Orig::Absent => 0,
@@ -524,13 +521,6 @@ pub(crate) fn slot_count() -> usize {
     with(|c| c.slots.len())
 }
 
-/// The flag key of the record whose key is `key`: one more byte, `00` (see [`Path::flag`]),
-/// length-checked like every path hop.
-#[track_caller]
-fn flag_key(key: &[u8]) -> Vec<u8> {
-    super::key::flag_key_bytes(key)
-}
-
 /// Reads and decodes the value at `path`, once per call. `None` if absent or deleted.
 #[track_caller]
 pub(crate) fn get<V: Value>(path: &Path) -> Option<NonNull<V>> {
@@ -676,31 +666,23 @@ pub(crate) fn set_clearing(path: &Path) {
 /// a child never comes into existence under a record that is not there.
 #[track_caller]
 pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: &dyn Fn() -> bool) {
-    let state = with(|c| {
+    let known = with(|c| {
         if c.root.as_deref() == Some(rec_key) {
             return None;
         }
-        let s = c.slots.get(rec_key).map(|sp| {
-            // SAFETY: invariant 1.
-            unsafe { sp.as_ref() }
-        });
-        Some(match s {
+        // SAFETY: invariant 1.
+        match c.slots.get(rec_key).map(|sp| unsafe { sp.as_ref() }) {
             Some(s) if matches!(s.mode, Mode::Touched | Mode::Dirty) => None,
             // decided without a host call: the bytes are known, or the record is gone (refused)
-            Some(s)
-                if matches!(s.orig, Orig::Present(_) | Orig::Absent)
+            Some(s) => Some(
+                matches!(s.orig, Orig::Present(_) | Orig::Absent)
                     || s.patch.is_some()
-                    || s.gone_in_this_call() =>
-            {
-                Some(true)
-            }
-            _ => Some(false),
-        })
+                    || s.gone_in_this_call(),
+            ),
+            None => Some(false),
+        }
     });
-    let known = match state {
-        None | Some(None) => return,
-        Some(Some(known)) => known,
-    };
+    let Some(known) = known else { return };
     if !known && !child_absent() {
         return;
     }
@@ -842,17 +824,17 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
 /// Removes the value at `path`, returning it if it was decoded. No host read. The value moves
 /// out of the cache, so this is only for removals that hand it back (invariant 2).
 pub(crate) fn take<V: Value>(path: &Path) -> Option<V> {
-    let p = delete_impl::<V>(path, false)?;
-    // SAFETY: invariant 2; the slot no longer points at the value, so we own it now.
-    let b = unsafe { Box::from_raw(p.as_ptr()) };
-    let any: Box<dyn Any> = b;
-    any.downcast::<V>().ok().map(|b| *b)
+    take_impl::<V>(path, false)
 }
 
 /// [`take`] for a map entry; see [`delete_entry`] for the flag key.
 pub(crate) fn take_entry<V: Value>(path: &Path) -> Option<V> {
-    let p = delete_impl::<V>(path, V::MAX_SUBPATH > 0)?;
-    // SAFETY: as in `take`.
+    take_impl::<V>(path, V::MAX_SUBPATH > 0)
+}
+
+fn take_impl<V: Value>(path: &Path, flaggable: bool) -> Option<V> {
+    let p = delete_impl::<V>(path, flaggable)?;
+    // SAFETY: invariant 2; the slot no longer points at the value, so we own it now.
     let b = unsafe { Box::from_raw(p.as_ptr()) };
     let any: Box<dyn Any> = b;
     any.downcast::<V>().ok().map(|b| *b)
