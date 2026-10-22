@@ -3,8 +3,9 @@
 #   cargo +1.95.0 test --test storage_v2_gas a3_rows -- --include-ignored --nocapture
 # base: proto-gas/build.sh at 7623d388 in this worktree. slim-b: proto-gas/build.sh at 6e86b9b5 (the pass's last code commit), same
 # worktree, toolchain and cargo-near, so the two columns differ only by the pass. The Oct 20 column is
-# gas_a3fix_20261020.txt's "after" (another worktree: its wasms are 51 B larger from path strings in panic
-# locations; the Tgas medians match base within 1 Ggas). Tgas is the median of the row; delta in Ggas.
+# gas_a3fix_20261020.txt's "after" (built in another worktree from the same SDK code, 7623d388 touches only docs; base here is
+# -51 B (h16), -52 B (h8) and +27 B (ext) against it, environment drift, cause not investigated; the Tgas
+# medians match base within 3 Ggas). Tgas is the median of the row; delta in Ggas.
 # Host-op counts (r/w/d/h) are unchanged on every row. No row goes up. (e54dfc18, before the last
 # ensure_marker cut, measured the same to within 1 Ggas on every row, 14 B more wasm.)
 
