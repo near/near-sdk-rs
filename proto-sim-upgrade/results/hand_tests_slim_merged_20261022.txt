@@ -1,0 +1,22 @@
+   Compiling proto-sim-upgrade-sim v0.0.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/agent-a66b69e3a4fda17f9/proto-sim-upgrade/sim)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.07s
+     Running tests/storage_v2_upgrade.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_upgrade-d1eb8fef37aad6e5)
+
+running 14 tests
+test scan_out_of_gas ... ignored, long
+test search_from_v1 ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test search_from_v2a ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test search_from_v2b ... ignored, long: NEAR_SIM_CASES and NEAR_SIM_SEED tune it
+test timing_probe ... ignored, timing: TIMING_CASES (default 128) fixed plans, run one by one
+test raw_checks_can_fail ... ok
+test retag_both_directions ... ok
+test drained_contract_matches_a_fresh_v2_one ... ok
+test a3_first_write_through_at_mut_marks_the_record_so_removal_refuses ... ok
+test required_tag_on_old_records ... ok
+test downgrade_keeps_schema_b_fields ... ok
+test a3_orphan_replay ... ok
+test smoke_upgrade_path ... ok
+test retag_hazard_is_caught ... ok
+
+test result: ok. 9 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.33s
+

@@ -1,0 +1,73 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.20s
+     Running tests/storage_v2_search.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_search-4f28b918faad2804)
+
+running 1 test
+search of 300 case(s) per seed: done, 300 case(s) in 2s
+No violation in what was tried, and nothing open.
+Only what was tried.
+search of 300 case(s) per seed: 300 case(s), 0 finding(s), 0 to do
+coverage: 20 of 20 value paths exercised (store.near)
+seed 0x20261020 (NEAR_SIM_SEED repeats it), 1 seed(s)
+
+wall time: 2.420814375s for 300 cases, 0.008 s per case (shrinking included)
+checks, SDK properties, over the 300 counted case(s):
+  model and trie agree: 2156 ok, 0 failed, 0 not judged, 0 idle
+  remove_step only shrinks the record: 223 ok, 0 failed, 0 not judged, 0 idle
+checks, not SDK properties (runtime sanity, harness, probes), over the 300 counted case(s):
+  probe: behaviour classes (never fails; counts include reruns): 300 ok, 0 failed, 0 not judged, 0 idle
+  runtime: storage_usage is base + key + value + 40 per key: 2156 ok, 0 failed, 0 not judged, 0 idle
+incomplete cases: 0 of 300
+8 ms per case, shrinking excluded (cases 0..299)
+faults: 76 drawn, 0 landed (of 300 distinct plans drawn; the rest fit no receipt their case spawned: a transaction's first receipt is its caller's gas, faults.md)
+behaviour classes, in receipts over every execution (cases + shrink candidates + fault baselines + case 0's rerun; an upper bound, not distinct cases):
+    of which the hand flush reached the host before the panic: 62
+  accounts_page: CursorGone: 48
+  accounts_page: continued from a cursor: 13
+  acct_remove_chain: Done: 50
+  acct_remove_chain: Pending (chained): 18
+  acct_remove_step: Done: 161
+  acct_remove_step: Pending: 9
+  balances_page: CursorGone: 45
+  balances_page: continued from a cursor: 3
+  hand flush mid-call, then root change: 113
+  members_page: CursorGone: 13
+  natural out of gas: acct_bulk: 8
+  panic after a hand flush (reverted): 103
+  panic before the flush: 125
+  remove_step n < 3 refused: 23
+  remove_step on a present record (budget and liveness judged): 27
+  write below a clearing record refused: 1
+coverage, distinct cases reaching each method (Audit::reached):
+  store.near::bump: 24
+  store.near::acct_try_insert: 81
+  store.near::acct_touch: 62
+  store.near::acct_set_nonce: 61
+  store.near::acct_remove: 31
+  store.near::acct_discard: 29
+  store.near::acct_remove_step: 125
+  store.near::acct_remove_chain: 44
+  store.near::acct_bulk: 93
+  store.near::bal_set: 124
+  store.near::bal_remove: 92
+  store.near::log_push: 88
+  store.near::log_pop: 53
+  store.near::blob_set: 51
+  store.near::blob_remove: 50
+  store.near::look_insert: 55
+  store.near::look_try_insert: 27
+  store.near::look_remove: 30
+  store.near::mem_insert: 63
+  store.near::mem_remove: 36
+  store.near::counter: 18
+  store.near::accounts_len: 14
+  store.near::acct_contains: 18
+  store.near::acct_get: 48
+  store.near::look_get: 12
+  store.near::mem_contains: 26
+  store.near::accounts_page: 97
+  store.near::members_page: 40
+  store.near::balances_page: 71
+test search ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 2.95s
+
