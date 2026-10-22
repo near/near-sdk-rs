@@ -123,7 +123,10 @@ impl Facts for crate::state::model::MState {
         self.recs.iter().map(|(k, _)| *k).collect()
     }
     fn items(&self, k: u8) -> std::vec::Vec<u8> {
-        self.recs.iter().find(|(x, _)| *x == k).map_or(vec![], |(_, r)| r.items.iter().map(|(k, _)| *k).collect())
+        self.recs
+            .iter()
+            .find(|(x, _)| *x == k)
+            .map_or(vec![], |(_, r)| r.items.iter().map(|(k, _)| *k).collect())
     }
     fn items_header(&self, k: u8) -> bool {
         self.recs.iter().any(|(x, r)| *x == k && (!r.items.is_empty() || r.items_rev != 0))

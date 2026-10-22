@@ -22,7 +22,12 @@ pub fn assert_one_write_per_key(ops: &[testing::Op], root: &[u8]) {
         _ => (&muts[..], None),
     };
     for w in body.windows(2) {
-        assert!(w[0].key < w[1].key, "flush out of key order or a key written twice: {:?} then {:?}", w[0].key, w[1].key);
+        assert!(
+            w[0].key < w[1].key,
+            "flush out of key order or a key written twice: {:?} then {:?}",
+            w[0].key,
+            w[1].key
+        );
     }
     assert!(body.iter().all(|o| o.key != root), "the root was written before other keys");
     if let Some(l) = last {
@@ -39,7 +44,9 @@ fn g4_one_write_per_key_per_call_in_key_order_root_last() {
     bolero::check!().with_generator(ops_gen()).with_iterations(2_000).for_each(|ops| {
         for log in run(ops) {
             match log.kind {
-                CallKind::Mutating | CallKind::MidFlush => assert_one_write_per_key(&log.ops, &root),
+                CallKind::Mutating | CallKind::MidFlush => {
+                    assert_one_write_per_key(&log.ops, &root)
+                }
                 CallKind::View => assert!(
                     log.ops.iter().all(|o| matches!(o.kind, OpKind::Read | OpKind::HasKey)),
                     "a view call wrote"
@@ -59,10 +66,17 @@ fn g4_nothing_happens_in_drop() {
         let (_, st) = super::diff::run_state(setup);
         let before = testing::store();
         // the model over the stored state is only the legality oracle for the body here
-        let mut m = Model { committed: st.clone(), cur: st, cache: crate::state::model::CacheModel::new(before.clone()) };
+        let mut m = Model {
+            committed: st.clone(),
+            cur: st,
+            cache: crate::state::model::CacheModel::new(before.clone()),
+        };
         testing::begin_call();
         let mut root = load_root::<MRoot>();
-        for op in body.iter().filter(|o| !matches!(o, Op::EndCall | Op::MidFlush | Op::View(_) | Op::RecRetyped(..))) {
+        for op in body
+            .iter()
+            .filter(|o| !matches!(o, Op::EndCall | Op::MidFlush | Op::View(_) | Op::RecRetyped(..)))
+        {
             if m.would_panic(op) {
                 continue;
             }
@@ -72,7 +86,10 @@ fn g4_nothing_happens_in_drop() {
         drop(root);
         crate::state::cache::begin_call();
         let r = testing::receipt();
-        assert!(r.ops.iter().all(|o| matches!(o.kind, OpKind::Read | OpKind::HasKey)), "a write happened without a flush");
+        assert!(
+            r.ops.iter().all(|o| matches!(o.kind, OpKind::Read | OpKind::HasKey)),
+            "a write happened without a flush"
+        );
         assert_eq!(testing::store(), before, "storage changed without a flush");
     });
 }
@@ -88,9 +105,12 @@ fn g4_root_is_last_although_its_key_sorts_first() {
     flush_root(&root);
     drop(root);
     let r = testing::receipt();
-    let w: std::vec::Vec<_> = r.ops.iter().filter(|o| o.kind == OpKind::Write).map(|o| o.key.clone()).collect();
+    let w: std::vec::Vec<_> =
+        r.ops.iter().filter(|o| o.kind == OpKind::Write).map(|o| o.key.clone()).collect();
     assert_eq!(w.last().unwrap(), &crate::state::model::root_key());
-    assert!(w[..w.len() - 1].iter().all(|k| k.as_slice() > crate::state::model::root_key().as_slice()));
+    assert!(
+        w[..w.len() - 1].iter().all(|k| k.as_slice() > crate::state::model::root_key().as_slice())
+    );
 }
 
 // ---------------------------------------------------------------------------------------
@@ -163,65 +183,72 @@ fn key(i: u8) -> Path {
 /// attributes once Kani accepts the current `catch_unwind` signature.
 #[test]
 fn g4_cache_flush_writes_each_key_once_in_order_root_last() {
-    let g = (bolero::produce::<[Option<u8>; 3]>(), bolero::produce::<[CacheOp; 6]>(), 0usize..=6, bolero::produce::<bool>());
-    bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(init, ops, n, root_changes)| {
-        let rec = Rc::new(RefCell::new(Rec::default()));
-        for (i, v) in init.iter().enumerate() {
-            if let Some(v) = v {
-                rec.borrow_mut().store.push((key(i as u8).as_bytes().to_vec(), vec![v % 2]));
+    let g = (
+        bolero::produce::<[Option<u8>; 3]>(),
+        bolero::produce::<[CacheOp; 6]>(),
+        0usize..=6,
+        bolero::produce::<bool>(),
+    );
+    bolero::check!().with_generator(g).with_iterations(20_000).for_each(
+        |(init, ops, n, root_changes)| {
+            let rec = Rc::new(RefCell::new(Rec::default()));
+            for (i, v) in init.iter().enumerate() {
+                if let Some(v) = v {
+                    rec.borrow_mut().store.push((key(i as u8).as_bytes().to_vec(), vec![v % 2]));
+                }
             }
-        }
-        rec.borrow_mut().store.push((vec![DEFAULT_ROOT], vec![0]));
-        cache::install_host(Box::new(RecHost(rec.clone())));
-        let root = Path::root(DEFAULT_ROOT);
-        let _ = cache::read_root(&root);
-        let mut view_only = true;
-        for op in &ops[..*n] {
-            match *op {
-                CacheOp::Get(i) => {
-                    let _ = cache::get::<u8>(&key(i));
-                }
-                CacheOp::Exists(i) => {
-                    let _ = cache::exists(&key(i));
-                }
-                CacheOp::Put(i, v) => {
-                    view_only = false;
-                    cache::put(&key(i), v);
-                }
-                CacheOp::Delete(i) => {
-                    view_only = false;
-                    cache::delete::<u8>(&key(i));
-                }
-                CacheOp::Touch(i, v) => {
-                    if let Some(p) = cache::get::<u8>(&key(i)) {
+            rec.borrow_mut().store.push((vec![DEFAULT_ROOT], vec![0]));
+            cache::install_host(Box::new(RecHost(rec.clone())));
+            let root = Path::root(DEFAULT_ROOT);
+            let _ = cache::read_root(&root);
+            let mut view_only = true;
+            for op in &ops[..*n] {
+                match *op {
+                    CacheOp::Get(i) => {
+                        let _ = cache::get::<u8>(&key(i));
+                    }
+                    CacheOp::Exists(i) => {
+                        let _ = cache::exists(&key(i));
+                    }
+                    CacheOp::Put(i, v) => {
                         view_only = false;
-                        // SAFETY: no other reference to this slot's value is alive
-                        unsafe { *p.as_ptr() = v };
-                        cache::touch(&key(i));
+                        cache::put(&key(i), v);
+                    }
+                    CacheOp::Delete(i) => {
+                        view_only = false;
+                        cache::delete::<u8>(&key(i));
+                    }
+                    CacheOp::Touch(i, v) => {
+                        if let Some(p) = cache::get::<u8>(&key(i)) {
+                            view_only = false;
+                            // SAFETY: no other reference to this slot's value is alive
+                            unsafe { *p.as_ptr() = v };
+                            cache::touch(&key(i));
+                        }
                     }
                 }
             }
-        }
-        assert!(
-            rec.borrow().log.iter().all(|(k, _)| matches!(k, OpKind::Read | OpKind::HasKey)),
-            "host write before the flush"
-        );
-        let mark = rec.borrow().log.len();
-        let new_root = if *root_changes { vec![1u8] } else { vec![0u8] };
-        cache::flush(Some((&root, &|_| new_root.clone())));
-        let r = rec.borrow();
-        let muts: std::vec::Vec<&(OpKind, std::vec::Vec<u8>)> = r.log[mark..].iter().collect();
-        let (body, last) = match muts.split_last() {
-            Some((l, b)) if l.1 == [DEFAULT_ROOT] => (b.to_vec(), Some(*l)),
-            _ => (muts.clone(), None),
-        };
-        for w in body.windows(2) {
-            assert!(w[0].1 < w[1].1, "flush out of order or a key twice");
-        }
-        assert!(body.iter().all(|(_, k)| k.as_slice() != [DEFAULT_ROOT]));
-        assert_eq!(last.is_some(), *root_changes, "root written iff its bytes changed");
-        if view_only {
-            assert!(body.is_empty(), "a read-only sequence wrote");
-        }
-    });
+            assert!(
+                rec.borrow().log.iter().all(|(k, _)| matches!(k, OpKind::Read | OpKind::HasKey)),
+                "host write before the flush"
+            );
+            let mark = rec.borrow().log.len();
+            let new_root = if *root_changes { vec![1u8] } else { vec![0u8] };
+            cache::flush(Some((&root, &|_| new_root.clone())));
+            let r = rec.borrow();
+            let muts: std::vec::Vec<&(OpKind, std::vec::Vec<u8>)> = r.log[mark..].iter().collect();
+            let (body, last) = match muts.split_last() {
+                Some((l, b)) if l.1 == [DEFAULT_ROOT] => (b.to_vec(), Some(*l)),
+                _ => (muts.clone(), None),
+            };
+            for w in body.windows(2) {
+                assert!(w[0].1 < w[1].1, "flush out of order or a key twice");
+            }
+            assert!(body.iter().all(|(_, k)| k.as_slice() != [DEFAULT_ROOT]));
+            assert_eq!(last.is_some(), *root_changes, "root written iff its bytes changed");
+            if view_only {
+                assert!(body.is_empty(), "a read-only sequence wrote");
+            }
+        },
+    );
 }

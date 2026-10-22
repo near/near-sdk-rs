@@ -115,7 +115,14 @@ fn g5_page_costs_two_reads_plus_two_per_entry() {
 /// The spec's harness bound, explicitly: n up to 64 on a map of 200 after 100 removals.
 #[test]
 fn g5_page_of_64_on_an_aged_map() {
-    let s = Scenario { size: 200, removals: (0..100).map(|i| (i * 37 % 200) as u8).collect(), calls: 4, cursor: None, limit: 64, keys_only: false };
+    let s = Scenario {
+        size: 200,
+        removals: (0..100).map(|i| (i * 37 % 200) as u8).collect(),
+        calls: 4,
+        cursor: None,
+        limit: 64,
+        keys_only: false,
+    };
     let (order, _) = s.build();
     let m = flat();
     let p = m.page(Some(&order[10]), 64).unwrap();

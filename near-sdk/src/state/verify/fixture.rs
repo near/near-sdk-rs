@@ -68,10 +68,8 @@ pub struct Rec {
 }
 
 impl Value for Rec {
-    const MAX_SUBPATH: usize = p::max(
-        p::field_subpath::<u64>(REC_N),
-        p::field_subpath::<Map<u8, StdVec<u8>>>(REC_ITEMS),
-    );
+    const MAX_SUBPATH: usize =
+        p::max(p::field_subpath::<u64>(REC_N), p::field_subpath::<Map<u8, StdVec<u8>>>(REC_ITEMS));
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
@@ -101,7 +99,10 @@ impl Value for Rec {
     }
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let f = p::parse(bytes)?;
-        Ok(Self { n: p::field(&f, REC_N, Some(path))?, items: p::field(&f, REC_ITEMS, Some(path))? })
+        Ok(Self {
+            n: p::field(&f, REC_N, Some(path))?,
+            items: p::field(&f, REC_ITEMS, Some(path))?,
+        })
     }
     fn bind(&mut self, path: &Path) {
         Value::bind(&mut self.n, &path.field(REC_N));
@@ -141,7 +142,8 @@ impl Record for Rec {
         RecAtMut {
             n: <u64 as ViewFieldMut<'a, Rec>>::__view_field_mut(path.field(REC_N), anchor),
             items: <Map<u8, StdVec<u8>> as ViewFieldMut<'a, Rec>>::__view_field_mut(
-                path.field(REC_ITEMS), anchor,
+                path.field(REC_ITEMS),
+                anchor,
             ),
             _m: PhantomData,
         }
@@ -157,7 +159,8 @@ impl Removable for Rec {
         if !<u64 as Removable>::clear_children_some(&path.field(REC_N), budget) {
             return false;
         }
-        if !<Map<u8, StdVec<u8>> as Removable>::clear_children_some(&path.field(REC_ITEMS), budget) {
+        if !<Map<u8, StdVec<u8>> as Removable>::clear_children_some(&path.field(REC_ITEMS), budget)
+        {
             return false;
         }
         true
@@ -248,14 +251,17 @@ impl Record for RecV2 {
     type ViewMut<'a> = RecV2AtMut<'a>;
     fn __view<'a>(path: Path) -> RecV2At<'a> {
         RecV2At {
-            items: <Map<u8, StdVec<u8>> as ViewField<'a, RecV2>>::__view_field(path.field(REC_ITEMS)),
+            items: <Map<u8, StdVec<u8>> as ViewField<'a, RecV2>>::__view_field(
+                path.field(REC_ITEMS),
+            ),
             _m: PhantomData,
         }
     }
     fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecV2AtMut<'a> {
         RecV2AtMut {
             items: <Map<u8, StdVec<u8>> as ViewFieldMut<'a, RecV2>>::__view_field_mut(
-                path.field(REC_ITEMS), anchor,
+                path.field(REC_ITEMS),
+                anchor,
             ),
             _m: PhantomData,
         }
@@ -379,9 +385,15 @@ impl Record for RecX {
     fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecXAtMut<'a> {
         RecXAtMut {
             n: <u64 as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_N), anchor),
-            lazy: <Lazy<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_LAZY), anchor),
+            lazy: <Lazy<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(
+                path.field(RX_LAZY),
+                anchor,
+            ),
             set: <Set<u8> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_SET), anchor),
-            vect: <Vector<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(path.field(RX_VEC), anchor),
+            vect: <Vector<StdVec<u8>> as ViewFieldMut<'a, RecX>>::__view_field_mut(
+                path.field(RX_VEC),
+                anchor,
+            ),
             _m: PhantomData,
         }
     }
@@ -493,7 +505,10 @@ impl Record for RecL {
     fn __view_mut_in<'a>(path: Path, anchor: usize) -> RecLAtMut<'a> {
         RecLAtMut {
             n: <u64 as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_N), anchor),
-            lset: <Set<u8> as ViewFieldMut<'a, RecL>>::__view_field_mut(path.field(RL_LSET), anchor),
+            lset: <Set<u8> as ViewFieldMut<'a, RecL>>::__view_field_mut(
+                path.field(RL_LSET),
+                anchor,
+            ),
             _m: PhantomData,
         }
     }
@@ -516,7 +531,10 @@ pub struct MRoot {
 impl Root for MRoot {
     const MAX_SUBPATH: usize = p::max(
         p::max(
-            p::max(p::field_subpath::<u64>(TAG_COUNTER), p::field_subpath::<Map<u8, StdVec<u8>>>(TAG_FLAT)),
+            p::max(
+                p::field_subpath::<u64>(TAG_COUNTER),
+                p::field_subpath::<Map<u8, StdVec<u8>>>(TAG_FLAT),
+            ),
             p::max(
                 p::max(
                     p::field_subpath::<LookupMap<u8, StdVec<u8>>>(TAG_LOOK),
@@ -525,7 +543,10 @@ impl Root for MRoot {
                 p::field_subpath::<Vector<StdVec<u8>>>(TAG_VEC),
             ),
         ),
-        p::max(p::field_subpath::<Map<u8, RecX>>(TAG_XRECS), p::field_subpath::<LookupMap<u8, RecL>>(TAG_LRECS)),
+        p::max(
+            p::field_subpath::<Map<u8, RecX>>(TAG_XRECS),
+            p::field_subpath::<LookupMap<u8, RecL>>(TAG_LRECS),
+        ),
     );
     fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);

@@ -113,7 +113,10 @@ pub mod __private {
         default: impl FnOnce() -> T,
     ) -> Result<T, RecordError> {
         const {
-            assert!(T::INLINE, "`#[key(n, default = ..)]` on a collection field: collections have no inline value to default")
+            assert!(
+                T::INLINE,
+                "`#[key(n, default = ..)]` on a collection field: collections have no inline value to default"
+            )
         };
         match (find(fields, tag), path) {
             (Some(b), Some(path)) => T::decode_value(b, &path.field(tag))
@@ -152,8 +155,9 @@ pub mod __private {
         tag: u32,
     ) -> Result<T, RecordError> {
         match find(fields, tag) {
-            Some(b) => borsh::from_slice(b)
-                .map_err(|e| RecordError::Field { tag, msg: e.to_string() }),
+            Some(b) => {
+                borsh::from_slice(b).map_err(|e| RecordError::Field { tag, msg: e.to_string() })
+            }
             None => Err(RecordError::Missing { tag }),
         }
     }

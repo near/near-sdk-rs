@@ -35,25 +35,36 @@ pub struct Metadata {
 // revised doc prints.
 #[near(contract_state(layout = v2))]
 pub struct Exchange {
-    #[key(1, required)] owner: AccountId,   // no Default, so a missing tag is an error
-    #[key(2)] fee_bps: u16,
-    #[key(3)] accounts: Map<AccountId, Account>,
-    #[key(4)] markets: Map<MarketId, Market>,
-    #[key(5)] metadata: Lazy<Metadata>,          // large, loaded only when touched
+    #[key(1, required)]
+    owner: AccountId, // no Default, so a missing tag is an error
+    #[key(2)]
+    fee_bps: u16,
+    #[key(3)]
+    accounts: Map<AccountId, Account>,
+    #[key(4)]
+    markets: Map<MarketId, Market>,
+    #[key(5)]
+    metadata: Lazy<Metadata>, // large, loaded only when touched
 }
 
 #[near(storage)]
 pub struct Account {
-    #[key(1)] nonce: u64,
-    #[key(2)] balances: Map<TokenId, u128>,      // lives at 3/<account>/2/<token>
+    #[key(1)]
+    nonce: u64,
+    #[key(2)]
+    balances: Map<TokenId, u128>, // lives at 3/<account>/2/<token>
 }
 
 #[near(storage)]
 pub struct Market {
-    #[key(1)] orders: Map<OrderId, Order>,       // lives at 4/<market>/1/<order>
-    #[key(2)] tick_size: u128,
-    #[key(3)] next_order_id: OrderId,
-    #[key(4, default = true)] open: bool,        // added later; older records read as open
+    #[key(1)]
+    orders: Map<OrderId, Order>, // lives at 4/<market>/1/<order>
+    #[key(2)]
+    tick_size: u128,
+    #[key(3)]
+    next_order_id: OrderId,
+    #[key(4, default = true)]
+    open: bool, // added later; older records read as open
 }
 
 #[near]
@@ -483,7 +494,11 @@ fn clear_across_two_calls_refuses_an_interleaved_insert() {
 
     let (more, r) = call("owner.near", |c| c.close_market(7, 10));
     assert!(!more, "finished");
-    assert_eq!(r.removes(), 10, "2 orders, the orders header, the market (flag key), its index and key slot");
+    assert_eq!(
+        r.removes(),
+        10,
+        "2 orders, the orders header, the market (flag key), its index and key slot"
+    );
     assert_eq!(keys_under(&key), 0, "market record, flag key and every order key removed");
     assert_eq!(view(|c| c.markets.len()).0, 0);
 
@@ -717,7 +732,10 @@ pub struct Required {
 fn key_default_expr_fills_missing_tags() {
     use near_sdk::state::Path;
     let d = Defaults::default();
-    assert_eq!((d.nonce, d.fee_bps, d.treasury.as_str(), d.tiers.clone()), (0, 30, "treasury.near", vec![1, 2]));
+    assert_eq!(
+        (d.nonce, d.fee_bps, d.treasury.as_str(), d.tiers.clone()),
+        (0, 30, "treasury.near", vec![1, 2])
+    );
 
     testing::use_mock();
     let root = Path::root(0xF0).field(9);
@@ -800,69 +818,75 @@ fn field_added_as_required_fails_an_old_record_naming_the_tag() {
 // ---------------------------------------------------------------------------------------
 
 mod legacy {
-use super::*;
+    use super::*;
 
-#[near(contract_state(layout = v2, root = 0xF1))]
-pub struct Legacy {
-    // T7: a v1 collection is not a `Value`; at the root it is allowed only as `legacy`,
-    // stored as its Borsh bytes (the prefix). Nested in a record it no longer compiles: the
-    // round-2 tests `v1_leaf_nested_in_a_cached_record_writes_late_not_lost` and
-    // `removing_a_record_with_a_nested_v1_field_orphans_its_entries` (a `store::LookupMap`
-    // behind a type alias, past the name check) are now the `compile_fail` doctests on
-    // `near_sdk::state::Value`.
-    #[key(1, legacy)]
-    old: near_sdk::store::LookupMap<u32, u32>,
-    #[key(2)]
-    users: LookupMap<u32, u64>,
-}
+    #[near(contract_state(layout = v2, root = 0xF1))]
+    pub struct Legacy {
+        // T7: a v1 collection is not a `Value`; at the root it is allowed only as `legacy`,
+        // stored as its Borsh bytes (the prefix). Nested in a record it no longer compiles: the
+        // round-2 tests `v1_leaf_nested_in_a_cached_record_writes_late_not_lost` and
+        // `removing_a_record_with_a_nested_v1_field_orphans_its_entries` (a `store::LookupMap`
+        // behind a type alias, past the name check) are now the `compile_fail` doctests on
+        // `near_sdk::state::Value`.
+        #[key(1, legacy)]
+        old: near_sdk::store::LookupMap<u32, u32>,
+        #[key(2)]
+        users: LookupMap<u32, u64>,
+    }
 
-fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
-    let mut key = prefix.to_vec();
-    key.extend_from_slice(&k.to_le_bytes());
-    key
-}
+    fn v1_key(prefix: &[u8], k: u32) -> Vec<u8> {
+        let mut key = prefix.to_vec();
+        key.extend_from_slice(&k.to_le_bytes());
+        key
+    }
 
-fn setup() {
-    as_caller("alice.near");
-    testing::use_env_host();
-    let c = Legacy { old: near_sdk::store::LookupMap::new(b"o".to_vec()), users: Default::default() };
-    c.state_write();
-    drop(c);
-}
+    fn setup() {
+        as_caller("alice.near");
+        testing::use_env_host();
+        let c = Legacy {
+            old: near_sdk::store::LookupMap::new(b"o".to_vec()),
+            users: Default::default(),
+        };
+        c.state_write();
+        drop(c);
+    }
 
-/// At the root, a v1 field is dropped with the root after `state_write`, so its writes land
-/// after the v2 flush (not "root last"), but they do land.
-#[test]
-fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
-    setup();
-    testing::begin_call();
-    let mut c = Legacy::state_read().unwrap();
-    c.old.insert(1, 11);
-    c.users.insert(1, 5);
-    c.state_write();
-    let k = v1_key(b"o", 1);
-    assert!(!env::storage_has_key(&k), "nothing written by the v2 flush");
-    drop(c);
-    assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
-}
+    /// At the root, a v1 field is dropped with the root after `state_write`, so its writes land
+    /// after the v2 flush (not "root last"), but they do land.
+    #[test]
+    fn v1_leaf_at_root_flushes_on_drop_after_the_v2_flush() {
+        setup();
+        testing::begin_call();
+        let mut c = Legacy::state_read().unwrap();
+        c.old.insert(1, 11);
+        c.users.insert(1, 5);
+        c.state_write();
+        let k = v1_key(b"o", 1);
+        assert!(!env::storage_has_key(&k), "nothing written by the v2 flush");
+        drop(c);
+        assert!(env::storage_has_key(&k), "written by LookupMap's Drop, after the root");
+    }
 
-/// T7: a legacy root field is encoded as its Borsh bytes, exactly as before `legacy` existed
-/// (the root bytes are unchanged), and a root without it is a decode error naming the tag.
-#[test]
-fn legacy_root_field_is_its_borsh_bytes_and_required() {
-    setup();
-    let root = testing::env_store()[&vec![0xF1u8]].clone();
-    let prefix = near_sdk::borsh::to_vec(&near_sdk::store::LookupMap::<u32, u32>::new(b"o".to_vec())).unwrap();
-    let fields = near_sdk::state::record::parse(&root).unwrap();
-    assert_eq!(fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()), Some(prefix));
-    env::storage_write(&[0xF1], &[]);
-    testing::begin_call();
-    let r = std::panic::catch_unwind(|| drop(Legacy::state_read()));
-    assert!(r.is_err(), "missing legacy tag 1 is an error, as `required`");
-}
-
+    /// T7: a legacy root field is encoded as its Borsh bytes, exactly as before `legacy` existed
+    /// (the root bytes are unchanged), and a root without it is a decode error naming the tag.
+    #[test]
+    fn legacy_root_field_is_its_borsh_bytes_and_required() {
+        setup();
+        let root = testing::env_store()[&vec![0xF1u8]].clone();
+        let prefix =
+            near_sdk::borsh::to_vec(&near_sdk::store::LookupMap::<u32, u32>::new(b"o".to_vec()))
+                .unwrap();
+        let fields = near_sdk::state::record::parse(&root).unwrap();
+        assert_eq!(
+            fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()),
+            Some(prefix)
+        );
+        env::storage_write(&[0xF1], &[]);
+        testing::begin_call();
+        let r = std::panic::catch_unwind(|| drop(Legacy::state_read()));
+        assert!(r.is_err(), "missing legacy tag 1 is an error, as `required`");
+    }
 } // mod legacy
-
 
 // ---------------------------------------------------------------------------------------
 // reserved tags

@@ -13,9 +13,15 @@ use crate::state::testing;
 use crate::state::{LookupMap, Map};
 
 #[allow(clippy::type_complexity)]
-fn maps() -> (Map<Vec<u8>, Vec<u8>>, Map<Vec<u8>, Vec<u8>>, LookupMap<String, Vec<u8>>, Map<Vec<u8>, Rec>) {
+fn maps()
+-> (Map<Vec<u8>, Vec<u8>>, Map<Vec<u8>, Vec<u8>>, LookupMap<String, Vec<u8>>, Map<Vec<u8>, Rec>) {
     let r = Path::root(DEFAULT_ROOT);
-    (Map::__bound_at(r.field(10)), Map::__bound_at(r.field(11)), LookupMap::__bound_at(r.field(138)), Map::__bound_at(r.field(12)))
+    (
+        Map::__bound_at(r.field(10)),
+        Map::__bound_at(r.field(11)),
+        LookupMap::__bound_at(r.field(138)),
+        Map::__bound_at(r.field(12)),
+    )
 }
 
 /// Storage key of key `k` in collection `c` (0..=3; 3 is record `0`'s `items` map, `u8` keys).
@@ -25,7 +31,13 @@ fn skey(c: u8, k: &[u8]) -> Vec<u8> {
         0 => r.field(10).kind(0).entry(&k.to_vec()),
         1 => r.field(11).kind(0).entry(&k.to_vec()),
         2 => r.field(138).kind(0).entry(&String::from_utf8_lossy(k).into_owned()),
-        _ => r.field(12).kind(0).entry(&vec![0u8]).field(2).kind(0).entry(&k.first().copied().unwrap_or(0)),
+        _ => r
+            .field(12)
+            .kind(0)
+            .entry(&vec![0u8])
+            .field(2)
+            .kind(0)
+            .entry(&k.first().copied().unwrap_or(0)),
     }
     .as_bytes()
     .to_vec()
@@ -62,8 +74,13 @@ fn c1_spliced_keys_never_collide_across_collections() {
                 }
                 _ => p.raw.clone(),
             };
-            let key = if p.coll == 2 { String::from_utf8_lossy(&key).into_owned().into_bytes() } else { key };
-            let key = if p.coll == 3 { key.first().map(|b| vec![*b]).unwrap_or(vec![0]) } else { key };
+            let key = if p.coll == 2 {
+                String::from_utf8_lossy(&key).into_owned().into_bytes()
+            } else {
+                key
+            };
+            let key =
+                if p.coll == 3 { key.first().map(|b| vec![*b]).unwrap_or(vec![0]) } else { key };
             if !chosen.iter().any(|(c, k)| *c == p.coll && *k == key) {
                 chosen.push((p.coll, key));
             }

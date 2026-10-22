@@ -29,7 +29,8 @@ use crate::state::{flush_root, load_root};
 fn c3_a_mid_call_flush_anywhere_loses_no_write() {
     let g = (ops_gen(), bolero::produce::<u8>());
     bolero::check!().with_generator(g).with_iterations(2_000).for_each(|(ops, p)| {
-        let base: std::vec::Vec<Op> = ops.iter().filter(|o| !matches!(o, Op::MidFlush)).cloned().collect();
+        let base: std::vec::Vec<Op> =
+            ops.iter().filter(|o| !matches!(o, Op::MidFlush)).cloned().collect();
         run_state(&base);
         let want = testing::store();
         let mut with = base.clone();
@@ -39,7 +40,8 @@ fn c3_a_mid_call_flush_anywhere_loses_no_write() {
         if testing::store() != want {
             // API round 5: only a budgeted clear after the flush, in the same call, may differ
             let rest = &with[at + 1..];
-            let call = &rest[..rest.iter().position(|o| matches!(o, Op::EndCall)).unwrap_or(rest.len())];
+            let call =
+                &rest[..rest.iter().position(|o| matches!(o, Op::EndCall)).unwrap_or(rest.len())];
             assert!(
                 call.iter().any(|o| matches!(o, Op::RecRemoveSome(..) | Op::XRemoveStep(..))),
                 "a mid-call flush changed the final state"

@@ -71,7 +71,8 @@ impl Setup {
     pub fn seed(&self, big: usize) {
         testing::use_mock();
         let nbv = vec![0xBB; big];
-        let (mut f, mut l, mut r, mut v, mut s, mut ls, mut z) = (flat(), look(), recs(), vect(), set(), lset(), lazy());
+        let (mut f, mut l, mut r, mut v, mut s, mut ls, mut z) =
+            (flat(), look(), recs(), vect(), set(), lset(), lazy());
         for k in self.order() {
             let val = if k == NB { nbv.clone() } else { vec![k; 3] };
             f.insert(k, val.clone());
@@ -191,29 +192,64 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
     let vlen = f.vec_len();
     let idx = |k: u8| flat.iter().position(|x| *x == k).map(|i| i as u32);
     Some(match op {
-        CostOp::MapGet(_) | CostOp::LookGet(_) | CostOp::VecGet(_) | CostOp::LazyGet => c(1, 0, 0, 0),
+        CostOp::MapGet(_) | CostOp::LookGet(_) | CostOp::VecGet(_) | CostOp::LazyGet => {
+            c(1, 0, 0, 0)
+        }
         CostOp::RecGet(K(k)) => c(rec_lookups(k), 0, 0, 0),
-        CostOp::MapContains(_) | CostOp::LookContains(_) | CostOp::SetContains(_) | CostOp::LSetContains(_) => c(0, 0, 0, 1),
+        CostOp::MapContains(_)
+        | CostOp::LookContains(_)
+        | CostOp::SetContains(_)
+        | CostOp::LSetContains(_) => c(0, 0, 0, 1),
         CostOp::RecContains(K(k)) => c(0, 0, 0, rec_lookups(k)),
         // new: index read, header read, 4 writes; existing: index read, 1 write
-        CostOp::MapInsert(K(k), _) => if present(k) { c(1, 1, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::MapInsert(K(k), _) => {
+            if present(k) {
+                c(1, 1, 0, 0)
+            } else {
+                c(2, 4, 0, 0)
+            }
+        }
         // existing: 1 read; new: entry read, header read, 4 writes (no index read)
-        CostOp::MapEntry(K(k), _) => if present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::MapEntry(K(k), _) => {
+            if present(k) {
+                c(1, 0, 0, 0)
+            } else {
+                c(2, 4, 0, 0)
+            }
+        }
         // a new record: record key, flag key, header; 4 writes
         CostOp::RecEntryDefault(K(k)) => match (rec_present(k), f.clearing(k)) {
             (true, true) => return None,
             (true, false) => c(1, 0, 0, 0),
             (false, _) => c(3, 4, 0, 0),
         },
-        CostOp::MapGetMut(K(k)) => if present(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
-        CostOp::LookGetMut(K(k)) => if f.look_has(k) { c(1, 1, 0, 0) } else { c(1, 0, 0, 0) },
+        CostOp::MapGetMut(K(k)) => {
+            if present(k) {
+                c(1, 1, 0, 0)
+            } else {
+                c(1, 0, 0, 0)
+            }
+        }
+        CostOp::LookGetMut(K(k)) => {
+            if f.look_has(k) {
+                c(1, 1, 0, 0)
+            } else {
+                c(1, 0, 0, 0)
+            }
+        }
         CostOp::RecGetMut(K(k)) => match (rec_present(k), f.clearing(k)) {
             (true, true) => return None,
             (true, false) => c(1, 1, 0, 0),
             (false, _) => c(2, 0, 0, 0),
         },
         CostOp::MapRemove(K(k)) => add(c(1, 0, 0, 0), map_unlink(at_of(&flat, k))),
-        CostOp::MapDiscard(K(k)) => if present(k) { map_unlink(at_of(&flat, k)) } else { c(1, 0, 0, 0) },
+        CostOp::MapDiscard(K(k)) => {
+            if present(k) {
+                map_unlink(at_of(&flat, k))
+            } else {
+                c(1, 0, 0, 0)
+            }
+        }
         CostOp::SetRemove(K(k)) => {
             let s = f.set();
             if s.contains(&k) { map_unlink(at_of(&s, k)) } else { c(1, 0, 0, 0) }
@@ -234,7 +270,13 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
             c(after.map_or(1, |_| 2) + per * n, 0, 0, 0)
         }
         CostOp::LookInsert(..) | CostOp::LSetInsert(_) | CostOp::LazySet(_) => c(0, 1, 0, 0),
-        CostOp::LookRemove(K(k)) => if f.look_has(k) { c(1, 0, 1, 0) } else { c(1, 0, 0, 0) },
+        CostOp::LookRemove(K(k)) => {
+            if f.look_has(k) {
+                c(1, 0, 1, 0)
+            } else {
+                c(1, 0, 0, 0)
+            }
+        }
         CostOp::LookDiscard(_) | CostOp::LSetRemove(_) | CostOp::LazyRemove => c(0, 0, 1, 0),
         // header read, slot write, header write
         CostOp::VecPush(_) => c(1, 2, 0, 0),
@@ -257,10 +299,22 @@ pub fn formula(op: CostOp, f: &impl Facts) -> Option<Cost> {
                 (false, _) => c(3, 1 + (f.vec_at(i) != f.vec_at(vlen - 1)) as usize, 1, 0),
             }
         }
-        CostOp::SetInsert(K(k)) => if f.set().contains(&k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::SetInsert(K(k)) => {
+            if f.set().contains(&k) {
+                c(1, 0, 0, 0)
+            } else {
+                c(2, 4, 0, 0)
+            }
+        }
         // T1: `Map::try_insert` = `insert`: the index read decides; an existing record (also one
         // being cleared) is `Occupied` after that read alone
-        CostOp::RecTryInsert(K(k)) => if rec_present(k) { c(1, 0, 0, 0) } else { c(2, 4, 0, 0) },
+        CostOp::RecTryInsert(K(k)) => {
+            if rec_present(k) {
+                c(1, 0, 0, 0)
+            } else {
+                c(2, 4, 0, 0)
+            }
+        }
         // at_mut: 1 `storage_has_key` on a live record, 2 on an absent one (the flag key), no
         // read, no decode (D9); then the items map insert:
         // new: index read, header read, 4 writes; existing: index read, 1 write.
@@ -371,7 +425,9 @@ pub fn run_op(op: CostOp) -> Receipt {
         }
         CostOp::RecAtLen(k) => drop(recs().at(&k.0).items.len()),
         CostOp::RecRemove(k) => drop(recs().remove(&k.0).map(|r| r.n)),
-        CostOp::RecRemoveSome(k, n) => drop(recs().remove_step(&k.0, core::num::NonZeroU32::new(n as u32).unwrap())),
+        CostOp::RecRemoveSome(k, n) => {
+            drop(recs().remove_step(&k.0, core::num::NonZeroU32::new(n as u32).unwrap()))
+        }
     }
     testing::end_call()
 }
@@ -417,8 +473,17 @@ fn g7_stated_cost_beside_a_100kib_neighbour() {
             assert!(r.max_value_bytes() < BIG, "{op:?} moved the 100 KiB neighbour");
             s.seed(1);
             let small = run_op(*op);
-            let shape = |r: &Receipt| r.ops.iter().map(|o| (o.kind, o.key.clone(), o.value_len, o.replaced_len)).collect::<StdVec<_>>();
-            assert_eq!(shape(&r), shape(&small), "{op:?}: host calls depend on the neighbour's size");
+            let shape = |r: &Receipt| {
+                r.ops
+                    .iter()
+                    .map(|o| (o.kind, o.key.clone(), o.value_len, o.replaced_len))
+                    .collect::<StdVec<_>>()
+            };
+            assert_eq!(
+                shape(&r),
+                shape(&small),
+                "{op:?}: host calls depend on the neighbour's size"
+            );
         }
     });
 }
@@ -449,19 +514,32 @@ fn g7_at_mut_is_one_existence_check_current_shape() {
     let r = run_op(CostOp::RecAtMutInsert(K(1), K(4)));
     assert_eq!(Cost::of(&r), c(2, 4, 0, 1));
     let rec_key = recs_entry_key(1);
-    assert!(!r.ops.iter().any(|o| o.kind == testing::OpKind::Read && o.key == rec_key), "at_mut read the record");
+    assert!(
+        !r.ops.iter().any(|o| o.kind == testing::OpKind::Read && o.key == rec_key),
+        "at_mut read the record"
+    );
     assert!(r.ops.iter().any(|o| o.kind == testing::OpKind::HasKey && o.key == rec_key));
     let s0 = Setup { n: 3, nb_pos: 0, m: 0 };
     s0.seed(BIG);
     let r = run_op(CostOp::RecAtMutInsert(K(1), K(4)));
     assert_eq!(Cost::of(&r), c(3, 4, 0, 1));
-    assert_eq!(r.ops.iter().filter(|o| o.kind == testing::OpKind::Read && o.key == rec_key).count(), 1, "first write: 1 record read");
-    assert!(!r.ops.iter().any(|o| o.kind == testing::OpKind::Write && o.key == rec_key), "the marker is there: no rewrite");
+    assert_eq!(
+        r.ops.iter().filter(|o| o.kind == testing::OpKind::Read && o.key == rec_key).count(),
+        1,
+        "first write: 1 record read"
+    );
+    assert!(
+        !r.ops.iter().any(|o| o.kind == testing::OpKind::Write && o.key == rec_key),
+        "the marker is there: no rewrite"
+    );
     s.seed(BIG);
     let r = run_op(CostOp::RecAtMutInsert(K(4), K(4)));
     let flag = crate::state::model::rec_flag(4);
     let checks: StdVec<_> = r.ops.iter().map(|o| (o.kind, o.key.clone())).collect();
-    assert_eq!(checks, vec![(testing::OpKind::HasKey, recs_entry_key(4)), (testing::OpKind::HasKey, flag)]);
+    assert_eq!(
+        checks,
+        vec![(testing::OpKind::HasKey, recs_entry_key(4)), (testing::OpKind::HasKey, flag)]
+    );
 }
 
 fn recs_entry_key(k: u8) -> StdVec<u8> {

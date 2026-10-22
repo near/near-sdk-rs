@@ -2882,11 +2882,12 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// Another example:
 /// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
-    let r = match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
-        0 => None,
-        1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
-        _ => abort(),
-    };
+    let r =
+        match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
+            0 => None,
+            1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
+            _ => abort(),
+        };
     #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
     if crate::state::testing::__env_log_on() {
         crate::state::testing::__env_log(
@@ -2915,11 +2916,12 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
 pub fn storage_remove(key: &[u8]) -> bool {
-    let r = match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
-        0 => false,
-        1 => true,
-        _ => abort(),
-    };
+    let r =
+        match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
+            0 => false,
+            1 => true,
+            _ => abort(),
+        };
     #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
     if crate::state::testing::__env_log_on() {
         let old = if r { read_register(EVICTED_REGISTER).map(|v| v.len()) } else { None };

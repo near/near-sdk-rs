@@ -77,7 +77,11 @@ impl Hop {
     }
     /// Whether a value lives here that can own further storage (so the path may continue).
     fn value_position(&self) -> bool {
-        matches!((self.coll, self.access), (Coll::Lookup(_) | Coll::Map(_) | Coll::Lazy, Access::Entry) | (Coll::Vector, Access::Slot(_)))
+        matches!(
+            (self.coll, self.access),
+            (Coll::Lookup(_) | Coll::Map(_) | Coll::Lazy, Access::Entry)
+                | (Coll::Vector, Access::Slot(_))
+        )
     }
     fn key_ty(&self) -> Option<KeyTy> {
         match self.coll {
@@ -139,7 +143,9 @@ fn encode_hops(hops: &[Hop], real_hash: bool) -> std::vec::Vec<u8> {
     let mut p = Path::root(DEFAULT_ROOT);
     for h in hops {
         p = p.field(h.tag);
-        let entry = |p: Path| if real_hash { p.entry_raw(&h.enc()) } else { p.entry_hashed(&h.hash, &h.enc()) };
+        let entry = |p: Path| {
+            if real_hash { p.entry_raw(&h.enc()) } else { p.entry_hashed(&h.hash, &h.enc()) }
+        };
         p = match (h.coll, h.access) {
             (Coll::Lazy, _) => p,
             (_, Access::Entry) => entry(p.kind(kind::ENTRIES)),
@@ -175,7 +181,9 @@ impl SPath {
                 (Coll::Lazy, _) => {}
                 (_, Access::Entry) => s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Entry(h.enc())]),
                 (_, Access::Index) => s.extend([Seg::Kind(spec_key::INDEX), Seg::Entry(h.enc())]),
-                (Coll::Vector, Access::Slot(i)) => s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Slot(i)]),
+                (Coll::Vector, Access::Slot(i)) => {
+                    s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Slot(i)])
+                }
                 (_, Access::Slot(i)) => s.extend([Seg::Kind(spec_key::SLOTS), Seg::Slot(i)]),
                 (_, Access::Header) => s.push(Seg::Kind(spec_key::HEADER)),
             }
@@ -212,10 +220,16 @@ fn check_keys(a: &[Hop], b: &[Hop], ka: &[u8], kb: &[u8]) {
         assert!(hops_same(a, b), "two distinct paths share a key: {a:?} / {b:?}");
     }
     if kb.starts_with(ka) {
-        assert!(hops_same(a, b) || hops_ancestor_of(a, b), "a key is a prefix of a non-descendant's key: {a:?} / {b:?}");
+        assert!(
+            hops_same(a, b) || hops_ancestor_of(a, b),
+            "a key is a prefix of a non-descendant's key: {a:?} / {b:?}"
+        );
     }
     if ka.starts_with(kb) {
-        assert!(hops_same(a, b) || hops_ancestor_of(b, a), "a key is a prefix of a non-descendant's key: {b:?} / {a:?}");
+        assert!(
+            hops_same(a, b) || hops_ancestor_of(b, a),
+            "a key is a prefix of a non-descendant's key: {b:?} / {a:?}"
+        );
     }
 }
 
@@ -262,11 +276,13 @@ fn share_prefix(a: &SPath, b: &SPath, share: u8) -> SPath {
 #[cfg_attr(kani, kani::unwind(40))]
 #[cfg_attr(kani, kani::solver(cadical))]
 fn g1_addressable_distinct_paths_distinct_keys() {
-    bolero::check!().with_type::<(SPath, SPath, u8)>().with_iterations(20_000).for_each(|(a, b, share)| {
-        let (a, b) = if cfg!(kani) { (*a, *b) } else { (edge_tags(a), edge_tags(b)) };
-        let b = share_prefix(&a, &b, *share);
-        check_pair(&a, &b, !cfg!(kani));
-    });
+    bolero::check!().with_type::<(SPath, SPath, u8)>().with_iterations(20_000).for_each(
+        |(a, b, share)| {
+            let (a, b) = if cfg!(kani) { (*a, *b) } else { (edge_tags(a), edge_tags(b)) };
+            let b = share_prefix(&a, &b, *share);
+            check_pair(&a, &b, !cfg!(kani));
+        },
+    );
 }
 
 /// The one placement hash every hop uses in the shrunk Kani proofs. Using the SAME bytes for
@@ -447,7 +463,9 @@ fn g1_field_tags_are_prefix_free_over_u32() {
         assert_eq!(crate::state::record::read_varint_u32(a.as_bytes(), &mut pos), Ok(t1));
         assert_eq!(pos, a.len());
         if t1 != t2 {
-            assert!(!b.as_bytes().starts_with(a.as_bytes()) && !a.as_bytes().starts_with(b.as_bytes()));
+            assert!(
+                !b.as_bytes().starts_with(a.as_bytes()) && !a.as_bytes().starts_with(b.as_bytes())
+            );
         }
     });
 }
@@ -455,8 +473,14 @@ fn g1_field_tags_are_prefix_free_over_u32() {
 /// F1: varint length transitions, explicitly, against the spec encoder.
 #[test]
 fn g1_field_tag_varint_transitions() {
-    for t in [1u32, 127, 128, 16_383, 16_384, (1 << 21) - 1, 1 << 21, (1 << 28) - 1, 1 << 28, u32::MAX] {
-        assert_eq!(Path::root(DEFAULT_ROOT).field(t).as_bytes(), spec_key::encode(&[Seg::Field(t)]), "tag {t}");
+    for t in
+        [1u32, 127, 128, 16_383, 16_384, (1 << 21) - 1, 1 << 21, (1 << 28) - 1, 1 << 28, u32::MAX]
+    {
+        assert_eq!(
+            Path::root(DEFAULT_ROOT).field(t).as_bytes(),
+            spec_key::encode(&[Seg::Field(t)]),
+            "tag {t}"
+        );
     }
 }
 
@@ -485,12 +509,21 @@ pub struct LongHop {
 fn long_segs(hops: &[LongHop]) -> Option<std::vec::Vec<Seg>> {
     let mut s = std::vec::Vec::new();
     for (i, h) in hops.iter().enumerate() {
-        let probe = Hop { tag: h.tag.max(1), coll: h.coll, access: h.access, key: [0; 8], klen: 0, hash: [0; ENTRY_HASH_LEN] };
+        let probe = Hop {
+            tag: h.tag.max(1),
+            coll: h.coll,
+            access: h.access,
+            key: [0; 8],
+            klen: 0,
+            hash: [0; ENTRY_HASH_LEN],
+        };
         if !probe.wf() || (i + 1 < hops.len() && !probe.value_position()) {
             return None;
         }
         let enc = match probe.key_ty() {
-            Some(KeyTy::Fixed(w)) => h.key.iter().copied().chain(core::iter::repeat(0)).take(w as usize).collect(),
+            Some(KeyTy::Fixed(w)) => {
+                h.key.iter().copied().chain(core::iter::repeat(0)).take(w as usize).collect()
+            }
             Some(KeyTy::Var) => {
                 let mut v = (h.key.len() as u32).to_le_bytes().to_vec();
                 v.extend_from_slice(&h.key);
@@ -503,7 +536,9 @@ fn long_segs(hops: &[LongHop]) -> Option<std::vec::Vec<Seg>> {
             (Coll::Lazy, _) => {}
             (_, Access::Entry) => s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Entry(enc)]),
             (_, Access::Index) => s.extend([Seg::Kind(spec_key::INDEX), Seg::Entry(enc)]),
-            (Coll::Vector, Access::Slot(i)) => s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Slot(i)]),
+            (Coll::Vector, Access::Slot(i)) => {
+                s.extend([Seg::Kind(spec_key::ENTRIES), Seg::Slot(i)])
+            }
             (_, Access::Slot(i)) => s.extend([Seg::Kind(spec_key::SLOTS), Seg::Slot(i)]),
             (_, Access::Header) => s.push(Seg::Kind(spec_key::HEADER)),
         }
@@ -564,7 +599,8 @@ fn g1_key_of_exactly_2048_bytes_is_accepted_2049_panics() {
 fn g1_identical_hashes_still_give_distinct_keys() {
     let base = Path::root(DEFAULT_ROOT).field(3).kind(kind::ENTRIES);
     let h = [0xAB; ENTRY_HASH_LEN];
-    let pairs: &[(&[u8], &[u8])] = &[(&[], &[0]), (&[1, 0, 0, 0, 9], &[2, 0, 0, 0, 9, 9]), (&[5], &[6])];
+    let pairs: &[(&[u8], &[u8])] =
+        &[(&[], &[0]), (&[1, 0, 0, 0, 9], &[2, 0, 0, 0, 9, 9]), (&[5], &[6])];
     for (a, b) in pairs {
         assert_ne!(base.entry_hashed(&h, a), base.entry_hashed(&h, b));
     }
@@ -594,7 +630,13 @@ fn g1_nested_get_reads_only_its_own_key() {
         testing::begin_call();
         let root = load_root::<MRoot>();
         let before = testing::receipt().ops.len();
-        let path = Path::root(DEFAULT_ROOT).field(4).kind(kind::ENTRIES).entry(&k.0).field(2).kind(kind::ENTRIES).entry(&k2.0);
+        let path = Path::root(DEFAULT_ROOT)
+            .field(4)
+            .kind(kind::ENTRIES)
+            .entry(&k.0)
+            .field(2)
+            .kind(kind::ENTRIES)
+            .entry(&k2.0);
         assert_eq!(testing::receipt().ops.len(), before, "computing a key made a host call");
         assert_eq!(path.as_bytes(), model::items(k.0).entry(k2.0));
         let got = root.recs.at(&k.0).items.get(&k2.0).cloned();
@@ -602,7 +644,12 @@ fn g1_nested_get_reads_only_its_own_key() {
         assert_eq!(r.ops.len(), before + 1);
         assert_eq!(r.ops[before].kind, testing::OpKind::Read);
         assert_eq!(r.ops[before].key, model::items(k.0).entry(k2.0));
-        let want = seed.iter().take(12).rev().find(|(a, b, _)| *a == *k && *b == *k2).map(|(_, _, v)| v.bytes());
+        let want = seed
+            .iter()
+            .take(12)
+            .rev()
+            .find(|(a, b, _)| *a == *k && *b == *k2)
+            .map(|(_, _, v)| v.bytes());
         assert_eq!(got, want);
         drop(root);
     });

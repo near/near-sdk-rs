@@ -232,12 +232,20 @@ fn view<R>(f: impl FnOnce(&Nft) -> R) -> (R, Receipt) {
 
 fn mint(token: &str, to: &str) {
     call("minter.near", |c| {
-        c.nft_mint(token.into(), id(to), TokenMetadata { title: Some(token.into()), ..Default::default() })
+        c.nft_mint(
+            token.into(),
+            id(to),
+            TokenMetadata { title: Some(token.into()), ..Default::default() },
+        )
     });
 }
 
 fn owned_ids(who: &str) -> Vec<TokenId> {
-    view(|c| c.nft_tokens_for_owner(id(who), None, Some(1000))).0.into_iter().map(|t| t.token_id).collect()
+    view(|c| c.nft_tokens_for_owner(id(who), None, Some(1000)))
+        .0
+        .into_iter()
+        .map(|t| t.token_id)
+        .collect()
 }
 
 fn keys() -> BTreeSet<Vec<u8>> {
@@ -267,10 +275,19 @@ fn assert_only_emptied_headers(before: &std::collections::BTreeSet<Vec<u8>>) -> 
 fn mint_and_read_a_token() {
     init();
     let (_, r) = call("minter.near", |c| {
-        c.nft_mint("t1".into(), id("alice.near"), TokenMetadata { title: Some("one".into()), ..Default::default() })
+        c.nft_mint(
+            "t1".into(),
+            id("alice.near"),
+            TokenMetadata { title: Some("one".into()), ..Default::default() },
+        )
     });
     // has_key(token); token record, metadata, tokens index+slot+header, group entry+index+slot+header
-    assert_eq!(r.writes(), 9, "{:#?}", r.ops.iter().map(|o| (o.kind, o.key.len())).collect::<Vec<_>>());
+    assert_eq!(
+        r.writes(),
+        9,
+        "{:#?}",
+        r.ops.iter().map(|o| (o.kind, o.key.len())).collect::<Vec<_>>()
+    );
     let (t, r) = view(|c| c.nft_token("t1".into()));
     let t = t.unwrap();
     assert_eq!(t.owner_id, id("alice.near"));

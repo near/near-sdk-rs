@@ -287,7 +287,8 @@ fn user_items_named_like_generated_bindings() {
     assert_eq!((rec.a, rec.b, rec.i), ([7; 3], [0; 1], [0; 8]));
     let mut rec = rec;
     rec.h = [9; 7];
-    let back = array_lengths::Rec::decode_value(&rec.encode_value(None), &Path::root(0xF0)).unwrap();
+    let back =
+        array_lengths::Rec::decode_value(&rec.encode_value(None), &Path::root(0xF0)).unwrap();
     assert_eq!((back.a, back.h), ([7; 3], [9; 7]));
 
     // root_const

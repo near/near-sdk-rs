@@ -261,7 +261,10 @@ pub fn enc_record(scalars: &BTreeMap<u32, Vec<u8>>, markers: &BTreeMap<u32, u8>)
         all.insert(*t, (0, b.clone()));
     }
     for (t, k) in markers {
-        assert!(all.insert(*t, (1, vec![*k])).is_none(), "MODEL BUG: tag {t} is a scalar and a marker");
+        assert!(
+            all.insert(*t, (1, vec![*k])).is_none(),
+            "MODEL BUG: tag {t} is a scalar and a marker"
+        );
     }
     let mut out = Vec::new();
     for (t, (wire, b)) in &all {
@@ -341,7 +344,10 @@ pub struct RecLM {
 }
 impl RecLM {
     pub fn bytes(&self) -> Vec<u8> {
-        enc_record(&BTreeMap::from([(RL_N, self.n.to_le_bytes().to_vec())]), &BTreeMap::from([(RL_LSET, KIND_SET)]))
+        enc_record(
+            &BTreeMap::from([(RL_N, self.n.to_le_bytes().to_vec())]),
+            &BTreeMap::from([(RL_LSET, KIND_SET)]),
+        )
     }
 }
 
@@ -367,7 +373,12 @@ fn pos<V>(v: &[(u8, V)], k: u8) -> Option<usize> {
     v.iter().position(|(x, _)| *x == k)
 }
 
-fn concretize_map(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, Vec<u8>)], rev: u64) {
+fn concretize_map(
+    out: &mut BTreeMap<Vec<u8>, Vec<u8>>,
+    mk: &MapKeys,
+    v: &[(u8, Vec<u8>)],
+    rev: u64,
+) {
     concretize_kv(out, mk, v, rev, |val| enc_bytes(val));
 }
 
@@ -385,7 +396,13 @@ fn concretize_vec(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, vk: &MapKeys, v: &[Vec<u
     }
 }
 
-fn concretize_kv<V>(out: &mut BTreeMap<Vec<u8>, Vec<u8>>, mk: &MapKeys, v: &[(u8, V)], rev: u64, enc: impl Fn(&V) -> Vec<u8>) {
+fn concretize_kv<V>(
+    out: &mut BTreeMap<Vec<u8>, Vec<u8>>,
+    mk: &MapKeys,
+    v: &[(u8, V)],
+    rev: u64,
+    enc: impl Fn(&V) -> Vec<u8>,
+) {
     for (i, (k, val)) in v.iter().enumerate() {
         out.insert(mk.entry(*k), enc(val));
         out.insert(mk.index(*k), enc_u32(i as u32));
@@ -561,7 +578,12 @@ pub struct CacheModel {
 
 impl CacheModel {
     pub fn new(host: BTreeMap<Vec<u8>, Vec<u8>>) -> Self {
-        CacheModel { host, slots: BTreeMap::new(), rslots: BTreeMap::new(), predicted: Predicted::default() }
+        CacheModel {
+            host,
+            slots: BTreeMap::new(),
+            rslots: BTreeMap::new(),
+            predicted: Predicted::default(),
+        }
     }
 
     fn lookup(&mut self, kind: OpKind, key: &[u8]) -> Option<Vec<u8>> {
@@ -572,7 +594,11 @@ impl CacheModel {
     }
 
     fn rslot(&mut self, key: &[u8]) -> &mut RSlot {
-        self.rslots.entry(key.to_vec()).or_insert(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false })
+        self.rslots.entry(key.to_vec()).or_insert(RSlot {
+            orig: ROrig::Unknown,
+            pending: None,
+            blind_delete: false,
+        })
     }
 
     /// A record's current `(bytes, clearing)`: 1 read of the record key unless known; a miss
@@ -666,7 +692,8 @@ impl CacheModel {
         if !known && !child_absent(self) {
             return;
         }
-        let (_, clearing) = self.rec_read(key).expect("MODEL BUG: a nested write below an absent record");
+        let (_, clearing) =
+            self.rec_read(key).expect("MODEL BUG: a nested write below an absent record");
         assert!(!clearing, "MODEL BUG: a nested write below a record being cleared");
     }
 
@@ -678,7 +705,8 @@ impl CacheModel {
     /// changed the key.
     pub fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
         let host = self.host.get(key).cloned();
-        let s = self.slots.entry(key.to_vec()).or_insert(MSlot { orig: Orig::Unknown, pending: None });
+        let s =
+            self.slots.entry(key.to_vec()).or_insert(MSlot { orig: Orig::Unknown, pending: None });
         if let Some(p) = &s.pending {
             return p.clone();
         }
@@ -703,7 +731,8 @@ impl CacheModel {
     /// Whether a value exists at `key`: from the cache, else one `storage_has_key`.
     pub fn exists(&mut self, key: &[u8]) -> bool {
         let present = self.host.contains_key(key);
-        let s = self.slots.entry(key.to_vec()).or_insert(MSlot { orig: Orig::Unknown, pending: None });
+        let s =
+            self.slots.entry(key.to_vec()).or_insert(MSlot { orig: Orig::Unknown, pending: None });
         if let Some(p) = &s.pending {
             return p.is_some();
         }
@@ -745,7 +774,11 @@ impl CacheModel {
 
     /// The host removes `rec_delete(key)` now would add.
     pub fn rec_delete_cost(&self, key: &[u8]) -> u32 {
-        let now = self.rslots.get(key).cloned().unwrap_or(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false });
+        let now = self.rslots.get(key).cloned().unwrap_or(RSlot {
+            orig: ROrig::Unknown,
+            pending: None,
+            blind_delete: false,
+        });
         let mut then = now.clone();
         if then.orig == ROrig::Unknown {
             then.blind_delete = true;
@@ -757,7 +790,11 @@ impl CacheModel {
     /// The host removes `rec_set_clearing(key, _)` now would add: the move to the flag key
     /// removes the record key when the record is stored there.
     pub fn rec_clearing_cost(&self, key: &[u8]) -> u32 {
-        let now = self.rslots.get(key).cloned().unwrap_or(RSlot { orig: ROrig::Unknown, pending: None, blind_delete: false });
+        let now = self.rslots.get(key).cloned().unwrap_or(RSlot {
+            orig: ROrig::Unknown,
+            pending: None,
+            blind_delete: false,
+        });
         let mut then = now.clone();
         then.pending = Some(Some((Vec::new(), true)));
         Self::rslot_removes(&then, key).saturating_sub(Self::rslot_removes(&now, key))
@@ -951,12 +988,35 @@ impl Op {
     pub fn is_nested(&self) -> bool {
         matches!(
             self,
-            Op::XTryInsert(..) | Op::XEntryDefault(_) | Op::XGet(_) | Op::XGetMut(..) | Op::XRemove(_) | Op::XDiscard(_)
-                | Op::XRemoveStep(..) | Op::XLazySet(..) | Op::XLazyGet(_) | Op::XLazyGetMut(..) | Op::XLazyRemove(_)
-                | Op::XSetInsert(..) | Op::XSetRemove(..) | Op::XSetContains(..) | Op::XSetLen(_) | Op::XSetIter(..)
-                | Op::XVecPush(..) | Op::XVecPop(_) | Op::XVecSwapRemove(..) | Op::XVecGet(..) | Op::XVecGetMut(..)
-                | Op::XVecLen(_) | Op::XVecIterBack(..) | Op::LTryInsert(..) | Op::LGet(_) | Op::LGetMut(..)
-                | Op::LSetInsert(..) | Op::LSetRemove(..) | Op::LSetContains(..)
+            Op::XTryInsert(..)
+                | Op::XEntryDefault(_)
+                | Op::XGet(_)
+                | Op::XGetMut(..)
+                | Op::XRemove(_)
+                | Op::XDiscard(_)
+                | Op::XRemoveStep(..)
+                | Op::XLazySet(..)
+                | Op::XLazyGet(_)
+                | Op::XLazyGetMut(..)
+                | Op::XLazyRemove(_)
+                | Op::XSetInsert(..)
+                | Op::XSetRemove(..)
+                | Op::XSetContains(..)
+                | Op::XSetLen(_)
+                | Op::XSetIter(..)
+                | Op::XVecPush(..)
+                | Op::XVecPop(_)
+                | Op::XVecSwapRemove(..)
+                | Op::XVecGet(..)
+                | Op::XVecGetMut(..)
+                | Op::XVecLen(_)
+                | Op::XVecIterBack(..)
+                | Op::LTryInsert(..)
+                | Op::LGet(_)
+                | Op::LGetMut(..)
+                | Op::LSetInsert(..)
+                | Op::LSetRemove(..)
+                | Op::LSetContains(..)
         )
     }
 }
@@ -1089,7 +1149,11 @@ impl<V: Clone> KV<'_, V> {
         *self.rev = 0;
     }
     fn entry_delete_cost(&self, c: &CacheModel, k: u8) -> u32 {
-        if self.records { c.rec_delete_cost(&self.mk.entry(k)) } else { c.delete_cost(&self.mk.entry(k)) }
+        if self.records {
+            c.rec_delete_cost(&self.mk.entry(k))
+        } else {
+            c.delete_cost(&self.mk.entry(k))
+        }
     }
     /// Bounded clear from the end (D9) for a map whose owner is being removed. Returns whether
     /// the map is now empty, in which case its header is gone. API round 5 (A5): `budget` is
@@ -1110,7 +1174,9 @@ impl<V: Clone> KV<'_, V> {
                 return true;
             }
             let k = self.slot_key(c, n - 1);
-            let cost = self.entry_delete_cost(c, k) + c.delete_cost(&self.mk.index(k)) + c.delete_cost(&self.mk.slot(n - 1));
+            let cost = self.entry_delete_cost(c, k)
+                + c.delete_cost(&self.mk.index(k))
+                + c.delete_cost(&self.mk.slot(n - 1));
             if cost > *budget {
                 return false;
             }
@@ -1123,7 +1189,12 @@ impl<V: Clone> KV<'_, V> {
         }
     }
     /// Cursor index (if any), then the header (length and revision).
-    fn page_bounds(&self, c: &mut CacheModel, after: Option<u8>, limit: u8) -> Result<(u32, u32, u32, u64), ()> {
+    fn page_bounds(
+        &self,
+        c: &mut CacheModel,
+        after: Option<u8>,
+        limit: u8,
+    ) -> Result<(u32, u32, u32, u64), ()> {
         let start = match after {
             None => 0,
             Some(k) => self.index(c, k).ok_or(())? + 1,
@@ -1173,7 +1244,13 @@ impl KV<'_, Vec<u8>> {
         Some(v)
     }
     #[allow(clippy::type_complexity)]
-    fn page(&self, c: &mut CacheModel, after: Option<u8>, limit: u8, keys_only: bool) -> Result<(Vec<(u8, Vec<u8>)>, Option<u8>, u64), ()> {
+    fn page(
+        &self,
+        c: &mut CacheModel,
+        after: Option<u8>,
+        limit: u8,
+        keys_only: bool,
+    ) -> Result<(Vec<(u8, Vec<u8>)>, Option<u8>, u64), ()> {
         let (start, end, n, rev) = self.page_bounds(c, after, limit)?;
         let mut items = Vec::new();
         for i in start..end {
@@ -1209,7 +1286,13 @@ fn vset_len(c: &mut CacheModel, vk: &MapKeys, n: u32) {
 
 /// Header read, slot write, header write. `parent`: the key of the record storing a nested
 /// vector; a push into an empty one (no header) declares it there first (round 7, A3).
-fn vpush(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, x: Vec<u8>, parent: Option<&[u8]>) {
+fn vpush(
+    c: &mut CacheModel,
+    vk: &MapKeys,
+    v: &mut Vec<Vec<u8>>,
+    x: Vec<u8>,
+    parent: Option<&[u8]>,
+) {
     let n = vlen(c, vk, v);
     if n == 0
         && let Some(p) = parent
@@ -1252,7 +1335,13 @@ fn vswap_remove(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, i: u32) 
     x
 }
 
-fn vget_mut(c: &mut CacheModel, vk: &MapKeys, v: &mut [Vec<u8>], i: u32, push: Option<u8>) -> Option<Vec<u8>> {
+fn vget_mut(
+    c: &mut CacheModel,
+    vk: &MapKeys,
+    v: &mut [Vec<u8>],
+    i: u32,
+    push: Option<u8>,
+) -> Option<Vec<u8>> {
     let mut x = vget(c, vk, v, i)?;
     if let Some(b) = push {
         x.push(b);
@@ -1275,7 +1364,12 @@ fn vclear(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>) {
 
 /// Bounded clear (spec, Bounded clearing): from the end, a slot is 1 remove, and the last slot
 /// also takes the header (2); a unit that does not fit stops the clear.
-fn vclear_budgeted(c: &mut CacheModel, vk: &MapKeys, v: &mut Vec<Vec<u8>>, budget: &mut u32) -> bool {
+fn vclear_budgeted(
+    c: &mut CacheModel,
+    vk: &MapKeys,
+    v: &mut Vec<Vec<u8>>,
+    budget: &mut u32,
+) -> bool {
     loop {
         let n = vlen(c, vk, v);
         if n == 0 {
@@ -1323,41 +1417,81 @@ pub struct Model {
 
 impl Default for Model {
     fn default() -> Self {
-        Model { committed: MState::default(), cur: MState::default(), cache: CacheModel::new(BTreeMap::new()) }
+        Model {
+            committed: MState::default(),
+            cur: MState::default(),
+            cache: CacheModel::new(BTreeMap::new()),
+        }
     }
 }
 
 macro_rules! flat_kv {
     ($s:expr) => {
-        KV { mk: flat(), v: &mut $s.cur.flat, rev: &mut $s.cur.flat_rev, records: false, parent: None }
+        KV {
+            mk: flat(),
+            v: &mut $s.cur.flat,
+            rev: &mut $s.cur.flat_rev,
+            records: false,
+            parent: None,
+        }
     };
 }
 macro_rules! recs_kv {
     ($s:expr) => {
-        KV { mk: recs(), v: &mut $s.cur.recs, rev: &mut $s.cur.recs_rev, records: true, parent: None }
+        KV {
+            mk: recs(),
+            v: &mut $s.cur.recs,
+            rev: &mut $s.cur.recs_rev,
+            records: true,
+            parent: None,
+        }
     };
 }
 macro_rules! xrecs_kv {
     ($s:expr) => {
-        KV { mk: xrecs(), v: &mut $s.cur.xrecs, rev: &mut $s.cur.xrecs_rev, records: true, parent: None }
+        KV {
+            mk: xrecs(),
+            v: &mut $s.cur.xrecs,
+            rev: &mut $s.cur.xrecs_rev,
+            records: true,
+            parent: None,
+        }
     };
 }
 macro_rules! xset_kv {
     ($s:expr, $k:expr, $i:expr) => {{
         let r = &mut $s.cur.xrecs[$i].1;
-        KV { mk: xset($k), v: &mut r.set, rev: &mut r.set_rev, records: false, parent: Some(xrecs().entry($k)) }
+        KV {
+            mk: xset($k),
+            v: &mut r.set,
+            rev: &mut r.set_rev,
+            records: false,
+            parent: Some(xrecs().entry($k)),
+        }
     }};
 }
 macro_rules! items_kv {
     ($s:expr, $k:expr, $i:expr) => {{
         let r = &mut $s.cur.recs[$i].1;
-        KV { mk: items($k), v: &mut r.items, rev: &mut r.items_rev, records: false, parent: Some(recs().entry($k)) }
+        KV {
+            mk: items($k),
+            v: &mut r.items,
+            rev: &mut r.items_rev,
+            records: false,
+            parent: Some(recs().entry($k)),
+        }
     }};
 }
 macro_rules! lset_kv {
     ($s:expr, $k:expr) => {{
         let r = $s.cur.lrecs.get_mut(&$k).expect("checked present");
-        KV { mk: lset($k), v: &mut r.lset, rev: &mut r.lset_rev, records: false, parent: Some(lrecs().entry($k)) }
+        KV {
+            mk: lset($k),
+            v: &mut r.lset,
+            rev: &mut r.lset_rev,
+            records: false,
+            parent: Some(lrecs().entry($k)),
+        }
     }};
 }
 
@@ -1414,14 +1548,25 @@ impl Model {
     pub fn would_panic(&self, op: &Op) -> bool {
         let clearing = |k: u8| self.rec_pos(k).is_some_and(|i| self.cur.recs[i].1.clearing);
         match *op {
-            Op::RecEntryDefault(K(k)) | Op::RecGetMut(K(k), _) | Op::RecRetyped(K(k), _) => clearing(k),
+            Op::RecEntryDefault(K(k)) | Op::RecGetMut(K(k), _) | Op::RecRetyped(K(k), _) => {
+                clearing(k)
+            }
             Op::RecAtMutInsert(K(k), ..) | Op::RecAtMutRemove(K(k), _) => clearing(k),
             Op::VecSwapRemove(i) => i as usize >= self.cur.vec.len(),
-            Op::XEntryDefault(K(k)) | Op::XGetMut(K(k), _) | Op::XLazySet(K(k), _) | Op::XLazyGetMut(K(k), _)
-            | Op::XLazyRemove(K(k)) | Op::XSetInsert(K(k), _) | Op::XSetRemove(K(k), _) | Op::XVecPush(K(k), _)
-            | Op::XVecPop(K(k)) | Op::XVecGetMut(K(k), ..) => self.x_clearing(k),
+            Op::XEntryDefault(K(k))
+            | Op::XGetMut(K(k), _)
+            | Op::XLazySet(K(k), _)
+            | Op::XLazyGetMut(K(k), _)
+            | Op::XLazyRemove(K(k))
+            | Op::XSetInsert(K(k), _)
+            | Op::XSetRemove(K(k), _)
+            | Op::XVecPush(K(k), _)
+            | Op::XVecPop(K(k))
+            | Op::XVecGetMut(K(k), ..) => self.x_clearing(k),
             Op::XVecSwapRemove(K(k), i) => {
-                self.x_clearing(k) || pos(&self.cur.xrecs, k).is_some_and(|p| i as usize >= self.cur.xrecs[p].1.vect.len())
+                self.x_clearing(k)
+                    || pos(&self.cur.xrecs, k)
+                        .is_some_and(|p| i as usize >= self.cur.xrecs[p].1.vect.len())
             }
             _ => false,
         }
@@ -1554,7 +1699,8 @@ impl Model {
                 let pend = self.cache.rec_clearing_cost(&key);
                 let mut budget = n as u32 - pend;
                 let done = self.x_clear_some(k, i, &mut budget)
-                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&xrecs().index(k)) < budget + pend;
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&xrecs().index(k))
+                        < budget + pend;
                 if done {
                     self.x_clear_all(k, i);
                     xrecs_kv!(self).unlink(&mut self.cache, k);
@@ -1615,18 +1761,27 @@ impl Model {
             }
             Op::XSetContains(K(k), K(x)) => {
                 let e = self.cache.exists(&xset(k).entry(x));
-                let want = pos(&self.cur.xrecs, k).is_some_and(|i| pos(&self.cur.xrecs[i].1.set, x).is_some());
+                let want = pos(&self.cur.xrecs, k)
+                    .is_some_and(|i| pos(&self.cur.xrecs[i].1.set, x).is_some());
                 assert_eq!(e, want, "MODEL BUG: set contains");
                 Ret::Bool(e)
             }
             Op::XSetLen(K(k)) => Ret::U32(self.with_xset(k, |c, m| m.len(c))),
             Op::XSetIter(K(k), skip, take) => Ret::Items(self.with_xset(k, |c, m| {
                 let n = m.len(c);
-                ((skip as u32)..n.min(skip as u32 + take as u32)).map(|i| (m.slot_key(c, i), Vec::new())).collect()
+                ((skip as u32)..n.min(skip as u32 + take as u32))
+                    .map(|i| (m.slot_key(c, i), Vec::new()))
+                    .collect()
             })),
             Op::XVecPush(K(k), v) => {
                 let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
-                vpush(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, v.bytes(), Some(&xrecs().entry(k)));
+                vpush(
+                    &mut self.cache,
+                    &xvec(k),
+                    &mut self.cur.xrecs[i].1.vect,
+                    v.bytes(),
+                    Some(&xrecs().entry(k)),
+                );
                 Ret::Bool(true)
             }
             Op::XVecPop(K(k)) => {
@@ -1635,7 +1790,12 @@ impl Model {
             }
             Op::XVecSwapRemove(K(k), j) => {
                 let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
-                Ret::Bytes(Some(vswap_remove(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, j as u32)))
+                Ret::Bytes(Some(vswap_remove(
+                    &mut self.cache,
+                    &xvec(k),
+                    &mut self.cur.xrecs[i].1.vect,
+                    j as u32,
+                )))
             }
             Op::XVecGet(K(k), j) => {
                 let v = self.xvect(k);
@@ -1643,7 +1803,13 @@ impl Model {
             }
             Op::XVecGetMut(K(k), j, x) => {
                 let Some(i) = self.x_exists(k) else { return Ret::OptU64(None) };
-                Ret::Bytes(vget_mut(&mut self.cache, &xvec(k), &mut self.cur.xrecs[i].1.vect, j as u32, x))
+                Ret::Bytes(vget_mut(
+                    &mut self.cache,
+                    &xvec(k),
+                    &mut self.cur.xrecs[i].1.vect,
+                    j as u32,
+                    x,
+                ))
             }
             Op::XVecLen(K(k)) => {
                 let v = self.xvect(k);
@@ -1654,7 +1820,9 @@ impl Model {
                 let v = self.xvect(k);
                 let n = vlen(&mut self.cache, &xvec(k), &v);
                 let left = n.saturating_sub(skip as u32);
-                let out = (0..left.min(2)).map(|j| vget(&mut self.cache, &xvec(k), &v, left - 1 - j).expect("dense")).collect();
+                let out = (0..left.min(2))
+                    .map(|j| vget(&mut self.cache, &xvec(k), &v, left - 1 - j).expect("dense"))
+                    .collect();
                 Ret::Iter(out, left)
             }
             Op::LTryInsert(K(k), n) => {
@@ -1752,8 +1920,12 @@ impl Model {
                 self.cur.counter = self.cur.counter.wrapping_add(x as u64);
                 Ret::Unit
             }
-            Op::FlatInsert(K(k), v) => Ret::Bool(flat_kv!(self).insert(&mut self.cache, k, v.bytes())),
-            Op::FlatTryInsert(K(k), v) => Ret::Bool(flat_kv!(self).try_insert(&mut self.cache, k, v.bytes())),
+            Op::FlatInsert(K(k), v) => {
+                Ret::Bool(flat_kv!(self).insert(&mut self.cache, k, v.bytes()))
+            }
+            Op::FlatTryInsert(K(k), v) => {
+                Ret::Bool(flat_kv!(self).try_insert(&mut self.cache, k, v.bytes()))
+            }
             Op::FlatGet(K(k)) => Ret::Bytes(flat_kv!(self).get(&mut self.cache, k)),
             Op::FlatContains(K(k)) => {
                 let e = self.cache.exists(&flat().entry(k));
@@ -1788,14 +1960,16 @@ impl Model {
                 }
             }
             Op::FlatRemove(K(k)) => Ret::Bytes(flat_kv!(self).remove(&mut self.cache, k, true)),
-            Op::FlatDiscard(K(k)) => Ret::Bool(flat_kv!(self).remove(&mut self.cache, k, false).is_some()),
+            Op::FlatDiscard(K(k)) => {
+                Ret::Bool(flat_kv!(self).remove(&mut self.cache, k, false).is_some())
+            }
             Op::FlatPage(after, limit) => {
                 Ret::Page(flat_kv!(self).page(&mut self.cache, after.map(|k| k.0), limit, false))
             }
             Op::FlatKeysPage(after, limit) => Ret::KeyPage(
-                flat_kv!(self)
-                    .page(&mut self.cache, after.map(|k| k.0), limit, true)
-                    .map(|(items, next, rev)| (items.into_iter().map(|(k, _)| k).collect(), next, rev)),
+                flat_kv!(self).page(&mut self.cache, after.map(|k| k.0), limit, true).map(
+                    |(items, next, rev)| (items.into_iter().map(|(k, _)| k).collect(), next, rev),
+                ),
             ),
             Op::FlatIter(skip, take) => {
                 let c = &mut self.cache;
@@ -1950,7 +2124,8 @@ impl Model {
                 let pend = self.cache.rec_clearing_cost(&key);
                 let mut budget = n as u32 - pend;
                 let done = items_kv!(self, k, i).clear_budgeted(&mut self.cache, &mut budget)
-                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&recs().index(k)) < budget + pend;
+                    && self.cache.rec_delete_cost(&key) + self.cache.delete_cost(&recs().index(k))
+                        < budget + pend;
                 if done {
                     // `remove_inner(k, false)`: clear_children again (the header, already
                     // gone), then unlink.
@@ -1975,7 +2150,11 @@ impl Model {
                         let k = m.slot_key(c, i);
                         let rb = c.rec_read(&recs().entry(k));
                         let rec = &m.v[i as usize].1;
-                        assert_eq!(rb, Some((rec.bytes(), rec.clearing)), "MODEL BUG: paged record");
+                        assert_eq!(
+                            rb,
+                            Some((rec.bytes(), rec.clearing)),
+                            "MODEL BUG: paged record"
+                        );
                         out.push((k, rec.n()));
                     }
                     let next = if end < n { out.last().map(|(k, _)| *k) } else { None };
@@ -1988,9 +2167,16 @@ impl Model {
                 Ret::Unit
             }
             Op::VecPop => Ret::Bytes(vpop(&mut self.cache, &vect(), &mut self.cur.vec)),
-            Op::VecSwapRemove(i) => Ret::Bytes(Some(vswap_remove(&mut self.cache, &vect(), &mut self.cur.vec, i as u32))),
+            Op::VecSwapRemove(i) => Ret::Bytes(Some(vswap_remove(
+                &mut self.cache,
+                &vect(),
+                &mut self.cur.vec,
+                i as u32,
+            ))),
             Op::VecGet(i) => Ret::Bytes(self.vec_get(i as u32)),
-            Op::VecGetMut(i, x) => Ret::Bytes(vget_mut(&mut self.cache, &vect(), &mut self.cur.vec, i as u32, x)),
+            Op::VecGetMut(i, x) => {
+                Ret::Bytes(vget_mut(&mut self.cache, &vect(), &mut self.cur.vec, i as u32, x))
+            }
             Op::VecLen => Ret::U32(self.vec_len()),
             _ => unreachable!("nested ops are dispatched to apply_nested"),
         }

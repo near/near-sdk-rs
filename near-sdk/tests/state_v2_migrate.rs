@@ -15,7 +15,9 @@ fn ctx() {
     testing_env!(VMContextBuilder::new().storage_usage(env::storage_usage()).build());
 }
 
-fn call<T: ContractState + StateRead + StateWrite, R>(f: impl FnOnce(&mut T) -> R) -> (R, testing::Receipt) {
+fn call<T: ContractState + StateRead + StateWrite, R>(
+    f: impl FnOnce(&mut T) -> R,
+) -> (R, testing::Receipt) {
     ctx();
     testing::begin_call();
     testing::env_log_take();
@@ -58,7 +60,10 @@ pub struct NftV1 {
 }
 impl Default for NftV1 {
     fn default() -> Self {
-        Self { owner_by_id: TreeMap::new(V1Key::OwnerById), approvals: IterableMap::new(V1Key::Approvals) }
+        Self {
+            owner_by_id: TreeMap::new(V1Key::OwnerById),
+            approvals: IterableMap::new(V1Key::Approvals),
+        }
     }
 }
 
@@ -94,7 +99,10 @@ mod during {
         pub fn migrate() -> Self {
             let old: NftV1 = env::state_read().unwrap();
             env::storage_remove(b"STATE");
-            Self { owner_by_id: Migrating::new(old.owner_by_id), approvals: Migrating::new(old.approvals) }
+            Self {
+                owner_by_id: Migrating::new(old.owner_by_id),
+                approvals: Migrating::new(old.approvals),
+            }
         }
     }
 }
@@ -149,11 +157,19 @@ fn migrate_batch_drains_iterable_v1_maps_and_the_wrapper_comes_off() {
     let store = testing::env_store();
     // Only v2 keys remain (the TreeMap and IterableMap leave nothing, STATE is gone).
     let v1_left: Vec<_> = store.keys().filter(|k| k[0] != ROOT).collect();
-    assert!(v1_left.is_empty(), "{} v1 keys left: {:02x?}", v1_left.len(), v1_left.iter().take(3).collect::<Vec<_>>());
+    assert!(
+        v1_left.is_empty(),
+        "{} v1 keys left: {:02x?}",
+        v1_left.len(),
+        v1_left.iter().take(3).collect::<Vec<_>>()
+    );
 
     // The wrapper comes off: redeploy with bare `Map`s at the same tags. No migrate needed.
     let (ok, r) = call::<NftV3, _>(|c| {
-        (0..N).all(|i| c.owner_by_id.get(&tok(i)) == Some(&owner(i)) && c.approvals.get(&tok(i)) == Some(&(i as u64)))
+        (0..N).all(|i| {
+            c.owner_by_id.get(&tok(i)) == Some(&owner(i))
+                && c.approvals.get(&tok(i)) == Some(&(i as u64))
+        })
     });
     assert!(ok);
     assert_eq!(r.writes(), 0, "nothing to rewrite");
@@ -164,7 +180,8 @@ fn migrate_batch_drains_iterable_v1_maps_and_the_wrapper_comes_off() {
     // stored tag the code knows as non-inline. It is never rewritten while no root scalar
     // changes, and kept (merged) when one does.
     let root = &testing::env_store()[&vec![ROOT]];
-    let tags: Vec<u32> = near_sdk::state::record::parse(root).unwrap().iter().map(|(t, _, _)| *t).collect();
+    let tags: Vec<u32> =
+        near_sdk::state::record::parse(root).unwrap().iter().map(|(t, _, _)| *t).collect();
     println!("root after the wrapper came off: {} bytes, tags {tags:?}", root.len());
     assert_eq!(tags, vec![1, 2], "stale v1 prefix bytes stay in the root");
 }
@@ -327,18 +344,24 @@ mod store_lookup {
         let flush = testing::env_log_take().ops;
         drop(c);
         let dropped = testing::env_log_take().ops;
-        let show = |ops: &[testing::Op]| ops.iter().map(|o| format!("{:?} {:02x?}", o.kind, &o.key[..o.key.len().min(4)])).collect::<Vec<_>>();
+        let show = |ops: &[testing::Op]| {
+            ops.iter()
+                .map(|o| format!("{:?} {:02x?}", o.kind, &o.key[..o.key.len().min(4)]))
+                .collect::<Vec<_>>()
+        };
         println!("body {:?}\nflush {:?}\ndrop {:?}", show(&body), show(&flush), show(&dropped));
 
         assert!(body.iter().all(|o| o.kind == OpKind::Read), "nothing written in the body");
         assert!(flush.iter().all(|o| o.kind == OpKind::Write && o.key[0] == ROOT));
         assert_eq!(flush.last().unwrap().key, vec![ROOT], "root last");
         // At drop: alice's v1 entry removed, and a storage_remove for bob, who never existed.
-        let removes: Vec<_> = dropped.iter().filter(|o| o.kind == OpKind::Remove).map(|o| o.key.clone()).collect();
+        let removes: Vec<_> =
+            dropped.iter().filter(|o| o.kind == OpKind::Remove).map(|o| o.key.clone()).collect();
         assert_eq!(removes, vec![v1_key("alice"), v1_key("bob")]);
         assert!(!env::storage_has_key(&v1_key("alice")));
 
-        let (v, _) = call::<V2, _>(|c| (c.scores.get(&"alice".into()), c.scores.get(&"bob".into())));
+        let (v, _) =
+            call::<V2, _>(|c| (c.scores.get(&"alice".into()), c.scores.get(&"bob".into())));
         assert_eq!(v, (Some(8), Some(1)));
     }
 
@@ -370,7 +393,11 @@ mod store_lookup {
                 c.scores.get(&"alice".into()),
             )
         });
-        assert_eq!(v, (Some(3), Some(3), None, Some(7)), "carol on the new side only; alice still on the old");
+        assert_eq!(
+            v,
+            (Some(3), Some(3), None, Some(7)),
+            "carol on the new side only; alice still on the old"
+        );
     }
 }
 
@@ -577,10 +604,18 @@ mod v1_lookup_to_v2_lookup {
         call::<V2, _>(|c| c.balances.insert(s("alice"), 8));
         let store = testing::env_store();
         assert!(!store.contains_key(&v1_key("alice")), "the v1 entry is deleted");
-        assert_eq!(store.get(&v2_key("alice")), Some(&8u64.to_le_bytes().to_vec()), "the v2 entry is written");
+        assert_eq!(
+            store.get(&v2_key("alice")),
+            Some(&8u64.to_le_bytes().to_vec()),
+            "the v2 entry is written"
+        );
 
         let (v, _) = call::<V2, _>(|c| {
-            (c.balances.get(&s("alice")), c.balances.new_side().get(&s("alice")).copied(), c.balances.old_side().get(&s("alice")))
+            (
+                c.balances.get(&s("alice")),
+                c.balances.new_side().get(&s("alice")).copied(),
+                c.balances.old_side().get(&s("alice")),
+            )
         });
         assert_eq!(v, (Some(8), Some(8), None), "alice is on the new side only");
 
@@ -617,7 +652,12 @@ fn tree_map_and_iterable_map_sides_fall_back_move_on_insert_and_report_emptiness
     populate();
     init(NftV2::migrate);
     let (v, _) = call::<NftV2, _>(|c| {
-        (c.owner_by_id.old_is_empty(), c.approvals.old_is_empty(), c.approvals.get(&tok(3)), c.approvals.get(&tok(N)))
+        (
+            c.owner_by_id.old_is_empty(),
+            c.approvals.old_is_empty(),
+            c.approvals.get(&tok(3)),
+            c.approvals.get(&tok(N)),
+        )
     });
     assert_eq!(v, (false, false, Some(3), None), "both old sides hold N entries; fallback read");
 
@@ -626,7 +666,9 @@ fn tree_map_and_iterable_map_sides_fall_back_move_on_insert_and_report_emptiness
         (c.approvals.old_side().get(&tok(3)).copied(), c.approvals.new_side().get(&tok(3)).copied())
     });
     assert_eq!(v, (None, Some(99)), "insert moved the key off the v1 IterableMap");
-    let (v, _) = call::<NftV2, _>(|c| (c.approvals.get(&tok(3)), c.approvals.old_side().len(), c.approvals.new_side().len()));
+    let (v, _) = call::<NftV2, _>(|c| {
+        (c.approvals.get(&tok(3)), c.approvals.old_side().len(), c.approvals.new_side().len())
+    });
     assert_eq!(v, (Some(99), N - 1, 1));
 
     for _ in 0..20 {
@@ -700,7 +742,8 @@ mod unordered {
             V2 { scores: Migrating::new(old.scores) }
         });
 
-        let (v, _) = call::<V2, _>(|c| (c.scores.old_is_empty(), c.scores.get(&k(3)), c.scores.get(&k(M))));
+        let (v, _) =
+            call::<V2, _>(|c| (c.scores.old_is_empty(), c.scores.get(&k(3)), c.scores.get(&k(M))));
         assert_eq!(v, (false, Some(3), None), "not empty; fallback read; absent key");
 
         let (v, _) = call::<V2, _>(|c| {
@@ -708,10 +751,19 @@ mod unordered {
             c.scores.old_side().get(&k(3))
         });
         assert_eq!(v, None, "insert removed k3 from the v1 map");
-        let (v, _) = call::<V2, _>(|c| (c.scores.get(&k(3)), c.scores.old_side().len(), c.scores.new_side().len()));
+        let (v, _) = call::<V2, _>(|c| {
+            (c.scores.get(&k(3)), c.scores.old_side().len(), c.scores.new_side().len())
+        });
         assert_eq!(v, (Some(33), (M - 1) as u64, 1));
 
-        let (v, _) = call::<V2, _>(|c| (c.scores.migrate_batch(4), c.scores.old_side().len(), c.scores.new_side().len(), c.scores.old_is_empty()));
+        let (v, _) = call::<V2, _>(|c| {
+            (
+                c.scores.migrate_batch(4),
+                c.scores.old_side().len(),
+                c.scores.new_side().len(),
+                c.scores.old_is_empty(),
+            )
+        });
         assert_eq!(v, (4, (M - 5) as u64, 5, false), "4 entries moved");
 
         let mut calls = 0;
@@ -724,7 +776,13 @@ mod unordered {
             calls += 1;
             assert!(calls < 5, "old side did not drain");
         }
-        let (v, _) = call::<V2, _>(|c| (c.scores.old_side().len(), c.scores.new_side().len(), (0..M).map(|i| c.scores.get(&k(i))).collect::<Vec<_>>()));
+        let (v, _) = call::<V2, _>(|c| {
+            (
+                c.scores.old_side().len(),
+                c.scores.new_side().len(),
+                (0..M).map(|i| c.scores.get(&k(i))).collect::<Vec<_>>(),
+            )
+        });
         let want: Vec<_> = (0..M).map(|i| Some(if i == 3 { 33 } else { i as u64 })).collect();
         assert_eq!(v, (0, M, want));
         assert!(testing::env_store().keys().all(|k| k[0] == ROOT), "no v1 keys left");
@@ -761,7 +819,10 @@ mod raw_root_hook {
             /// `raw_root`.
             pub fn migrate() -> Self {
                 let f = raw_root::<Self>().expect("no v2 root");
-                let a = f.iter().find(|(t, _)| *t == 1).map(|(_, b)| near_sdk::borsh::from_slice::<u64>(b).unwrap());
+                let a = f
+                    .iter()
+                    .find(|(t, _)| *t == 1)
+                    .map(|(_, b)| near_sdk::borsh::from_slice::<u64>(b).unwrap());
                 Self { total: a.expect("tag 1") * 10 }
             }
         }
@@ -769,7 +830,10 @@ mod raw_root_hook {
     use newer::New;
 
     fn want() -> Vec<(u32, Vec<u8>)> {
-        vec![(1, 7u64.to_le_bytes().to_vec()), (2, near_sdk::borsh::to_vec(&"x".to_string()).unwrap())]
+        vec![
+            (1, 7u64.to_le_bytes().to_vec()),
+            (2, near_sdk::borsh::to_vec(&"x".to_string()).unwrap()),
+        ]
     }
 
     #[test]
@@ -856,7 +920,8 @@ mod nested_unknown_tag {
         let root = &testing::env_store()[&vec![ROOT]];
         let fields = near_sdk::state::record::parse(root).unwrap();
         let inner = near_sdk::state::record::find(&fields, 1).unwrap();
-        let tags: Vec<u32> = near_sdk::state::record::parse(inner).unwrap().iter().map(|(t, _, _)| *t).collect();
+        let tags: Vec<u32> =
+            near_sdk::state::record::parse(inner).unwrap().iter().map(|(t, _, _)| *t).collect();
         assert_eq!(tags, vec![1, 3], "the nested unknown tag 3 is kept");
 
         let (v, _) = call::<newer::App, _>(|c| (c.inner.a, c.inner.b, c.n));

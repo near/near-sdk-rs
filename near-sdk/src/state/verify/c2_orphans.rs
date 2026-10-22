@@ -31,8 +31,10 @@ pub fn assert_no_orphans() -> usize {
     testing::begin_call();
     let root = load_root::<MRoot>();
     let live = root.recs.keys_page(None, 255).expect("no cursor").keys;
-    let items: std::vec::Vec<(u8, std::vec::Vec<u8>)> =
-        live.iter().map(|k| (*k, root.recs.at(k).items.keys_page(None, 255).expect("no cursor").keys)).collect();
+    let items: std::vec::Vec<(u8, std::vec::Vec<u8>)> = live
+        .iter()
+        .map(|k| (*k, root.recs.at(k).items.keys_page(None, 255).expect("no cursor").keys))
+        .collect();
     drop(root);
     testing::begin_call();
     let rk = model::recs();
@@ -40,8 +42,12 @@ pub fn assert_no_orphans() -> usize {
     let mut n = 0;
     let store = testing::store();
     for k in &live {
-        let (at_key, at_flag) = (store.contains_key(&rk.entry(*k)), store.contains_key(&model::rec_flag(*k)));
-        assert!(at_key != at_flag, "live record {k}: record key stored {at_key}, flag key stored {at_flag}");
+        let (at_key, at_flag) =
+            (store.contains_key(&rk.entry(*k)), store.contains_key(&model::rec_flag(*k)));
+        assert!(
+            at_key != at_flag,
+            "live record {k}: record key stored {at_key}, flag key stored {at_flag}"
+        );
     }
     for key in store.keys().filter(|k| k.starts_with(&under)) {
         n += 1;
@@ -50,9 +56,14 @@ pub fn assert_no_orphans() -> usize {
         }
         let owner = items.iter().find(|(k, _)| key.starts_with(&rk.entry(*k)));
         let Some((k, its)) = owner else {
-            panic!("orphan: {key:02x?} under the record map belongs to no live record (live {live:?})");
+            panic!(
+                "orphan: {key:02x?} under the record map belongs to no live record (live {live:?})"
+            );
         };
-        assert!(map_key(&model::items(*k), its, key), "orphan: {key:02x?} under live record {k} is not live bookkeeping of its items {its:?}");
+        assert!(
+            map_key(&model::items(*k), its, key),
+            "orphan: {key:02x?} under live record {k} is not live bookkeeping of its items {its:?}"
+        );
     }
     n
 }
@@ -113,7 +124,10 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
             let again = match how {
                 How::Remove => root.recs.remove(&3).map(|r| r.n) != Some(9),
                 How::Discard => !root.recs.discard(&3),
-                How::RemoveSome(n) => root.recs.remove_step(&3, core::num::NonZeroU32::new(*n as u32).unwrap()) == crate::state::Removal::Pending,
+                How::RemoveSome(n) => {
+                    root.recs.remove_step(&3, core::num::NonZeroU32::new(*n as u32).unwrap())
+                        == crate::state::Removal::Pending
+                }
             };
             flush_root(&root);
             drop(root);
@@ -125,13 +139,18 @@ fn c2_removed_record_leaves_no_key_under_its_path() {
             assert!(matches!(how, How::RemoveSome(_)) && rounds <= 10, "{how:?} did not finish");
         }
         let gone = model::recs().entry(3);
-        let left: std::vec::Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(&gone)).collect();
+        let left: std::vec::Vec<_> =
+            testing::store().into_keys().filter(|k| k.starts_with(&gone)).collect();
         assert!(left.is_empty(), "{how:?} left {left:02x?} under the removed record");
         assert_no_orphans();
         testing::begin_call();
         let root = load_root::<MRoot>();
         for (i, c) in nb.iter().enumerate() {
-            assert_eq!(root.recs.at(&(i as u8)).items.len(), (c % 4) as u32, "neighbour {i} lost items");
+            assert_eq!(
+                root.recs.at(&(i as u8)).items.len(),
+                (c % 4) as u32,
+                "neighbour {i} lost items"
+            );
         }
     });
 }
@@ -150,7 +169,10 @@ fn c2_try_insert_on_an_existing_record_is_refused() {
     let mut root = load_root::<MRoot>();
     root.recs.try_insert(1, Rec { n: 5, ..Default::default() }).unwrap();
     root.recs.at_mut(&1).unwrap().items.insert(7, vec![7]);
-    assert!(matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)), "same call: overwrote");
+    assert!(
+        matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)),
+        "same call: overwrote"
+    );
     assert_eq!(root.recs.get(&1).map(|r| r.n), Some(5), "same call: record replaced");
     assert_eq!(root.recs.at(&1).items.get(&7), Some(&vec![7]), "same call: child lost");
     flush_root(&root);
@@ -158,24 +180,34 @@ fn c2_try_insert_on_an_existing_record_is_refused() {
     testing::begin_call();
     let before = testing::store();
     let mut root = load_root::<MRoot>();
-    assert!(matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)), "later call: overwrote");
+    assert!(
+        matches!(root.recs.try_insert(1, Rec::default()), Err(Occupied)),
+        "later call: overwrote"
+    );
     flush_root(&root);
     drop(root);
     testing::begin_call();
     assert_eq!(testing::store(), before, "a refused try_insert changed storage");
     // the same through a LookupMap of records (its own existence check)
     let path = crate::state::key::Path::root(crate::state::key::DEFAULT_ROOT).field(20);
-    let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path.clone());
+    let mut lm: crate::state::LookupMap<u8, Rec> =
+        crate::state::LookupMap::__bound_at(path.clone());
     lm.try_insert(1, Rec { n: 5, ..Default::default() }).unwrap();
     lm.at_mut(&1).unwrap().items.insert(7, vec![7]);
-    assert!(matches!(lm.try_insert(1, Rec::default()), Err(Occupied)), "LookupMap same call: overwrote");
+    assert!(
+        matches!(lm.try_insert(1, Rec::default()), Err(Occupied)),
+        "LookupMap same call: overwrote"
+    );
     assert_eq!(lm.get(&1).map(|r| r.n), Some(5), "LookupMap same call: record replaced");
     testing::flush();
     drop(lm);
     testing::begin_call();
     let before = testing::store();
     let mut lm: crate::state::LookupMap<u8, Rec> = crate::state::LookupMap::__bound_at(path);
-    assert!(matches!(lm.try_insert(1, Rec::default()), Err(Occupied)), "LookupMap later call: overwrote");
+    assert!(
+        matches!(lm.try_insert(1, Rec::default()), Err(Occupied)),
+        "LookupMap later call: overwrote"
+    );
     assert_eq!(lm.at(&1).items.get(&7), Some(&vec![7]), "LookupMap later call: child lost");
     testing::flush();
     drop(lm);

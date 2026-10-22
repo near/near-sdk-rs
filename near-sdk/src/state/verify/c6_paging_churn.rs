@@ -64,9 +64,20 @@ fn c6_paging_under_churn_is_exact_or_cursor_gone() {
             // one page, in its own call
             let m = flat();
             let (keys, done) = if s.offset_mode {
-                let items: Vec<(u8, Vec<u8>)> = m.iter().skip(offset).take(s.limit as usize).map(|(k, v)| (k, v.clone())).collect();
-                let want: Vec<u8> = order[offset.min(order.len())..(offset + s.limit as usize).min(order.len())].to_vec();
-                assert_eq!(items.iter().map(|(k, _)| *k).collect::<Vec<_>>(), want, "offset page differs from the window");
+                let items: Vec<(u8, Vec<u8>)> = m
+                    .iter()
+                    .skip(offset)
+                    .take(s.limit as usize)
+                    .map(|(k, v)| (k, v.clone()))
+                    .collect();
+                let want: Vec<u8> = order
+                    [offset.min(order.len())..(offset + s.limit as usize).min(order.len())]
+                    .to_vec();
+                assert_eq!(
+                    items.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
+                    want,
+                    "offset page differs from the window"
+                );
                 for (k, v) in &items {
                     assert_eq!(v, &val(*k, ver[*k as usize]), "stale value for {k}");
                 }
@@ -88,11 +99,18 @@ fn c6_paging_under_churn_is_exact_or_cursor_gone() {
                     (Ok(p), Some(st)) => {
                         let end = (st + s.limit as usize).min(order.len());
                         let want = order[st.min(order.len())..end].to_vec();
-                        assert_eq!(p.items.iter().map(|(k, _)| *k).collect::<Vec<_>>(), want, "cursor page differs from the window");
+                        assert_eq!(
+                            p.items.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
+                            want,
+                            "cursor page differs from the window"
+                        );
                         for (k, v) in &p.items {
                             assert_eq!(v, &val(*k, ver[*k as usize]), "stale value for {k}");
                         }
-                        assert_eq!(p.next, if end < order.len() { want.last().copied() } else { None });
+                        assert_eq!(
+                            p.next,
+                            if end < order.len() { want.last().copied() } else { None }
+                        );
                         cursor = p.next;
                         (want, p.next.is_none())
                     }

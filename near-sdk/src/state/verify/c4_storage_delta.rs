@@ -60,10 +60,17 @@ fn c4_storage_delta_matches_storage_usage_and_the_guard_is_sound() {
             let log = testing::env_log_take();
             testing::begin_call();
             let after = env::storage_usage();
-            assert_eq!(log.storage_delta(), after as i64 - before as i64, "storage_delta disagrees with storage_usage");
+            assert_eq!(
+                log.storage_delta(),
+                after as i64 - before as i64,
+                "storage_delta disagrees with storage_usage"
+            );
             if guard_quiet {
                 assert!(
-                    log.ops.iter().filter(|o| matches!(o.kind, OpKind::Write | OpKind::Remove)).all(|o| o.key == root_key),
+                    log.ops
+                        .iter()
+                        .filter(|o| matches!(o.kind, OpKind::Write | OpKind::Remove))
+                        .all(|o| o.key == root_key),
                     "the guard stayed quiet but the flush wrote below the root"
                 );
             }

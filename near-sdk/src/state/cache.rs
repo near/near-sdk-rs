@@ -596,7 +596,10 @@ fn typed<V: Value>(p: NonNull<dyn Erased>, path: &Path) -> NonNull<V> {
     // SAFETY: invariant 1; a shared borrow of a live value, dropped before returning.
     let is_v = unsafe { p.as_ref() }.as_any().is::<V>();
     if !is_v {
-        panic!("state: key {path:?} accessed as two different types: {}", core::any::type_name::<V>());
+        panic!(
+            "state: key {path:?} accessed as two different types: {}",
+            core::any::type_name::<V>()
+        );
     }
     p.cast::<V>()
 }
@@ -693,7 +696,12 @@ pub(crate) fn set_clearing(path: &Path) {
 /// still one write per key). Panics if the record was removed in this call or is being cleared:
 /// a child never comes into existence under a record that is not there.
 #[track_caller]
-pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absent: &dyn Fn() -> bool) {
+pub(crate) fn ensure_marker(
+    rec_key: &[u8],
+    trail: &[u32],
+    kind: u8,
+    child_absent: &dyn Fn() -> bool,
+) {
     let known = with(|c| {
         if c.root.as_deref() == Some(rec_key) {
             return None;

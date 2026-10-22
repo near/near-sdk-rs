@@ -16,26 +16,44 @@ use crate::state::{flush_root, load_root};
 /// Keys an operation on `k` may touch, given the key vectors before it.
 #[allow(clippy::type_complexity)]
 fn allowed(op: CostOp, flat: &[u8], recs: &[u8], vlen: u32) -> Box<dyn Fn(&[u8]) -> bool> {
-    let map_keys = |mk: model::spec_key::MapKeys, order: &[u8], k: u8| -> std::vec::Vec<std::vec::Vec<u8>> {
-        let mut v = vec![mk.entry(k), mk.index(k), mk.header()];
-        if let Some(i) = order.iter().position(|x| *x == k) {
-            v.push(mk.slot(i as u32));
-        }
-        if let Some(last) = order.last() {
-            v.push(mk.slot(order.len() as u32 - 1));
-            v.push(mk.index(*last));
-        }
-        v.push(mk.slot(order.len() as u32)); // a new key's slot
-        v
+    let map_keys =
+        |mk: model::spec_key::MapKeys, order: &[u8], k: u8| -> std::vec::Vec<std::vec::Vec<u8>> {
+            let mut v = vec![mk.entry(k), mk.index(k), mk.header()];
+            if let Some(i) = order.iter().position(|x| *x == k) {
+                v.push(mk.slot(i as u32));
+            }
+            if let Some(last) = order.last() {
+                v.push(mk.slot(order.len() as u32 - 1));
+                v.push(mk.index(*last));
+            }
+            v.push(mk.slot(order.len() as u32)); // a new key's slot
+            v
+        };
+    let set = |v: std::vec::Vec<std::vec::Vec<u8>>| -> Box<dyn Fn(&[u8]) -> bool> {
+        Box::new(move |key| v.iter().any(|a| a == key))
     };
-    let set = |v: std::vec::Vec<std::vec::Vec<u8>>| -> Box<dyn Fn(&[u8]) -> bool> { Box::new(move |key| v.iter().any(|a| a == key)) };
     match op {
-        CostOp::MapGet(K(k)) | CostOp::MapContains(K(k)) | CostOp::MapInsert(K(k), _) | CostOp::MapEntry(K(k), _)
-        | CostOp::MapGetMut(K(k)) | CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => set(map_keys(model::flat(), flat, k)),
-        CostOp::LookGet(K(k)) | CostOp::LookContains(K(k)) | CostOp::LookInsert(K(k), _) | CostOp::LookGetMut(K(k))
-        | CostOp::LookRemove(K(k)) | CostOp::LookDiscard(K(k)) => set(vec![model::look().entry(k)]),
-        CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecTryInsert(K(k)) | CostOp::RecEntryDefault(K(k))
-        | CostOp::RecGetMut(K(k)) | CostOp::RecAtMutInsert(K(k), _) | CostOp::RecAtLen(K(k)) | CostOp::RecRemove(K(k))
+        CostOp::MapGet(K(k))
+        | CostOp::MapContains(K(k))
+        | CostOp::MapInsert(K(k), _)
+        | CostOp::MapEntry(K(k), _)
+        | CostOp::MapGetMut(K(k))
+        | CostOp::MapRemove(K(k))
+        | CostOp::MapDiscard(K(k)) => set(map_keys(model::flat(), flat, k)),
+        CostOp::LookGet(K(k))
+        | CostOp::LookContains(K(k))
+        | CostOp::LookInsert(K(k), _)
+        | CostOp::LookGetMut(K(k))
+        | CostOp::LookRemove(K(k))
+        | CostOp::LookDiscard(K(k)) => set(vec![model::look().entry(k)]),
+        CostOp::RecGet(K(k))
+        | CostOp::RecContains(K(k))
+        | CostOp::RecTryInsert(K(k))
+        | CostOp::RecEntryDefault(K(k))
+        | CostOp::RecGetMut(K(k))
+        | CostOp::RecAtMutInsert(K(k), _)
+        | CostOp::RecAtLen(K(k))
+        | CostOp::RecRemove(K(k))
         | CostOp::RecRemoveSome(K(k), _) => {
             let v = map_keys(model::recs(), recs, k);
             let own = model::recs().entry(k);
@@ -62,7 +80,21 @@ fn allowed(op: CostOp, flat: &[u8], recs: &[u8], vlen: u32) -> Box<dyn Fn(&[u8])
 fn g2_local_op_touches_only_its_own_path_and_bookkeeping() {
     let g = (ops_gen(), bolero::produce::<CostOp>());
     bolero::check!().with_generator(g).with_iterations(3_000).for_each(|(h, op)| {
-        if matches!(op, CostOp::SetInsert(_) | CostOp::SetContains(_) | CostOp::SetRemove(_) | CostOp::LSetInsert(_) | CostOp::LSetContains(_) | CostOp::LSetRemove(_) | CostOp::LazyGet | CostOp::LazySet(_) | CostOp::LazyRemove | CostOp::MapLen | CostOp::MapPage(..) | CostOp::MapKeysPage(..)) {
+        if matches!(
+            op,
+            CostOp::SetInsert(_)
+                | CostOp::SetContains(_)
+                | CostOp::SetRemove(_)
+                | CostOp::LSetInsert(_)
+                | CostOp::LSetContains(_)
+                | CostOp::LSetRemove(_)
+                | CostOp::LazyGet
+                | CostOp::LazySet(_)
+                | CostOp::LazyRemove
+                | CostOp::MapLen
+                | CostOp::MapPage(..)
+                | CostOp::MapKeysPage(..)
+        ) {
             return; // not single-entry operations
         }
         let (_, mut st): (_, MState) = run_state(h);
@@ -92,20 +124,48 @@ fn g2_local_op_touches_only_its_own_path_and_bookkeeping() {
         let others: std::vec::Vec<std::vec::Vec<u8>> = flat
             .iter()
             .chain(recs.iter())
-            .flat_map(|o| [model::flat().entry(*o), model::look().entry(*o), model::recs().entry(*o)])
+            .flat_map(|o| {
+                [model::flat().entry(*o), model::look().entry(*o), model::recs().entry(*o)]
+            })
             .collect();
         testing::begin_call();
         let r = run_op(*op);
         for o in &r.ops {
-            assert!(ok(&o.key), "{op:?} touched {:02x?} outside its own path and bookkeeping", o.key);
+            assert!(
+                ok(&o.key),
+                "{op:?} touched {:02x?} outside its own path and bookkeeping",
+                o.key
+            );
             let own = match op {
-                CostOp::MapGet(K(k)) | CostOp::MapContains(K(k)) | CostOp::MapInsert(K(k), _) | CostOp::MapEntry(K(k), _) | CostOp::MapGetMut(K(k)) | CostOp::MapRemove(K(k)) | CostOp::MapDiscard(K(k)) => Some(model::flat().entry(*k)),
-                CostOp::LookGet(K(k)) | CostOp::LookContains(K(k)) | CostOp::LookInsert(K(k), _) | CostOp::LookGetMut(K(k)) | CostOp::LookRemove(K(k)) | CostOp::LookDiscard(K(k)) => Some(model::look().entry(*k)),
-                CostOp::RecGet(K(k)) | CostOp::RecContains(K(k)) | CostOp::RecTryInsert(K(k)) | CostOp::RecEntryDefault(K(k)) | CostOp::RecGetMut(K(k)) | CostOp::RecAtMutInsert(K(k), _) | CostOp::RecAtLen(K(k)) | CostOp::RecRemove(K(k)) | CostOp::RecRemoveSome(K(k), _) => Some(model::recs().entry(*k)),
+                CostOp::MapGet(K(k))
+                | CostOp::MapContains(K(k))
+                | CostOp::MapInsert(K(k), _)
+                | CostOp::MapEntry(K(k), _)
+                | CostOp::MapGetMut(K(k))
+                | CostOp::MapRemove(K(k))
+                | CostOp::MapDiscard(K(k)) => Some(model::flat().entry(*k)),
+                CostOp::LookGet(K(k))
+                | CostOp::LookContains(K(k))
+                | CostOp::LookInsert(K(k), _)
+                | CostOp::LookGetMut(K(k))
+                | CostOp::LookRemove(K(k))
+                | CostOp::LookDiscard(K(k)) => Some(model::look().entry(*k)),
+                CostOp::RecGet(K(k))
+                | CostOp::RecContains(K(k))
+                | CostOp::RecTryInsert(K(k))
+                | CostOp::RecEntryDefault(K(k))
+                | CostOp::RecGetMut(K(k))
+                | CostOp::RecAtMutInsert(K(k), _)
+                | CostOp::RecAtLen(K(k))
+                | CostOp::RecRemove(K(k))
+                | CostOp::RecRemoveSome(K(k), _) => Some(model::recs().entry(*k)),
                 _ => None,
             };
             if let Some(own) = own {
-                assert!(o.key == own || !others.contains(&o.key), "{op:?} touched another entry's value key");
+                assert!(
+                    o.key == own || !others.contains(&o.key),
+                    "{op:?} touched another entry's value key"
+                );
             }
         }
         if !matches!(op, CostOp::VecPop | CostOp::VecSwapRemove(_) | CostOp::VecGet(_)) {

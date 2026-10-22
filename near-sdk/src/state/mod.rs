@@ -300,15 +300,18 @@ mod collections;
 #[cfg(feature = "unstable")]
 pub mod key;
 #[cfg(feature = "unstable")]
+mod migrating;
+/// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
+/// the oracle the `verify` harnesses compare the implementation against.
+#[cfg(feature = "unstable")]
+#[cfg(test)]
+mod model;
+#[cfg(feature = "unstable")]
 pub mod record;
-#[cfg(feature = "unstable")]
-pub mod testing;
-#[cfg(feature = "unstable")]
-mod value;
 #[cfg(feature = "unstable")]
 mod root;
 #[cfg(feature = "unstable")]
-mod migrating;
+pub mod testing;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests;
@@ -324,11 +327,8 @@ mod tests_gaps_cache;
 #[cfg(feature = "unstable")]
 #[cfg(test)]
 mod tests_gaps_rest;
-/// Reference model of the v2 layer (keys, records, collections, per-call cache, cost formulas),
-/// the oracle the `verify` harnesses compare the implementation against.
 #[cfg(feature = "unstable")]
-#[cfg(test)]
-mod model;
+mod value;
 /// Bolero / Kani harnesses for the seven guarantees and the named bug classes.
 #[cfg(feature = "unstable")]
 #[cfg(test)]
@@ -336,8 +336,8 @@ mod verify;
 
 #[cfg(feature = "unstable")]
 pub use collections::{
-    At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet, Map, MapEntry,
-    MIN_REMOVE_STEP, Occupied, Page, Removal, Set, Vector, ViewIsReadOnly,
+    At, CursorGone, IndexIter, KeyPage, Lazy, LookupMap, LookupMapEntry, LookupSet,
+    MIN_REMOVE_STEP, Map, MapEntry, Occupied, Page, Removal, Set, Vector, ViewIsReadOnly,
 };
 /// Deferred out of the first release (D3); hidden, kept compiling for the prototype.
 #[cfg(feature = "unstable")]
@@ -346,17 +346,19 @@ pub use collections::{Group, GroupMut, GroupedMap};
 #[cfg(feature = "unstable")]
 pub use key::{Path, StorageKey};
 #[cfg(feature = "unstable")]
-pub use migrating::{LegacyIterable, LegacyMap, MigrationTarget, Migrating, V1PrefixError, check_v1_prefix};
-#[cfg(feature = "unstable")]
-pub use record::RecordError;
-#[cfg(feature = "unstable")]
-pub use root::{Root, __private, flush_root, load_root, raw_root, root_exists};
-#[cfg(feature = "unstable")]
-pub use value::{
-    BorshLeaf, FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value,
-    ViewField, ViewFieldMut,
+pub use migrating::{
+    LegacyIterable, LegacyMap, Migrating, MigrationTarget, V1PrefixError, check_v1_prefix,
 };
 /// `#[derive(Leaf)]`: opts a plain Borsh struct or enum into storage v2 as an opaque leaf
 /// (implements [`BorshLeaf`], hence [`Value`], [`Leaf`] and [`Removable`]). T7.
 #[cfg(feature = "unstable")]
 pub use near_sdk_macros::Leaf;
+#[cfg(feature = "unstable")]
+pub use record::RecordError;
+#[cfg(feature = "unstable")]
+pub use root::{__private, Root, flush_root, load_root, raw_root, root_exists};
+#[cfg(feature = "unstable")]
+pub use value::{
+    BorshLeaf, FieldDefault, Leaf, Record, Removable, UseGetForScalars, UseGetMutForScalars, Value,
+    ViewField, ViewFieldMut,
+};

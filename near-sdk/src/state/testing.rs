@@ -114,7 +114,11 @@ impl Receipt {
         self.ops.iter().map(|o| o.value_len.max(o.replaced_len.unwrap_or(0))).max().unwrap_or(0)
     }
     pub fn keys_written(&self) -> Vec<Vec<u8>> {
-        self.ops.iter().filter(|o| matches!(o.kind, OpKind::Write | OpKind::Remove)).map(|o| o.key.clone()).collect()
+        self.ops
+            .iter()
+            .filter(|o| matches!(o.kind, OpKind::Write | OpKind::Remove))
+            .map(|o| o.key.clone())
+            .collect()
     }
 }
 
@@ -308,7 +312,10 @@ pub fn env_log_start() {
 /// The calls recorded since `env_log_start` (or the last take), as a [`Receipt`]; keeps
 /// recording. `sha256` is not counted here.
 pub fn env_log_take() -> Receipt {
-    ENV_LOG.with(|l| Receipt { ops: l.borrow_mut().as_mut().map(core::mem::take).unwrap_or_default(), sha256: 0 })
+    ENV_LOG.with(|l| Receipt {
+        ops: l.borrow_mut().as_mut().map(core::mem::take).unwrap_or_default(),
+        sha256: 0,
+    })
 }
 
 /// Stops recording.

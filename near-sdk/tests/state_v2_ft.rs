@@ -87,8 +87,10 @@ impl Ft {
         } else {
             let bond = storage_bond();
             require!(deposit >= bond, "attached deposit is less than the storage bond");
-            self.accounts
-                .insert(account_id.clone(), FtAccount { balance: 0, storage_deposit: bond.as_yoctonear() });
+            self.accounts.insert(
+                account_id.clone(),
+                FtAccount { balance: 0, storage_deposit: bond.as_yoctonear() },
+            );
             let refund = deposit.saturating_sub(bond);
             if !refund.is_zero() {
                 Promise::new(env::predecessor_account_id()).transfer(refund).detach();
@@ -201,7 +203,8 @@ fn init_sets_supply_owner_balance_and_metadata() {
 #[test]
 fn storage_deposit_registers_once_and_refunds_the_rest() {
     init();
-    let (sb, r) = call_with("alice.near", storage_bond().saturating_mul(3), |c| c.storage_deposit(None));
+    let (sb, r) =
+        call_with("alice.near", storage_bond().saturating_mul(3), |c| c.storage_deposit(None));
     assert_eq!(sb.total.0, storage_bond().as_yoctonear());
     // root read, has_key on alice; account record write. Root unchanged, so not written.
     assert_eq!(r.rwd(), (1, 1, 0));
@@ -236,7 +239,11 @@ fn ft_transfer_moves_balance_between_two_accounts() {
     assert_eq!(balance("alice.near"), 300);
     // root read, has_key(receiver), sender read, receiver read; two record writes.
     assert_eq!(r.rwd(), (3, 2, 0), "{:?}", r.ops);
-    assert_eq!(r.has_keys(), 1, "the receiver check is a has_key, and does not save the later read");
+    assert_eq!(
+        r.has_keys(),
+        1,
+        "the receiver check is a has_key, and does not save the later read"
+    );
 }
 
 #[test]

@@ -118,7 +118,9 @@ fn bound(b: &Binding) -> &Path {
              `or_default()` first (in `#[init]`, call `.bind()` on the root). If the record was \
              moved out with `mem::take`/`mem::replace`, that is unsupported"
         ),
-        Binding::Detached => panic!("state: collection detached by remove; read it before removing"),
+        Binding::Detached => {
+            panic!("state: collection detached by remove; read it before removing")
+        }
     }
 }
 
@@ -645,7 +647,10 @@ impl<K: StorageKey + 'static, V: Value> Value for LookupMap<K, V> {
 }
 
 impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
-    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; put it in a `#[near(storage)]` record");
+    const CHECK: () = assert!(
+        V::INLINE,
+        "a map value cannot itself be a collection; put it in a `#[near(storage)]` record"
+    );
 
     #[track_caller]
     fn entry_path(&self, k: &K) -> Path {
@@ -957,7 +962,10 @@ impl<K: StorageKey + Clone + 'static, V: Removable> Removable for Map<K, V> {
 }
 
 impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
-    const CHECK: () = assert!(V::INLINE, "a map value cannot itself be a collection; put it in a `#[near(storage)]` record");
+    const CHECK: () = assert!(
+        V::INLINE,
+        "a map value cannot itself be a collection; put it in a `#[near(storage)]` record"
+    );
 
     #[track_caller]
     fn p(&self) -> &Path {
@@ -1035,7 +1043,10 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         }
         cache::put(&self.index_path(k), h.len);
         cache::put(&self.slot_path(h.len), k.clone());
-        put_header(&self.header(), MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h });
+        put_header(
+            &self.header(),
+            MapHeader { len: h.len.checked_add(1).expect("Map is full"), ..h },
+        );
     }
 
     /// Always overwrites. Returns `true` if the key was new (free: the index read says so).
@@ -1119,7 +1130,8 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         let last = len - 1;
         let last_slot = self.slot_path(last);
         if i != last {
-            let moved: K = unsafe { r(cache::get::<K>(&last_slot).expect("dense key vector")) }.clone();
+            let moved: K =
+                unsafe { r(cache::get::<K>(&last_slot).expect("dense key vector")) }.clone();
             cache::put(&self.slot_path(i), moved.clone());
             cache::put(&self.index_path(&moved), i);
         }
@@ -1321,9 +1333,11 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             let len = self.len();
             if len == 0 {
                 // The owner is being removed: the header goes too (T4).
-                return spend(budget, cache::delete_cost::<MapHeader>(&self.header(), false), || {
-                    cache::delete::<MapHeader>(&self.header())
-                });
+                return spend(
+                    budget,
+                    cache::delete_cost::<MapHeader>(&self.header(), false),
+                    || cache::delete::<MapHeader>(&self.header()),
+                );
             }
             let i = len - 1;
             let slot = self.slot_path(i);
@@ -1533,7 +1547,10 @@ impl<T: Value> Vector<T> {
         self.p().kind(kind::HEADER)
     }
     fn bound_anchored(path: Path, anchor: usize) -> Self {
-        Vector { path: Binding::anchored(path, anchor, super::record::marker::VECTOR), _m: PhantomData }
+        Vector {
+            path: Binding::anchored(path, anchor, super::record::marker::VECTOR),
+            _m: PhantomData,
+        }
     }
 
     /// 1 read.
@@ -1771,7 +1788,10 @@ impl<T: Removable> Removable for Lazy<T> {
 }
 
 impl<T: Value> Lazy<T> {
-    const CHECK: () = assert!(T::INLINE, "a Lazy value cannot itself be a collection; put it in a `#[near(storage)]` record");
+    const CHECK: () = assert!(
+        T::INLINE,
+        "a Lazy value cannot itself be a collection; put it in a `#[near(storage)]` record"
+    );
 
     #[track_caller]
     fn p(&self) -> &Path {

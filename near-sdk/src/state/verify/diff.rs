@@ -62,7 +62,12 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
                 .map_err(|_| ()),
         ),
         Op::FlatIter(skip, take) => Ret::Items(
-            root.flat.iter().skip(skip as usize).take(take as usize).map(|(k, v)| (k, v.clone())).collect(),
+            root.flat
+                .iter()
+                .skip(skip as usize)
+                .take(take as usize)
+                .map(|(k, v)| (k, v.clone()))
+                .collect(),
         ),
         Op::FlatLen => Ret::U32(root.flat.len()),
         Op::LookInsert(k, v) => {
@@ -84,9 +89,11 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
             root.look.discard(&k.0);
             Ret::Unit
         }
-        Op::RecTryInsert(k, n) => {
-            Ret::Bool(root.recs.try_insert(k.0, super::fixture::Rec { n: n as u64, ..Default::default() }).is_ok())
-        }
+        Op::RecTryInsert(k, n) => Ret::Bool(
+            root.recs
+                .try_insert(k.0, super::fixture::Rec { n: n as u64, ..Default::default() })
+                .is_ok(),
+        ),
         Op::RecEntryDefault(k) => Ret::U64(root.recs.entry(k.0).or_default().n),
         Op::RecGetMut(k, x) => Ret::OptU64(root.recs.get_mut(&k.0).map(|r| {
             r.n = r.n.wrapping_add(x as u64);
@@ -105,7 +112,8 @@ pub fn real_apply(root: &mut MRoot, op: &Op) -> Ret {
         Op::RecAtLen(k) => Ret::U32(root.recs.at(&k.0).items.len()),
         Op::RecRemove(k) => Ret::OptU64(root.recs.remove(&k.0).map(|r| r.n)),
         Op::RecRemoveSome(k, n) => Ret::Bool(
-            root.recs.remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
+            root.recs
+                .remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
                 == crate::state::Removal::Pending,
         ),
         Op::RecPage(after, limit) => Ret::RecPage(
@@ -143,7 +151,9 @@ fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
         v.clone()
     };
     match *op {
-        Op::XTryInsert(k, n) => Ret::Bool(root.xrecs.try_insert(k.0, RecX { n: n as u64, ..Default::default() }).is_ok()),
+        Op::XTryInsert(k, n) => Ret::Bool(
+            root.xrecs.try_insert(k.0, RecX { n: n as u64, ..Default::default() }).is_ok(),
+        ),
         Op::XEntryDefault(k) => Ret::U64(root.xrecs.entry(k.0).or_default().n),
         Op::XGet(k) => Ret::OptU64(root.xrecs.get(&k.0).map(|r| r.n)),
         Op::XGetMut(k, x) => Ret::OptU64(root.xrecs.get_mut(&k.0).map(|r| {
@@ -153,7 +163,8 @@ fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
         Op::XRemove(k) => Ret::OptU64(root.xrecs.remove(&k.0).map(|r| r.n)),
         Op::XDiscard(k) => Ret::Bool(root.xrecs.discard(&k.0)),
         Op::XRemoveStep(k, n) => Ret::Bool(
-            root.xrecs.remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
+            root.xrecs
+                .remove_step(&k.0, core::num::NonZeroU32::new(n as u32).expect("generator 3..13"))
                 == crate::state::Removal::Pending,
         ),
         Op::XLazySet(k, v) => match root.xrecs.at_mut(&k.0) {
@@ -186,7 +197,14 @@ fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
         Op::XSetContains(k, x) => Ret::Bool(root.xrecs.at(&k.0).set.contains(&x.0)),
         Op::XSetLen(k) => Ret::U32(root.xrecs.at(&k.0).set.len()),
         Op::XSetIter(k, skip, take) => Ret::Items(
-            root.xrecs.at(&k.0).set.iter().skip(skip as usize).take(take as usize).map(|x| (x, Vec::new())).collect(),
+            root.xrecs
+                .at(&k.0)
+                .set
+                .iter()
+                .skip(skip as usize)
+                .take(take as usize)
+                .map(|x| (x, Vec::new()))
+                .collect(),
         ),
         Op::XVecPush(k, v) => match root.xrecs.at_mut(&k.0) {
             None => Ret::OptU64(None),
@@ -215,7 +233,9 @@ fn real_apply_nested(root: &mut MRoot, op: &Op) -> Ret {
             assert_eq!(hi, Some(lo), "IndexIter size_hint is exact");
             Ret::Iter(it.take(2).cloned().collect(), lo as u32)
         }
-        Op::LTryInsert(k, n) => Ret::Bool(root.lrecs.try_insert(k.0, RecL { n: n as u64, ..Default::default() }).is_ok()),
+        Op::LTryInsert(k, n) => Ret::Bool(
+            root.lrecs.try_insert(k.0, RecL { n: n as u64, ..Default::default() }).is_ok(),
+        ),
         Op::LGet(k) => Ret::OptU64(root.lrecs.get(&k.0).map(|r| r.n)),
         Op::LGetMut(k, x) => Ret::OptU64(root.lrecs.get_mut(&k.0).map(|r| {
             r.n = r.n.wrapping_add(x as u64);
@@ -257,8 +277,14 @@ fn compare(what: &str, ops: &[testing::Op], mut pred: Predicted, trace: &[Op]) {
     let got = split(ops);
     pred.lookups = sorted(pred.lookups);
     let got_lookups = sorted(got.lookups);
-    assert_eq!(got_lookups, pred.lookups, "{what}: reads / has_keys differ from the model\ntrace: {trace:?}");
-    assert_eq!(got.mutations, pred.mutations, "{what}: writes / removes differ from the model\ntrace: {trace:?}");
+    assert_eq!(
+        got_lookups, pred.lookups,
+        "{what}: reads / has_keys differ from the model\ntrace: {trace:?}"
+    );
+    assert_eq!(
+        got.mutations, pred.mutations,
+        "{what}: writes / removes differ from the model\ntrace: {trace:?}"
+    );
 }
 
 /// Runs `ops` through both sides and compares everything. Returns the real side's per-call
@@ -281,10 +307,16 @@ pub fn run_state(ops: &[Op]) -> (Vec<CallLog>, crate::state::model::MState) {
         load_root::<MRoot>()
     };
     let mut seg_start = 0usize;
-    let end = |m: &mut Model, root: MRoot, seg_start: &mut usize, logs: &mut Vec<CallLog>, trace: &[Op]| {
+    let end = |m: &mut Model,
+               root: MRoot,
+               seg_start: &mut usize,
+               logs: &mut Vec<CallLog>,
+               trace: &[Op]| {
         let before = testing::receipt();
         assert!(
-            before.ops[*seg_start..].iter().all(|o| matches!(o.kind, OpKind::Read | OpKind::HasKey)),
+            before.ops[*seg_start..]
+                .iter()
+                .all(|o| matches!(o.kind, OpKind::Read | OpKind::HasKey)),
             "a host write or remove happened before the flush\ntrace: {trace:?}"
         );
         flush_root(&root);
@@ -292,7 +324,11 @@ pub fn run_state(ops: &[Op]) -> (Vec<CallLog>, crate::state::model::MState) {
         let r = testing::receipt();
         let seg = r.ops[*seg_start..].to_vec();
         compare("call", &seg, m.end_call(), trace);
-        assert_eq!(testing::store(), m.cache.host, "storage bytes differ from the model\ntrace: {trace:?}");
+        assert_eq!(
+            testing::store(),
+            m.cache.host,
+            "storage bytes differ from the model\ntrace: {trace:?}"
+        );
         logs.push(CallLog { kind: CallKind::Mutating, ops: seg });
         *seg_start = 0;
     };
@@ -311,7 +347,11 @@ pub fn run_state(ops: &[Op]) -> (Vec<CallLog>, crate::state::model::MState) {
                 let r = testing::receipt();
                 let seg = r.ops[seg_start..].to_vec();
                 compare("mid-call flush", &seg, m.cache.take_predicted(), &trace);
-                assert_eq!(testing::store(), m.cache.host, "storage differs after a mid-call flush\ntrace: {trace:?}");
+                assert_eq!(
+                    testing::store(),
+                    m.cache.host,
+                    "storage differs after a mid-call flush\ntrace: {trace:?}"
+                );
                 seg_start = r.ops.len();
                 logs.push(CallLog { kind: CallKind::MidFlush, ops: seg });
             }
@@ -355,7 +395,11 @@ pub fn run_state(ops: &[Op]) -> (Vec<CallLog>, crate::state::model::MState) {
                 assert_eq!(got, want, "re-typed get_mut differs\ntrace: {trace:?}");
                 let r = testing::receipt();
                 compare("re-typed call", &r.ops, pred, &trace);
-                assert_eq!(testing::store(), m.cache.host, "storage differs after the re-typed call\ntrace: {trace:?}");
+                assert_eq!(
+                    testing::store(),
+                    m.cache.host,
+                    "storage differs after the re-typed call\ntrace: {trace:?}"
+                );
                 logs.push(CallLog { kind: CallKind::Mutating, ops: r.ops });
                 root = begin(&mut m);
             }
@@ -496,9 +540,24 @@ fn differential_fixed_nested_sequences() {
     ops.extend(fill(1));
     ops.extend([Op::XLazyRemove(K(1)), Op::XLazyRemove(K(1)), Op::XRemove(K(1)), Op::EndCall]);
     ops.extend(fill(2));
-    ops.extend([Op::XRemoveStep(K(2), 5), Op::EndCall, Op::XDiscard(K(2)), Op::XDiscard(K(3)), Op::EndCall]);
+    ops.extend([
+        Op::XRemoveStep(K(2), 5),
+        Op::EndCall,
+        Op::XDiscard(K(2)),
+        Op::XDiscard(K(3)),
+        Op::EndCall,
+    ]);
     ops.extend(fill(3));
-    ops.extend([Op::XEntryDefault(K(3)), Op::XEntryDefault(K(4)), Op::XRemoveStep(K(3), 3), Op::MidFlush, Op::XRemoveStep(K(3), 6), Op::EndCall, Op::XRemoveStep(K(3), 12), Op::EndCall]);
+    ops.extend([
+        Op::XEntryDefault(K(3)),
+        Op::XEntryDefault(K(4)),
+        Op::XRemoveStep(K(3), 3),
+        Op::MidFlush,
+        Op::XRemoveStep(K(3), 6),
+        Op::EndCall,
+        Op::XRemoveStep(K(3), 12),
+        Op::EndCall,
+    ]);
     ops.extend([
         Op::LTryInsert(K(0), 1),
         Op::LSetInsert(K(0), K(1)),
@@ -515,7 +574,11 @@ fn differential_fixed_nested_sequences() {
         Op::LGet(K(3)),
     ]);
     let (logs, st) = run_state(&ops);
-    assert!(st.xrecs.iter().all(|(k, _)| *k == 4), "only the defaulted record 4 is left: {:?}", st.xrecs);
+    assert!(
+        st.xrecs.iter().all(|(k, _)| *k == 4),
+        "only the defaulted record 4 is left: {:?}",
+        st.xrecs
+    );
     assert_eq!(st.lrecs.len(), 1);
     // the multi-call clear of record 0 removed at most n keys per call
     assert!(logs.iter().filter(|l| l.kind == CallKind::Mutating).count() > 10);
@@ -546,8 +609,12 @@ fn differential_generator_reaches_nested_ops() {
 fn differential_nested_against_reference_model() {
     let g = bolero::produce::<std::vec::Vec<Op>>().with().len(0usize..=240);
     bolero::check!().with_generator(g).with_iterations(2000).for_each(|ops| {
-        let ops: std::vec::Vec<Op> =
-            ops.iter().filter(|o| o.is_nested() || matches!(o, Op::EndCall | Op::MidFlush)).take(60).cloned().collect();
+        let ops: std::vec::Vec<Op> = ops
+            .iter()
+            .filter(|o| o.is_nested() || matches!(o, Op::EndCall | Op::MidFlush))
+            .take(60)
+            .cloned()
+            .collect();
         run(&ops);
     });
 }

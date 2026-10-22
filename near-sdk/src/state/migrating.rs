@@ -75,7 +75,9 @@ fn guard_v1_prefix<V1: LegacyMap>(old: &V1, path: &Path) {
 }
 
 fn v1_prefix_error(e: V1PrefixError) -> std::string::String {
-    format!("Migrating: the v1 map's key prefix can alias v2 keys ({e:?}); give the v1 map a non-empty prefix whose first byte is not the v2 root byte")
+    format!(
+        "Migrating: the v1 map's key prefix can alias v2 keys ({e:?}); give the v1 map a non-empty prefix whose first byte is not the v2 root byte"
+    )
 }
 
 /// A v1 map that can enumerate its keys, so `Migrating::migrate_batch` can drain it.
@@ -172,7 +174,8 @@ where
     fn decode_value(bytes: &[u8], path: &Path) -> Result<Self, RecordError> {
         let old: V1 = borsh::from_slice(bytes).map_err(|e| RecordError::Leaf(e.to_string()))?;
         for p in old.legacy_prefixes() {
-            check_v1_prefix(&p, path.as_bytes()[0]).map_err(|e| RecordError::Leaf(v1_prefix_error(e)))?;
+            check_v1_prefix(&p, path.as_bytes()[0])
+                .map_err(|e| RecordError::Leaf(v1_prefix_error(e)))?;
         }
         let mut new = V2::default();
         new.bind(path);

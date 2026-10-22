@@ -163,9 +163,11 @@ g6_identity_small_proofs!(
 #[cfg_attr(kani, kani::unwind(7))]
 fn g6_record_parse_accepts_only_canonical_encodings() {
     // a fixed array plus a symbolic length: bolero's Vec generator is costly under Kani
-    bolero::check!().with_type::<([u8; CAN_MAX], u8)>().with_iterations(50_000).for_each(|(arr, n)| {
-        canonical_check(&arr[..*n as usize % (CAN_MAX + 1)]);
-    });
+    bolero::check!().with_type::<([u8; CAN_MAX], u8)>().with_iterations(50_000).for_each(
+        |(arr, n)| {
+            canonical_check(&arr[..*n as usize % (CAN_MAX + 1)]);
+        },
+    );
 }
 
 /// The canonical-form property, shared by the random-engine harness and the shrunk Kani
@@ -271,7 +273,10 @@ const TAGS: usize = if cfg!(kani) { 2 } else { 4 };
 #[cfg_attr(kani, kani::unwind(10))]
 fn g6_schema_evolution_defaults_required_unknown_reserved() {
     let g = bolero::produce::<([Option<u8>; TAGS], [Decl; TAGS])>();
-    bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(s1, s2)| evolution_check(s1, s2));
+    bolero::check!()
+        .with_generator(g)
+        .with_iterations(20_000)
+        .for_each(|(s1, s2)| evolution_check(s1, s2));
 }
 
 /// The schema-evolution property for `T` tags, shared by the random-engine harness and the
@@ -320,20 +325,27 @@ fn evolution_check<const T: usize>(s1: &[Option<u8>; T], s2: &[Decl; T]) {
         return; // the record does not decode under S2; nothing is rewritten
     }
     // S2 rewrites (read-modify-write: merges the original bytes)
-    let known = |t: u32| matches!(s2[t as usize - 1], Decl::Default | Decl::DefaultExpr | Decl::Required);
+    let known =
+        |t: u32| matches!(s2[t as usize - 1], Decl::Default | Decl::DefaultExpr | Decl::Required);
     let mut w = RecordWriter::new();
     for (i, v) in decoded.iter().enumerate() {
         if let Some(v) = v {
             w.push(i as u32 + 1, vec![v.wrapping_add(1)]);
         }
     }
-    let rewritten = w.finish(Some(&stored), |t| t as usize <= T && !known(t) && s2[t as usize - 1] != Decl::Reserved);
+    let rewritten = w.finish(Some(&stored), |t| {
+        t as usize <= T && !known(t) && s2[t as usize - 1] != Decl::Reserved
+    });
     let after = record::parse(&rewritten).expect("parses");
     for i in 0..T {
         let tag = i as u32 + 1;
         let got = record::find(&after, tag);
         match s2[i] {
-            Decl::Unknown => assert_eq!(got, s1[i].as_ref().map(core::slice::from_ref), "unknown tag {tag} not preserved"),
+            Decl::Unknown => assert_eq!(
+                got,
+                s1[i].as_ref().map(core::slice::from_ref),
+                "unknown tag {tag} not preserved"
+            ),
             Decl::Reserved => assert_eq!(got, None, "reserved tag {tag} not dropped"),
             _ => assert_eq!(got, Some(&[decoded[i].unwrap().wrapping_add(1)][..])),
         }
@@ -363,16 +375,26 @@ macro_rules! g6_evolution_small_proofs {
 }
 
 g6_evolution_small_proofs!(
-    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_unknown = false, Unknown,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_written_unknown = true, Unknown,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_default = false, Default,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_written_default = true, Default,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_default_expr = false, DefaultExpr,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_written_default_expr = true, DefaultExpr,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_required = false, Required,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_written_required = true, Required,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_reserved = false, Reserved,
-    g6_schema_evolution_defaults_required_unknown_reserved_small_written_reserved = true, Reserved
+    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_unknown = false,
+    Unknown,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_written_unknown = true,
+    Unknown,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_default = false,
+    Default,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_written_default = true,
+    Default,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_default_expr = false,
+    DefaultExpr,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_written_default_expr = true,
+    DefaultExpr,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_required = false,
+    Required,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_written_required = true,
+    Required,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_absent_reserved = false,
+    Reserved,
+    g6_schema_evolution_defaults_required_unknown_reserved_small_written_reserved = true,
+    Reserved
 );
 
 /// Random engine only (20,000 cases): any `u32` tag (field keys up to 5 bytes) and bodies up
@@ -439,14 +461,21 @@ fn kind_of(k: u8) -> u8 {
 /// The nested record `Wrote::Nested(marker, k)` writes, through a record writer.
 fn nested_bytes(marker: bool, k: u8) -> std::vec::Vec<u8> {
     let mut w = RecordWriter::new();
-    if marker { w.push_marker(3, kind_of(k)) } else { w.push(3, vec![kind_of(k)]) }
+    if marker {
+        w.push_marker(3, kind_of(k))
+    } else {
+        w.push(3, vec![kind_of(k)])
+    }
     w.finish(None, |_| true)
 }
 
 /// The removal check the derive expands to (`__unknown_collection`), over the kernel helpers:
 /// the first tag S2 neither declares nor reserves whose value is a wire-1 kind marker (or a
 /// wire-2 nested record holding one).
-fn first_unknown_collection(bytes: &[u8], s2: &[Declares; TAGS]) -> Option<(std::vec::Vec<u32>, u8)> {
+fn first_unknown_collection(
+    bytes: &[u8],
+    s2: &[Declares; TAGS],
+) -> Option<(std::vec::Vec<u32>, u8)> {
     let f = p::parse(bytes).ok()?;
     for &(t, w, b) in f.iter() {
         let declared = (t as usize) <= TAGS && s2[t as usize - 1] != Declares::Unknown;
@@ -498,11 +527,25 @@ fn g6_kind_markers_are_wire_typed_preserved_and_checked_on_removal() {
         let size = |x: &Wrote, root: bool| match x {
             Wrote::Absent => 0,
             Wrote::Scalar(_) => 3,
-            Wrote::Collection(_) => if root { 0 } else { 3 },
+            Wrote::Collection(_) => {
+                if root {
+                    0
+                } else {
+                    3
+                }
+            }
             Wrote::ScalarLikeRecord(_) | Wrote::Nested(..) => 5,
         };
-        assert_eq!(stored.len(), s1.iter().map(|x| size(x, false)).sum::<usize>(), "one-byte field keys and lengths");
-        assert_eq!(as_root.len(), s1.iter().map(|x| size(x, true)).sum::<usize>(), "a root leaves no markers");
+        assert_eq!(
+            stored.len(),
+            s1.iter().map(|x| size(x, false)).sum::<usize>(),
+            "one-byte field keys and lengths"
+        );
+        assert_eq!(
+            as_root.len(),
+            s1.iter().map(|x| size(x, true)).sum::<usize>(),
+            "a root leaves no markers"
+        );
         for (i, x) in s1.iter().enumerate() {
             let t = i as u32 + 1;
             let got = f.iter().find(|(ft, _, _)| *ft == t).map(|(_, w, b)| (*w, b.to_vec()));
@@ -524,7 +567,9 @@ fn g6_kind_markers_are_wire_typed_preserved_and_checked_on_removal() {
         // the removal check under S2: only real markers, never a scalar
         let want = (0..TAGS).find_map(|i| match (s1[i], s2[i]) {
             (Wrote::Collection(k), Declares::Unknown) => Some((vec![i as u32 + 1], kind_of(k))),
-            (Wrote::Nested(true, k), Declares::Unknown) => Some((vec![i as u32 + 1, 3], kind_of(k))),
+            (Wrote::Nested(true, k), Declares::Unknown) => {
+                Some((vec![i as u32 + 1, 3], kind_of(k)))
+            }
             _ => None,
         });
         assert_eq!(first_unknown_collection(&stored, s2), want);
@@ -547,7 +592,11 @@ fn g6_kind_markers_are_wire_typed_preserved_and_checked_on_removal() {
             let got = after.iter().find(|(x, _, _)| *x == t).copied();
             match *d {
                 Declares::Unknown => {
-                    assert_eq!(got, f.iter().find(|(x, _, _)| *x == t).copied(), "unknown tag {t} not preserved")
+                    assert_eq!(
+                        got,
+                        f.iter().find(|(x, _, _)| *x == t).copied(),
+                        "unknown tag {t} not preserved"
+                    )
                 }
                 Declares::Reserved => assert_eq!(got, None, "reserved tag {t} not dropped"),
                 Declares::Scalar => assert_eq!(got, Some((t, Wire::Scalar, &[0x07][..]))),

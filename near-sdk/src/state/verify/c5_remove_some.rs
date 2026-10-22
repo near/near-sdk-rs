@@ -44,7 +44,9 @@ pub enum Attempt {
 fn items3() -> crate::state::Map<u8, std::vec::Vec<u8>> {
     use super::fixture::{REC_ITEMS, TAG_RECS};
     use crate::state::key::{DEFAULT_ROOT, Path, kind};
-    crate::state::Map::__bound_at(Path::root(DEFAULT_ROOT).field(TAG_RECS).kind(kind::ENTRIES).entry(&3u8).field(REC_ITEMS))
+    crate::state::Map::__bound_at(
+        Path::root(DEFAULT_ROOT).field(TAG_RECS).kind(kind::ENTRIES).entry(&3u8).field(REC_ITEMS),
+    )
 }
 
 fn attempt(root: &mut MRoot, a: Attempt) {
@@ -247,7 +249,8 @@ fn c5_budget_below_three_panics_and_three_progresses() {
     loop {
         testing::begin_call();
         let mut root = load_root::<MRoot>();
-        let more = root.recs.remove_step(&3, core::num::NonZeroU32::new(3).unwrap()) == crate::state::Removal::Pending;
+        let more = root.recs.remove_step(&3, core::num::NonZeroU32::new(3).unwrap())
+            == crate::state::Removal::Pending;
         flush_root(&root);
         drop(root);
         per_call.push(testing::receipt().removes());

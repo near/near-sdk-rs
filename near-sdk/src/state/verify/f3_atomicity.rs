@@ -88,9 +88,11 @@ fn f3_a_failed_call_leaves_no_trace() {
         let st = Rc::new(RefCell::new(St::default()));
         cache::install_host(Box::new(FailHost(st.clone())));
         let mut m = Model::default();
-        let calls: Vec<&[Op]> = ops.split(|o| matches!(o, Op::EndCall | Op::View(_) | Op::RecRetyped(..))).collect();
+        let calls: Vec<&[Op]> =
+            ops.split(|o| matches!(o, Op::EndCall | Op::View(_) | Op::RecRetyped(..))).collect();
         for (ci, call) in calls.iter().enumerate() {
-            let fail = fails.iter().find(|(c, _)| *c as usize % calls.len().max(1) == ci).map(|(_, f)| *f);
+            let fail =
+                fails.iter().find(|(c, _)| *c as usize % calls.len().max(1) == ci).map(|(_, f)| *f);
             let snapshot = st.borrow().store.clone();
             {
                 let mut s = st.borrow_mut();
@@ -124,7 +126,11 @@ fn f3_a_failed_call_leaves_no_trace() {
                     let _ = m.end_call();
                 }
                 Err(e) => {
-                    let msg = e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default();
+                    let msg = e
+                        .downcast_ref::<String>()
+                        .cloned()
+                        .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+                        .unwrap_or_default();
                     assert!(msg.contains("injected"), "unexpected panic: {msg}");
                     let c = if msg.contains("host") { &FLUSH_FAILS } else { &BODY_FAILS };
                     c.fetch_add(1, Ordering::Relaxed);
@@ -133,7 +139,11 @@ fn f3_a_failed_call_leaves_no_trace() {
                 }
             }
             st.borrow_mut().fail_at = None;
-            assert_eq!(st.borrow().store, m.cache.host, "storage differs from the model after call {ci} ({fail:?})");
+            assert_eq!(
+                st.borrow().store,
+                m.cache.host,
+                "storage differs from the model after call {ci} ({fail:?})"
+            );
         }
     });
     let (f, b) = (FLUSH_FAILS.load(Ordering::Relaxed), BODY_FAILS.load(Ordering::Relaxed));

@@ -38,15 +38,28 @@ pub enum RecordError {
     VarintOverflow,
     TagZero,
     /// Tags must be strictly ascending.
-    TagOrder { prev: u32, tag: u32 },
+    TagOrder {
+        prev: u32,
+        tag: u32,
+    },
     /// Wire type 3 is reserved.
-    ReservedWire { tag: u32 },
+    ReservedWire {
+        tag: u32,
+    },
     /// A kind marker (wire 1) must be exactly one byte.
-    MarkerLength { tag: u32, len: u32 },
+    MarkerLength {
+        tag: u32,
+        len: u32,
+    },
     /// Borsh decode of a scalar field failed.
-    Field { tag: u32, msg: String },
+    Field {
+        tag: u32,
+        msg: String,
+    },
     /// A required field (no `Default`) is missing.
-    Missing { tag: u32 },
+    Missing {
+        tag: u32,
+    },
     /// Trailing bytes after a leaf value.
     Leaf(String),
 }
@@ -326,7 +339,9 @@ pub fn with_marker(bytes: &[u8], trail: &[u32], kind: u8) -> Result<Option<Vec<u
             None => return Ok(None),
             Some(b) => (Wire::Record, b),
         },
-        (_, false) => (Wire::Record, with_marker(&[], rest, kind)?.expect("an empty record has no marker")),
+        (_, false) => {
+            (Wire::Record, with_marker(&[], rest, kind)?.expect("an empty record has no marker"))
+        }
     };
     // `parse` checked the tags ascend, so the field goes in by splicing (no re-sort).
     let mut out = Vec::with_capacity(bytes.len() + body.1.len() + 6);
@@ -395,10 +410,19 @@ mod tests {
     #[test]
     fn tag_zero_and_order_rejected() {
         assert_eq!(parse(&[0x00, 0x01, 0x05]), Err(RecordError::TagZero));
-        assert_eq!(parse(&[0x08, 0x00, 0x04, 0x00]), Err(RecordError::TagOrder { prev: 2, tag: 1 }));
-        assert_eq!(parse(&[0x04, 0x00, 0x04, 0x00]), Err(RecordError::TagOrder { prev: 1, tag: 1 }));
+        assert_eq!(
+            parse(&[0x08, 0x00, 0x04, 0x00]),
+            Err(RecordError::TagOrder { prev: 2, tag: 1 })
+        );
+        assert_eq!(
+            parse(&[0x04, 0x00, 0x04, 0x00]),
+            Err(RecordError::TagOrder { prev: 1, tag: 1 })
+        );
         // the same tag under two wire types is still a repeat
-        assert_eq!(parse(&[0x04, 0x00, 0x05, 0x01, 0x81]), Err(RecordError::TagOrder { prev: 1, tag: 1 }));
+        assert_eq!(
+            parse(&[0x04, 0x00, 0x05, 0x01, 0x81]),
+            Err(RecordError::TagOrder { prev: 1, tag: 1 })
+        );
         assert_eq!(parse(&[0x04, 0x05, 0x00]), Err(RecordError::Truncated));
     }
 
@@ -406,10 +430,17 @@ mod tests {
     fn wire_types_reserved_and_marker_length() {
         assert_eq!(parse(&[0x07, 0x00]), Err(RecordError::ReservedWire { tag: 1 }));
         assert_eq!(parse(&[0x05, 0x00]), Err(RecordError::MarkerLength { tag: 1, len: 0 }));
-        assert_eq!(parse(&[0x05, 0x02, 0x81, 0x81]), Err(RecordError::MarkerLength { tag: 1, len: 2 }));
+        assert_eq!(
+            parse(&[0x05, 0x02, 0x81, 0x81]),
+            Err(RecordError::MarkerLength { tag: 1, len: 2 })
+        );
         assert_eq!(
             parse(&[0x04, 0x01, 0x81, 0x09, 0x01, 0x81, 0x0E, 0x00]).unwrap(),
-            vec![(1, Wire::Scalar, &[0x81u8][..]), (2, Wire::Marker, &[0x81][..]), (3, Wire::Record, &[][..])]
+            vec![
+                (1, Wire::Scalar, &[0x81u8][..]),
+                (2, Wire::Marker, &[0x81][..]),
+                (3, Wire::Record, &[][..])
+            ]
         );
         // the largest tag: key (2^32 - 1) << 2 | 2 is a 5-byte varint
         let mut w = RecordWriter::new();
@@ -452,7 +483,10 @@ mod tests {
 
     #[test]
     fn unknown_values_classified() {
-        assert_eq!(unknown_value_collection(Wire::Marker, &[marker::MAP]), Some((vec![], marker::MAP)));
+        assert_eq!(
+            unknown_value_collection(Wire::Marker, &[marker::MAP]),
+            Some((vec![], marker::MAP))
+        );
         // a kind a later version defines is still a marker
         assert_eq!(unknown_value_collection(Wire::Marker, &[0x99]), Some((vec![], 0x99)));
         assert_eq!(unknown_value_collection(Wire::Scalar, &[0x01]), None, "a bool is not a marker");
@@ -465,7 +499,10 @@ mod tests {
         // ... two levels down
         let mut outer = vec![0x0A, nested.len() as u8];
         outer.extend_from_slice(&nested);
-        assert_eq!(unknown_value_collection(Wire::Record, &outer), Some((vec![2, 3], marker::LAZY)));
+        assert_eq!(
+            unknown_value_collection(Wire::Record, &outer),
+            Some((vec![2, 3], marker::LAZY))
+        );
         // a nested record of scalars only
         assert_eq!(unknown_value_collection(Wire::Record, &[0x04, 0x01, 0x05]), None);
         // a nested record that does not parse
@@ -487,14 +524,21 @@ mod tests {
         }
         // a 3-byte scalar spelling a marker field, `09 01 81`
         let looks_like_record = [0x09u8, 0x01, marker::MAP];
-        assert_eq!(parse(&looks_like_record).unwrap()[0].1, Wire::Marker, "as a record it would hold a marker");
+        assert_eq!(
+            parse(&looks_like_record).unwrap()[0].1,
+            Wire::Marker,
+            "as a record it would hold a marker"
+        );
         let mut w = RecordWriter::new();
         w.push(7, looks_like_record.to_vec());
         let b = w.finish(None, |_| true);
         let f = parse(&b).unwrap();
         assert_eq!(unknown_value_collection(f[0].1, f[0].2), None);
         // the same bytes as a nested record do hold a marker
-        assert_eq!(unknown_value_collection(Wire::Record, &looks_like_record), Some((vec![2], marker::MAP)));
+        assert_eq!(
+            unknown_value_collection(Wire::Record, &looks_like_record),
+            Some((vec![2], marker::MAP))
+        );
     }
 
     /// Round 7 (A3 first-write rule): the marker lands at its tag in order, nested records on
@@ -509,12 +553,19 @@ mod tests {
         let new = with_marker(&old, &[8], marker::SET).unwrap().unwrap();
         assert_eq!(
             parse(&new).unwrap(),
-            vec![(1, Wire::Scalar, &[7u8; 8][..]), (8, Wire::Marker, &[marker::SET][..]), (9, Wire::Scalar, &[1][..])]
+            vec![
+                (1, Wire::Scalar, &[7u8; 8][..]),
+                (8, Wire::Marker, &[marker::SET][..]),
+                (9, Wire::Scalar, &[1][..])
+            ]
         );
         assert_eq!(new.len(), old.len() + 3);
         assert_eq!(with_marker(&new, &[8], marker::SET).unwrap(), None, "already there");
         // an empty record
-        assert_eq!(with_marker(&[], &[2], marker::MAP).unwrap().unwrap(), vec![0x09, 0x01, marker::MAP]);
+        assert_eq!(
+            with_marker(&[], &[2], marker::MAP).unwrap().unwrap(),
+            vec![0x09, 0x01, marker::MAP]
+        );
         // a nested record that is absent is created holding just the marker
         let n = with_marker(&old, &[2, 3], marker::VECTOR).unwrap().unwrap();
         assert_eq!(find(&parse(&n).unwrap(), 2).unwrap(), &[0x0D, 0x01, marker::VECTOR]);
@@ -526,7 +577,10 @@ mod tests {
         w.push_record(2, inner.finish(None, |_| true));
         let outer = w.finish(None, |_| true);
         let n = with_marker(&outer, &[2, 3], marker::LAZY).unwrap().unwrap();
-        assert_eq!(find(&parse(&n).unwrap(), 2).unwrap(), &[0x04, 0x01, 0x05, 0x0D, 0x01, marker::LAZY]);
+        assert_eq!(
+            find(&parse(&n).unwrap(), 2).unwrap(),
+            &[0x04, 0x01, 0x05, 0x0D, 0x01, marker::LAZY]
+        );
         assert_eq!(with_marker(&n, &[2, 3], marker::LAZY).unwrap(), None);
         // three levels
         let n = with_marker(&[], &[1, 2, 3], marker::MAP).unwrap().unwrap();
@@ -543,8 +597,14 @@ mod tests {
         // a marker of another kind at the tag counts as present (the kind byte is informative)
         assert_eq!(with_marker(&[0x09, 0x01, marker::MAP], &[2], marker::SET).unwrap(), None);
         // bytes that do not parse are an error
-        assert_eq!(with_marker(&[0x07, 0x00], &[2], marker::MAP), Err(RecordError::ReservedWire { tag: 1 }));
-        assert_eq!(with_marker(&[0x0A, 0x02, 0x07, 0x00], &[2, 1], marker::MAP), Err(RecordError::ReservedWire { tag: 1 }));
+        assert_eq!(
+            with_marker(&[0x07, 0x00], &[2], marker::MAP),
+            Err(RecordError::ReservedWire { tag: 1 })
+        );
+        assert_eq!(
+            with_marker(&[0x0A, 0x02, 0x07, 0x00], &[2, 1], marker::MAP),
+            Err(RecordError::ReservedWire { tag: 1 })
+        );
     }
 
     #[test]

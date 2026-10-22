@@ -98,8 +98,7 @@ fn v1_name(ty: &syn::Type) -> Option<String> {
     if V1_ONLY_NAMES.contains(&last.as_str()) {
         return Some(last);
     }
-    let v1_module =
-        tp.path.segments.iter().any(|s| s.ident == "store" || s.ident == "collections");
+    let v1_module = tp.path.segments.iter().any(|s| s.ident == "store" || s.ident == "collections");
     (v1_module && SHARED_NAMES.contains(&last.as_str())).then_some(last)
 }
 
@@ -155,7 +154,9 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
     )?;
     let mut it = args.iter();
     let tag = match it.next() {
-        Some(syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(i), .. })) => i.base10_parse::<u32>()?,
+        Some(syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(i), .. })) => {
+            i.base10_parse::<u32>()?
+        }
         other => {
             return Err(syn::Error::new(
                 other.map_or(attr.span(), |e| e.span()),
@@ -171,14 +172,11 @@ fn parse_key_attr(attr: &syn::Attribute) -> syn::Result<KeyAttr> {
         match e {
             syn::Expr::Path(p) if p.path.is_ident("required") => required = true,
             syn::Expr::Path(p) if p.path.is_ident("legacy") => legacy = true,
-            syn::Expr::Assign(a)
-                if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default")) =>
+            syn::Expr::Assign(a) if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default")) =>
             {
                 default = Some((*a.right).clone());
             }
-            syn::Expr::Assign(a)
-                if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default_fn")) =>
-            {
+            syn::Expr::Assign(a) if matches!(&*a.left, syn::Expr::Path(p) if p.path.is_ident("default_fn")) => {
                 match &*a.right {
                     syn::Expr::Path(p) if p.qself.is_none() => default_fn = Some(p.path.clone()),
                     other => {
@@ -443,7 +441,8 @@ pub fn expand(
         quote! { #p::max(#m, #p::field_subpath::<#ty>(#tag)) }
     });
     // A root never leaves kind markers (it is never removed); a record does.
-    let writer = if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
+    let writer =
+        if is_root { quote!(#p::RecordWriter::root()) } else { quote!(#p::RecordWriter::new()) };
     let encode_body = quote! {
         let #l_of = #p::parse_orig(#l_orig);
         let mut #l_w = #writer;

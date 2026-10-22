@@ -30,10 +30,8 @@ pub struct Account {
 }
 
 impl Value for Account {
-    const MAX_SUBPATH: usize = p::max(
-        p::field_subpath::<u64>(1),
-        p::field_subpath::<Map<String, u128>>(2),
-    );
+    const MAX_SUBPATH: usize =
+        p::max(p::field_subpath::<u64>(1), p::field_subpath::<Map<String, u128>>(2));
     const __RECORD: bool = true;
     fn __unknown_collection(bytes: &[u8]) -> Option<(StdVec<u32>, u8)> {
         let f = p::parse(bytes).ok()?;
@@ -103,7 +101,8 @@ impl Record for Account {
         AccountAtMut {
             nonce: <u64 as ViewFieldMut<'a, Account>>::__view_field_mut(path.field(1), anchor),
             balances: <Map<String, u128> as ViewFieldMut<'a, Account>>::__view_field_mut(
-                path.field(2), anchor,
+                path.field(2),
+                anchor,
             ),
             _m: PhantomData,
         }
@@ -140,10 +139,8 @@ pub struct Ex {
     pub accounts: LookupMap<AccountId, Account>,
 }
 impl Root for Ex {
-    const MAX_SUBPATH: usize = p::max(
-        p::field_subpath::<u16>(2),
-        p::field_subpath::<LookupMap<AccountId, Account>>(3),
-    );
+    const MAX_SUBPATH: usize =
+        p::max(p::field_subpath::<u16>(2), p::field_subpath::<LookupMap<AccountId, Account>>(3));
     fn __encode_root(&self, orig: Option<&[u8]>) -> StdVec<u8> {
         let of = p::parse_orig(orig);
         let mut w = p::RecordWriter::root();
@@ -261,7 +258,11 @@ fn itermap_insert_and_update_costs() {
 
     *m.entry(4).or_default() = vec![4];
     let r = end_call();
-    assert_eq!(r.rwd(), (2, 4, 0), "entry().or_default() on a new key: entry read, header read, 4 writes");
+    assert_eq!(
+        r.rwd(),
+        (2, 4, 0),
+        "entry().or_default() on a new key: entry read, header read, 4 writes"
+    );
 }
 
 #[test]
@@ -277,7 +278,10 @@ fn itermap_remove_cost_is_independent_of_neighbor_value() {
             "entry read, index read, header read, last-slot read; moved slot write, moved index \
              write, header write; entry, index, last-slot removes"
         );
-        assert!(r.max_value_bytes() <= 12, "no host call moves the neighbor's value (12: the header)");
+        assert!(
+            r.max_value_bytes() <= 12,
+            "no host call moves the neighbor's value (12: the header)"
+        );
         results.push((r.rwd(), r.read_bytes(), r.written_and_replaced_bytes()));
         // the moved key is still reachable and the vector is dense
         assert_eq!(m.len(), 1);
@@ -391,8 +395,7 @@ fn page_skips_moved_key_after_interleaved_removal() {
     m.discard(&0); // key 5 moves to slot 0
     end_call();
     let p2 = m.page(p1.next.as_ref(), 3).unwrap();
-    let seen: StdVec<u32> =
-        p1.items.iter().chain(p2.items.iter()).map(|(k, _)| *k).collect();
+    let seen: StdVec<u32> = p1.items.iter().chain(p2.items.iter()).map(|(k, _)| *k).collect();
     assert_eq!(seen, vec![0, 1, 2, 3, 4], "key 5 is never returned");
 }
 
@@ -458,7 +461,11 @@ fn vec_costs() {
     let removed = v.swap_remove(0);
     assert_eq!(removed, vec![1]);
     let r = end_call();
-    assert_eq!(r.rwd(), (3, 2, 1), "swap_remove: header, slot i, last slot reads; write i, header; remove last");
+    assert_eq!(
+        r.rwd(),
+        (3, 2, 1),
+        "swap_remove: header, slot i, last slot reads; write i, header; remove last"
+    );
     assert_eq!(
         r.max_value_bytes(),
         KIB100 + 4,
@@ -633,7 +640,11 @@ fn one_call_through_the_cache() {
     assert_eq!(r.writes(), 5);
     // removes: dai entry, dai index, last slot
     assert_eq!(r.removes(), 3);
-    assert_eq!(r.sha256, 1 + 2 + 2 + 1, "alice; usdt twice (paths are recomputed per entry() call); dai entry + index; eth index");
+    assert_eq!(
+        r.sha256,
+        1 + 2 + 2 + 1,
+        "alice; usdt twice (paths are recomputed per entry() call); dai entry + index; eth index"
+    );
 }
 
 // ---------------------------------------------------------------------------------------
@@ -701,7 +712,11 @@ fn blind_insert_drops_unknown_tags_get_mut_keeps_them() {
     };
     let key = Path::root(DEFAULT_ROOT).field(7).kind(kind::ENTRIES).entry(&1u32);
     let tags = || {
-        record::parse(&store()[key.as_bytes()]).unwrap().into_iter().map(|(t, _, _)| t).collect::<StdVec<_>>()
+        record::parse(&store()[key.as_bytes()])
+            .unwrap()
+            .into_iter()
+            .map(|(t, _, _)| t)
+            .collect::<StdVec<_>>()
     };
 
     for read_first in [false, true] {
@@ -830,7 +845,11 @@ fn scalar_to_collection_swap_is_silent() {
     assert_eq!(a.balances.len(), 0);
     a.nonce = 1;
     flush_root(&ex);
-    let f = record::parse(&store()[&alice_record_key()]).unwrap().into_iter().map(|(t, _, _)| t).collect::<StdVec<_>>();
+    let f = record::parse(&store()[&alice_record_key()])
+        .unwrap()
+        .into_iter()
+        .map(|(t, _, _)| t)
+        .collect::<StdVec<_>>();
     assert_eq!(f, vec![1, 2], "the old scalar bytes are carried forward as unknown");
 }
 
@@ -861,7 +880,11 @@ fn deposit_costs_and_parent_write_rule() {
     let r = receipt();
     // root read, account read, account flag-key read (D9: a miss consults it), usdt entry read,
     // header read; account record write, 4 writes
-    assert_eq!(r.rwd(), (5, 6, 0), "the 6th write is the root itself: absent before the first call, so it is created");
+    assert_eq!(
+        r.rwd(),
+        (5, 6, 0),
+        "the 6th write is the root itself: absent before the first call, so it is created"
+    );
 
     testing::begin_call();
     let mut ex: Ex = load_root();
@@ -1167,7 +1190,12 @@ fn grouped_map_groups_are_independent_itermaps() {
     let r = end_call();
     assert_eq!(r.rwd(), (3, 1, 3), "last entry of a group: the header stays with len 0 (T4)");
     // group(&1) keys are under 04 00 h16(1) borsh(1) 00 ...
-    let k = Path::root(DEFAULT_ROOT).field(4).kind(kind::ENTRIES).entry(&1u32).kind(kind::ENTRIES).entry(&10u64);
+    let k = Path::root(DEFAULT_ROOT)
+        .field(4)
+        .kind(kind::ENTRIES)
+        .entry(&1u32)
+        .kind(kind::ENTRIES)
+        .entry(&10u64);
     assert!(store().contains_key(k.as_bytes()));
 }
 
@@ -1284,12 +1312,20 @@ fn at_mut_writes_below_the_record_without_decoding_it() {
     let r = end_call();
     assert_eq!(r.has_keys(), 1, "the record's existence; D9's flag key is not checked on a hit");
     assert_eq!(r.rwd(), (3, 4, 0), "the record, balances index + header reads, 4 writes");
-    assert_eq!(r.ops.iter().filter(|o| o.key == rec.as_bytes()).count(), 2, "has_key + 1 read of the record, no write");
+    assert_eq!(
+        r.ops.iter().filter(|o| o.key == rec.as_bytes()).count(),
+        2,
+        "has_key + 1 read of the record, no write"
+    );
     // Every later write below it: the record is neither read nor rewritten.
     let _ = m.at_mut(&1).unwrap().balances.insert("usdc".into(), 6);
     let r = end_call();
     assert_eq!(r.has_keys(), 1);
-    assert_eq!(r.rwd(), (2, 4, 0), "balances index + header reads, 4 writes; the record is neither read nor rewritten");
+    assert_eq!(
+        r.rwd(),
+        (2, 4, 0),
+        "balances index + header reads, 4 writes; the record is neither read nor rewritten"
+    );
     assert_eq!(m.get(&1).unwrap().balances.get(&"usdt".to_string()), Some(&5));
     assert_eq!(m.get(&1).unwrap().nonce, 7);
 }
@@ -1309,7 +1345,8 @@ fn remove_step_budgets_across_calls() {
     }
     m.entry(2).or_default().nonce = 1;
     end_call();
-    let rec = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
+    let rec =
+        Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).as_bytes().to_vec();
     let flag = Path::root(DEFAULT_ROOT).field(15).kind(kind::ENTRIES).entry(&1u32).flag();
     let before = store()[&rec].clone();
     assert_eq!(m.remove_step(&1, nz(7)), Removal::Pending);
@@ -1354,8 +1391,9 @@ fn remove_step_below_the_minimum_panics() {
     let _ = lm.entry(1).or_default().balances.insert("a".into(), 1);
     end_call();
     for n in [1, 2] {
-        let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lm.remove_step(&1, nz(n))))
-            .expect_err("budget below the minimum");
+        let e =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lm.remove_step(&1, nz(n))))
+                .expect_err("budget below the minimum");
         assert!(e.downcast_ref::<String>().is_some_and(|m| m.contains("must be at least 3")));
         testing::begin_call();
     }
@@ -1520,7 +1558,10 @@ fn page_revision_changes_only_across_a_removal() {
     assert!(store().keys().any(|k| k.starts_with(below.as_bytes())), "the emptied balances header");
     owners.remove(&1);
     end_call();
-    assert!(!store().keys().any(|k| k.starts_with(below.as_bytes())), "nothing left below the record");
+    assert!(
+        !store().keys().any(|k| k.starts_with(below.as_bytes())),
+        "nothing left below the record"
+    );
 }
 
 /// Review F1: a record left mid-clear by an earlier receipt lives at its flag key. In a fresh
@@ -1645,7 +1686,10 @@ fn replaced_then_flagged_record_relocates_the_new_value() {
     let flag = Path::root(DEFAULT_ROOT).field(44).kind(kind::ENTRIES).entry(&1u32).flag();
     let stored = store()[flag.as_bytes()].clone();
     let fields = record::parse(&stored).unwrap();
-    assert_eq!(fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()), Some(borsh::to_vec(&9u64).unwrap()));
+    assert_eq!(
+        fields.iter().find(|(t, _, _)| *t == 1).map(|(_, _, b)| b.to_vec()),
+        Some(borsh::to_vec(&9u64).unwrap())
+    );
 }
 
 /// T4: clearing an empty map that never had a header costs no header op: the header read
@@ -1819,7 +1863,10 @@ fn audit_a2_ref_from_taken_handle_survives_discard_through_recreated_handle() {
 }
 
 fn audit_panic_message(e: Box<dyn core::any::Any + Send>) -> String {
-    e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|m| m.to_string())).unwrap_or_default()
+    e.downcast_ref::<String>()
+        .cloned()
+        .or_else(|| e.downcast_ref::<&str>().map(|m| m.to_string()))
+        .unwrap_or_default()
 }
 
 /// A2 hole 2, fixed in API round 4: `remove` clears alice's children and deletes the record;
@@ -1832,7 +1879,11 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
     let mut ex = audit_a2_setup(false);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
     let removed = ex.accounts.remove(&alice()).unwrap();
-    assert_eq!(format!("{:?}", removed.balances), "Map(Detached)", "the left-behind handle is the one detached");
+    assert_eq!(
+        format!("{:?}", removed.balances),
+        "Map(Detached)",
+        "the left-behind handle is the one detached"
+    );
     assert!(taken.path().is_some(), "the escaped handle is still bound");
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = taken.insert("z".into(), 9);
@@ -1875,7 +1926,11 @@ fn audit_a2_taken_handle_writes_after_parent_remove_orphan_and_resurrect() {
 fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
     let mut ex = audit_a2_setup(true);
     let mut taken = core::mem::take(&mut ex.accounts.get_mut(&alice()).unwrap().balances);
-    assert_eq!(ex.accounts.remove_step(&alice(), nz(3)), Removal::Pending, "flagged, nothing cleared");
+    assert_eq!(
+        ex.accounts.remove_step(&alice(), nz(3)),
+        Removal::Pending,
+        "flagged, nothing cleared"
+    );
     let e = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = taken.insert("late".into(), 5);
     }))
@@ -1885,8 +1940,15 @@ fn audit_a2_taken_handle_bypasses_remove_some_clearing_guard() {
     flush_root(&ex);
     let rec = alice_record_key();
     let flag = super::key::flag_key_bytes(&rec);
-    assert!(!store().contains_key(&rec) && store().contains_key(&flag), "D9: moved to its flag key");
-    assert_eq!(audit_keys_below(&rec), 2 * 3 + 1 + 1, "a and b, the header, the flag key; no `late`");
+    assert!(
+        !store().contains_key(&rec) && store().contains_key(&flag),
+        "D9: moved to its flag key"
+    );
+    assert_eq!(
+        audit_keys_below(&rec),
+        2 * 3 + 1 + 1,
+        "a and b, the header, the flag key; no `late`"
+    );
 
     let mut calls = 0;
     loop {
@@ -2039,7 +2101,11 @@ fn review_decoder_reenters_the_cache_for_its_own_key() {
     REENTRANT_SAW.with(|c| c.set(None));
     assert_eq!(m.get(&5).map(|v| (v.0, v.1)), Some((5, 9)));
     assert_eq!(REENTRANT_SAW.with(core::cell::Cell::get), Some(true), "the decoder saw its key");
-    assert_eq!(m.get(&5).map(|v| (v.0, v.1)), Some((5, 9)), "decoded once, then served from the cache");
+    assert_eq!(
+        m.get(&5).map(|v| (v.0, v.1)),
+        Some((5, 9)),
+        "decoded once, then served from the cache"
+    );
     let r = end_call();
     assert_eq!((r.reads(), r.has_keys(), r.writes(), r.removes()), (1, 0, 0, 0));
 }

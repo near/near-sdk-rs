@@ -20,7 +20,8 @@ use crate::state::testing::{self, Receipt};
 fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
     let order = st.flat();
     let val = |k: u8| st.flat.iter().find(|(x, _)| *x == k).map(|(_, v)| 4 + v.len());
-    let header = crate::state::model::header_stored(order.len() as u32, st.flat_rev).map_or(0, |h| h.len());
+    let header =
+        crate::state::model::header_stored(order.len() as u32, st.flat_rev).map_or(0, |h| h.len());
     let header_after_insert = if st.flat_rev == 0 { 4 } else { 12 };
     Some(match op {
         CostOp::MapGet(K(k)) => (val(k).unwrap_or(0), 0),
@@ -38,9 +39,13 @@ fn flat_bytes(op: CostOp, st: &MState) -> Option<(usize, usize)> {
             let old = val(k).unwrap();
             match at_of(&order, k) {
                 // entry?, index, header, last slot | moved slot, moved index, header | removes
-                super::cost::At::Inner => (e + 4 + header + 1, (1 + 1) + (4 + 4) + (12 + header) + old + 4 + 1),
+                super::cost::At::Inner => {
+                    (e + 4 + header + 1, (1 + 1) + (4 + 4) + (12 + header) + old + 4 + 1)
+                }
                 // T4: the last key and the only key are the same shape now (header written)
-                super::cost::At::Last | super::cost::At::Only => (e + 4 + header, (12 + header) + old + 4 + 1),
+                super::cost::At::Last | super::cost::At::Only => {
+                    (e + 4 + header, (12 + header) + old + 4 + 1)
+                }
                 super::cost::At::Absent => unreachable!(),
             }
         }
@@ -55,7 +60,11 @@ fn check(history: &[crate::state::model::Op], op: CostOp) {
     let r: Receipt = run_op(op);
     assert_eq!(Cost::of(&r), want, "{op:?} after a history; state {st:?}\n{:#?}", r.ops);
     if let Some((rb, wb)) = flat_bytes(op, &st) {
-        assert_eq!((r.read_bytes(), r.written_and_replaced_bytes()), (rb, wb), "{op:?} bytes; state {st:?}");
+        assert_eq!(
+            (r.read_bytes(), r.written_and_replaced_bytes()),
+            (rb, wb),
+            "{op:?} bytes; state {st:?}"
+        );
     }
 }
 
@@ -71,7 +80,12 @@ fn g3_no_debt_counts_depend_only_on_the_ops_own_key() {
 /// operation still costs its formula. Also checked against the model at every step.
 #[test]
 fn g3_no_debt_after_10000_random_operations() {
-    let g = (bolero::produce::<std::vec::Vec<crate::state::model::Op>>().with().len(10_000usize..=10_000), bolero::produce::<[CostOp; 8]>());
+    let g = (
+        bolero::produce::<std::vec::Vec<crate::state::model::Op>>()
+            .with()
+            .len(10_000usize..=10_000),
+        bolero::produce::<[CostOp; 8]>(),
+    );
     bolero::check!().with_generator(g).with_iterations(3).for_each(|(h, ops)| {
         assert_eq!(h.len(), 10_000);
         for op in ops {

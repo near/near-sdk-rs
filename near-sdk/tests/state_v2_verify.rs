@@ -108,11 +108,20 @@ fn no_writes() {
 }
 
 fn tags() -> Vec<u32> {
-    record::parse(&testing::store()[key().as_bytes()]).unwrap().into_iter().map(|(t, _, _)| t).collect()
+    record::parse(&testing::store()[key().as_bytes()])
+        .unwrap()
+        .into_iter()
+        .map(|(t, _, _)| t)
+        .collect()
 }
 
 fn vals() -> impl bolero::ValueGenerator<Output = Vals> {
-    (bolero::produce::<u64>(), bolero::produce::<Vec<u8>>().with().len(0usize..=40), bolero::produce::<u32>(), bolero::produce::<u16>())
+    (
+        bolero::produce::<u64>(),
+        bolero::produce::<Vec<u8>>().with().len(0usize..=40),
+        bolero::produce::<u32>(),
+        bolero::produce::<u16>(),
+    )
 }
 
 /// S1 to S2 with added fields: old values decode, the `Default` field is 0, the `default = 77`
@@ -180,8 +189,15 @@ fn d2_derive_required_added_later_fails_naming_the_tag() {
         let m: LookupMap<u32, AddedRequired> = LookupMap::__bound_at(root());
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| m.get(&1).map(|x| x.e)));
         let msg = r.expect_err("decoded a record missing a required tag");
-        let msg = msg.downcast_ref::<String>().cloned().or_else(|| msg.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default();
-        assert!(msg.contains("Missing { tag: 4 }") && msg.contains("tag 4"), "error does not name the tag: {msg}");
+        let msg = msg
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| msg.downcast_ref::<&str>().map(|s| s.to_string()))
+            .unwrap_or_default();
+        assert!(
+            msg.contains("Missing { tag: 4 }") && msg.contains("tag 4"),
+            "error does not name the tag: {msg}"
+        );
     });
 }
 
@@ -232,14 +248,23 @@ mod m4 {
     }
 
     fn msg(e: Box<dyn std::any::Any + Send>) -> String {
-        e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default()
+        e.downcast_ref::<String>()
+            .cloned()
+            .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+            .unwrap_or_default()
     }
 
     /// An empty v1 prefix or one starting with the root byte is rejected when the `Migrating`
     /// field is written; a safe prefix (`b"s"`) is accepted and round-trips.
     #[test]
     fn c7_migrating_rejects_aliasing_v1_prefixes_on_write() {
-        for (prefix, ok) in [(vec![], false), (vec![0xF0], false), (vec![0xF0, 1], false), (b"s".to_vec(), true), (vec![0xF1], true)] {
+        for (prefix, ok) in [
+            (vec![], false),
+            (vec![0xF0], false),
+            (vec![0xF0, 1], false),
+            (b"s".to_vec(), true),
+            (vec![0xF1], true),
+        ] {
             fresh();
             let r = std::panic::catch_unwind(|| {
                 let c = C { m: Migrating::new(V1LookupMap::new(prefix.clone())), n: 1 };
@@ -296,13 +321,24 @@ mod m4 {
         fresh();
         let mut l = L { bare: V1LookupMap::new(vec![]), n: 7 };
         l.state_write();
-        assert_eq!(L::state_read().map(|l| l.n), Some(7), "the legacy field with an empty prefix loads unchecked");
+        assert_eq!(
+            L::state_read().map(|l| l.n),
+            Some(7),
+            "the legacy field with an empty prefix loads unchecked"
+        );
         l.bare.set([0xF0], Some(0)); // `set` writes without reading the old value
         l.bare.flush();
         drop(l);
-        assert_eq!(env::storage_read(&[0xF0]).unwrap(), vec![0], "HAZARD: the v2 root was overwritten by a v1 entry");
+        assert_eq!(
+            env::storage_read(&[0xF0]).unwrap(),
+            vec![0],
+            "HAZARD: the v2 root was overwritten by a v1 entry"
+        );
         testing::begin_call();
-        assert!(std::panic::catch_unwind(|| L::state_read().map(|l| l.n)).is_err(), "the contract no longer loads");
+        assert!(
+            std::panic::catch_unwind(|| L::state_read().map(|l| l.n)).is_err(),
+            "the contract no longer loads"
+        );
     }
 
     mod composite {
@@ -338,7 +374,11 @@ mod m4 {
         /// with an ASCII letter, not the root byte.
         #[test]
         fn c7_guard_covers_tree_unordered_and_iterable_maps() {
-            for (i, (pa, pb, pc)) in [(&[0xF0][..], &b"b"[..], &b"c"[..]), (b"a", &[0xF0], b"c"), (b"a", b"b", &[0xF0])].into_iter().enumerate() {
+            for (i, (pa, pb, pc)) in
+                [(&[0xF0][..], &b"b"[..], &b"c"[..]), (b"a", &[0xF0], b"c"), (b"a", b"b", &[0xF0])]
+                    .into_iter()
+                    .enumerate()
+            {
                 fresh();
                 let r = std::panic::catch_unwind(|| build(pa, pb, pc).state_write());
                 assert!(msg(r.expect_err("accepted")).contains("can alias v2 keys"), "case {i}");
@@ -356,7 +396,11 @@ mod m4 {
                     t.d = Migrating::new(near_sdk::collections::LookupMap::new(bad.clone()));
                     t.state_write()
                 });
-                assert!(msg(r.expect_err("collections::LookupMap prefix accepted")).contains("can alias v2 keys"), "{bad:02x?}");
+                assert!(
+                    msg(r.expect_err("collections::LookupMap prefix accepted"))
+                        .contains("can alias v2 keys"),
+                    "{bad:02x?}"
+                );
             }
         }
     }
@@ -465,7 +509,10 @@ mod a3 {
     }
 
     fn msg(e: Box<dyn std::any::Any + Send>) -> String {
-        e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default()
+        e.downcast_ref::<String>()
+            .cloned()
+            .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+            .unwrap_or_default()
     }
 
     fn quiet<R>(f: impl FnOnce() -> R) -> std::thread::Result<R> {
@@ -521,11 +568,16 @@ mod a3 {
         let stored = testing::store()[&rec_key].clone();
         assert_eq!(
             record::parse(&stored).unwrap(),
-            vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..]), (2, record::Wire::Marker, &[record::marker::MAP][..])],
+            vec![
+                (1, record::Wire::Scalar, &1u64.to_le_bytes()[..]),
+                (2, record::Wire::Marker, &[record::marker::MAP][..])
+            ],
             "B's record carries the kids marker"
         );
         let nz = std::num::NonZeroU32::new(3).unwrap();
-        assert_refused("remove", "2", || { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1); });
+        assert_refused("remove", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1);
+        });
         assert_refused("discard", "2", || {
             let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
         });
@@ -539,8 +591,12 @@ mod a3 {
         testing::begin_call();
         testing::seed(&lkey, &stored);
         testing::flush();
-        assert_refused("LookupMap::remove", "2", || { let _ = LookupMap::<u32, RecA>::__bound_at(lroot.clone()).remove(&1); });
-        assert_refused("LookupMap::discard", "2", || LookupMap::<u32, RecA>::__bound_at(lroot.clone()).discard(&1));
+        assert_refused("LookupMap::remove", "2", || {
+            let _ = LookupMap::<u32, RecA>::__bound_at(lroot.clone()).remove(&1);
+        });
+        assert_refused("LookupMap::discard", "2", || {
+            LookupMap::<u32, RecA>::__bound_at(lroot.clone()).discard(&1)
+        });
         assert_refused("LookupMap::replace", "2", || {
             let _ = LookupMap::<u32, RecA>::__bound_at(lroot.clone()).replace(1, RecA { n: 2 });
         });
@@ -568,7 +624,10 @@ mod a3 {
         assert!(b.remove(&1).is_some());
         assert!(b.discard(&2));
         testing::flush();
-        assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "known collections cleared");
+        assert!(
+            testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())),
+            "known collections cleared"
+        );
 
         // C writes record 3 with an unknown-to-A scalar at tag 3; A removes it (all three paths)
         for how in 0..3 {
@@ -581,10 +640,18 @@ mod a3 {
             match how {
                 0 => assert_eq!(a.remove(&3).map(|r| r.n), Some(3)),
                 1 => assert!(a.discard(&3)),
-                _ => assert_eq!(a.remove_step(&3, std::num::NonZeroU32::new(3).unwrap()), near_sdk::state::Removal::Done),
+                _ => assert_eq!(
+                    a.remove_step(&3, std::num::NonZeroU32::new(3).unwrap()),
+                    near_sdk::state::Removal::Done
+                ),
             }
             testing::flush();
-            assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).entry(&3u32).as_bytes())), "how={how}");
+            assert!(
+                testing::store()
+                    .keys()
+                    .all(|k| !k.starts_with(root().kind(0).entry(&3u32).as_bytes())),
+                "how={how}"
+            );
         }
     }
 
@@ -607,22 +674,37 @@ mod a3 {
                     case += 1;
                     testing::begin_call();
                     if how < 3 {
-                        Map::<u32, RecD>::__bound_at(root()).insert(case, RecD { n: 1, small, shaped });
+                        Map::<u32, RecD>::__bound_at(root())
+                            .insert(case, RecD { n: 1, small, shaped });
                     } else {
-                        LookupMap::<u32, RecD>::__bound_at(root().field(1)).insert(case, RecD { n: 1, small, shaped });
+                        LookupMap::<u32, RecD>::__bound_at(root().field(1))
+                            .insert(case, RecD { n: 1, small, shaped });
                     }
                     testing::flush();
                     testing::begin_call();
                     let r = quiet(|| match how {
-                        0 => assert_eq!(Map::<u32, RecA>::__bound_at(root()).remove(&case).map(|r| r.n), Some(1)),
+                        0 => assert_eq!(
+                            Map::<u32, RecA>::__bound_at(root()).remove(&case).map(|r| r.n),
+                            Some(1)
+                        ),
                         1 => assert!(Map::<u32, RecA>::__bound_at(root()).discard(&case)),
                         2 => assert_eq!(
-                            Map::<u32, RecA>::__bound_at(root()).remove_step(&case, std::num::NonZeroU32::new(3).unwrap()),
+                            Map::<u32, RecA>::__bound_at(root())
+                                .remove_step(&case, std::num::NonZeroU32::new(3).unwrap()),
                             near_sdk::state::Removal::Done
                         ),
-                        _ => assert_eq!(LookupMap::<u32, RecA>::__bound_at(root().field(1)).remove(&case).map(|r| r.n), Some(1)),
+                        _ => assert_eq!(
+                            LookupMap::<u32, RecA>::__bound_at(root().field(1))
+                                .remove(&case)
+                                .map(|r| r.n),
+                            Some(1)
+                        ),
                     });
-                    assert!(r.is_ok(), "small={small:#x} shaped={shaped:02x?} how={how}: {}", r.err().map(msg).unwrap_or_default());
+                    assert!(
+                        r.is_ok(),
+                        "small={small:#x} shaped={shaped:02x?} how={how}: {}",
+                        r.err().map(msg).unwrap_or_default()
+                    );
                     testing::flush();
                 }
             }
@@ -643,7 +725,10 @@ mod a3 {
         let mut a: Map<u32, RecAReserved> = Map::__bound_at(root());
         assert_eq!(a.remove(&1).map(|r| r.n), Some(1));
         testing::flush();
-        assert!(testing::store().contains_key(&kid_key()), "reserved(2) trusts that B cleared tag 2; it did not, so kids[5] is left");
+        assert!(
+            testing::store().contains_key(&kid_key()),
+            "reserved(2) trusts that B cleared tag 2; it did not, so kids[5] is left"
+        );
     }
 
     /// Nested records: a nested record's own collection fields leave markers inside its bytes.
@@ -677,7 +762,10 @@ mod a3 {
         let mut b: Map<u32, OuterB> = Map::__bound_at(root());
         assert!(b.remove(&1).is_some());
         testing::flush();
-        assert!(testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())), "OuterB removes its nested collection");
+        assert!(
+            testing::store().keys().all(|k| !k.starts_with(root().kind(0).as_bytes())),
+            "OuterB removes its nested collection"
+        );
     }
 
     /// Round 7, the A3 first-write rule. Was `hazard_a3_marker_missing_when_the_new_collection_
@@ -704,11 +792,18 @@ mod a3 {
         b.at_mut(&1).unwrap().kids.insert(5, 50);
         let r = testing::end_call();
         let on_rec: Vec<_> = r.ops.iter().filter(|o| o.key == rec_key).map(|o| o.kind).collect();
-        assert_eq!(on_rec, vec![testing::OpKind::HasKey, testing::OpKind::Read, testing::OpKind::Write], "at_mut, the first-write read, one write");
+        assert_eq!(
+            on_rec,
+            vec![testing::OpKind::HasKey, testing::OpKind::Read, testing::OpKind::Write],
+            "at_mut, the first-write read, one write"
+        );
         let stored = testing::store()[&rec_key].clone();
         assert_eq!(
             record::parse(&stored).unwrap(),
-            vec![(1, record::Wire::Scalar, &1u64.to_le_bytes()[..]), (2, record::Wire::Marker, &[record::marker::MAP][..])],
+            vec![
+                (1, record::Wire::Scalar, &1u64.to_le_bytes()[..]),
+                (2, record::Wire::Marker, &[record::marker::MAP][..])
+            ],
             "the marker landed"
         );
         assert_eq!(stored[..a_bytes.len()], a_bytes[..], "A's bytes kept, marker appended");
@@ -722,7 +817,9 @@ mod a3 {
         assert_eq!(on_rec, vec![testing::OpKind::HasKey], "the hot path does not touch the record");
         // Rolled back to A, every removal path is refused and changes nothing.
         let nz = std::num::NonZeroU32::new(3).unwrap();
-        assert_refused("remove", "2", || { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1); });
+        assert_refused("remove", "2", || {
+            let _ = Map::<u32, RecA>::__bound_at(root()).remove(&1);
+        });
         assert_refused("discard", "2", || {
             let _ = Map::<u32, RecA>::__bound_at(root()).discard(&1);
         });
@@ -743,7 +840,10 @@ mod a3 {
             }
             assert!(steps < 20);
         }
-        assert!(testing::store().keys().all(|k| !k.starts_with(&rec_key)), "keys left under record 1");
+        assert!(
+            testing::store().keys().all(|k| !k.starts_with(&rec_key)),
+            "keys left under record 1"
+        );
         // A new record 1 starts empty under B.
         testing::begin_call();
         Map::<u32, RecA>::__bound_at(root()).try_insert(1, RecA { n: 2 }).unwrap();
@@ -799,7 +899,11 @@ mod a3 {
             !r.ops.iter().any(|o| o.kind == HasKey && o.key == lazy_key),
             "the record's bytes are known in this call (patched), so the Lazy needs no existence check"
         );
-        let kinds: Vec<_> = record::parse(&testing::store()[&rec_key]).unwrap().into_iter().map(|(t, w, b)| (t, w, b.to_vec())).collect();
+        let kinds: Vec<_> = record::parse(&testing::store()[&rec_key])
+            .unwrap()
+            .into_iter()
+            .map(|(t, w, b)| (t, w, b.to_vec()))
+            .collect();
         assert_eq!(
             kinds,
             vec![
@@ -819,7 +923,13 @@ mod a3 {
         v.note.set(800);
         let r = testing::end_call();
         assert_eq!(ops_on_rec(&r), vec![HasKey]);
-        assert!(r.ops.iter().any(|o| o.kind == HasKey && o.key == root().kind(0).entry(&1u32).field(5).as_bytes()), "the Lazy's existence check");
+        assert!(
+            r.ops
+                .iter()
+                .any(|o| o.kind == HasKey
+                    && o.key == root().kind(0).entry(&1u32).field(5).as_bytes()),
+            "the Lazy's existence check"
+        );
         // `kids` first: read once more and append its marker
         testing::begin_call();
         let mut b: Map<u32, RecB2> = Map::__bound_at(root());
@@ -866,7 +976,10 @@ mod a3 {
         // A refuses to remove a record carrying any of them
         for k in [1u32, 2] {
             testing::begin_call();
-            let e = quiet(|| { let _ = Map::<u32, RecA>::__bound_at(root()).remove(&k); }).expect_err("refused");
+            let e = quiet(|| {
+                let _ = Map::<u32, RecA>::__bound_at(root()).remove(&k);
+            })
+            .expect_err("refused");
             assert!(msg(e).contains("refusing to remove"));
         }
     }
@@ -939,7 +1052,10 @@ mod a3 {
         let r = testing::end_call();
         assert_eq!(on(&r, &top_key), vec![HasKey], "the level above is already declared");
         assert_eq!(on(&r, &mid_key), vec![HasKey, Read, Write]);
-        assert_eq!(&testing::store()[&mid_key][..], &[0x04, 0x01, 9, 0x09, 0x01, record::marker::MAP]);
+        assert_eq!(
+            &testing::store()[&mid_key][..],
+            &[0x04, 0x01, 9, 0x09, 0x01, record::marker::MAP]
+        );
         // downgrades: Top1 refuses at tag 2 (mids), Top2Mid1 refuses at mids[5]'s tag 2 (leaves)
         for which in 0..2 {
             testing::begin_call();
@@ -948,7 +1064,8 @@ mod a3 {
                 if which == 0 {
                     let _ = Map::<u32, Top1>::__bound_at(root()).remove(&1);
                 } else {
-                    let _ = Map::<u32, Top2Mid1>::__bound_at(root()).remove_step(&1, std::num::NonZeroU32::new(30).unwrap());
+                    let _ = Map::<u32, Top2Mid1>::__bound_at(root())
+                        .remove_step(&1, std::num::NonZeroU32::new(30).unwrap());
                 }
                 testing::flush();
             })
@@ -986,9 +1103,17 @@ mod a3 {
         b.at_mut(&2).unwrap().inner.kids.insert(5, 50);
         testing::flush();
         let s1 = testing::store()[&rec_key].clone();
-        assert_eq!(&s1[10..], &[0x0A, 0x03, 0x09, 0x01, record::marker::MAP], "inner created holding the marker");
+        assert_eq!(
+            &s1[10..],
+            &[0x0A, 0x03, 0x09, 0x01, record::marker::MAP],
+            "inner created holding the marker"
+        );
         let s2 = testing::store()[root().kind(0).entry(&2u32).as_bytes()].clone();
-        assert_eq!(&s2[10..], &[0x0A, 0x06, 0x04, 0x01, 7, 0x09, 0x01, record::marker::MAP], "inner.x kept");
+        assert_eq!(
+            &s2[10..],
+            &[0x0A, 0x06, 0x04, 0x01, 7, 0x09, 0x01, record::marker::MAP],
+            "inner.x kept"
+        );
         for (key, which) in [(1u32, 0), (1, 1), (2, 0), (2, 1)] {
             testing::begin_call();
             let e = quiet(|| {
@@ -1024,7 +1149,10 @@ mod a3 {
         testing::flush();
         let nz = std::num::NonZeroU32::new(4).unwrap();
         testing::begin_call();
-        assert_eq!(Map::<u32, RecB2>::__bound_at(root()).remove_step(&1, nz), near_sdk::state::Removal::Pending);
+        assert_eq!(
+            Map::<u32, RecB2>::__bound_at(root()).remove_step(&1, nz),
+            near_sdk::state::Removal::Pending
+        );
         testing::flush();
         // next call: the record is clearing; first writes of each kind are refused
         for what in 0..3 {
@@ -1085,7 +1213,8 @@ mod a3 {
         .expect_err("a collection below a removed record");
         let e = msg(e);
         assert!(e.contains("refusing to create a collection below the record"), "{}", "absent");
-        let rec_hex: String = root().kind(0).entry(&3u32).as_bytes().iter().map(|b| format!("{b:02x}")).collect();
+        let rec_hex: String =
+            root().kind(0).entry(&3u32).as_bytes().iter().map(|b| format!("{b:02x}")).collect();
         assert!(e.contains(&rec_hex), "the message names the record key: {e}");
         testing::begin_call();
         assert_eq!(testing::store(), before);
@@ -1191,7 +1320,13 @@ mod a5 {
                     testing::flush();
                     let rc = testing::receipt();
                     // the stated bookkeeping bound, F = 0 collections, L = 6 Lazy fields
-                    assert!(rc.reads() <= (n / 3 + 5) as usize && rc.has_keys() <= 6 && rc.writes() <= 3, "n={n}: {:?}", rc.rwd());
+                    assert!(
+                        rc.reads() <= (n / 3 + 5) as usize
+                            && rc.has_keys() <= 6
+                            && rc.writes() <= 3,
+                        "n={n}: {:?}",
+                        rc.rwd()
+                    );
                     per_call.push(removed(&rc));
                     if !more {
                         break;
@@ -1199,10 +1334,17 @@ mod a5 {
                     assert!(per_call.len() < 20);
                 }
                 let fin = if via_map { 3 } else { 1 };
-                assert_eq!(per_call.len() as u32, want_calls(n, fin), "n={n} map={via_map}: {per_call:?}");
+                assert_eq!(
+                    per_call.len() as u32,
+                    want_calls(n, fin),
+                    "n={n} map={via_map}: {per_call:?}"
+                );
                 for (rm, bytes) in &per_call {
                     assert!(*rm as u32 <= n, "n={n} map={via_map}: {per_call:?}");
-                    assert!(*bytes <= n as usize * BIG + 64, "n={n}: {bytes} value bytes in one call");
+                    assert!(
+                        *bytes <= n as usize * BIG + 64,
+                        "n={n}: {bytes} value bytes in one call"
+                    );
                 }
                 let total: usize = per_call.iter().map(|(r, _)| r).sum();
                 let moved = usize::from(per_call.len() > 1);
@@ -1211,7 +1353,10 @@ mod a5 {
                 let rec = root.kind(0).entry(&1u32);
                 let header = root.kind(3);
                 assert!(
-                    testing::store().keys().all(|k| !k.starts_with(root.as_bytes()) || (via_map && k == header.as_bytes())),
+                    testing::store()
+                        .keys()
+                        .all(|k| !k.starts_with(root.as_bytes())
+                            || (via_map && k == header.as_bytes())),
                     "n={n}: keys left under {rec:?}"
                 );
             }
@@ -1250,7 +1395,10 @@ mod a5 {
             }
         }
         println!("removes and value bytes per call at n = 3: {per_call:?}");
-        assert!(per_call.iter().all(|(rm, bytes)| *rm <= 3 && *bytes <= 3 * BIG + 64), "{per_call:?}");
+        assert!(
+            per_call.iter().all(|(rm, bytes)| *rm <= 3 && *bytes <= 3 * BIG + 64),
+            "{per_call:?}"
+        );
         // move (1); a, b (2, and c would be a 3rd: it fits, 3 values); d; items one per call;
         // the items header; the record, index and key slot
         let total: usize = per_call.iter().map(|(r, _)| r).sum();
@@ -1311,7 +1459,10 @@ mod c2_nested {
                 }
             }
             testing::flush();
-            let snapshot0: Vec<_> = testing::store().into_iter().filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes())).collect();
+            let snapshot0: Vec<_> = testing::store()
+                .into_iter()
+                .filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes()))
+                .collect();
             for round in 0.. {
                 testing::begin_call();
                 let mut m: Map<u32, Deep> = Map::__bound_at(root.clone());
@@ -1324,7 +1475,10 @@ mod c2_nested {
                         let _ = m.discard(&1);
                         false
                     }
-                    _ => m.remove_step(&1, std::num::NonZeroU32::new(*n).unwrap()) == near_sdk::state::Removal::Pending,
+                    _ => {
+                        m.remove_step(&1, std::num::NonZeroU32::new(*n).unwrap())
+                            == near_sdk::state::Removal::Pending
+                    }
                 };
                 testing::flush();
                 if *how == 2 {
@@ -1333,7 +1487,9 @@ mod c2_nested {
                     let rc = testing::receipt();
                     assert!(rc.removes() <= *n as usize, "n={n}: {} removes", rc.removes());
                     assert!(
-                        rc.reads() <= (*n / 3 + 3 + 5) as usize && rc.has_keys() <= 1 && rc.writes() <= 3,
+                        rc.reads() <= (*n / 3 + 3 + 5) as usize
+                            && rc.has_keys() <= 1
+                            && rc.writes() <= 3,
                         "n={n}: reads, writes, removes {:?}, has_keys {}",
                         rc.rwd(),
                         rc.has_keys()
@@ -1346,9 +1502,16 @@ mod c2_nested {
                 assert!(round < 45, "remove_step did not finish");
             }
             let gone = root.kind(0).entry(&1u32);
-            let left: Vec<_> = testing::store().into_keys().filter(|k| k.starts_with(gone.as_bytes())).collect();
-            assert!(left.is_empty(), "how={how} left {left:02x?} under the removed record (sizes {sizes:?})");
-            let now0: Vec<_> = testing::store().into_iter().filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes())).collect();
+            let left: Vec<_> =
+                testing::store().into_keys().filter(|k| k.starts_with(gone.as_bytes())).collect();
+            assert!(
+                left.is_empty(),
+                "how={how} left {left:02x?} under the removed record (sizes {sizes:?})"
+            );
+            let now0: Vec<_> = testing::store()
+                .into_iter()
+                .filter(|(k, _)| k.starts_with(root.kind(0).entry(&0u32).as_bytes()))
+                .collect();
             assert_eq!(now0, snapshot0, "the neighbour record changed");
         });
     }

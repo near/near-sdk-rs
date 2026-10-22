@@ -26,19 +26,24 @@ fn c7_admitted_v1_prefixes_never_alias_v2_keys() {
         bolero::produce::<([u8; 4], u8, bool)>(),
         bolero::produce::<(u32, u8, [u8; ENTRY_HASH_LEN], [u8; 2], u8)>(),
     );
-    bolero::check!().with_generator(g).with_iterations(100_000).for_each(|(root, (p, pl), (s, sl, forge), (t, k, h, e, el))| {
-        let prefix = &p[..(*pl % 4) as usize];
-        let suffix = &s[..(*sl % 5) as usize];
-        let v2 = Path::root(*root).field((*t).max(1)).kind(*k).entry_hashed(h, &e[..(*el % 3) as usize]);
-        let v2 = v2.as_bytes();
-        let mut v1 = prefix.to_vec();
-        v1.extend_from_slice(if *forge { &v2[prefix.len().min(v2.len())..] } else { suffix });
-        match check_v1_prefix(prefix, *root) {
-            Ok(()) => assert!(v1 != v2, "an admitted v1 prefix aliased a v2 key"),
-            Err(V1PrefixError::Empty) => assert!(prefix.is_empty()),
-            Err(V1PrefixError::RootByte(r)) => assert!(r == *root && prefix[0] == *root),
-        }
-    });
+    bolero::check!().with_generator(g).with_iterations(100_000).for_each(
+        |(root, (p, pl), (s, sl, forge), (t, k, h, e, el))| {
+            let prefix = &p[..(*pl % 4) as usize];
+            let suffix = &s[..(*sl % 5) as usize];
+            let v2 = Path::root(*root)
+                .field((*t).max(1))
+                .kind(*k)
+                .entry_hashed(h, &e[..(*el % 3) as usize]);
+            let v2 = v2.as_bytes();
+            let mut v1 = prefix.to_vec();
+            v1.extend_from_slice(if *forge { &v2[prefix.len().min(v2.len())..] } else { suffix });
+            match check_v1_prefix(prefix, *root) {
+                Ok(()) => assert!(v1 != v2, "an admitted v1 prefix aliased a v2 key"),
+                Err(V1PrefixError::Empty) => assert!(prefix.is_empty()),
+                Err(V1PrefixError::RootByte(r)) => assert!(r == *root && prefix[0] == *root),
+            }
+        },
+    );
 }
 
 /// The same property against PRODUCTION v1 keys (`store::key::{Identity, Sha256, Keccak256}`
@@ -49,42 +54,57 @@ fn c7_admitted_v1_prefixes_never_alias_v2_keys() {
 #[test]
 fn c7_production_v1_keys_vs_production_v2_keys() {
     use crate::store::key::{Identity, Keccak256, Sha256, ToKey};
-    let g = (bolero::produce::<SPath>(), bolero::produce::<std::vec::Vec<u8>>().with().len(0usize..=3), bolero::produce::<(std::string::String, u32)>());
-    bolero::check!().with_generator(g).with_iterations(20_000).for_each(|(sp, prefix, (ks, ku))| {
-        // Refresh the mocked context before its gas runs out: the Sha256/Keccak256 keys call
-        // `env::sha256` / `env::keccak256`, which charge gas on the shared mock, and past ~20k
-        // inputs (libFuzzer round, Oct 18) the accumulated gas tripped `GasLimitExceeded`.
-        // Resetting every input instead made this test ~60 s slower under the random engine.
-        if crate::env::used_gas() > crate::Gas::from_tgas(200) {
-            crate::testing_env!(crate::test_utils::VMContextBuilder::new().build());
-        }
-        if !sp.wf() {
-            return;
-        }
-        let v2 = sp.encode(true);
-        let root = v2[0];
-        let ids = [Identity::to_key(prefix, ks, &mut vec![]), Identity::to_key(prefix, ku, &mut vec![])];
-        if check_v1_prefix(prefix, root).is_ok() {
-            assert!(ids.iter().all(|k| k[..] != v2[..]), "admitted Identity v1 key aliased a v2 key");
-        }
-        // hashed v1 keys are 32 bytes; a v2 key of another length can never equal them
-        for hk in [Sha256::to_key(prefix, ks, &mut vec![]), Keccak256::to_key(prefix, ks, &mut vec![])] {
-            if v2.len() != 32 {
-                assert_ne!(&hk[..], &v2[..]);
+    let g = (
+        bolero::produce::<SPath>(),
+        bolero::produce::<std::vec::Vec<u8>>().with().len(0usize..=3),
+        bolero::produce::<(std::string::String, u32)>(),
+    );
+    bolero::check!().with_generator(g).with_iterations(20_000).for_each(
+        |(sp, prefix, (ks, ku))| {
+            // Refresh the mocked context before its gas runs out: the Sha256/Keccak256 keys call
+            // `env::sha256` / `env::keccak256`, which charge gas on the shared mock, and past ~20k
+            // inputs (libFuzzer round, Oct 18) the accumulated gas tripped `GasLimitExceeded`.
+            // Resetting every input instead made this test ~60 s slower under the random engine.
+            if crate::env::used_gas() > crate::Gas::from_tgas(200) {
+                crate::testing_env!(crate::test_utils::VMContextBuilder::new().build());
             }
-        }
-        // the alias the guard exists for: empty prefix, fixed-size byte key = the v2 key
-        if v2.len() <= 64 {
-            let mut arr = [0u8; 64];
-            arr[..v2.len()].copy_from_slice(&v2);
-            let forged = Identity::to_key(&[], &arr[..v2.len()].to_vec(), &mut vec![]);
-            // borsh(Vec<u8>) adds a 4-byte length, but a borsh fixed array does not:
-            let raw: std::vec::Vec<u8> = Identity::to_key(&[], &RawBytes(&v2), &mut vec![]);
-            assert_eq!(raw, v2, "an empty-prefix v1 key equals the v2 key");
-            assert_ne!(forged, v2);
-            assert_eq!(check_v1_prefix(&[], root), Err(V1PrefixError::Empty));
-        }
-    });
+            if !sp.wf() {
+                return;
+            }
+            let v2 = sp.encode(true);
+            let root = v2[0];
+            let ids = [
+                Identity::to_key(prefix, ks, &mut vec![]),
+                Identity::to_key(prefix, ku, &mut vec![]),
+            ];
+            if check_v1_prefix(prefix, root).is_ok() {
+                assert!(
+                    ids.iter().all(|k| k[..] != v2[..]),
+                    "admitted Identity v1 key aliased a v2 key"
+                );
+            }
+            // hashed v1 keys are 32 bytes; a v2 key of another length can never equal them
+            for hk in [
+                Sha256::to_key(prefix, ks, &mut vec![]),
+                Keccak256::to_key(prefix, ks, &mut vec![]),
+            ] {
+                if v2.len() != 32 {
+                    assert_ne!(&hk[..], &v2[..]);
+                }
+            }
+            // the alias the guard exists for: empty prefix, fixed-size byte key = the v2 key
+            if v2.len() <= 64 {
+                let mut arr = [0u8; 64];
+                arr[..v2.len()].copy_from_slice(&v2);
+                let forged = Identity::to_key(&[], &arr[..v2.len()].to_vec(), &mut vec![]);
+                // borsh(Vec<u8>) adds a 4-byte length, but a borsh fixed array does not:
+                let raw: std::vec::Vec<u8> = Identity::to_key(&[], &RawBytes(&v2), &mut vec![]);
+                assert_eq!(raw, v2, "an empty-prefix v1 key equals the v2 key");
+                assert_ne!(forged, v2);
+                assert_eq!(check_v1_prefix(&[], root), Err(V1PrefixError::Empty));
+            }
+        },
+    );
 }
 
 /// Borsh of a fixed-size byte array: the bytes themselves (stands in for `[u8; N]` of any N).

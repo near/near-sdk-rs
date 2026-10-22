@@ -103,7 +103,10 @@ impl Dao {
         // T1: `try_insert` is the existence check and the insert in one index read.
         require!(
             self.members
-                .try_insert(account_id, Member { joined_at: env::block_height(), ..Default::default() })
+                .try_insert(
+                    account_id,
+                    Member { joined_at: env::block_height(), ..Default::default() }
+                )
                 .is_ok(),
             "already a member"
         );
@@ -187,7 +190,11 @@ impl Dao {
 
     /// Paginated proposals, as views. Revision 3: `page_with` maps each record.
     /// D8: a removed cursor is `Err(CursorGone)`; this view maps it to a panic with its message.
-    pub fn proposals(&self, after: Option<ProposalId>, limit: u32) -> Page<ProposalId, ProposalJson> {
+    pub fn proposals(
+        &self,
+        after: Option<ProposalId>,
+        limit: u32,
+    ) -> Page<ProposalId, ProposalJson> {
         self.proposals
             .page_with(after.as_ref(), limit, |id, p| proposal_json(*id, p))
             .unwrap_or_else(|e| env::panic_str(e.as_ref()))
@@ -205,7 +212,14 @@ impl Dao {
 fn proposal_json(id: ProposalId, p: &Proposal) -> ProposalJson {
     let votes: Vec<(AccountId, Vote)> = p.votes.iter().map(|(k, v)| (k, *v)).collect();
     let (yes, no) = tally(&p.votes);
-    ProposalJson { id, proposer: p.proposer.clone(), description: p.description.clone(), yes, no, votes }
+    ProposalJson {
+        id,
+        proposer: p.proposer.clone(),
+        description: p.description.clone(),
+        yes,
+        no,
+        votes,
+    }
 }
 
 fn tally(votes: &Map<AccountId, Vote>) -> (u32, u32) {

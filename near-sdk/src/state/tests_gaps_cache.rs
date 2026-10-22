@@ -390,5 +390,9 @@ fn gaps_cache_thread_exit_frees_unflushed_slots() {
     })
     .join()
     .unwrap();
-    assert_eq!(EXIT_DROPS.load(std::sync::atomic::Ordering::SeqCst), 1, "unflushed slot value dropped at thread exit");
+    assert_eq!(
+        EXIT_DROPS.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "unflushed slot value dropped at thread exit"
+    );
 }
