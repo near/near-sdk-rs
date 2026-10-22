@@ -1631,7 +1631,10 @@ fn scan_out_of_gas() {
             .op(UpOp::ClearLoop { g: 0, n: 3, rounds: 4 })
             .blocks(1)
             .op(up(Ver::V2a, false))
-            .op(UpOp::RemoveStep { g: 0, n: 12 }),
+            .op(UpOp::RemoveStep { g: 0, n: 12 })
+            // The A3 witness. Since round 7's first-write rule, v2b's `add_flag` marks the record
+            // and v2a's `remove_step` refuses it ("refusing to remove"), as intended.
+            .refused(),
         // The deploy lands in the block the first link runs in, so every later link of the
         // chain runs on the new code (cross-version continuation).
         Plan::new()

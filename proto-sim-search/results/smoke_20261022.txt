@@ -1,0 +1,401 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.96s
+     Running tests/storage_v2_search.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_search-4f28b918faad2804)
+
+running 2 tests
+positive control: trie != model (1 keys differ): /   accounts[alice.near].log/0007000000: EXTRA 0101010101010101 (8 bytes)
+test positive_control_orphan_key_is_found ... ok
+step 0: Bump { by: 5, mode: Plain }
+
+tx 7W5o69… signed by alice.near at #3 (conversion 0.31 Tgas) -> SUCCESS
+└─ #4 store.near.bump  attached 300.00 Tgas, burnt 1.35 Tgas (0.46 + 0.89 exec fees), headroom 299.54 Tgas  ok -> 5
+(1 refund receipt(s) not shown)
+
+gas (Tgas)               wasm    load storage    host    send    exec   total
+conversion alice.near       -       -       -       -   0.309       -   0.309
+#4 store.near.bump      0.030   0.281   0.126   0.023       -   0.888   1.348
+refunds (not charged)       -       -       -       -       -       -   0.223
+total 1.88 Tgas (1880460617846 gas)
+
+
+step 1: TryInsert { who: A, nonce: 7, mode: Plain }
+
+tx GDyfrU… signed by alice.near at #6 (conversion 0.31 Tgas) -> SUCCESS
+└─ #7 store.near.acct_try_insert  attached 300.00 Tgas, burnt 1.83 Tgas (0.94 + 0.89 exec fees), headroom 299.06 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                       wasm    load storage    host    send    exec   total
+conversion alice.near               -       -       -       -   0.311       -   0.311
+#7 store.near.acct_try_insert   0.096   0.281   0.461   0.104       -   0.888   1.830
+refunds (not charged)               -       -       -       -       -       -   0.223
+total 2.36 Tgas (2363520396920 gas)
+
+
+step 2: Bulk { who: A, n: 4, blob: 300, mode: Plain }
+
+tx 6p1YL5… signed by alice.near at #9 (conversion 0.31 Tgas) -> SUCCESS
+└─ #10 store.near.acct_bulk  attached 300.00 Tgas, burnt 4.11 Tgas (3.22 + 0.89 exec fees), headroom 296.78 Tgas  ok -> 7
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                  wasm    load storage    host    send    exec   total
+conversion alice.near          -       -       -       -   0.311       -   0.311
+#10 store.near.acct_bulk   0.509   0.281   2.059   0.374       -   0.888   4.111
+refunds (not charged)          -       -       -       -       -       -   0.223
+total 4.64 Tgas (4644794842640 gas)
+
+
+step 3: BalSet { who: A, tok: T(9), amount: 3, mode: Plain }
+
+tx BHzmob… signed by alice.near at #12 (conversion 0.31 Tgas) -> SUCCESS
+└─ #13 store.near.bal_set  attached 300.00 Tgas, burnt 2.04 Tgas (1.15 + 0.89 exec fees), headroom 298.85 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                wasm    load storage    host    send    exec   total
+conversion alice.near        -       -       -       -   0.311       -   0.311
+#13 store.near.bal_set   0.121   0.281   0.612   0.134       -   0.888   2.037
+refunds (not charged)        -       -       -       -       -       -   0.223
+total 2.57 Tgas (2570849362039 gas)
+
+
+step 4: BalRemove { who: A, tok: T(1), mode: Plain }
+
+tx 8QuRJg… signed by alice.near at #15 (conversion 0.31 Tgas) -> SUCCESS
+└─ #16 store.near.bal_remove  attached 300.00 Tgas, burnt 2.42 Tgas (1.54 + 0.89 exec fees), headroom 298.46 Tgas  ok -> 2
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                   wasm    load storage    host    send    exec   total
+conversion alice.near           -       -       -       -   0.311       -   0.311
+#16 store.near.bal_remove   0.163   0.281   0.906   0.185       -   0.888   2.423
+refunds (not charged)           -       -       -       -       -       -   0.223
+total 2.96 Tgas (2957105514278 gas)
+
+
+step 5: LogPush { who: A, v: 1, mode: Plain }
+
+tx CgVzgA… signed by alice.near at #18 (conversion 0.31 Tgas) -> SUCCESS
+└─ #19 store.near.log_push  attached 300.00 Tgas, burnt 1.68 Tgas (0.80 + 0.89 exec fees), headroom 299.20 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                 wasm    load storage    host    send    exec   total
+conversion alice.near         -       -       -       -   0.310       -   0.310
+#19 store.near.log_push   0.080   0.281   0.362   0.072       -   0.888   1.684
+refunds (not charged)         -       -       -       -       -       -   0.223
+total 2.22 Tgas (2216823403220 gas)
+
+
+step 6: LogPop { who: A, mode: Plain }
+
+tx GTQutm… signed by alice.near at #21 (conversion 0.31 Tgas) -> SUCCESS
+└─ #22 store.near.log_pop  attached 300.00 Tgas, burnt 1.75 Tgas (0.86 + 0.89 exec fees), headroom 299.14 Tgas  ok -> 1
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                wasm    load storage    host    send    exec   total
+conversion alice.near        -       -       -       -   0.310       -   0.310
+#22 store.near.log_pop   0.082   0.281   0.412   0.084       -   0.888   1.747
+refunds (not charged)        -       -       -       -       -       -   0.223
+total 2.28 Tgas (2280357326780 gas)
+
+
+step 7: Touch { who: B, mode: Plain }
+
+tx 6uCq9u… signed by alice.near at #24 (conversion 0.31 Tgas) -> SUCCESS
+└─ #25 store.near.acct_touch  attached 300.00 Tgas, burnt 1.92 Tgas (1.03 + 0.89 exec fees), headroom 298.97 Tgas  ok -> 0
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                   wasm    load storage    host    send    exec   total
+conversion alice.near           -       -       -       -   0.310       -   0.310
+#25 store.near.acct_touch   0.093   0.281   0.557   0.102       -   0.888   1.921
+refunds (not charged)           -       -       -       -       -       -   0.223
+total 2.45 Tgas (2454046156839 gas)
+
+
+step 8: SetNonce { who: B, nonce: 9, mode: MidFlush }
+
+tx 6vNHpY… signed by alice.near at #27 (conversion 0.31 Tgas) -> SUCCESS
+└─ #28 store.near.acct_set_nonce  attached 300.00 Tgas, burnt 1.61 Tgas (0.72 + 0.89 exec fees), headroom 299.28 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                       wasm    load storage    host    send    exec   total
+conversion alice.near               -       -       -       -   0.310       -   0.310
+#28 store.near.acct_set_nonce   0.088   0.281   0.278   0.072       -   0.888   1.607
+refunds (not charged)               -       -       -       -       -       -   0.223
+total 2.14 Tgas (2141052613361 gas)
+
+
+step 9: LookInsert { who: A, v: 1, mode: Plain }
+
+tx 5PUDE5… signed by alice.near at #30 (conversion 0.31 Tgas) -> SUCCESS
+└─ #31 store.near.look_insert  attached 300.00 Tgas, burnt 1.40 Tgas (0.51 + 0.89 exec fees), headroom 299.49 Tgas  ok
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                    wasm    load storage    host    send    exec   total
+conversion alice.near            -       -       -       -   0.310       -   0.310
+#31 store.near.look_insert   0.046   0.281   0.135   0.046       -   0.888   1.396
+refunds (not charged)            -       -       -       -       -       -   0.223
+total 1.93 Tgas (1929586892464 gas)
+
+
+step 10: LookTryInsert { who: A, v: 2, mode: Plain }
+
+tx DdELYe… signed by alice.near at #33 (conversion 0.31 Tgas) -> SUCCESS
+└─ #34 store.near.look_try_insert  attached 300.00 Tgas, burnt 1.37 Tgas (0.48 + 0.89 exec fees), headroom 299.52 Tgas  ok -> false
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                        wasm    load storage    host    send    exec   total
+conversion alice.near                -       -       -       -   0.310       -   0.310
+#34 store.near.look_try_insert   0.046   0.281   0.111   0.046       -   0.888   1.373
+refunds (not charged)                -       -       -       -       -       -   0.223
+total 1.91 Tgas (1906293234151 gas)
+
+
+step 11: MemInsert { who: A, mode: Plain }
+
+tx JBTp7a… signed by alice.near at #36 (conversion 0.31 Tgas) -> SUCCESS
+└─ #37 store.near.mem_insert  attached 300.00 Tgas, burnt 1.85 Tgas (0.96 + 0.89 exec fees), headroom 299.04 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                   wasm    load storage    host    send    exec   total
+conversion alice.near           -       -       -       -   0.310       -   0.310
+#37 store.near.mem_insert   0.085   0.281   0.479   0.120       -   0.888   1.853
+refunds (not charged)           -       -       -       -       -       -   0.223
+total 2.39 Tgas (2386221692783 gas)
+
+
+step 12: MemInsert { who: B, mode: Plain }
+
+tx EEPUVh… signed by alice.near at #39 (conversion 0.31 Tgas) -> SUCCESS
+└─ #40 store.near.mem_insert  attached 300.00 Tgas, burnt 1.90 Tgas (1.01 + 0.89 exec fees), headroom 298.99 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                   wasm    load storage    host    send    exec   total
+conversion alice.near           -       -       -       -   0.310       -   0.310
+#40 store.near.mem_insert   0.088   0.281   0.508   0.131       -   0.888   1.896
+refunds (not charged)           -       -       -       -       -       -   0.223
+total 2.43 Tgas (2429340644914 gas)
+
+
+step 13: AccountsPage { from: Start, limit: 1 }
+
+tx DsZWHM… signed by alice.near at #42 (conversion 0.31 Tgas) -> SUCCESS
+└─ #43 store.near.accounts_page  attached 300.00 Tgas, burnt 1.54 Tgas (0.65 + 0.89 exec fees), headroom 299.35 Tgas  ok -> {"items":[["alice.near",7]],"next":"alic… (+34 chars)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                      wasm    load storage    host    send    exec   total
+conversion alice.near              -       -       -       -   0.310       -   0.310
+#43 store.near.accounts_page   0.065   0.281   0.227   0.075       -   0.888   1.537
+refunds (not charged)              -       -       -       -       -       -   0.223
+total 2.07 Tgas (2069754333876 gas)
+
+
+step 14: AccountsPage { from: Last, limit: 1 }
+
+tx AALsqB… signed by alice.near at #45 (conversion 0.31 Tgas) -> SUCCESS
+└─ #46 store.near.accounts_page  attached 300.00 Tgas, burnt 1.63 Tgas (0.74 + 0.89 exec fees), headroom 299.26 Tgas  ok -> {"items":[["bob.near",9]],"next":null,"r… (+24 chars)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                      wasm    load storage    host    send    exec   total
+conversion alice.near              -       -       -       -   0.310       -   0.310
+#46 store.near.accounts_page   0.073   0.281   0.284   0.103       -   0.888   1.630
+refunds (not charged)              -       -       -       -       -       -   0.223
+total 2.16 Tgas (2163723016821 gas)
+
+
+step 15: RemoveStep { who: A, n: 3, mode: Plain }
+
+tx 93NezQ… signed by alice.near at #48 (conversion 0.31 Tgas) -> SUCCESS
+└─ #49 store.near.acct_remove_step  attached 300.00 Tgas, burnt 1.80 Tgas (0.91 + 0.89 exec fees), headroom 299.09 Tgas  ok -> false
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                         wasm    load storage    host    send    exec   total
+conversion alice.near                 -       -       -       -   0.310       -   0.310
+#49 store.near.acct_remove_step   0.109   0.281   0.401   0.122       -   0.888   1.801
+refunds (not charged)                 -       -       -       -       -       -   0.223
+total 2.34 Tgas (2335127051724 gas)
+
+
+step 16: BalSet { who: A, tok: T(0), amount: 1, mode: Plain }
+
+tx DMUJj1… signed by alice.near at #51 (conversion 0.31 Tgas) -> FAILURE: panicked: panicked at src/lib.rs:178:31:\nstate: the record at f002006fa3b4e73d7671442563dd3bc1732b130a000000616c6963652e6e656172 is being cleared by `remove_step`; writes to it or below it are refused until clearing completes (call `remove_step` again until it returns `Removal::Done`)
+└─ #52 store.near.bal_set  attached 300.00 Tgas, burnt 1.52 Tgas (0.63 + 0.89 exec fees)  FAILED: panicked: panicked at src/lib.rs:178:31:\nstate: the record at f002006fa3b4e73d7671442563dd3bc1732b130a000000616c6963652e6e656172 is being cleared by `remove_step`; writes to it or below it are refused until clearing completes (call `remove_step` again until it returns `Removal::Done`)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                wasm    load storage    host    send    exec   total
+conversion alice.near        -       -       -       -   0.311       -   0.311
+#52 store.near.bal_set   0.051   0.281   0.167   0.133       -   0.888   1.521
+refunds (not charged)        -       -       -       -       -       -   0.223
+total 2.05 Tgas (2054821786921 gas)
+
+
+step 17: Read { who: A, what: Get }
+
+tx DDLBde… signed by alice.near at #54 (conversion 0.31 Tgas) -> SUCCESS
+└─ #55 store.near.acct_get  attached 300.00 Tgas, burnt 2.83 Tgas (1.94 + 0.89 exec fees), headroom 298.06 Tgas  ok -> {"nonce":7,"balances_len":4,"balances":[… (+88 chars)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                 wasm    load storage    host    send    exec   total
+conversion alice.near         -       -       -       -   0.309       -   0.309
+#55 store.near.acct_get   0.306   0.281   1.039   0.314       -   0.888   2.829
+refunds (not charged)         -       -       -       -       -       -   0.223
+total 3.36 Tgas (3361460899402 gas)
+
+
+step 18: RemoveStep { who: A, n: 4, mode: Plain }
+
+tx BrG6Qe… signed by alice.near at #57 (conversion 0.31 Tgas) -> SUCCESS
+└─ #58 store.near.acct_remove_step  attached 300.00 Tgas, burnt 2.25 Tgas (1.36 + 0.89 exec fees), headroom 298.64 Tgas  ok -> false
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                         wasm    load storage    host    send    exec   total
+conversion alice.near                 -       -       -       -   0.310       -   0.310
+#58 store.near.acct_remove_step   0.177   0.281   0.719   0.184       -   0.888   2.249
+refunds (not charged)                 -       -       -       -       -       -   0.223
+total 2.78 Tgas (2782574717665 gas)
+
+
+step 19: RemoveChain { who: A, n: 3 }
+
+tx GMmVqe… signed by alice.near at #60 (conversion 0.31 Tgas) -> SUCCESS
+└─ #61 store.near.acct_remove_chain  attached 300.00 Tgas, burnt 2.60 Tgas (1.71 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+   └─ #62 store.near.acct_remove_chain  attached 297.40 Tgas, burnt 2.59 Tgas (1.71 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+      └─ #63 store.near.acct_remove_chain  attached 294.81 Tgas, burnt 2.46 Tgas (1.57 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+         └─ #64 store.near.acct_remove_chain  attached 292.35 Tgas, burnt 2.43 Tgas (1.54 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+            └─ #65 store.near.acct_remove_chain  attached 289.92 Tgas, burnt 2.39 Tgas (1.50 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+               └─ #66 store.near.acct_remove_chain  attached 287.53 Tgas, burnt 2.15 Tgas (1.26 + 0.89 exec fees), headroom 0.00 Tgas  ok (returns a promise)
+                  └─ #67 store.near.acct_remove_chain  attached 285.38 Tgas, burnt 2.60 Tgas (1.71 + 0.89 exec fees), headroom 283.67 Tgas  ok -> true
+(7 refund receipt(s) not shown)
+
+gas (Tgas)                          wasm    load storage    host    send    exec   total
+conversion alice.near                  -       -       -       -   0.310       -   0.310
+#61 store.near.acct_remove_chain   0.193   0.281   0.719   0.211   0.308   0.888   2.600
+#62 store.near.acct_remove_chain   0.191   0.281   0.715   0.211   0.308   0.888   2.594
+#63 store.near.acct_remove_chain   0.164   0.281   0.648   0.167   0.308   0.888   2.457
+#64 store.near.acct_remove_chain   0.167   0.281   0.651   0.135   0.308   0.888   2.430
+#65 store.near.acct_remove_chain   0.177   0.281   0.611   0.120   0.308   0.888   2.387
+#66 store.near.acct_remove_chain   0.131   0.281   0.427   0.117   0.308   0.888   2.152
+#67 store.near.acct_remove_chain   0.207   0.281   1.012   0.210       -   0.888   2.597
+refunds (not charged)                  -       -       -       -       -       -   1.562
+total 19.09 Tgas (19089982843577 gas)
+
+
+step 20: BalancesPage { who: B, from: After(T(0)), limit: 2 }
+
+tx AtgULe… signed by alice.near at #69 (conversion 0.31 Tgas) -> SUCCESS
+└─ #70 store.near.balances_page  attached 300.00 Tgas, burnt 1.39 Tgas (0.50 + 0.89 exec fees), headroom 299.50 Tgas  ok -> {"items":[],"next":null,"revision":0,"go… (+9 chars)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                      wasm    load storage    host    send    exec   total
+conversion alice.near              -       -       -       -   0.311       -   0.311
+#70 store.near.balances_page   0.046   0.281   0.115   0.059       -   0.888   1.389
+refunds (not charged)              -       -       -       -       -       -   0.223
+total 1.92 Tgas (1922747866017 gas)
+
+
+step 21: Remove { who: B, mode: FlushPanic }
+
+tx DmmGcY… signed by alice.near at #72 (conversion 0.31 Tgas) -> FAILURE: panicked: planned panic after flush
+└─ #73 store.near.acct_remove  attached 300.00 Tgas, burnt 2.17 Tgas (1.28 + 0.89 exec fees)  FAILED: panicked: planned panic after flush
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                    wasm    load storage    host    send    exec   total
+conversion alice.near            -       -       -       -   0.310       -   0.310
+#73 store.near.acct_remove   0.134   0.281   0.726   0.140       -   0.888   2.170
+refunds (not charged)            -       -       -       -       -       -   0.223
+total 2.70 Tgas (2702879562264 gas)
+
+
+step 22: Discard { who: B, mode: Plain }
+
+tx BXavn1… signed by alice.near at #75 (conversion 0.31 Tgas) -> SUCCESS
+└─ #76 store.near.acct_discard  attached 300.00 Tgas, burnt 2.15 Tgas (1.26 + 0.89 exec fees), headroom 298.74 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                     wasm    load storage    host    send    exec   total
+conversion alice.near             -       -       -       -   0.310       -   0.310
+#76 store.near.acct_discard   0.121   0.281   0.726   0.129       -   0.888   2.146
+refunds (not charged)             -       -       -       -       -       -   0.223
+total 2.68 Tgas (2679287557908 gas)
+
+
+step 23: MemRemove { who: A, mode: Plain }
+
+tx Gv8Kru… signed by alice.near at #78 (conversion 0.31 Tgas) -> SUCCESS
+└─ #79 store.near.mem_remove  attached 300.00 Tgas, burnt 2.15 Tgas (1.26 + 0.89 exec fees), headroom 298.74 Tgas  ok -> true
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                   wasm    load storage    host    send    exec   total
+conversion alice.near           -       -       -       -   0.310       -   0.310
+#79 store.near.mem_remove   0.102   0.281   0.726   0.153       -   0.888   2.152
+refunds (not charged)           -       -       -       -       -       -   0.223
+total 2.68 Tgas (2684690416241 gas)
+
+
+step 24: MembersPage { from: After(B), limit: 50 }
+
+tx Cnqyhn… signed by alice.near at #81 (conversion 0.31 Tgas) -> SUCCESS
+└─ #82 store.near.members_page  attached 300.00 Tgas, burnt 1.44 Tgas (0.56 + 0.89 exec fees), headroom 299.44 Tgas  ok -> {"items":[],"next":null,"revision":1,"go… (+10 chars)
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                     wasm    load storage    host    send    exec   total
+conversion alice.near             -       -       -       -   0.310       -   0.310
+#82 store.near.members_page   0.041   0.281   0.170   0.063       -   0.888   1.444
+refunds (not charged)             -       -       -       -       -       -   0.223
+total 1.98 Tgas (1977233462893 gas)
+
+
+step 25: LookRemove { who: A, mode: Plain }
+
+tx 37UgWD… signed by alice.near at #84 (conversion 0.31 Tgas) -> SUCCESS
+└─ #85 store.near.look_remove  attached 300.00 Tgas, burnt 1.46 Tgas (0.58 + 0.89 exec fees), headroom 299.42 Tgas  ok -> 1
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                    wasm    load storage    host    send    exec   total
+conversion alice.near            -       -       -       -   0.310       -   0.310
+#85 store.near.look_remove   0.049   0.281   0.185   0.061       -   0.888   1.463
+refunds (not charged)            -       -       -       -       -       -   0.223
+total 2.00 Tgas (1996476748162 gas)
+
+
+step 26: BlobSet { who: A, size: 1, mode: Plain }
+
+tx 8YNvRH… signed by alice.near at #87 (conversion 0.31 Tgas) -> SUCCESS
+└─ #88 store.near.blob_set  attached 300.00 Tgas, burnt 1.43 Tgas (0.54 + 0.89 exec fees), headroom 299.46 Tgas  ok -> false
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                 wasm    load storage    host    send    exec   total
+conversion alice.near         -       -       -       -   0.310       -   0.310
+#88 store.near.blob_set   0.047   0.281   0.167   0.049       -   0.888   1.432
+refunds (not charged)         -       -       -       -       -       -   0.223
+total 1.97 Tgas (1965273785929 gas)
+
+
+step 27: BlobRemove { who: A, mode: Plain }
+
+tx 9jwbyw… signed by alice.near at #90 (conversion 0.31 Tgas) -> SUCCESS
+└─ #91 store.near.blob_remove  attached 300.00 Tgas, burnt 1.43 Tgas (0.54 + 0.89 exec fees), headroom 299.46 Tgas  ok -> false
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                    wasm    load storage    host    send    exec   total
+conversion alice.near            -       -       -       -   0.310       -   0.310
+#91 store.near.blob_remove   0.046   0.281   0.167   0.049       -   0.888   1.431
+refunds (not charged)            -       -       -       -       -       -   0.223
+total 1.96 Tgas (1963810995481 gas)
+
+
+step 28: Read { who: A, what: Len }
+
+tx Bi1uot… signed by alice.near at #93 (conversion 0.31 Tgas) -> SUCCESS
+└─ #94 store.near.accounts_len  attached 300.00 Tgas, burnt 1.33 Tgas (0.44 + 0.89 exec fees), headroom 299.56 Tgas  ok -> 0
+(1 refund receipt(s) not shown)
+
+gas (Tgas)                     wasm    load storage    host    send    exec   total
+conversion alice.near             -       -       -       -   0.309       -   0.309
+#94 store.near.accounts_len   0.021   0.281   0.113   0.026       -   0.888   1.329
+refunds (not charged)             -       -       -       -       -       -   0.223
+total 1.86 Tgas (1861280020920 gas)
+
+
+
+smoke: 29 steps in 1.063028625s
+test smoke_witness_is_clean ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 1.06s
+
