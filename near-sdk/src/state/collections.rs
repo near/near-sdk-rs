@@ -1080,28 +1080,28 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         MapEntry { map: self, k }
     }
 
-    fn remove_inner(&mut self, k: &K, read_value: bool) -> Option<Option<V>>
+    /// `path` is `self.entry_path(k)`, which the caller already holds (one hash fewer).
+    fn remove_inner(&mut self, k: &K, path: &Path, read_value: bool) -> Option<Option<V>>
     where
         V: Removable,
     {
-        let path = self.entry_path(k);
         let idx_path = self.index_path(k);
         let mut value = None;
         if read_value {
-            cache::get_entry::<V>(&path)?;
+            cache::get_entry::<V>(path)?;
         }
         let i = unsafe { *r(cache::get::<u32>(&idx_path)?) };
-        guard_removal::<V>(&path, true);
+        guard_removal::<V>(path, true);
         let len = self.len();
-        V::clear_children(&path);
+        V::clear_children(path);
         if read_value || core::mem::size_of::<V>() == 0 {
-            if let Some(mut v) = cache::take_entry::<V>(&path) {
+            if let Some(mut v) = cache::take_entry::<V>(path) {
                 v.detach();
                 value = Some(v);
             }
         } else {
             // `discard`: nothing is handed back, so a cached value is buried, not freed.
-            cache::delete_entry::<V>(&path);
+            cache::delete_entry::<V>(path);
         }
         cache::delete::<u32>(&idx_path);
         let last = len - 1;
@@ -1130,9 +1130,9 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
+        let path = self.entry_path(k);
         if core::mem::size_of::<V>() == 0 {
-            let path = self.entry_path(k);
-            return match self.remove_inner(k, false)? {
+            return match self.remove_inner(k, &path, false)? {
                 Some(v) => Some(v),
                 // Not cached: rebuild the (byte-less) value instead of reading it.
                 None => Some(V::decode_value(&[], &path).unwrap_or_else(|e| {
@@ -1140,7 +1140,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
                 })),
             };
         }
-        self.remove_inner(k, true).flatten()
+        self.remove_inner(k, &path, true).flatten()
     }
 
     /// As `remove` without the entry read. For a `#[near(storage)]` record value the entry is
@@ -1153,7 +1153,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
-        self.remove_inner(k, false).is_some()
+        self.remove_inner(k, &self.entry_path(k), false).is_some()
     }
 
     /// The `i`th key in key-vector order: 1 read.
@@ -1352,7 +1352,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         // the header to find it: every live map has its last slot stored).
         let finish = |s: &Self| cache::delete_cost::<u32>(&s.index_path(k), false) + 1;
         remove_step_in::<_, V>(self, &path, n, finish, |s| {
-            s.remove_inner(k, false);
+            s.remove_inner(k, &path, false);
         })
     }
 
