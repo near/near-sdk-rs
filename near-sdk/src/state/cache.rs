@@ -664,12 +664,11 @@ pub(crate) fn ensure_marker(rec_key: &[u8], trail: &[u32], kind: u8, child_absen
         // SAFETY: invariant 1.
         match c.slots.get(rec_key).map(|sp| unsafe { sp.as_ref() }) {
             Some(s) if matches!(s.mode, Mode::Touched | Mode::Dirty) => None,
-            // decided without a host call: the bytes are known, or the record is gone (refused)
-            Some(s) => Some(
-                matches!(s.orig, Orig::Present(_) | Orig::Absent)
-                    || s.patch.is_some()
-                    || s.gone_in_this_call(),
-            ),
+            // decided without a host call: the bytes are known (a patched record was read), or
+            // the record is gone (refused)
+            Some(s) => {
+                Some(matches!(s.orig, Orig::Present(_) | Orig::Absent) || s.gone_in_this_call())
+            }
             None => Some(false),
         }
     });
