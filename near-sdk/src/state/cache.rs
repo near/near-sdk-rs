@@ -123,7 +123,8 @@ enum Mode {
     Clean,
     /// Handed out as `&mut`; written at flush only if its encoding changed.
     Touched,
-    /// Explicitly written.
+    /// Replaced whole by a blind `put`, unknown tags included, so the flush does not merge
+    /// them from `orig`. A slot never leaves Dirty or Deleted for Clean or Touched.
     Dirty,
     /// Explicitly removed.
     Deleted,
@@ -134,9 +135,6 @@ struct Slot {
     /// Current decoded value; `None` means absent (or never decoded, for raw slots).
     value: Option<NonNull<dyn Erased>>,
     mode: Mode,
-    /// Whether the flush merges unknown tags from `orig`. A blind `put` replaces the value
-    /// whole, so it clears this; read-modify-write keeps it.
-    merge: bool,
     clearing: Clearing,
     /// A map entry whose value owns storage, so it may be stored at its flag key (D9). Only
     /// such slots consult the flag key, and only after a miss at the record key.
@@ -206,7 +204,7 @@ impl Slot {
     /// The bytes the flush would write for a Touched/Dirty slot.
     fn encode(&self) -> Vec<u8> {
         let p = self.value.expect("dirty slot has a value");
-        let merge_from = if self.merge { self.orig.bytes() } else { None };
+        let merge_from = if self.mode == Mode::Touched { self.orig.bytes() } else { None };
         // SAFETY: invariant 1.
         unsafe { p.as_ref() }.encode(merge_from)
     }
@@ -333,7 +331,6 @@ impl Cache {
             orig: Orig::Unknown,
             value: None,
             mode: Mode::Clean,
-            merge: true,
             clearing: Clearing::FromOrig,
             flaggable: false,
             at_flag: false,
@@ -715,8 +712,7 @@ pub(crate) fn stored_bytes(path: &Path, flaggable: bool) -> Option<Vec<u8>> {
         // SAFETY: invariant 1.
         let s = unsafe { sp.as_ref() };
         match s.mode {
-            Mode::Deleted => None,
-            Mode::Dirty if !s.merge => None,
+            Mode::Deleted | Mode::Dirty => None,
             _ => s.orig.bytes().map(<[u8]>::to_vec),
         }
     })
@@ -807,7 +803,6 @@ pub(crate) fn put<V: Value>(path: &Path, v: V) -> NonNull<V> {
     let p = NonNull::from(Box::leak(b));
     s.value = Some(p);
     s.mode = Mode::Dirty;
-    s.merge = false;
     s.clearing = Clearing::Cleared;
     s.verbatim = false;
     s.patch = None;
