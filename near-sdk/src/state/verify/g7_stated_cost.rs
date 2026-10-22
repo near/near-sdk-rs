@@ -426,7 +426,7 @@ pub fn run_op(op: CostOp) -> Receipt {
         CostOp::RecAtLen(k) => drop(recs().at(&k.0).items.len()),
         CostOp::RecRemove(k) => drop(recs().remove(&k.0).map(|r| r.n)),
         CostOp::RecRemoveSome(k, n) => {
-            drop(recs().remove_step(&k.0, core::num::NonZeroU32::new(n as u32).unwrap()))
+            let _ = recs().remove_step(&k.0, core::num::NonZeroU32::new(n as u32).unwrap());
         }
     }
     testing::end_call()

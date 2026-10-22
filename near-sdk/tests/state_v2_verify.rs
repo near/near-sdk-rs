@@ -3,6 +3,9 @@
 //! with random field values (bolero random engine, 2,000 cases per property). The codec kernel
 //! these expand to is model-checked in `src/state/verify/g6_layout.rs`.
 #![cfg(feature = "unstable")]
+// Several `#[near(contract_state)]` roots in one binary: under `__abi-generate` each exports
+// `__near_abi_contract_source_metadata`, so the binary cannot link in that build.
+#![cfg(not(feature = "__abi-generate"))]
 
 use near_sdk::near;
 use near_sdk::state::testing::{self, OpKind};

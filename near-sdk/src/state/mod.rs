@@ -58,6 +58,7 @@
 //! A const one does:
 //!
 //! ```
+//! # #[cfg(feature = "unstable")] {
 //! use near_sdk::near;
 //! pub const DEFAULT_FEE: u16 = 30;
 //! #[near(storage)]
@@ -66,12 +67,14 @@
 //!     #[key(2, default = true)] open: bool,
 //! }
 //! assert_eq!((Pool::default().fee_bps, Pool::default().open), (30, true));
+//! # }
 //! ```
 //!
 //! A non-const value goes through `default_fn`, a pure `fn() -> T`, called on every decode of a
 //! record that lacks the tag:
 //!
 //! ```
+//! # #[cfg(feature = "unstable")] {
 //! use near_sdk::{near, AccountId};
 //! fn default_treasury() -> AccountId {
 //!     "treasury.near".parse().unwrap()
@@ -82,6 +85,7 @@
 //!     #[key(2, default_fn = default_treasury)] treasury: AccountId,
 //! }
 //! assert_eq!(Pool::default().treasury.as_str(), "treasury.near");
+//! # }
 //! ```
 //!
 //! `default_fn` takes a path, so a closure (or anything that is not a `fn() -> T`) does not
@@ -171,6 +175,7 @@
 //! The fix, `Set` in the record (`LookupSet` stays available at the root):
 //!
 //! ```
+//! # #[cfg(feature = "unstable")] {
 //! use near_sdk::near;
 //! use near_sdk::state::{LookupSet, Map, Set};
 //! #[near(storage)]
@@ -183,6 +188,7 @@
 //!     #[key(1)] groups: Map<u32, Group>,
 //!     #[key(2)] banned: LookupSet<u32>,
 //! }
+//! # }
 //! ```
 //! - `insert` always overwrites (D6). `Map::insert` returns whether the key was new (free, from
 //!   the index read; `#[must_use]`, round 3 T1); `LookupMap::insert` returns `()` (no existence

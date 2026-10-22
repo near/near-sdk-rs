@@ -3,6 +3,9 @@
 //! wrapper drives it: `ContractState::state_read()`, the method, `state_write()`.
 //! (The wasm wrapper itself is `cfg(target_arch = "wasm32")`, so it is not compiled here.)
 #![cfg(feature = "unstable")]
+// Several `#[near(contract_state)]` roots in one binary: under `__abi-generate` each exports
+// `__near_abi_contract_source_metadata`, so the binary cannot link in that build.
+#![cfg(not(feature = "__abi-generate"))]
 
 use near_sdk::json_types::U128;
 use near_sdk::state::testing::{self, Receipt};

@@ -2,6 +2,9 @@
 //! a function named `f` or `path` (the derive's decode locals) or a const named like the one
 //! the derive used to generate (`__KEY_DEFAULT`) is the user's item, not a generated binding.
 #![cfg(feature = "unstable")]
+// Several `#[near(contract_state)]` roots in one binary: under `__abi-generate` each exports
+// `__near_abi_contract_source_metadata`, so the binary cannot link in that build.
+#![cfg(not(feature = "__abi-generate"))]
 
 use near_sdk::near;
 use near_sdk::state::Value;

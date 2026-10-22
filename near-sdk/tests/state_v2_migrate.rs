@@ -1,6 +1,9 @@
 //! Storage v2 migration round: `Migrating` over iterable v1 maps (`migrate_batch`, the wrapper
 //! coming off), and the root byte against v1 keys a caller can shape.
 #![cfg(feature = "unstable")]
+// Several `#[near(contract_state)]` roots in one binary: under `__abi-generate` each exports
+// `__near_abi_contract_source_metadata`, so the binary cannot link in that build.
+#![cfg(not(feature = "__abi-generate"))]
 
 use near_sdk::collections::TreeMap;
 use near_sdk::state::testing::{self, OpKind};
