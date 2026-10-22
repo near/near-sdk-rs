@@ -367,6 +367,59 @@ fn root_hooks_ignore_user_consts() {
     assert_eq!(glob_key::Root::state_read().map(|r| r.n), Some(9));
 }
 
+/// `member_names` spelled raw: `r#__m` is the field `__m` and `r#__R` the type `__R`. A raw
+/// name used to slip past the name avoidance (E0124 / E0062 for the views' phantom field, E0210
+/// for the `ViewField` impls' parent parameter).
+#[allow(non_camel_case_types)]
+mod raw_member_names {
+    use near_sdk::near;
+    use near_sdk::state::Map;
+
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct r#__R {
+        #[key(1)]
+        pub r#__m: u8,
+        #[key(2)]
+        pub kids: Map<u8, u8>,
+    }
+
+    /// `r#__R` nested, so its `ViewField<'a, Holder>` impl is used
+    #[near(storage)]
+    #[derive(Default)]
+    pub struct Holder {
+        #[key(1)]
+        pub r: r#__R,
+    }
+
+    #[near(contract_state(layout = v2, root = 0xF9))]
+    pub struct Root {
+        #[key(1)]
+        pub recs: Map<u8, r#__R>,
+        #[key(2)]
+        pub holders: Map<u8, Holder>,
+    }
+}
+
+#[test]
+fn raw_names_are_avoided() {
+    use near_sdk::state::{Map, Path, testing};
+    use raw_member_names::{__R, Holder};
+
+    testing::use_mock();
+    let mut recs: Map<u8, __R> = Map::__bound_at(Path::root(0xF0).field(3));
+    recs.try_insert(1, __R { __m: 6, ..Default::default() }).unwrap();
+    recs.at_mut(&1).unwrap().kids.insert(2, 3);
+    let mut holders: Map<u8, Holder> = Map::__bound_at(Path::root(0xF0).field(4));
+    holders.try_insert(1, Holder::default()).unwrap();
+    holders.at_mut(&1).unwrap().r.kids.insert(4, 5);
+    testing::flush();
+    assert_eq!(recs.at(&1).kids.get(&2), Some(&3));
+    assert_eq!(recs.get(&1).map(|r| r.__m), Some(6));
+    assert_eq!(holders.at(&1).r.kids.get(&4), Some(&5));
+    assert_eq!(holders.get(&1).map(|h| h.r.__m), Some(0));
+}
+
 /// A failing `default = expr` fails `cargo check`, not only `cargo build`, even when the record
 /// is never used. trybuild runs `cargo check` when every case is `compile_fail`. The `.stderr`
 /// snapshots are from rustc 1.98.0.

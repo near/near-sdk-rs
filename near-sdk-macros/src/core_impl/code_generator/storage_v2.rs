@@ -41,14 +41,14 @@
 //!   even then the capture is a compile error, not a silently skipped arm. An unused
 //!   parameter (the root hooks' key) is `_`, which no item can capture.
 //! - The views' phantom field and the `ViewField` impls' parent parameter are named apart from
-//!   the record's fields and name; `state_key` reads `Root::ROOT_BYTE`, so the root byte is
-//!   spelled once, in an impl, next to no generated name.
+//!   the record's fields and name (raw or not: `r#__m` is the field `__m`); `state_key` reads
+//!   `Root::ROOT_BYTE`, so the root byte is spelled once, in an impl, next to no generated name.
 //! - The `__near_` prefix (any case) is reserved: the bindings above and the inherent items the
 //!   derive adds to the record (`__near_decode_fields`, `__NEAR_KEY_DEFAULT_<tag>`) use it.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use syn::{Fields, ItemStruct, spanned::Spanned};
+use syn::{Fields, ItemStruct, ext::IdentExt, spanned::Spanned};
 
 pub struct V2Options {
     /// `Some(root byte expr)` for a contract root.
@@ -235,13 +235,13 @@ fn local(name: &str) -> syn::Ident {
     syn::Ident::new(&format!("__near_{name}"), Span::mixed_site())
 }
 
-/// `base` with `_` appended until it is none of `taken`.
+/// `base` with `_` appended until it is none of `taken`, compared unrawed (`r#x` is `x`).
 fn unused_ident<'a>(
     base: &str,
     taken: impl IntoIterator<Item = &'a syn::Ident> + Clone,
 ) -> syn::Ident {
     let mut name = base.to_owned();
-    while taken.clone().into_iter().any(|t| *t == name) {
+    while taken.clone().into_iter().any(|t| t.unraw() == name) {
         name.push('_');
     }
     syn::Ident::new(&name, Span::call_site())
