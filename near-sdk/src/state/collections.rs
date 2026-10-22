@@ -326,14 +326,15 @@ fn check_step(n: core::num::NonZeroU32) -> u32 {
 
 /// `remove_step` on either map, for the record at `path` in `map`, after `check_step`: clears
 /// what fits in `n` removes, then finishes with `finish` if the record's own remove plus the
-/// map's `finish_cost` still fits, else flags the record as being cleared.
+/// map's `finish_cost` still fits, else flags the record as being cleared. `finish_cost` also
+/// returns what `finish` needs (the `Map` index path), so it is computed once, and only here.
 #[track_caller]
-fn remove_step_in<M, V: Record + Removable>(
+fn remove_step_in<M, V: Record + Removable, C>(
     map: &mut M,
     path: &Path,
     n: u32,
-    finish_cost: impl FnOnce(&M) -> u32,
-    finish: impl FnOnce(&mut M),
+    finish_cost: impl FnOnce(&M) -> (u32, C),
+    finish: impl FnOnce(&mut M, C),
 ) -> Removal {
     if cache::get_entry::<V>(path).is_none() {
         return Removal::Done;
@@ -343,15 +344,16 @@ fn remove_step_in<M, V: Record + Removable>(
     // not finish), so a `Pending` call also stays within `n`.
     let pend = cache::clearing_cost(path);
     let mut budget = n - pend;
-    if V::clear_children_some(path, &mut budget)
-        && cache::delete_cost::<V>(path, true) + finish_cost(map) <= budget + pend
-    {
-        finish(map);
-        Removal::Done
-    } else {
-        cache::set_clearing(path);
-        Removal::Pending
+    if V::clear_children_some(path, &mut budget) {
+        let own = cache::delete_cost::<V>(path, true);
+        let (cost, c) = finish_cost(map);
+        if own + cost <= budget + pend {
+            finish(map, c);
+            return Removal::Done;
+        }
     }
+    cache::set_clearing(path);
+    Removal::Pending
 }
 
 /// What one [`Map::remove_step`] / [`LookupMap::remove_step`] call left behind.
@@ -861,7 +863,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        remove_step_in::<_, V>(self, &path, n, |_| 0, |s| s.discard(k))
+        remove_step_in::<_, V, _>(self, &path, n, |_| (0, ()), |s, ()| s.discard(k))
     }
 
     #[track_caller]
@@ -1080,17 +1082,17 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         MapEntry { map: self, k }
     }
 
-    /// `path` is `self.entry_path(k)`, which the caller already holds (one hash fewer).
-    fn remove_inner(&mut self, k: &K, path: &Path, read_value: bool) -> Option<Option<V>>
+    /// `path` and `idx_path` are `self.entry_path(k)` and `self.index_path(k)`, which the
+    /// caller already holds (no hash here).
+    fn remove_inner(&mut self, path: &Path, idx_path: &Path, read_value: bool) -> Option<Option<V>>
     where
         V: Removable,
     {
-        let idx_path = self.index_path(k);
         let mut value = None;
         if read_value {
             cache::get_entry::<V>(path)?;
         }
-        let i = unsafe { *r(cache::get::<u32>(&idx_path)?) };
+        let i = unsafe { *r(cache::get::<u32>(idx_path)?) };
         guard_removal::<V>(path, true);
         let len = self.len();
         V::clear_children(path);
@@ -1103,7 +1105,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
             // `discard`: nothing is handed back, so a cached value is buried, not freed.
             cache::delete_entry::<V>(path);
         }
-        cache::delete::<u32>(&idx_path);
+        cache::delete::<u32>(idx_path);
         let last = len - 1;
         let last_slot = self.slot_path(last);
         if i != last {
@@ -1131,8 +1133,9 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
     {
         self.path.live();
         let path = self.entry_path(k);
+        let idx_path = self.index_path(k);
         if core::mem::size_of::<V>() == 0 {
-            return match self.remove_inner(k, &path, false)? {
+            return match self.remove_inner(&path, &idx_path, false)? {
                 Some(v) => Some(v),
                 // Not cached: rebuild the (byte-less) value instead of reading it.
                 None => Some(V::decode_value(&[], &path).unwrap_or_else(|e| {
@@ -1140,7 +1143,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
                 })),
             };
         }
-        self.remove_inner(k, &path, true).flatten()
+        self.remove_inner(&path, &idx_path, true).flatten()
     }
 
     /// As `remove` without the entry read. For a `#[near(storage)]` record value the entry is
@@ -1153,7 +1156,7 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         V: Removable,
     {
         self.path.live();
-        self.remove_inner(k, &self.entry_path(k), false).is_some()
+        self.remove_inner(&self.entry_path(k), &self.index_path(k), false).is_some()
     }
 
     /// The `i`th key in key-vector order: 1 read.
@@ -1350,9 +1353,12 @@ impl<K: StorageKey + Clone + 'static, V: Value> Map<K, V> {
         let path = self.entry_path(k);
         // Finishing also removes the index and the last key slot (counted as 1 without reading
         // the header to find it: every live map has its last slot stored).
-        let finish = |s: &Self| cache::delete_cost::<u32>(&s.index_path(k), false) + 1;
-        remove_step_in::<_, V>(self, &path, n, finish, |s| {
-            s.remove_inner(k, &path, false);
+        let finish = |s: &Self| {
+            let idx_path = s.index_path(k);
+            (cache::delete_cost::<u32>(&idx_path, false) + 1, idx_path)
+        };
+        remove_step_in::<_, V, _>(self, &path, n, finish, |s, idx_path| {
+            s.remove_inner(&path, &idx_path, false);
         })
     }
 
