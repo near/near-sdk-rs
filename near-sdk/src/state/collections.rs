@@ -785,10 +785,18 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         V: Removable,
     {
         self.path.live();
-        let path = self.entry_path(k);
-        guard_removal::<V>(&path, true);
-        V::clear_children(&path);
-        cache::delete_entry::<V>(&path);
+        Self::discard_at(&self.entry_path(k));
+    }
+
+    /// `discard` at `self.entry_path(k)`, which the caller already holds.
+    #[track_caller]
+    fn discard_at(path: &Path)
+    where
+        V: Removable,
+    {
+        guard_removal::<V>(path, true);
+        V::clear_children(path);
+        cache::delete_entry::<V>(path);
     }
 
     /// Removes the record at `k` in bounded steps (D9): each call issues at most `n`
@@ -863,7 +871,7 @@ impl<K: StorageKey + 'static, V: Value> LookupMap<K, V> {
         self.path.live();
         let n = check_step(n);
         let path = self.entry_path(k);
-        remove_step_in::<_, V, _>(self, &path, n, |_| (0, ()), |s, ()| s.discard(k))
+        remove_step_in::<_, V, _>(self, &path, n, |_| (0, ()), |_, ()| Self::discard_at(&path))
     }
 
     #[track_caller]
