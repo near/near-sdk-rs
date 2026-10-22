@@ -897,16 +897,33 @@ mod mock_chain {
         state_init_len: u64,
         state_init_ptr: u64,
         register_id: u64,
-    ) {
-        host_call(|ctx, m| {
+    ) -> u64 {
+        // The host asks `External::check_state_init` whether the bytes are canonical, and
+        // nearcore's `MockedExternal` answers with whatever its `state_init_error` field holds.
+        // Answer with nearcore's own strict decoder instead, so the mock reports the status the
+        // chain would.
+        assert_ne!(
+            state_init_len,
+            u64::MAX,
+            "the mocked universal_state_init_to_account_id does not read the state init from a register",
+        );
+        crate::mock::with_mocked_blockchain(|b| {
+            let mut m = Mem::new(b.max_total_log_length);
             let state_init = m.copy_in(state_init_len, state_init_ptr);
+            let raw = near_primitives::universal_state_init::RawStateInit(
+                m.bytes()[state_init as usize..][..state_init_len as usize].to_vec(),
+            );
+            b.fixture.ext_mut().state_init_error =
+                near_primitives::universal_state_init::UniversalStateInit::from_raw_strict(&raw)
+                    .err();
             host::universal_state_init_to_account_id(
-                ctx,
+                &mut b.ctx,
                 m.bytes(),
                 state_init_len,
                 state_init,
                 register_id,
             )
+            .unwrap()
         })
     }
     #[unsafe(no_mangle)]

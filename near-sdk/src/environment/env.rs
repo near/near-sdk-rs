@@ -27,7 +27,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::universal_state_init::UniversalStateInit;
+use crate::universal_state_init::{RawStateInit, StateInitError};
 use crate::{CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
@@ -2554,21 +2554,36 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 // # Universal Accounts API #
 // ##########################
 
-/// Returns the `0u` universal account id that the given [`UniversalStateInit`] creates.
+/// Returns the `0u` account id of the given state-init bytes: SHA3-256 of exactly those bytes,
+/// Crockford-base32 encoded ([NEP-655]), once the host has checked that they are a canonical
+/// state init.
 ///
-/// The id is the SHA3-256 hash of the canonical borsh encoding of `state_init`, Crockford-base32
-/// encoded. Use it to know the address of an account before creating it with
-/// [`promise_batch_action_universal_state_init`], or to check that a caller-supplied id matches a
-/// state init. [`UniversalStateInit::derive_account_id`] computes the same id from the `sha3_256`
-/// host function instead of this one.
+/// `state_init` holds the borsh bytes of a versioned state init. The id commits to the bytes, so
+/// pass them unchanged, including a state-init version this SDK predates: the host validates
+/// against the versions it supports, not the ones this SDK knows.
 ///
-/// Uses low-level [`crate::sys::universal_state_init_to_account_id`]; see
-/// [`universal_state_init_to_account_id_raw`] to pass the borsh bytes directly.
+/// Use it to pick the receiver for [`promise_batch_action_universal_state_init`], or to check that
+/// a caller-supplied id matches the bytes.
+///
+/// Uses low-level [`crate::sys::universal_state_init_to_account_id`].
+///
+/// # Errors
+///
+/// - [`StateInitError::Malformed`] if the bytes do not decode into a state init the host knows.
+/// - [`StateInitError::NonCanonical`] if they decode, but are not the canonical encoding of the
+///   result (unsorted or duplicate storage keys or access-key handles). A non-canonical encoding
+///   has no account id, and re-encoding it would describe a different account.
+///
+/// `Ok` means the bytes are canonical, and no more: limits on keys, values and the number of
+/// entries are checked when the action is validated, and initialization still needs the code to
+/// exist and enough funding.
+///
+/// Off-chain (`non-contract-usage` without `unit-testing`) the same check runs locally through
+/// [`RawStateInit::try_derive_account_id`], which only knows this SDK's state-init versions.
 ///
 /// # Requirements
 ///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
+/// Requires nearcore protocol version 88+ (nearcore 2.14).
 ///
 /// # Examples
 /// ```no_run
@@ -2577,39 +2592,36 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 ///
 /// let state_init = UniversalStateInit::from(
 ///     UniversalStateInitV1::default().with_access_key(env::signer_account_pk()),
-/// );
-/// let account_id = env::universal_state_init_to_account_id(&state_init);
-/// assert_eq!(account_id, state_init.derive_account_id());
+/// )
+/// .to_raw();
+/// let account_id = env::universal_state_init_to_account_id(&state_init).unwrap();
+/// assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
 /// ```
-pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
-    universal_state_init_to_account_id_raw(&state_init.to_bytes())
-}
-
-/// Like [`universal_state_init_to_account_id`], but takes the borsh-encoded state init bytes
-/// directly, so a contract can derive the id for a state-init version this SDK predates.
 ///
-/// The account id commits to exactly these bytes: two encodings of the same logical state init
-/// are two different accounts.
-///
-/// # Requirements
-///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
-pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
+/// [NEP-655]: https://github.com/near/NEPs/pull/655
+pub fn universal_state_init_to_account_id(
+    state_init: &RawStateInit,
+) -> Result<AccountId, StateInitError> {
     #[cfg(any(
         target_arch = "wasm32",
         not(feature = "non-contract-usage"),
         all(feature = "unit-testing", not(test)),
     ))]
     {
-        unsafe {
+        let state_init = state_init.as_ref();
+        let status = unsafe {
             sys::universal_state_init_to_account_id(
                 state_init.len() as _,
                 state_init.as_ptr() as _,
                 ATOMIC_OP_REGISTER,
             )
         };
-        assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))
+        match status {
+            0 => Ok(assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))),
+            1 => Err(StateInitError::Malformed),
+            2 => Err(StateInitError::NonCanonical),
+            _ => abort(),
+        }
     }
 
     #[cfg(all(
@@ -2618,27 +2630,32 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_global_contracts::derive_universal_account_id(state_init)
+        state_init.try_derive_account_id()
     }
 }
 
 /// Appends a `UniversalStateInit` action to the batch of actions for the given promise pointed
-/// by `promise_index`, creating the `0u` universal account that `state_init` describes and
+/// by `promise_index`, creating the `0u` universal account that the state-init bytes describe and
 /// funding it with `amount`.
 ///
-/// The promise's receiver must be the account id `state_init` derives to (see
-/// [`universal_state_init_to_account_id`]); the runtime checks that when the receipt is
-/// validated, not here.
+/// `state_init` holds the borsh bytes of a versioned state init. The bytes go into the
+/// action verbatim, so a contract can forward bytes it was handed, including a state-init version
+/// this SDK predates, without changing the account they derive to.
+///
+/// The promise's receiver must be the account id these bytes derive to (see
+/// [`universal_state_init_to_account_id`], which also checks that they are canonical). This call
+/// does not check either. The runtime validates the
+/// new receipt when the calling function call finishes, and a mismatch fails that call and rolls
+/// back its state changes.
 ///
 /// More info about batching [here](crate::env::promise_batch_create). Prefer
 /// [`crate::Promise::universal_state_init`] unless you need the low-level API.
 ///
-/// Uses low-level [`crate::sys::promise_batch_action_universal_state_init`]; see
-/// [`promise_batch_action_universal_state_init_raw`] to pass the borsh bytes directly.
+/// Uses low-level [`crate::sys::promise_batch_action_universal_state_init`].
 ///
 /// # Requirements
 ///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
 /// nearcore 2.14).
 ///
 /// # Examples
@@ -2651,31 +2668,17 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
 ///     UniversalStateInitV1::default()
 ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
 ///         .with_data_entry(b"owner", b"alice.near"),
-/// );
-/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init));
+/// )
+/// .to_raw();
+/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init).unwrap());
 /// promise_batch_action_universal_state_init(promise, &state_init, NearToken::from_millinear(10));
 /// ```
 pub fn promise_batch_action_universal_state_init(
     promise_index: PromiseIndex,
-    state_init: &UniversalStateInit,
+    state_init: &RawStateInit,
     amount: NearToken,
 ) {
-    promise_batch_action_universal_state_init_raw(promise_index, &state_init.to_bytes(), amount)
-}
-
-/// Like [`promise_batch_action_universal_state_init`], but takes the borsh-encoded state init
-/// bytes directly, so a contract can create an account from a state-init version this SDK
-/// predates. The bytes travel into the action verbatim.
-///
-/// # Requirements
-///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
-pub fn promise_batch_action_universal_state_init_raw(
-    promise_index: PromiseIndex,
-    state_init: &[u8],
-    amount: NearToken,
-) {
+    let state_init = state_init.as_ref();
     unsafe {
         sys::promise_batch_action_universal_state_init(
             promise_index.0,
@@ -3061,24 +3064,31 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 mod tests {
     use super::*;
 
-    /// Pinned to nearcore's `test_derive_universal_account_id` key-only vector, so this holds
-    /// whether the id comes from the mocked host function or the off-chain derivation.
+    /// Pinned to nearcore's key-only universal account id vector. Which branch runs
+    /// depends on the features: the mocked host function by default, the off-chain derivation
+    /// with `non-contract-usage`. `tests/universal_state_init.rs` always hits the mock.
     #[test]
     fn universal_state_init_to_account_id_matches_nearcore() {
-        use crate::universal_state_init::{PublicKeyHandle, UniversalStateInitV1};
+        use crate::universal_state_init::{
+            PublicKeyHandle, UniversalStateInit, UniversalStateInitV1,
+        };
 
         let state_init = UniversalStateInit::from(
             UniversalStateInitV1::default()
                 .with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
-        );
-        let account_id = universal_state_init_to_account_id(&state_init);
+        )
+        .to_raw();
+        let account_id = universal_state_init_to_account_id(&state_init).unwrap();
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
-        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
-        assert_eq!(account_id, state_init.derive_account_id());
+        assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
     }
 
+    /// Which branch runs depends on the features, as above: the mocked host function (nearcore's
+    /// strict decoder) by default, the local check with `non-contract-usage`.
     #[test]
-    fn universal_state_init_raw_derivation_preserves_bytes() {
+    fn universal_state_init_to_account_id_rejects_noncanonical_bytes() {
+        use crate::universal_state_init::UniversalStateInit;
+
         // NEP-655 Appendix A / nearcore's universal_state_init_vectors.rs wallet vector.
         let wallet = hex::decode(concat!(
             "0001012a000000",
@@ -3089,23 +3099,29 @@ mod tests {
             "00000000",
         ))
         .unwrap();
+        assert_eq!(
+            universal_state_init_to_account_id(&RawStateInit(wallet)).unwrap().as_str(),
+            "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0",
+        );
 
-        // Valid V1 bytes with data keys b, a. Decoding and re-encoding sorts them and
-        // changes the id; the raw entry point must hash the original bytes instead.
-        let unsorted =
-            hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap();
-        let sorted = UniversalStateInit::from_bytes(&unsorted).unwrap().to_bytes();
-        assert_ne!(unsorted, sorted);
+        // V1 with data keys b, a: it decodes, but the canonical encoding sorts them.
+        let unsorted = RawStateInit(
+            hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap(),
+        );
+        assert_eq!(
+            universal_state_init_to_account_id(&unsorted),
+            Err(StateInitError::NonCanonical),
+        );
+        let sorted = UniversalStateInit::try_from(&unsorted).unwrap().to_raw();
+        assert_eq!(
+            universal_state_init_to_account_id(&sorted).unwrap().as_str(),
+            "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg",
+        );
 
-        for (bytes, expected) in [
-            (wallet, "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0"),
-            (unsorted, "0u5v0d8z8y0fpzhtczvbw31a8tpxsxap2f9xkzygek2ht3t7pt34ag"),
-            (sorted, "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg"),
-        ] {
-            assert_eq!(universal_state_init_to_account_id_raw(&bytes).as_str(), expected);
+        for malformed in [vec![], vec![0xff, 0x00, 0x80, 0x01], [sorted.0, vec![0]].concat()] {
             assert_eq!(
-                near_global_contracts::derive_universal_account_id(&bytes).as_str(),
-                expected
+                universal_state_init_to_account_id(&RawStateInit(malformed)),
+                Err(StateInitError::Malformed),
             );
         }
     }
