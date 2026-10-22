@@ -385,20 +385,6 @@ pub fn expand(
     let fvis: Vec<_> = v2.iter().map(|f| &f.vis).collect();
     let bind = quote! { #(#s::Value::bind(&mut self.#ident, &path.field(#tag));)* };
     let pending = quote! { #(#s::Value::__write_pending(&self.#ident, &path.field(#tag));)* };
-    let unknown_collection_body = quote! {
-        let f = #p::parse(bytes).ok()?;
-        for &(t, w, b) in f.iter() {
-            let hit = match t {
-                #(#unknown_arms)*
-                _ => #p::unknown_field_collection(w, b),
-            };
-            if let ::core::option::Option::Some((mut trail, k)) = hit {
-                trail.insert(0, t);
-                return ::core::option::Option::Some((trail, k));
-            }
-        }
-        ::core::option::Option::None
-    };
 
     let max_subpath = quote! {{
         let mut m = 0usize;
@@ -550,7 +536,18 @@ pub fn expand(
                 fn __unknown_collection(bytes: &[u8])
                     -> ::core::option::Option<(::std::vec::Vec<u32>, u8)>
                 {
-                    #unknown_collection_body
+                    let f = #p::parse(bytes).ok()?;
+                    for &(t, w, b) in f.iter() {
+                        let hit = match t {
+                            #(#unknown_arms)*
+                            _ => #p::unknown_field_collection(w, b),
+                        };
+                        if let ::core::option::Option::Some((mut trail, k)) = hit {
+                            trail.insert(0, t);
+                            return ::core::option::Option::Some((trail, k));
+                        }
+                    }
+                    ::core::option::Option::None
                 }
                 fn encode_value(&self, orig: ::core::option::Option<&[u8]>) -> ::std::vec::Vec<u8> {
                     #encode_body
