@@ -441,7 +441,9 @@ fn populate(sim: &mut Sim, v: Variant, which: &str, n: u32) {
         assert_eq!(sim.view(C, "map_len", json!({})).json::<u32>(), n);
     }
     if which == "units" {
+        // No getter: the remove rows check each key they remove was present.
         assert_eq!(sim.view(C, "units_len", json!({})).json::<u32>(), n);
+        return;
     }
     if which == "accounts" {
         assert_eq!(sim.view(C, "accounts_len", json!({})).json::<u32>(), n);
