@@ -1,0 +1,17 @@
+error[E0080]: evaluation panicked: bad default
+ --> compilation_tests/storage_v2/default_panics_root_drop_type.rs:8:24
+  |
+8 |     #[key(1, default = boom())]
+  |                        ^^^^^^ evaluation of `_::<impl Root>::__NEAR_KEY_DEFAULT_1` failed inside this call
+  |
+note: inside `boom`
+ --> compilation_tests/storage_v2/default_panics_root_drop_type.rs:3:5
+  |
+3 |     panic!("bad default")
+  |     ^^^^^^^^^^^^^^^^^^^^^ the failure occurred here
+
+note: erroneous constant encountered
+ --> compilation_tests/storage_v2/default_panics_root_drop_type.rs:8:24
+  |
+8 |     #[key(1, default = boom())]
+  |                        ^^^^

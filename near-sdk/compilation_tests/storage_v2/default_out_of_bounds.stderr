@@ -1,0 +1,19 @@
+error: this operation will panic at runtime
+ --> compilation_tests/storage_v2/default_out_of_bounds.rs:4:24
+  |
+4 |     #[key(1, default = [1u8][1])]
+  |                        ^^^^^^^^ index out of bounds: the length is 1 but the index is 1
+  |
+  = note: `#[deny(unconditional_panic)]` on by default
+
+error[E0080]: index out of bounds: the length is 1 but the index is 1
+ --> compilation_tests/storage_v2/default_out_of_bounds.rs:4:24
+  |
+4 |     #[key(1, default = [1u8][1])]
+  |                        ^^^^^^^^ evaluation of `_::<impl S>::__NEAR_KEY_DEFAULT_1` failed here
+
+note: erroneous constant encountered
+ --> compilation_tests/storage_v2/default_out_of_bounds.rs:4:24
+  |
+4 |     #[key(1, default = [1u8][1])]
+  |                        ^^^^^

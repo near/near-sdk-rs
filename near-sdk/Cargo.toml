@@ -88,6 +88,7 @@ trybuild = "1.0"
 rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
+bolero = "0.13"
 arbitrary = { version = "1.2.3", features = ["derive"] }
 derive_arbitrary = "1.2.3"
 hex = { version = "0.4.3", features = ["serde"] }
@@ -118,7 +119,9 @@ arbitrary = [
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
 digest = ["dep:near-digest"]
-unstable = []
+unstable = ["dep:near-digest"]
+# Prototype only: build `state` with an 8-byte entry hash instead of 16, to measure the width.
+unstable-state-hash8 = ["unstable"]
 legacy = []
 global-contracts = []
 abi = [

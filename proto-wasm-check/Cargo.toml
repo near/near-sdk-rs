@@ -1,0 +1,15 @@
+# Standalone crate (own workspace) to `cargo check --target wasm32-unknown-unknown` the spec's
+# Exchange contract, so the real `#[near]` extern "C" wrappers are type-checked for a v2 root.
+[package]
+name = "proto-wasm-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { path = "../near-sdk", features = ["unstable"] }
+
+[workspace]

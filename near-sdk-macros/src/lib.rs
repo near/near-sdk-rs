@@ -38,8 +38,29 @@ impl FromMeta for Serializers {
     }
 }
 
+/// `reserved(3, 7)`: tags of deliberately removed storage v2 fields.
+#[derive(Debug, Clone, Default)]
+struct ReservedTags(Vec<u32>);
+
+impl FromMeta for ReservedTags {
+    fn from_list(items: &[NestedMeta]) -> Result<Self, darling::Error> {
+        items
+            .iter()
+            .map(|i| match i {
+                NestedMeta::Lit(syn::Lit::Int(n)) => n.base10_parse::<u32>().map_err(Into::into),
+                other => Err(darling::Error::custom("expected integer tags").with_span(other)),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(ReservedTags)
+    }
+}
+
 #[derive(FromMeta)]
 struct NearMacroArgs {
+    /// Storage v2: `#[near(storage)]` marks a tagged record.
+    #[darling(default)]
+    storage: darling::util::Flag,
+    reserved: Option<ReservedTags>,
     serializers: Option<Serializers>,
     #[darling(default, flatten)]
     near_bindgen_args: NearBindgenMacroArgs,
@@ -106,6 +127,37 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let string_serde_with_crate = quote! {#near_sdk_crate::serde_with}.to_string();
 
     let mut expanded: proc_macro2::TokenStream = quote! {};
+
+    // Storage v2: tagged records and v2 roots get no Borsh/serde/schema derives.
+    if let Some(cs) = &near_macro_args.near_bindgen_args.contract_state
+        && let Some(e) = cs.layout_error()
+    {
+        return e.to_compile_error().into();
+    }
+    let v2_root =
+        near_macro_args.near_bindgen_args.contract_state.as_ref().and_then(|c| c.v2_root());
+    if near_macro_args.storage.is_present() || v2_root.is_some() {
+        let Ok(item_struct) = syn::parse::<ItemStruct>(item) else {
+            return syn::Error::new(
+                Span::call_site(),
+                "#[near(storage)] and layout = v2 apply to structs only",
+            )
+            .to_compile_error()
+            .into();
+        };
+        let struct_attrs = v2_root.is_some().then(|| {
+            let near_bindgen_args = near_macro_args.near_bindgen_args;
+            quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args)]}
+        });
+        let opts = core_impl::storage_v2::V2Options {
+            root: v2_root,
+            reserved: near_macro_args.reserved.map(|r| r.0).unwrap_or_default(),
+        };
+        return match core_impl::storage_v2::expand(item_struct, opts, struct_attrs) {
+            Ok(ts) => ts.into(),
+            Err(e) => e.to_compile_error().into(),
+        };
+    }
 
     if near_macro_args.near_bindgen_args.contract_state.is_some() {
         let near_bindgen_args = near_macro_args.near_bindgen_args;
@@ -608,6 +660,20 @@ fn get_where_clause(
         parse_quote!(where #predicate)
     };
     where_clause
+}
+
+/// Storage v2 (prototype, `near_sdk::state::Leaf`): opts a plain Borsh type into storage v2 as
+/// an opaque leaf, stored as its Borsh bytes. Emits `impl near_sdk::state::BorshLeaf`, from
+/// which `Value`, `Leaf` and `Removable` follow. The type must already be Borsh
+/// (`#[near(serializers = [borsh])]`) and must not hold a v1 collection.
+#[proc_macro_derive(Leaf)]
+pub fn derive_state_leaf(item: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    TokenStream::from(quote::quote! {
+        impl #impl_generics ::near_sdk::state::BorshLeaf for #name #ty_generics #where_clause {}
+    })
 }
 
 #[proc_macro_derive(PanicOnDefault)]

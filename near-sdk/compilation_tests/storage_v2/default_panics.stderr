@@ -1,0 +1,17 @@
+error[E0080]: evaluation panicked: bad default
+  --> compilation_tests/storage_v2/default_panics.rs:10:24
+   |
+10 |     #[key(1, default = defs::boom())]
+   |                        ^^^^^^^^^^^^ evaluation of `_::<impl S>::__NEAR_KEY_DEFAULT_1` failed inside this call
+   |
+note: inside `boom`
+  --> compilation_tests/storage_v2/default_panics.rs:4:9
+   |
+ 4 |         panic!("bad default")
+   |         ^^^^^^^^^^^^^^^^^^^^^ the failure occurred here
+
+note: erroneous constant encountered
+  --> compilation_tests/storage_v2/default_panics.rs:10:24
+   |
+10 |     #[key(1, default = defs::boom())]
+   |                        ^^^^

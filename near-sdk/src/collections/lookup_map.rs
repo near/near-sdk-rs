@@ -37,6 +37,12 @@ impl<K, V> LookupMap<K, V> {
         Self { key_prefix: key_prefix.into_storage_key(), el: PhantomData }
     }
 
+    /// The prefix every storage key of this map starts with.
+    #[cfg(feature = "unstable")]
+    pub(crate) fn key_prefix(&self) -> &[u8] {
+        &self.key_prefix
+    }
+
     fn raw_key_to_storage_key(&self, raw_key: &[u8]) -> Vec<u8> {
         append_slice(&self.key_prefix, raw_key)
     }

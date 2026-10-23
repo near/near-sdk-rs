@@ -132,10 +132,12 @@ jobs:
       # `store_performance_tests` asserts gas budgets tied to the pinned 1.95 toolchain;
       # the numbers drift with rustc codegen, so skip it on stable rather than loosen
       # the shared threshold. Stable still checks the suite compiles, links, and passes.
+      # Likewise `failing_defaults_fail_cargo_check` compares rustc's error text against
+      # `.stderr` snapshots recorded on 1.95, so it only runs on the pinned toolchain.
       - name: Run tests with nextest
         run: |
           if [ "${{ matrix.platform.rs }}" = "stable" ]; then
-            cargo nextest run --all ${{ matrix.features }} --profile ci -E 'not binary(store_performance_tests)'
+            cargo nextest run --all ${{ matrix.features }} --profile ci -E 'not binary(store_performance_tests) and not (binary(state_v2_hygiene) and test(=failing_defaults_fail_cargo_check))'
           else
             cargo nextest run --all ${{ matrix.features }} --profile ci
           fi
