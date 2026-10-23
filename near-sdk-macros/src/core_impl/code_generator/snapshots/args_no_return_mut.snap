@@ -16,20 +16,22 @@ pub extern "C" fn method() {
         m: Bar,
     }
     let Input { k, m }: Input = match ::near_sdk::env::input() {
-        Some(input) => {
-            match ::near_sdk::serde_json::from_slice(&input) {
-                Ok(deserialized) => deserialized,
-                Err(e) => {
+        Some(__near_input) => {
+            match ::near_sdk::serde_json::from_slice(&__near_input) {
+                Ok(__near_deserialized) => __near_deserialized,
+                Err(__near_e) => {
                     ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
+                        &format!(
+                            "Failed to deserialize input from JSON. Error: `{__near_e}`"
+                        ),
                     );
                 }
             }
         }
         None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
-    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let mut __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    Hello::method(&mut contract, k, m);
-    <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
+    Hello::method(&mut __near_contract, k, m);
+    <Hello as ::near_sdk::state::ContractState>::state_write(&__near_contract);
 }

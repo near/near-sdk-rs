@@ -16,12 +16,14 @@ pub extern "C" fn method() {
         y: String,
     }
     let Input { y }: Input = match ::near_sdk::env::input() {
-        Some(input) => {
-            match ::near_sdk::serde_json::from_slice(&input) {
-                Ok(deserialized) => deserialized,
-                Err(e) => {
+        Some(__near_input) => {
+            match ::near_sdk::serde_json::from_slice(&__near_input) {
+                Ok(__near_deserialized) => __near_deserialized,
+                Err(__near_e) => {
                     ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
+                        &format!(
+                            "Failed to deserialize input from JSON. Error: `{__near_e}`"
+                        ),
                     );
                 }
             }
@@ -31,21 +33,26 @@ pub extern "C" fn method() {
     let x: Vec<String> = ::std::iter::Iterator::collect(
         ::std::iter::Iterator::map(
             0..::near_sdk::env::promise_results_count(),
-            |i| {
-                let data = ::near_sdk::env::promise_result_checked(i, usize::MAX)
+            |__near_i| {
+                let __near_data = ::near_sdk::env::promise_result_checked(
+                        __near_i,
+                        usize::MAX,
+                    )
                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(
-                        &::std::format!("Callback computation {} was not successful", i),
+                        &::std::format!(
+                            "Callback computation {} was not successful", __near_i
+                        ),
                     ));
-                ::near_sdk::serde_json::from_slice(&data)
-                    .unwrap_or_else(|e| ::near_sdk::env::panic_str(
+                ::near_sdk::serde_json::from_slice(&__near_data)
+                    .unwrap_or_else(|__near_e| ::near_sdk::env::panic_str(
                         &format!(
-                            "Failed to deserialize callback using JSON. Error: `{e}`"
+                            "Failed to deserialize callback using JSON. Error: `{__near_e}`"
                         ),
                     ))
             },
         ),
     );
-    let contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    Hello::method(&contract, x, y);
+    Hello::method(&__near_contract, x, y);
 }

@@ -12,11 +12,13 @@ pub extern "C" fn new() {
     if <Hello as ::near_sdk::state::ContractState>::state_exists() {
         ::near_sdk::env::panic_str("The contract has already been initialized");
     }
-    let contract = Hello::new();
-    match contract {
-        ::std::result::Result::Ok(contract) => {
-            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
+    let __near_contract = Hello::new();
+    match __near_contract {
+        ::std::result::Result::Ok(__near_contract) => {
+            <Hello as ::near_sdk::state::ContractState>::state_write(&__near_contract);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(__near_err) => {
+            ::near_sdk::FunctionError::panic(&__near_err)
+        }
     }
 }

@@ -94,7 +94,7 @@ impl ImplItemMethodInfo {
                     #value_return
                     #contract_ser
                 }
-                ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
+                ::std::result::Result::Err(__near_err) => ::near_sdk::FunctionError::panic(&__near_err)
             }
         }
     }
@@ -119,10 +119,10 @@ impl ImplItemMethodInfo {
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
                     match ::near_sdk::env::input() {
-                        Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
-                            Ok(deserialized) => deserialized,
-                            Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"));
+                        Some(__near_input) => match ::near_sdk::serde_json::from_slice(&__near_input) {
+                            Ok(__near_deserialized) => __near_deserialized,
+                            Err(__near_e) => {
+                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{__near_e}`"));
                             }
                         },
                         None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
@@ -130,10 +130,10 @@ impl ImplItemMethodInfo {
                 },
                 SerializerType::Borsh => quote! {
                     match ::near_sdk::env::input() {
-                        Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
-                            Ok(deserialized) => deserialized,
-                            Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"));
+                        Some(__near_input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&__near_input) {
+                            Ok(__near_deserialized) => __near_deserialized,
+                            Err(__near_e) => {
+                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{__near_e}`"));
                             }
                         },
                         None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
@@ -231,7 +231,7 @@ impl ImplItemMethodInfo {
             let mutability = receiver.mutability;
 
             quote! {
-                let #mutability contract = <#struct_type as ::near_sdk::state::ContractState>::state_read().unwrap_or_default();
+                let #mutability __near_contract = <#struct_type as ::near_sdk::state::ContractState>::state_read().unwrap_or_default();
             }
         };
 
@@ -247,7 +247,7 @@ impl ImplItemMethodInfo {
             }
 
             Init(_) => quote! {
-                let contract = #struct_type::#ident(#arg_list);
+                let __near_contract = #struct_type::#ident(#arg_list);
             },
 
             View(view_method) => {
@@ -266,7 +266,7 @@ impl ImplItemMethodInfo {
         let contract_ser = || {
             let struct_type = &self.struct_type;
             quote! {
-                <#struct_type as ::near_sdk::state::ContractState>::state_write(&contract);
+                <#struct_type as ::near_sdk::state::ContractState>::state_write(&__near_contract);
             }
         };
 
@@ -307,11 +307,11 @@ impl ImplItemMethodInfo {
             if receiver.reference.is_some() {
                 let mutability = receiver.mutability;
                 quote! {
-                    #method_fqdn(&#mutability contract, #arg_list)
+                    #method_fqdn(&#mutability __near_contract, #arg_list)
                 }
             } else {
                 quote! {
-                    #method_fqdn(contract, #arg_list)
+                    #method_fqdn(__near_contract, #arg_list)
                 }
             }
         };
@@ -351,14 +351,14 @@ impl ImplItemMethodInfo {
 
         match &self.attr_signature_info.method_kind {
             Call(_) => quote! {
-                let result = #method_invocation;
+                let __near_result = #method_invocation;
             },
 
             // The method invocation in Init methods is done in contract initialization.
             Init(_) => quote! {},
 
             View(_) => quote! {
-                let result = #method_invocation;
+                let __near_result = #method_invocation;
             },
         }
     }
@@ -368,14 +368,14 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = match near_sdk::serde_json::to_vec(&result) {
-                    Ok(v) => v,
+                let __near_result = match near_sdk::serde_json::to_vec(&__near_result) {
+                    Ok(__near_v) => __near_v,
                     Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
                 };
             },
             SerializerType::Borsh => quote! {
-                let result = match near_sdk::borsh::to_vec(&result) {
-                    Ok(v) => v,
+                let __near_result = match near_sdk::borsh::to_vec(&__near_result) {
+                    Ok(__near_v) => __near_v,
                     Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
                 };
             },
@@ -397,7 +397,7 @@ impl ImplItemMethodInfo {
 
         let value_return = || {
             quote! {
-                ::near_sdk::env::value_return(&result);
+                ::near_sdk::env::value_return(&__near_result);
             }
         };
 
@@ -417,16 +417,16 @@ impl ImplItemMethodInfo {
 
         match &self.attr_signature_info.method_kind {
             Call(_) => quote! {
-                result
+                __near_result
             },
 
             // In Init methods the Result is the contract.
             Init(_) => quote! {
-                contract
+                __near_contract
             },
 
             View(_) => quote! {
-                result
+                __near_result
             },
         }
     }
