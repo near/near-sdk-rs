@@ -4,6 +4,9 @@ pub use self::public_key::{CurveType, ParsePublicKeyError, PublicKey, PublicKeyH
 mod primitives;
 pub use self::primitives::*;
 
+mod bounded;
+pub use self::bounded::{BoundedString, BoundedVec, TooLongError};
+
 pub use near_account_id::{self as account_id, AccountId, AccountIdRef};
 /// A wrapper struct for `u64` that represents gas. And provides helpful methods to convert to and from tera-gas and giga-gas.
 pub use near_gas::NearGas as Gas;
