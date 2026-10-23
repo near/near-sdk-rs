@@ -1,7 +1,11 @@
 #![no_std]
 
+// `C-unwind`: off wasm32 these resolve to the near-sdk unit-test mock, whose host calls panic
+// (and the test may catch the unwind). Unwinding out of an `extern "C"` declaration is UB
+// (Miri flags it). On wasm32 contracts build with `panic = "abort"`, so this is the same ABI
+// there.
 #[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
-unsafe extern "C" {
+unsafe extern "C-unwind" {
     // #############
     // # Registers #
     // #############
