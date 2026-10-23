@@ -249,7 +249,7 @@ impl AttrSigInfo {
                         quote! {
                             #acc
                             let #mutability #ident: #ty = {
-                                let data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
+                                let __near_data = ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
                                     .unwrap_or_else(|_| ::near_sdk::env::panic_str(#error_msg));
                                 #invocation
                             };
@@ -283,7 +283,7 @@ impl AttrSigInfo {
                             // deserialization otherwise.
                             syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
                                 Some(quote! {
-                                    if data.is_empty() {
+                                    if __near_data.is_empty() {
                                         return ();
                                     }
                                 })
@@ -292,7 +292,7 @@ impl AttrSigInfo {
                         };
                         let result = quote! {
                             ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                .map(|data| {
+                                .map(|__near_data| {
                                     #deserialization_tweak
                                     #deserialize
                                 })
@@ -325,9 +325,9 @@ impl AttrSigInfo {
                     #acc
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
                         0..::near_sdk::env::promise_results_count(),
-                        |i| {
-                            let data = ::near_sdk::env::promise_result_checked(i, #max_bytes)
-                                .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)));
+                        |__near_i| {
+                            let __near_data = ::near_sdk::env::promise_result_checked(__near_i, #max_bytes)
+                                .unwrap_or_else(|_| ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", __near_i)));
                             #invocation
                         }));
                 }
@@ -338,12 +338,12 @@ impl AttrSigInfo {
 fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
-            ::near_sdk::serde_json::from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`")))
+            ::near_sdk::serde_json::from_slice(&__near_data)
+                .unwrap_or_else(|__near_e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{__near_e}`")))
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`")))
+            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&__near_data)
+                .unwrap_or_else(|__near_e| ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{__near_e}`")))
         },
     }
 }

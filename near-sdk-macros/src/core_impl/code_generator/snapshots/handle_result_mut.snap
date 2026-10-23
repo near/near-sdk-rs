@@ -9,22 +9,24 @@ pub extern "C" fn method() {
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_str("Method method doesn't accept deposit");
     }
-    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let mut __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    let result = Hello::method(&mut contract);
-    match result {
-        ::std::result::Result::Ok(result) => {
-            let result = match near_sdk::serde_json::to_vec(&result) {
-                Ok(v) => v,
+    let __near_result = Hello::method(&mut __near_contract);
+    match __near_result {
+        ::std::result::Result::Ok(__near_result) => {
+            let __near_result = match near_sdk::serde_json::to_vec(&__near_result) {
+                Ok(__near_v) => __near_v,
                 Err(_) => {
                     ::near_sdk::env::panic_str(
                         "Failed to serialize the return value using JSON.",
                     )
                 }
             };
-            ::near_sdk::env::value_return(&result);
-            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
+            ::near_sdk::env::value_return(&__near_result);
+            <Hello as ::near_sdk::state::ContractState>::state_write(&__near_contract);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(__near_err) => {
+            ::near_sdk::FunctionError::panic(&__near_err)
+        }
     }
 }

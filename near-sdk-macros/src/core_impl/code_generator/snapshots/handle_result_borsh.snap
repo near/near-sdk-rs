@@ -6,21 +6,23 @@ expression: pretty_print_syn_str(&actual).unwrap()
 #[unsafe(no_mangle)]
 pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
-    let contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    let result = Hello::method(&contract);
-    match result {
-        ::std::result::Result::Ok(result) => {
-            let result = match near_sdk::borsh::to_vec(&result) {
-                Ok(v) => v,
+    let __near_result = Hello::method(&__near_contract);
+    match __near_result {
+        ::std::result::Result::Ok(__near_result) => {
+            let __near_result = match near_sdk::borsh::to_vec(&__near_result) {
+                Ok(__near_v) => __near_v,
                 Err(_) => {
                     ::near_sdk::env::panic_str(
                         "Failed to serialize the return value using Borsh.",
                     )
                 }
             };
-            ::near_sdk::env::value_return(&result);
+            ::near_sdk::env::value_return(&__near_result);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(__near_err) => {
+            ::near_sdk::FunctionError::panic(&__near_err)
+        }
     }
 }

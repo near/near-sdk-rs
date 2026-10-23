@@ -14,23 +14,27 @@ pub extern "C" fn method() {
             0u64,
             usize::MAX,
         )
-        .map(|data| {
-            ::near_sdk::serde_json::from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                    &format!("Failed to deserialize callback using JSON. Error: `{e}`"),
+        .map(|__near_data| {
+            ::near_sdk::serde_json::from_slice(&__near_data)
+                .unwrap_or_else(|__near_e| ::near_sdk::env::panic_str(
+                    &format!(
+                        "Failed to deserialize callback using JSON. Error: `{__near_e}`"
+                    ),
                 ))
         });
     let y: Result<::std::string::String, PromiseError> = ::near_sdk::env::promise_result_checked(
             1u64,
             usize::MAX,
         )
-        .map(|data| {
-            ::near_sdk::serde_json::from_slice(&data)
-                .unwrap_or_else(|e| ::near_sdk::env::panic_str(
-                    &format!("Failed to deserialize callback using JSON. Error: `{e}`"),
+        .map(|__near_data| {
+            ::near_sdk::serde_json::from_slice(&__near_data)
+                .unwrap_or_else(|__near_e| ::near_sdk::env::panic_str(
+                    &format!(
+                        "Failed to deserialize callback using JSON. Error: `{__near_e}`"
+                    ),
                 ))
         });
-    let contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    Hello::method(&contract, &mut x, y);
+    Hello::method(&__near_contract, &mut x, y);
 }

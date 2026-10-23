@@ -16,29 +16,31 @@ pub extern "C" fn method() {
         m: Bar,
     }
     let Input { k, m }: Input = match ::near_sdk::env::input() {
-        Some(input) => {
-            match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
-                Ok(deserialized) => deserialized,
-                Err(e) => {
+        Some(__near_input) => {
+            match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&__near_input) {
+                Ok(__near_deserialized) => __near_deserialized,
+                Err(__near_e) => {
                     ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from Borsh. Error: `{e}`"),
+                        &format!(
+                            "Failed to deserialize input from Borsh. Error: `{__near_e}`"
+                        ),
                     );
                 }
             }
         }
         None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
-    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+    let mut __near_contract = <Hello as ::near_sdk::state::ContractState>::state_read()
         .unwrap_or_default();
-    let result = Hello::method(&mut contract, k, m);
-    let result = match near_sdk::borsh::to_vec(&result) {
-        Ok(v) => v,
+    let __near_result = Hello::method(&mut __near_contract, k, m);
+    let __near_result = match near_sdk::borsh::to_vec(&__near_result) {
+        Ok(__near_v) => __near_v,
         Err(_) => {
             ::near_sdk::env::panic_str(
                 "Failed to serialize the return value using Borsh.",
             )
         }
     };
-    ::near_sdk::env::value_return(&result);
-    <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
+    ::near_sdk::env::value_return(&__near_result);
+    <Hello as ::near_sdk::state::ContractState>::state_write(&__near_contract);
 }
