@@ -46,10 +46,13 @@ fn ext_builder_ignores_user_consts() {
 
 /// The `extern "C"` method wrappers only exist on wasm32, so check
 /// `tests/test-contracts/macro_hygiene` for that target. It imports consts named like every binding
-/// the wrappers generate.
+/// the wrappers generate. Rustflags are set explicitly so the parent build's (e.g. coverage
+/// instrumentation, which wasm32 can't link) don't leak into the nested build.
 #[test]
 fn wasm32_method_wrappers_ignore_user_consts() {
     let status = std::process::Command::new("cargo")
+        .env("RUSTFLAGS", "-D warnings")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
         .args(["check", "--target", "wasm32-unknown-unknown", "--manifest-path"])
         .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/test-contracts/macro_hygiene/Cargo.toml"))
         .status()
