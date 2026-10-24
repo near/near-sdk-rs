@@ -10,8 +10,8 @@ ignore = [
     "RUSTSEC-2026-0346", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
     "RUSTSEC-2026-0348", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
     "RUSTSEC-2026-0349", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
+    "RUSTSEC-2026-0382", # `rustls-webpki` < 0.103.13, dev-only via `near-workspaces`; workspaces are used in tests only.
     "RUSTSEC-2026-0367", # `zip` < 9, dev-only via `symbolic-debuginfo` (latest stable needs `zip` ^7); abi_tests parses our own dylib and never extracts archives
     "RUSTSEC-2026-0368", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
     "RUSTSEC-2026-0369", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
-    "RUSTSEC-2026-0382", # `rustls-webpki` < 0.103.16, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285 (the fix needs `aws-lc-rs` ^1.18)
 ]
