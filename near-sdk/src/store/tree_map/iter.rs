@@ -131,12 +131,15 @@ where
     H: ToKey,
 {
     let entry = expect(map.get_mut(key));
-    //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
-    //*         will only give out one mutable reference for every individual key in the bucket
-    //*         during the iteration, and there is no overlap. This operates under the
-    //*         assumption that all elements in the bucket are unique and no hash collisions.
-    //*         Because we use 32 byte hashes and all keys are verified unique based on the
-    //*         `TreeMap` API, this is safe.
+    //* SAFETY: Extending the lifetime of the `&mut map` reborrow to `'a` is sound because:
+    //*         1. The iterator yields at most one mutable reference per key: the keys come from
+    //*            the tree, which holds each key once and is walked once. Producing an item only
+    //*            touches the cache entry of that key, so no other reference to a value already
+    //*            yielded is created while the iterator lives.
+    //*         2. The value lives in its own heap allocation, which the cache's `StableMap` holds
+    //*            through a raw pointer. Loading later keys inserts into that cache and may
+    //*            rebalance it, but that only moves the pointers, so values yielded earlier are
+    //*            neither moved nor invalidated.
     let value = unsafe { &mut *(entry as *mut V) };
     (key, value)
 }
