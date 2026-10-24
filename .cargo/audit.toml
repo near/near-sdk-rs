@@ -14,4 +14,5 @@ ignore = [
     "RUSTSEC-2026-0367", # `zip` < 9, dev-only via `symbolic-debuginfo` (latest stable needs `zip` ^7); abi_tests parses our own dylib and never extracts archives
     "RUSTSEC-2026-0368", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
     "RUSTSEC-2026-0369", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
+    "RUSTSEC-2026-0387", # `crypto-bigint` < 0.7.6, host-only (never wasm32) via `p256` 0.13 (`non-contract-usage`) and `near-vm-runner` (`unit-testing`); only ECDSA verify on public inputs, and `near-vm-runner` =0.38.0-rc.4 needs `p256` ^0.13 (`crypto-bigint` ^0.5)
 ]
