@@ -1,0 +1,35 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub extern "C" fn method() {
+    ::near_sdk::env::setup_panic_hook();
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_str("Method method doesn't accept deposit");
+    }
+    #[derive(::near_sdk::borsh::BorshDeserialize)]
+    #[borsh(crate = "::near_sdk::borsh")]
+    struct Input {
+        k: u64,
+        m: Bar,
+    }
+    let Input { mut k, m }: Input = match ::near_sdk::env::input() {
+        Some(input) => {
+            match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
+                Ok(deserialized) => deserialized,
+                Err(e) => {
+                    ::near_sdk::env::panic_str(
+                        &format!("Failed to deserialize input from Borsh. Error: `{e}`"),
+                    );
+                }
+            }
+        }
+        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
+    };
+    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+        .unwrap_or_default();
+    Hello::method(&mut contract, k, m);
+    <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
+}
