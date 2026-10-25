@@ -4,7 +4,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{ERR_INCONSISTENT_STATE, LookupMap, ToKey, UnorderedMap, ValueAndIndex};
 use crate::store::ERR_KEY_ORD_MISMATCH;
-use crate::store::free_list::FreeListIndex;
 use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
@@ -136,6 +135,8 @@ where
     keys: free_list::Iter<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
+    /// Lending round of `values`, so that no cache entry is yielded twice.
+    round: u32,
 }
 
 impl<'a, K, V, H> IterMut<'a, K, V, H>
@@ -145,30 +146,32 @@ where
     H: ToKey,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
-        Self { keys: map.keys.iter(), values: &mut map.values }
+        let round = map.values.begin_lending();
+        Self { keys: map.keys.iter(), values: &mut map.values, round }
     }
 
     #[allow(clippy::mut_from_ref)]
-    fn get_entry_mut(&mut self, (index, key): (FreeListIndex, &'a K)) -> (&'a K, &'a mut V)
+    fn get_entry_mut(&mut self, key: &'a K) -> (&'a K, &'a mut V)
     where
         K: Clone,
         V: BorshDeserialize,
     {
-        let entry =
-            self.values.get_mut(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
         // The value cache is keyed by `Ord`, but storage, and so the duplicate check on insert, by
-        // the Borsh encoding. If the two disagree, two keys in the list can share one cache entry.
-        // Each entry records the position of its key in the list, so only yield it from there.
-        if entry.key_index != index {
-            env::panic_str(ERR_KEY_ORD_MISMATCH)
-        }
+        // the Borsh encoding. If the two disagree, two keys in the list can reach the same cache
+        // entry, which must not be yielded twice.
+        let entry = self
+            .values
+            .get_mut_inner_once(key, self.round)
+            .unwrap_or_else(|| env::panic_str(ERR_KEY_ORD_MISMATCH))
+            .value_mut()
+            .as_mut()
+            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
         //* SAFETY: Extending the lifetime of the `&mut self` reborrow to `'a` is sound because:
-        //*         1. The iterator yields at most one mutable reference per cache entry: an entry
-        //*            is only yielded at the key list position stored in its `key_index` (checked
-        //*            above), and the key list is walked once, so no position is visited twice.
-        //*            Producing an item only touches that entry, so no other reference to a value
-        //*            already yielded is created while the iterator lives. If the check fails, the
-        //*            reference `get_mut` just returned is never used: execution aborts first.
+        //*         1. The iterator yields at most one mutable reference per cache entry:
+        //*            `get_mut_inner_once` marks the entry with this iterator's lending round and
+        //*            refuses an entry that is already marked, before creating any reference to
+        //*            it. A value already yielded is therefore never referenced again while the
+        //*            iterator lives, even if a refused lookup panics and the panic is caught.
         //*         2. The value lives in its own heap allocation, which the cache's `StableMap`
         //*            holds through a raw pointer. Loading later keys inserts into that cache and
         //*            may rebalance it, but that only moves the pointers, so values yielded
@@ -191,7 +194,7 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let key = self.keys.nth_indexed(n)?;
+        let key = self.keys.nth(n)?;
         Some(self.get_entry_mut(key))
     }
 
@@ -230,7 +233,7 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let key = self.keys.nth_back_indexed(n)?;
+        let key = self.keys.nth_back(n)?;
         Some(self.get_entry_mut(key))
     }
 }

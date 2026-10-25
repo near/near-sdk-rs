@@ -28,19 +28,6 @@ where
     fn remaining(&self) -> usize {
         self.range.len()
     }
-
-    /// Like [`Iterator::nth`], but also returns the index of the element in the vector.
-    pub(crate) fn nth_indexed(&mut self, n: usize) -> Option<(u32, &'a T)> {
-        let idx = self.range.nth(n)?;
-        Some((idx, self.vec.get(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))))
-    }
-
-    /// Like [`DoubleEndedIterator::nth_back`], but also returns the index of the element in the
-    /// vector.
-    pub(crate) fn nth_back_indexed(&mut self, n: usize) -> Option<(u32, &'a T)> {
-        let idx = self.range.nth_back(n)?;
-        Some((idx, self.vec.get(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))))
-    }
 }
 
 impl<'a, T> Iterator for Iter<'a, T>
@@ -63,7 +50,8 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.nth_indexed(n).map(|(_, value)| value)
+        let idx = self.range.nth(n)?;
+        Some(self.vec.get(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)))
     }
 }
 
@@ -79,7 +67,8 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        self.nth_back_indexed(n).map(|(_, value)| value)
+        let idx = self.range.nth_back(n)?;
+        Some(self.vec.get(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)))
     }
 }
 

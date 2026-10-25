@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{ERR_INCONSISTENT_STATE, FreeList, FreeListIndex, Slot};
+use super::{ERR_INCONSISTENT_STATE, FreeList, Slot};
 use crate::{env, store::vec};
 
 impl<'a, T> IntoIterator for &'a FreeList<T>
@@ -52,66 +52,6 @@ where
     pub(super) fn new(bucket: &'a FreeList<T>) -> Self {
         Self { values: bucket.elements.iter(), elements_left: bucket.occupied_count }
     }
-
-    /// Like [`Iterator::next`], but also returns the index of the element in the list.
-    pub(crate) fn next_indexed(&mut self) -> Option<(FreeListIndex, &'a T)> {
-        if self.elements_left == 0 {
-            return None;
-        }
-        loop {
-            match self.values.nth_indexed(0) {
-                Some((_, Slot::Empty { .. })) => continue,
-                Some((index, Slot::Occupied(value))) => {
-                    decrement_count(&mut self.elements_left);
-                    return Some((FreeListIndex(index), value));
-                }
-                None => {
-                    // This should never be hit, because if 0 occupied elements, should have
-                    // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
-                }
-            }
-        }
-    }
-
-    /// Like [`DoubleEndedIterator::next_back`], but also returns the index of the element in the
-    /// list.
-    pub(crate) fn next_back_indexed(&mut self) -> Option<(FreeListIndex, &'a T)> {
-        if self.elements_left == 0 {
-            return None;
-        }
-        loop {
-            match self.values.nth_back_indexed(0) {
-                Some((_, Slot::Empty { .. })) => continue,
-                Some((index, Slot::Occupied(value))) => {
-                    decrement_count(&mut self.elements_left);
-                    return Some((FreeListIndex(index), value));
-                }
-                None => {
-                    // This should never be hit, because if 0 occupied elements, should have
-                    // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
-                }
-            }
-        }
-    }
-
-    /// Like [`Iterator::nth`], but also returns the index of the element in the list.
-    pub(crate) fn nth_indexed(&mut self, n: usize) -> Option<(FreeListIndex, &'a T)> {
-        for _ in 0..n {
-            self.next_indexed()?;
-        }
-        self.next_indexed()
-    }
-
-    /// Like [`DoubleEndedIterator::nth_back`], but also returns the index of the element in the
-    /// list.
-    pub(crate) fn nth_back_indexed(&mut self, n: usize) -> Option<(FreeListIndex, &'a T)> {
-        for _ in 0..n {
-            self.next_back_indexed()?;
-        }
-        self.next_back_indexed()
-    }
 }
 
 impl<'a, T> Iterator for Iter<'a, T>
@@ -121,7 +61,23 @@ where
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_indexed().map(|(_, value)| value)
+        if self.elements_left == 0 {
+            return None;
+        }
+        loop {
+            match self.values.next() {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
+                    decrement_count(&mut self.elements_left);
+                    return Some(value);
+                }
+                None => {
+                    // This should never be hit, because if 0 occupied elements, should have
+                    // returned before the loop
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -142,7 +98,23 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.next_back_indexed().map(|(_, value)| value)
+        if self.elements_left == 0 {
+            return None;
+        }
+        loop {
+            match self.values.next_back() {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
+                    decrement_count(&mut self.elements_left);
+                    return Some(value);
+                }
+                None => {
+                    // This should never be hit, because if 0 occupied elements, should have
+                    // returned before the loop
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+            }
+        }
     }
 }
 

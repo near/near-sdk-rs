@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::panic::UnwindSafe;
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// An owning heap pointer, like [`Box`], whose pointee is *not* asserted to be uniquely
 /// referenced when the pointer itself is moved or passed by value.
@@ -77,7 +78,20 @@ impl<T: UnwindSafe> UnwindSafe for AliasableBox<T> {}
 /// ([`AliasableBox`]). Rebalancing the `BTreeMap` therefore moves only those pointers and never
 /// touches, or asserts unique access to, a value that a caller holds a reference to.
 pub(crate) struct StableMap<K, V> {
-    map: RefCell<BTreeMap<K, AliasableBox<V>>>,
+    map: RefCell<BTreeMap<K, Slot<V>>>,
+}
+
+/// The last round of [`StableMap::get_mut_once`] started by [`StableMap::begin_lending`], across
+/// all maps. A global counter keeps `StableMap`, and so every `store` collection, the same size.
+static LENDING_ROUND: AtomicU32 = AtomicU32::new(0);
+
+/// A cached value, plus the last [`StableMap::get_mut_once`] round it was returned in. The mark
+/// lives next to the pointer, outside the value's allocation, so it can be checked and updated
+/// without touching a value that a caller holds a reference to.
+#[derive(Default)]
+struct Slot<V> {
+    value: AliasableBox<V>,
+    lent_in_round: u32,
 }
 
 impl<K: Ord, V> Default for StableMap<K, V> {
@@ -94,7 +108,7 @@ impl<K, V> StableMap<K, V> {
         K: Ord,
         V: Default,
     {
-        let ptr = self.map.borrow_mut().entry(k).or_default().as_ptr();
+        let ptr = self.map.borrow_mut().entry(k).or_default().value.as_ptr();
         // SAFETY: here, we extend the lifetime of `V` from the local `RefCell` borrow to the
         // `&self`. The value is valid for that long: through `&self` the map is only ever appended
         // to, entries are never removed or replaced, and the value's allocation does not move
@@ -115,14 +129,47 @@ impl<K, V> StableMap<K, V> {
         K: Ord,
         V: Default,
     {
-        let mut ptr = self.map.get_mut().entry(k).or_default().as_ptr();
+        let mut ptr = self.map.get_mut().entry(k).or_default().value.as_ptr();
         // SAFETY: the pointer is valid (see `get`), and `&mut self` guarantees that no other
         // reference obtained through this map is live for the returned lifetime.
         unsafe { ptr.as_mut() }
     }
+    /// Starts a new round of [`Self::get_mut_once`] and returns its id.
+    pub(crate) fn begin_lending() -> u32 {
+        // Skips `0`, which marks a slot that was never lent. After wrapping around, a slot last
+        // lent 2^32 - 1 rounds ago can be refused spuriously, but a repeat within one round is
+        // always refused.
+        loop {
+            let round = LENDING_ROUND.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+            if round != 0 {
+                return round;
+            }
+        }
+    }
+    /// Like [`Self::get_mut`], but returns `None` if this key's value was already returned in
+    /// the same `round` (see [`Self::begin_lending`]).
+    ///
+    /// The check happens before any reference to the value is created, so a reference handed out
+    /// earlier in the round stays valid even if the caller then panics and that panic is caught.
+    /// The `IterMut` impls of the `store` collections use this to yield each value at most once,
+    /// even if two of their keys reach the same cache entry.
+    pub(crate) fn get_mut_once(&mut self, k: K, round: u32) -> Option<&mut V>
+    where
+        K: Ord,
+        V: Default,
+    {
+        let slot = self.map.get_mut().entry(k).or_default();
+        if slot.lent_in_round == round {
+            return None;
+        }
+        slot.lent_in_round = round;
+        let mut ptr = slot.value.as_ptr();
+        // SAFETY: as in `get_mut`.
+        Some(unsafe { ptr.as_mut() })
+    }
     /// Iterates over all cached entries in key order, with mutable access to the values.
     pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
-        self.map.get_mut().iter_mut().map(|(k, v)| (k, &mut **v))
+        self.map.get_mut().iter_mut().map(|(k, slot)| (k, &mut *slot.value))
     }
     #[cfg(test)]
     fn len(&mut self) -> usize {
@@ -134,7 +181,7 @@ impl<K, V> StableMap<K, V> {
         Q: Ord,
         F: FnOnce(&V) -> T,
     {
-        self.map.borrow().get(k).map(|s| f(s))
+        self.map.borrow().get(k).map(|slot| f(&slot.value))
     }
 }
 #[cfg(test)]
@@ -203,6 +250,28 @@ mod test {
         let map: StableMap<u32, u32> = StableMap::default();
         let refs: Vec<&u32> = (0..n).map(|k| map.get(k)).collect();
         assert!(refs.iter().all(|v| **v == 0));
+    }
+
+    /// A repeat in the same round is refused before any reference to the value is created, so
+    /// a reference from earlier in the round stays usable. Run under Miri, see above.
+    #[test]
+    fn get_mut_once_refuses_repeats_without_invalidating_earlier_refs() {
+        let mut map: StableMap<u32, u32> = StableMap::default();
+        let round = StableMap::<u32, u32>::begin_lending();
+        let first: *mut u32 = map.get_mut_once(1, round).unwrap();
+        // SAFETY: `first` points at the cached value for key 1; no other reference to it is live.
+        unsafe { *first = 1 };
+        for k in 2..200 {
+            *map.get_mut_once(k, round).unwrap() = k;
+        }
+        assert!(map.get_mut_once(1, round).is_none());
+        // SAFETY: as above. The refused lookup must not have invalidated `first`.
+        unsafe { *first += 1 };
+
+        let next = StableMap::<u32, u32>::begin_lending();
+        assert_ne!(next, round);
+        assert_eq!(*map.get_mut_once(1, next).unwrap(), 2);
+        assert_eq!(*map.get_mut(199), 199);
     }
 
     #[test]
