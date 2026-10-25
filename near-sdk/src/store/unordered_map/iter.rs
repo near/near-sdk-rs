@@ -3,6 +3,8 @@ use std::iter::FusedIterator;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{ERR_INCONSISTENT_STATE, LookupMap, ToKey, UnorderedMap, ValueAndIndex};
+use crate::store::ERR_KEY_ORD_MISMATCH;
+use crate::store::free_list::FreeListIndex;
 use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
@@ -147,18 +149,26 @@ where
     }
 
     #[allow(clippy::mut_from_ref)]
-    fn get_entry_mut(&mut self, key: &'a K) -> (&'a K, &'a mut V)
+    fn get_entry_mut(&mut self, (index, key): (FreeListIndex, &'a K)) -> (&'a K, &'a mut V)
     where
         K: Clone,
         V: BorshDeserialize,
     {
         let entry =
             self.values.get_mut(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        // The value cache is keyed by `Ord`, but storage, and so the duplicate check on insert, by
+        // the Borsh encoding. If the two disagree, two keys in the list can share one cache entry.
+        // Each entry records the position of its key in the list, so only yield it from there.
+        if entry.key_index != index {
+            env::panic_str(ERR_KEY_ORD_MISMATCH)
+        }
         //* SAFETY: Extending the lifetime of the `&mut self` reborrow to `'a` is sound because:
-        //*         1. The iterator yields at most one mutable reference per key: the keys come
-        //*            from the map's key list, which holds each key once and is walked once.
-        //*            Producing an item only touches the cache entry of that key, so no other
-        //*            reference to a value already yielded is created while the iterator lives.
+        //*         1. The iterator yields at most one mutable reference per cache entry: an entry
+        //*            is only yielded at the key list position stored in its `key_index` (checked
+        //*            above), and the key list is walked once, so no position is visited twice.
+        //*            Producing an item only touches that entry, so no other reference to a value
+        //*            already yielded is created while the iterator lives. If the check fails, the
+        //*            reference `get_mut` just returned is never used: execution aborts first.
         //*         2. The value lives in its own heap allocation, which the cache's `StableMap`
         //*            holds through a raw pointer. Loading later keys inserts into that cache and
         //*            may rebalance it, but that only moves the pointers, so values yielded
@@ -181,7 +191,7 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let key = self.keys.nth(n)?;
+        let key = self.keys.nth_indexed(n)?;
         Some(self.get_entry_mut(key))
     }
 
@@ -220,7 +230,7 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let key = self.keys.nth_back(n)?;
+        let key = self.keys.nth_back_indexed(n)?;
         Some(self.get_entry_mut(key))
     }
 }

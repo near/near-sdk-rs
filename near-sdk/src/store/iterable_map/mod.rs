@@ -789,6 +789,59 @@ mod tests {
             }
         }
     }
+
+    /// Compared and ordered by `id` only, while `tag` is still part of the Borsh encoding.
+    #[derive(borsh::BorshSerialize, borsh::BorshDeserialize, Clone, Debug)]
+    struct LooseKey {
+        id: u8,
+        tag: u8,
+    }
+
+    impl PartialEq for LooseKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+    impl Eq for LooseKey {}
+    impl PartialOrd for LooseKey {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+    impl Ord for LooseKey {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.id.cmp(&other.id)
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "compare equal but serialize differently")]
+    fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh() {
+        let mut map = IterableMap::new(b"m");
+        map.insert(LooseKey { id: 1, tag: 0 }, 10u8);
+        map.flush();
+        // With a cold cache, the next insert looks the key up in storage by its Borsh encoding,
+        // misses, and adds a second key to the key list that is `Ord`-equal to the first. Both
+        // keys then share one cache entry, which `values_mut` must not hand out twice.
+        let serialized = to_vec(&map).unwrap();
+        let mut map = IterableMap::<LooseKey, u8>::deserialize(&mut serialized.as_slice()).unwrap();
+        map.insert(LooseKey { id: 1, tag: 1 }, 20);
+        let _: Vec<&mut u8> = map.values_mut().collect();
+    }
+
+    #[test]
+    #[should_panic(expected = "compare equal but serialize differently")]
+    fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh_from_the_back() {
+        let mut map = IterableMap::new(b"m");
+        map.insert(LooseKey { id: 1, tag: 0 }, 10u8);
+        map.flush();
+        let serialized = to_vec(&map).unwrap();
+        let mut map = IterableMap::<LooseKey, u8>::deserialize(&mut serialized.as_slice()).unwrap();
+        map.insert(LooseKey { id: 1, tag: 1 }, 20);
+        // From the back, the second key matches the shared entry and is yielded first. The first
+        // key must then be rejected while that reference is still held.
+        let _: Vec<&mut u8> = map.values_mut().rev().collect();
+    }
 }
 
 // Hashbrown-like tests.
