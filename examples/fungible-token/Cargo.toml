@@ -25,4 +25,4 @@ overflow-checks = true
 [workspace]
 resolver = "3"
 # remember to include a member for each contract
-members = ["ft", "test-contract-defi"]
+members = ["ft", "ft-v2", "test-contract-defi"]

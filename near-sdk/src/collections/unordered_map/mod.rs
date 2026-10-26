@@ -36,6 +36,16 @@ pub struct UnorderedMap<K, V> {
 }
 
 impl<K, V> UnorderedMap<K, V> {
+    /// Every prefix the map's storage keys start with (storage v2's migrate-time guard).
+    #[cfg(feature = "unstable")]
+    pub(crate) fn raw_prefixes(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.key_index_prefix.clone(),
+            self.keys.key_prefix().to_vec(),
+            self.values.key_prefix().to_vec(),
+        ]
+    }
+
     /// Returns the number of elements in the map, also referred to as its size.
     ///
     /// # Examples

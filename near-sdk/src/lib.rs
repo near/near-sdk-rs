@@ -134,6 +134,7 @@ extern crate quickcheck;
     doctest,
     docsrs,
     clippy,
+    kani,
     target_family = "wasm",
     feature = "unit-testing",
     feature = "non-contract-usage",

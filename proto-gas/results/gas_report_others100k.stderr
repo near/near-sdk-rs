@@ -1,0 +1,21 @@
+   Compiling proto-gas-sim v0.0.0 (/Users/ricky/Developer/near-sdk-rs/.claude/worktrees/storage-v2-gas/proto-gas/sim)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.70s
+     Running tests/storage_v2_gas.rs (/Users/ricky/Developer/near-contract-sim-scenario/target/debug/deps/storage_v2_gas-a4fcc422dffff54e)
+mbx[progress]: 15s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V1 map 100000: 14.109823s
+mbx[progress]: 30s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 45s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V2H16 map 100000: 19.817093875s
+mbx[progress]: 1m elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V2H8 map 100000: 20.121802208s
+mbx[progress]: 1m 15s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V1 lookup 100000: 12.528295167s
+V2H16 lookup 100000: 11.817525459s
+mbx[progress]: 1m 30s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V2H8 lookup 100000: 11.71124075s
+mbx[progress]: 1m 45s elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 2m elapsed; 0 hits, 1 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+V2H16 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)
+V2H8 balance_of SHA256_BASE gas 9081940500 (= 1.9999897599501077 calls at 4.540993500 Ggas)
+mbx[cache]: 0 hits, 1 misses, 1 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: has quietly disposed of 233.7 GiB logical of build leftovers. nobody saw anything.

@@ -172,6 +172,13 @@ where
         Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: Default::default() }
     }
 
+    /// The prefix the map's keys start with, when they are `prefix ++ borsh(key)` (the
+    /// [`Identity`](crate::store::key::Identity) hasher); `None` for hashed keys.
+    #[cfg(feature = "unstable")]
+    pub(crate) fn raw_prefix(&self) -> Option<&[u8]> {
+        H::RAW_PREFIX.then_some(&*self.prefix)
+    }
+
     /// Overwrites the current value for the given key.
     ///
     /// This function will not load the existing value from storage and return the value in storage.

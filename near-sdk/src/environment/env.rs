@@ -73,7 +73,7 @@ pub(crate) fn expect_register<T>(option: Option<T>) -> T {
 
 /// A simple helper to read blob value coming from host's method.
 #[inline]
-fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>> {
+fn try_method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Option<Vec<u8>> {
     unsafe { method(ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER)
 }
@@ -81,7 +81,7 @@ fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>
 /// Same as `try_method_into_register` but expects the data.
 #[inline]
 #[track_caller]
-fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
+fn method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Vec<u8> {
     expect_register(try_method_into_register(method))
 }
 
@@ -421,6 +421,10 @@ pub fn epoch_height() -> u64 {
 /// assert_eq!(storage_usage(), 307200);
 /// ```
 pub fn storage_usage() -> StorageUsage {
+    // storage v2 prototype (D5): inside a v2 mutating method this measures nothing (writes land
+    // at the flush), so the mock makes it an error pointing at `storage_delta`.
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    crate::state::testing::__guard_storage_usage();
     unsafe { sys::storage_usage() }
 }
 
@@ -2832,7 +2836,7 @@ pub fn log(message: &[u8]) {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
-    match unsafe {
+    let r = match unsafe {
         sys::storage_write(
             key.len() as _,
             key.as_ptr() as _,
@@ -2844,7 +2848,19 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
         0 => false,
         1 => true,
         _ => abort(),
+    };
+    // storage v2 prototype: opt-in op log of every storage host call (tests only).
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    if crate::state::testing::__env_log_on() {
+        let replaced = if r { read_register(EVICTED_REGISTER).map(|v| v.len()) } else { None };
+        crate::state::testing::__env_log(
+            crate::state::testing::OpKind::Write,
+            key,
+            value.len(),
+            replaced,
+        );
     }
+    r
 }
 /// Reads the value stored under the given key.
 ///
@@ -2866,11 +2882,22 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// Another example:
 /// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
-    match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
-        0 => None,
-        1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
-        _ => abort(),
+    let r =
+        match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
+            0 => None,
+            1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
+            _ => abort(),
+        };
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    if crate::state::testing::__env_log_on() {
+        crate::state::testing::__env_log(
+            crate::state::testing::OpKind::Read,
+            key,
+            r.as_ref().map_or(0, Vec::len),
+            None,
+        );
     }
+    r
 }
 /// Removes the value stored under the given key.
 /// If key-value existed returns `true`, otherwise `false`.
@@ -2889,11 +2916,23 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
 pub fn storage_remove(key: &[u8]) -> bool {
-    match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
-        0 => false,
-        1 => true,
-        _ => abort(),
+    let r =
+        match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
+            0 => false,
+            1 => true,
+            _ => abort(),
+        };
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    if crate::state::testing::__env_log_on() {
+        let old = if r { read_register(EVICTED_REGISTER).map(|v| v.len()) } else { None };
+        crate::state::testing::__env_log(
+            crate::state::testing::OpKind::Remove,
+            key,
+            old.unwrap_or(0),
+            old,
+        );
     }
+    r
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
 ///
@@ -2925,11 +2964,16 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
 /// assert_eq!(storage_has_key(b"key"), true);
 /// ```
 pub fn storage_has_key(key: &[u8]) -> bool {
-    match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
+    let r = match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
         _ => abort(),
+    };
+    #[cfg(all(feature = "unstable", feature = "unit-testing", not(target_arch = "wasm32")))]
+    if crate::state::testing::__env_log_on() {
+        crate::state::testing::__env_log(crate::state::testing::OpKind::HasKey, key, 0, None);
     }
+    r
 }
 
 // ############################################

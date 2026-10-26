@@ -37,11 +37,35 @@ pub struct MockedBlockchain {
 #[derive(Default)]
 pub struct MockedMemory;
 
-/// The state [`HostCtx`] borrows for its whole life. Both fields are boxed so that moving
-/// the [`MockedBlockchain`] around does not move what `ctx` points at.
+/// The state [`HostCtx`] borrows for its whole life. Both allocations are owned through raw
+/// pointers (from `Box::into_raw`) rather than `Box`es: moving a `Box` asserts unique access to
+/// its target, which would invalidate the references `ctx` holds (Miri Stacked Borrows flags
+/// this). Raw pointers carry no such assertion, so moving the [`MockedBlockchain`] is sound.
 struct HostFixture {
-    ext: Box<MockedExternal>,
-    context: Box<near_vm_runner::logic::VMContext>,
+    ext: std::ptr::NonNull<MockedExternal>,
+    context: std::ptr::NonNull<near_vm_runner::logic::VMContext>,
+}
+
+impl HostFixture {
+    fn ext(&self) -> &MockedExternal {
+        // SAFETY: `ext` came from `Box::into_raw` and is freed only in `Drop`.
+        unsafe { self.ext.as_ref() }
+    }
+    fn ext_mut(&mut self) -> &mut MockedExternal {
+        // SAFETY: as in `ext`; `&mut self` excludes other fixture borrows.
+        unsafe { self.ext.as_mut() }
+    }
+}
+
+impl Drop for HostFixture {
+    fn drop(&mut self) {
+        // SAFETY: both pointers came from `Box::into_raw` and are dropped once. `ctx` is
+        // declared before `fixture` in `MockedBlockchain`, so it is already gone.
+        unsafe {
+            drop(Box::from_raw(self.ext.as_ptr()));
+            drop(Box::from_raw(self.context.as_ptr()));
+        }
+    }
 }
 
 pub fn test_vm_config() -> near_parameters::vm::Config {
@@ -90,7 +114,10 @@ impl MockedBlockchain {
         let result_state =
             ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
 
-        let mut fixture = HostFixture { ext, context };
+        let fixture = HostFixture {
+            ext: std::ptr::NonNull::from(Box::leak(ext)),
+            context: std::ptr::NonNull::from(Box::leak(context)),
+        };
 
         // SAFETY: `ctx` only ever borrows the two boxes in `fixture`, which live as long as
         // this struct and are never reallocated. Field order drops `ctx` first, so the
@@ -98,8 +125,8 @@ impl MockedBlockchain {
         // `VMLogic`-backed mock did.
         let ctx = unsafe {
             HostCtx::new(
-                &mut *(fixture.ext.as_mut() as *mut dyn External),
-                &*(fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
+                &mut *(fixture.ext.as_ptr() as *mut dyn External),
+                &*fixture.context.as_ptr(),
                 Arc::new(fees_config),
                 result_state,
             )
@@ -109,12 +136,18 @@ impl MockedBlockchain {
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
-        std::mem::take(&mut self.fixture.ext.fake_trie)
+        std::mem::take(&mut self.fixture.ext_mut().fake_trie)
+    }
+
+    /// A copy of the storage, leaving it in place (storage v2 prototype test support).
+    #[cfg(feature = "unstable")]
+    pub(crate) fn storage_snapshot(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.fixture.ext().fake_trie.clone()
     }
 
     /// Returns metadata about the receipts created
     pub fn created_receipts(&self) -> Vec<Receipt> {
-        let action_log = &self.fixture.ext.action_log;
+        let action_log = &self.fixture.ext().action_log;
         let action_log: Vec<MockAction> =
             action_log.clone().into_iter().map(<MockAction as From<_>>::from).collect();
         let create_receipts: Vec<(usize, MockAction)> = action_log
@@ -880,7 +913,7 @@ mod mock_chain {
             let raw = near_primitives::universal_state_init::RawStateInit(
                 m.bytes()[state_init as usize..][..state_init_len as usize].to_vec(),
             );
-            b.fixture.ext.state_init_error =
+            b.fixture.ext_mut().state_init_error =
                 near_primitives::universal_state_init::UniversalStateInit::from_raw_strict(&raw)
                     .err();
             host::universal_state_init_to_account_id(
