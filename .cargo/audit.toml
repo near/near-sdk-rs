@@ -5,12 +5,11 @@ ignore = [
     "RUSTSEC-2024-0344", # security audit error in ed25519-dalek which is not relevant for near-sdk-rs
     "RUSTSEC-2021-0145", # this needs to be investigated, `atty` has not been updated for 4 years
     "RUSTSEC-2022-0054", # unmaintained, perhaps needs to be replaced
-    "RUSTSEC-2026-0222", # wasmtime cna only be affected when the embedder mixes objects. Nearcore never mixes Engine-owned objects.
-    "RUSTSEC-2026-0285", # `rustls` < 0.23.45, dev-only via `near-workspaces`; the fix needs `aws-lc-rs` ^1.18 but `near-crypto` 0.38 pins `=1.16.2`
-    "RUSTSEC-2026-0346", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
-    "RUSTSEC-2026-0348", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
-    "RUSTSEC-2026-0349", # `rustls` < 0.23.46, same dev-only path and `aws-lc-rs` pin as RUSTSEC-2026-0285
     "RUSTSEC-2026-0367", # `zip` < 9, dev-only via `symbolic-debuginfo` (latest stable needs `zip` ^7); abi_tests parses our own dylib and never extracts archives
     "RUSTSEC-2026-0368", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
     "RUSTSEC-2026-0369", # `zip` < 9, same dev-only path as RUSTSEC-2026-0367
+    "RUSTSEC-2026-0387", # `crypto-bigint` < 0.7.6 via `p256` in `near-primitives` under `unit-testing` feature and dev deps; only used for verification of p256.
+    "RUSTSEC-2026-0391", # `zstd` < 0.14.3, `unit-testing` feature only, used in `near-primitives` for unrelated to near-sdk-rs `State*` structs
+    "RUSTSEC-2026-0398", # `zstd-safe` < 8.2.0, same as RUSTSEC-2026-0391
+    "RUSTSEC-2026-0403", # `zstd-safe` < 8.2.0, same as RUSTSEC-2026-0391
 ]
