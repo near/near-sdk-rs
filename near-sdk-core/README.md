@@ -8,7 +8,7 @@ This crate provides the foundational types (`PublicKey`, `AccountId`, `U128`, `B
 
 ```toml
 [dependencies]
-near-sdk-core = "0.1"
+near-sdk-core = "4.0"
 ```
 
 For smart contract development, use [near-sdk](../near-sdk/README.md) directly - it re-exports everything from this crate.

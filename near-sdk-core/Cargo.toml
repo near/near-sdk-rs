@@ -102,6 +102,8 @@ abi = [
 
 arbitrary = ["dep:arbitrary", "near-account-id/arbitrary"]
 
+unstable = []
+
 near-primitives-interop = ["dep:near-primitives-core"]
 near-crypto-interop = ["dep:near-crypto", "dep:unicode-segmentation"]
 
