@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0-rc.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.0-rc.1...near-sdk-v5.30.0-rc.2) - 2026-10-26
+
+### Added
+
+- *(near-sdk-core)* gate `BoundedVec` and `BoundedString` under `unstable` flag ([#1660](https://github.com/near/near-sdk-rs/pull/1660))
+
+### Other
+
+- update nearcore types to 2.14-rc.6 ([#1659](https://github.com/near/near-sdk-rs/pull/1659))
+
 ## [5.30.0-rc.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v5.30.0-rc.1) - 2026-10-19
 
 ### Added
