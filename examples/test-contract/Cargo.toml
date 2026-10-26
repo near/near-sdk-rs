@@ -26,7 +26,7 @@ near-workspaces = { version = "0.24.0-rc.3", features = ["unstable"] }
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-abi = "0.4.0"
-zstd = "0.13"
+zstd = "0.14"
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
