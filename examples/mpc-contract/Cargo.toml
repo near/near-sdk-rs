@@ -15,7 +15,7 @@ hex = "0.4"
 
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-near-workspaces = { version = "0.24.0-rc.3", features = ["unstable"] }
+near-workspaces = { version = "0.24.0", features = ["unstable"] }
 tokio = { version = "1.14", features = ["full"] }
 mpc-contract = { path = "." }
 
