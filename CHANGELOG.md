@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v5.30.0) - 2026-10-27
+
+Stable release for nearcore 2.14. Includes every change since 5.29.1, including those first shipped in 5.30.0-rc.1 and 5.30.0-rc.2.
+
+### Added
+
+- [**breaking**] forward raw state init bytes and validate canonical UAIDs (NEP-655) ([#1642](https://github.com/near/near-sdk-rs/pull/1642))
+- add ml_dsa_verify, sha3 hashes, and universal state init (nearcore 2.14) ([#1631](https://github.com/near/near-sdk-rs/pull/1631))
+- typed `env::bls12381` module ([#1613](https://github.com/near/near-sdk-rs/pull/1613))
+- *(bls12381)* add generator constants and document subgroup checks ([#1634](https://github.com/near/near-sdk-rs/pull/1634))
+- *(near-sdk-core)* add `BoundedVec` and `BoundedString` ([#1651](https://github.com/near/near-sdk-rs/pull/1651))
+- *(near-sdk-core)* gate `BoundedVec` and `BoundedString` under `unstable` flag ([#1660](https://github.com/near/near-sdk-rs/pull/1660))
+
+### Fixed
+
+- *(near-sys)* [**breaking**] declare host functions extern "C-unwind" ([#1656](https://github.com/near/near-sdk-rs/pull/1656))
+- *(env)* [**breaking**] bls host functions should return None on error ([#1623](https://github.com/near/near-sdk-rs/pull/1623))
+- resolve near-account-id with the available 3.0.0 release ([#1643](https://github.com/near/near-sdk-rs/pull/1643))
+
+### Other
+
+- *(unit-testing)* [**breaking**] back the mock with nearcore's host functions ([#1629](https://github.com/near/near-sdk-rs/pull/1629))
+- *(deps)* bump nearcore crates to 0.38 (2.14 stable) ([#1662](https://github.com/near/near-sdk-rs/pull/1662))
+- update nearcore types to 2.14-rc.6 ([#1659](https://github.com/near/near-sdk-rs/pull/1659))
+- declare protocol 88 and unblock audit ([#1649](https://github.com/near/near-sdk-rs/pull/1649))
+- *(store)* inline LazyOption::flush fast path ([#1640](https://github.com/near/near-sdk-rs/pull/1640))
+- bump rust-version to 1.95 ([#1639](https://github.com/near/near-sdk-rs/pull/1639))
+- *(examples)* pin sandbox to 2.14.0-rc.2 ([#1630](https://github.com/near/near-sdk-rs/pull/1630))
+
 ## [5.30.0-rc.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.0-rc.1...near-sdk-v5.30.0-rc.2) - 2026-10-26
 
 ### Added

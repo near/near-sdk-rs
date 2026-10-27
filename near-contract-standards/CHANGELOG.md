@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.29.1...near-contract-standards-v5.30.0) - 2026-10-27
+
+Stable release. Includes every change since 5.29.1, including those first shipped in 5.30.0-rc.1.
+
+### Other
+
+- *(nft)* remove redundant rustdoc link targets ([#1644](https://github.com/near/near-sdk-rs/pull/1644))
+
 ## [5.30.0-rc.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.29.1...near-contract-standards-v5.30.0-rc.1) - 2026-10-19
 
 ### Other
