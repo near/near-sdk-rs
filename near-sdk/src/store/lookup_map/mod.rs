@@ -86,8 +86,8 @@ where
 {
     prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying vector.
-    /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
-    /// invalidated.
+    /// Each cached entry has its own heap allocation (see `StableMap`), so references to it stay
+    /// valid while other entries are inserted.
     #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` from `K`/`V`
     cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
 }
@@ -429,7 +429,7 @@ where
     /// in memory.
     pub fn flush(&mut self) {
         let mut buf = Vec::new();
-        for (k, v) in self.cache.inner().iter_mut() {
+        for (k, v) in self.cache.iter_mut() {
             if let Some(val) = v.value.get_mut()
                 && val.is_modified()
             {
