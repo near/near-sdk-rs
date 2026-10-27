@@ -40,7 +40,7 @@ fn try_from_raw_rejects_trailing_and_truncated_bytes() {
 }
 
 /// State inits with their exact nearcore 2.14 encoding and id, checked byte for byte against
-/// `near-primitives =0.38.0-rc.2` (its `UniversalStateInit::to_raw` and 0u derivation)
+/// `near-primitives 0.38.0` (its `UniversalStateInit::to_raw` and 0u derivation)
 /// before being pinned here. The last one is the NEP-655 Appendix A wallet vector.
 #[cfg(feature = "borsh")]
 struct KnownAnswer {
