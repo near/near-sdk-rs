@@ -21,9 +21,9 @@ pub fn method(self, k: &String) -> ::near_sdk::Promise {
         }
     };
     match self.promise_or_create_on {
-        ::near_sdk::PromiseOrValue::Promise(p) => p,
-        ::near_sdk::PromiseOrValue::Value(account_id) => {
-            ::near_sdk::Promise::new(account_id)
+        ::near_sdk::PromiseOrValue::Promise(__near_promise) => __near_promise,
+        ::near_sdk::PromiseOrValue::Value(__near_account_id) => {
+            ::near_sdk::Promise::new(__near_account_id)
         }
     }
         .function_call_weight(
