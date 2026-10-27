@@ -736,6 +736,32 @@ mod tests {
         assert_eq!(map.keys().collect::<Vec<_>>(), [&0, &3, &2]);
     }
 
+    #[test]
+    fn drain_count_clears_all_values() {
+        let mut map = IterableMap::new(b"b");
+
+        map.insert(1u8, 10u8);
+        map.insert(2, 20);
+        map.insert(3, 30);
+
+        let count = map.drain().count();
+        assert_eq!(count, 3);
+
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.get(&2), None);
+        assert_eq!(map.get(&3), None);
+        assert!(!map.contains_key(&1));
+        assert!(!map.contains_key(&2));
+        assert!(!map.contains_key(&3));
+
+        assert_eq!(map.remove(&1), None);
+        assert_eq!(map.remove(&2), None);
+        assert_eq!(map.remove(&3), None);
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Insert(u8, u8),
