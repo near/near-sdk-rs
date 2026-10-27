@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.0-rc.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.0-rc.2...near-sdk-v5.30.0-rc.3) - 2026-10-27
+
+### Fixed
+
+- *(near-sys)* [**breaking**] declare host functions extern "C-unwind" ([#1656](https://github.com/near/near-sdk-rs/pull/1656))
+
+### Other
+
+- *(deps)* bump nearcore crates to 0.38 (2.14 stable) ([#1662](https://github.com/near/near-sdk-rs/pull/1662))
+
 ## [5.30.0-rc.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.0-rc.1...near-sdk-v5.30.0-rc.2) - 2026-10-26
 
 ### Added
