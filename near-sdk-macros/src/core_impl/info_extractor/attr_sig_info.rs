@@ -6,7 +6,7 @@ use crate::core_impl::{Returns, utils};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type, parse_quote};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -24,6 +24,9 @@ pub struct AttrSigInfo {
     pub input_serializer: SerializerType,
     /// The original method signature.
     pub original_sig: Signature,
+    /// Path to the `near-sdk` crate to use in generated code. Defaults to `::near_sdk`;
+    /// overridden by `#[near(crate = "...")]` via [`crate::ItemImplInfo::set_krate`].
+    pub krate: syn::Path,
 }
 
 use darling::FromAttributes;
@@ -184,6 +187,7 @@ impl AttrSigInfo {
             returns,
             input_serializer: SerializerType::JSON,
             original_sig: original_sig.clone(),
+            krate: parse_quote!(::near_sdk),
         };
 
         let input_serializer =
