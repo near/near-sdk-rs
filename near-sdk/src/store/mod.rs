@@ -183,3 +183,6 @@ pub(crate) const ERR_INCONSISTENT_STATE: &str = "The collection is in an inconsi
         contract execution terminate unexpectedly?";
 
 pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";
+
+pub(crate) const ERR_KEY_ORD_MISMATCH: &str = "Two keys in the collection compare equal. The \
+        key type's `Ord` and `Eq` must agree with its Borsh encoding.";

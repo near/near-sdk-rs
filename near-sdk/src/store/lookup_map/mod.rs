@@ -259,9 +259,36 @@ where
         K: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
-        let prefix = &self.prefix;
         //* ToOwned bound, which forces a clone, is required to be able to keep the key in the cache
         let entry = self.cache.get_mut(k.to_owned());
+        Self::load_entry(&self.prefix, k, entry)
+    }
+
+    /// Like [`Self::get_mut_inner`], but returns `None` if this key's cache entry was already
+    /// returned in the same `round`. See [`StableMap::get_mut_once`].
+    pub(crate) fn get_mut_inner_once<Q: ?Sized>(
+        &mut self,
+        k: &Q,
+        round: u32,
+    ) -> Option<&mut CacheEntry<V>>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = K>,
+    {
+        let entry = self.cache.get_mut_once(k.to_owned(), round)?;
+        Some(Self::load_entry(&self.prefix, k, entry))
+    }
+
+    /// Loads the value for `k` into its cache entry, if it isn't cached yet.
+    fn load_entry<'e, Q: ?Sized>(
+        prefix: &[u8],
+        k: &Q,
+        entry: &'e mut EntryAndHash<V, H::KeyType>,
+    ) -> &'e mut CacheEntry<V>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize,
+    {
         entry.value.get_or_init(|| {
             let (key, value) = Self::load_element(prefix, k);
             let _ = entry.hash.set(key);
@@ -424,6 +451,12 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
+    /// Starts a new round of [`Self::get_mut_inner_once`] and returns its id. Ids are unique
+    /// across all maps until the counter wraps around.
+    pub(crate) fn begin_lending(&mut self) -> u32 {
+        StableMap::<K, EntryAndHash<V, H::KeyType>>::begin_lending()
+    }
+
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
     /// in memory.

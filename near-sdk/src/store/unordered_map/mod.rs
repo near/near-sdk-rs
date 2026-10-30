@@ -927,4 +927,90 @@ mod tests {
         assert_eq!(map.len(), 6);
         assert_eq!(map.get(&5), Some(&500));
     }
+
+    /// Compared and ordered by `id` only, while `tag` is still part of the Borsh encoding.
+    #[derive(borsh::BorshSerialize, borsh::BorshDeserialize, Clone, Debug)]
+    struct LooseKey {
+        id: u8,
+        tag: u8,
+    }
+
+    impl PartialEq for LooseKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+    impl Eq for LooseKey {}
+    impl PartialOrd for LooseKey {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+    impl Ord for LooseKey {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.id.cmp(&other.id)
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
+    fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh() {
+        let mut map = UnorderedMap::new(b"m");
+        map.insert(LooseKey { id: 1, tag: 0 }, 10u8);
+        map.flush();
+        // With a cold cache, the next insert looks the key up in storage by its Borsh encoding,
+        // misses, and adds a second key to the key list that is `Ord`-equal to the first. Both
+        // keys then share one cache entry, which `values_mut` must not hand out twice.
+        let serialized = to_vec(&map).unwrap();
+        let mut map =
+            UnorderedMap::<LooseKey, u8>::deserialize(&mut serialized.as_slice()).unwrap();
+        map.insert(LooseKey { id: 1, tag: 1 }, 20);
+        let _: Vec<&mut u8> = map.values_mut().collect();
+    }
+
+    #[test]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
+    fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh_from_the_back() {
+        let mut map = UnorderedMap::new(b"m");
+        map.insert(LooseKey { id: 1, tag: 0 }, 10u8);
+        map.flush();
+        let serialized = to_vec(&map).unwrap();
+        let mut map =
+            UnorderedMap::<LooseKey, u8>::deserialize(&mut serialized.as_slice()).unwrap();
+        map.insert(LooseKey { id: 1, tag: 1 }, 20);
+        // From the back, the second key matches the shared entry and is yielded first. The first
+        // key must then be rejected while that reference is still held.
+        let _: Vec<&mut u8> = map.values_mut().rev().collect();
+    }
+
+    #[test]
+    fn iter_mut_from_both_ends_with_holes() {
+        let mut map = UnorderedMap::new(b"m");
+        for i in 0..10u8 {
+            map.insert(i, i);
+        }
+        for i in [0, 3, 4, 9] {
+            map.remove(&i);
+        }
+        let serialized = to_vec(&map).unwrap();
+        map.flush();
+        let mut map = UnorderedMap::<u8, u8>::deserialize(&mut serialized.as_slice()).unwrap();
+        let mut iter = map.iter_mut();
+        assert_eq!(iter.nth(1), Some((&2, &mut 2)));
+        assert_eq!(iter.next_back(), Some((&8, &mut 8)));
+        assert_eq!(iter.nth_back(1), Some((&6, &mut 6)));
+        assert_eq!(iter.next(), Some((&5, &mut 5)));
+        assert_eq!(iter.next(), None);
+
+        map.defrag();
+        let mut keys: Vec<u8> = map
+            .iter_mut()
+            .map(|(k, v)| {
+                *v += 1;
+                *k
+            })
+            .collect();
+        keys.sort();
+        assert_eq!(keys, [1, 2, 5, 6, 7, 8]);
+    }
 }

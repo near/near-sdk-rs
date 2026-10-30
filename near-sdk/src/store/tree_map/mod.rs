@@ -2139,6 +2139,47 @@ mod tests {
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
     }
 
+    /// Ordered by `tag` too, while the Borsh encoding drops it.
+    #[derive(
+        borsh::BorshSerialize, borsh::BorshDeserialize, Clone, PartialEq, Eq, PartialOrd, Ord,
+    )]
+    struct LossyKey {
+        id: u8,
+        #[borsh(skip)]
+        tag: u8,
+    }
+
+    /// A map whose tree holds two keys that deserialize equal, so they share one cache entry.
+    fn map_with_aliased_keys() -> TreeMap<LossyKey, u8> {
+        let mut map: TreeMap<LossyKey, u8> = TreeMap::new(next_trie_id());
+        map.insert(LossyKey { id: 1, tag: 1 }, 10);
+        map.insert(LossyKey { id: 1, tag: 2 }, 20);
+        map.flush();
+        let serialized = borsh::to_vec(&map).unwrap();
+        TreeMap::deserialize(&mut serialized.as_slice()).unwrap()
+    }
+
+    #[test]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
+    fn values_mut_rejects_keys_whose_ord_disagrees_with_borsh() {
+        let mut map = map_with_aliased_keys();
+        let _: Vec<&mut u8> = map.values_mut().collect();
+    }
+
+    #[test]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
+    fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh_from_the_back() {
+        let mut map = map_with_aliased_keys();
+        let _: Vec<(&LossyKey, &mut u8)> = map.iter_mut().rev().collect();
+    }
+
+    #[test]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
+    fn range_mut_rejects_keys_whose_ord_disagrees_with_borsh() {
+        let mut map = map_with_aliased_keys();
+        let _: Vec<(&LossyKey, &mut u8)> = map.range_mut::<_, LossyKey>(..).collect();
+    }
+
     #[cfg(feature = "abi")]
     #[test]
     fn test_borsh_schema() {
