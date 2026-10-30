@@ -953,7 +953,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "compare equal but serialize differently")]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
     fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh() {
         let mut map = UnorderedMap::new(b"m");
         map.insert(LooseKey { id: 1, tag: 0 }, 10u8);
@@ -969,7 +969,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "compare equal but serialize differently")]
+    #[should_panic(expected = "Two keys in the collection compare equal")]
     fn iter_mut_rejects_keys_whose_ord_disagrees_with_borsh_from_the_back() {
         let mut map = UnorderedMap::new(b"m");
         map.insert(LooseKey { id: 1, tag: 0 }, 10u8);

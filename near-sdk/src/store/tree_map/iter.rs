@@ -6,6 +6,8 @@ use std::{borrow::Borrow, iter::FusedIterator};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{LookupMap, Tree, TreeMap, expect};
+use crate::env;
+use crate::store::ERR_KEY_ORD_MISMATCH;
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::ToKey;
 
@@ -124,18 +126,31 @@ where
 }
 
 #[allow(clippy::mut_from_ref)]
-fn get_entry_mut<'a, K, V, H>(map: &mut LookupMap<K, V, H>, key: &'a K) -> (&'a K, &'a mut V)
+fn get_entry_mut<'a, K, V, H>(
+    map: &mut LookupMap<K, V, H>,
+    round: u32,
+    key: &'a K,
+) -> (&'a K, &'a mut V)
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
-    let entry = expect(map.get_mut(key));
+    // The tree and the value cache are keyed by `Ord`, but storage by the Borsh encoding. If the
+    // two disagree, two keys in the tree can reach the same cache entry, which must not be
+    // yielded twice.
+    let entry = expect(
+        map.get_mut_inner_once(key, round)
+            .unwrap_or_else(|| env::panic_str(ERR_KEY_ORD_MISMATCH))
+            .value_mut()
+            .as_mut(),
+    );
     //* SAFETY: Extending the lifetime of the `&mut map` reborrow to `'a` is sound because:
-    //*         1. The iterator yields at most one mutable reference per key: the keys come from
-    //*            the tree, which holds each key once and is walked once. Producing an item only
-    //*            touches the cache entry of that key, so no other reference to a value already
-    //*            yielded is created while the iterator lives.
+    //*         1. The iterator yields at most one mutable reference per cache entry:
+    //*            `get_mut_inner_once` marks the entry with this iterator's lending round and
+    //*            refuses an entry that is already marked, before creating any reference to it.
+    //*            A value already yielded is therefore never referenced again while the iterator
+    //*            lives, even if a refused lookup panics and the panic is caught.
     //*         2. The value lives in its own heap allocation, which the cache's `StableMap` holds
     //*            through a raw pointer. Loading later keys inserts into that cache and may
     //*            rebalance it, but that only moves the pointers, so values yielded earlier are
@@ -157,6 +172,8 @@ where
     keys: Keys<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, V, H>,
+    /// Lending round of `values`, so that no cache entry is yielded twice.
+    round: u32,
 }
 
 impl<'a, K, V, H> IterMut<'a, K, V, H>
@@ -166,7 +183,8 @@ where
     H: ToKey,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
-        Self { keys: Keys::new(&map.tree), values: &mut map.values }
+        let round = map.values.begin_lending();
+        Self { keys: Keys::new(&map.tree), values: &mut map.values, round }
     }
 }
 
@@ -184,7 +202,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        Some(get_entry_mut(self.values, key))
+        Some(get_entry_mut(self.values, self.round, key))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -223,7 +241,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        Some(get_entry_mut(self.values, key))
+        Some(get_entry_mut(self.values, self.round, key))
     }
 }
 
@@ -928,6 +946,8 @@ where
     keys: KeysRange<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, V, H>,
+    /// Lending round of `values`, so that no cache entry is yielded twice.
+    round: u32,
 }
 
 impl<'a, K, V, H> RangeMut<'a, K, V, H>
@@ -941,7 +961,8 @@ where
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        Self { keys: KeysRange::new(&map.tree, bounds), values: &mut map.values }
+        let round = map.values.begin_lending();
+        Self { keys: KeysRange::new(&map.tree, bounds), values: &mut map.values, round }
     }
 }
 
@@ -959,7 +980,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        Some(get_entry_mut(self.values, key))
+        Some(get_entry_mut(self.values, self.round, key))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -987,7 +1008,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        Some(get_entry_mut(self.values, key))
+        Some(get_entry_mut(self.values, self.round, key))
     }
 }
 
