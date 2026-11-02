@@ -60,6 +60,34 @@
 //! // ...
 //! ```
 //!
+//! ### Measuring storage
+//!
+//! Because writes are deferred, [`env::storage_usage`](crate::env::storage_usage) does not yet
+//! include them. A contract that charges the caller for the bytes it adds must flush first, or it
+//! under-charges and pays for the difference from its own balance. Flushing an outer collection
+//! does not flush a collection stored inside it, so flush the inner one as well:
+//!
+//! ```rust
+//! # near_sdk::testing_env!(near_sdk::test_utils::VMContextBuilder::new().build());
+//! use near_sdk::env;
+//! use near_sdk::store::{IterableSet, LookupMap};
+//!
+//! let mut sets: LookupMap<u32, IterableSet<u32>> = LookupMap::new(b"s");
+//! let before = env::storage_usage();
+//! sets.insert(1, IterableSet::new(b"e"));
+//! sets.get_mut(&1).unwrap().insert(7);
+//!
+//! sets.flush(); // writes the inner set's header only
+//! let outer_only = env::storage_usage() - before;
+//! sets.get_mut(&1).unwrap().flush(); // writes the inner set's element
+//! let added = env::storage_usage() - before;
+//! assert!(added > outer_only);
+//! ```
+//!
+//! The contract state struct itself is written after the method returns, so a measurement inside
+//! the method never includes it. [`collections`](crate::collections) types write on every call and
+//! need no flush.
+//!
 //! ## General description
 //!
 //! These collections are more scalable versions of [`std::collections`] when used as contract

@@ -414,6 +414,19 @@ pub fn epoch_height() -> u64 {
 
 /// Current total storage usage of this smart contract that this account would be paying for.
 ///
+/// This counts only what has been written to storage so far. Three kinds of writes are still
+/// pending inside a method body and are not counted:
+///
+/// * [`store`](crate::store) collections cache their changes and write them on `flush()` or
+///   `Drop`. Call `flush()` on every collection you touched before measuring.
+/// * A `store` collection stored as a value inside another collection is not flushed by the
+///   outer collection's `flush()`. Flush the inner collection too, for example through
+///   `get_mut`, or the inner collection's writes are missing from the measurement.
+/// * The contract state struct itself is written after the method returns.
+///
+/// The eager [`collections`](crate::collections) types write on every call, so measuring around
+/// them needs no flush.
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::storage_usage;
