@@ -47,10 +47,31 @@ pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
     }
 }
 
+/// Extracts `T` from a `Result<T, PromiseError>` type, matching `PromiseError` by its last path
+/// segment so that `near_sdk::PromiseError` is accepted too.
+///
+/// Unlike [`extract_ok_type`], other error types don't match, since `Result<T, E>` can be a
+/// regular deserializable value.
+pub(crate) fn extract_promise_result_ok_type(ty: &Type) -> Option<&Type> {
+    let Type::Path(type_path) = ty else { return None };
+    if type_path.qself.is_some() || !path_is_result(&type_path.path) {
+        return None;
+    }
+    let PathArguments::AngleBracketed(params) = &type_path.path.segments.first()?.arguments else {
+        return None;
+    };
+    let mut args = params.args.iter();
+    let (Some(GenericArgument::Type(ok_type)), Some(GenericArgument::Type(Type::Path(err))), None) =
+        (args.next(), args.next(), args.next())
+    else {
+        return None;
+    };
+    (err.qself.is_none() && err.path.segments.last()?.ident == "PromiseError").then_some(ok_type)
+}
+
 /// Checks whether the given path is literally "Vec".
 /// Note that it won't match a fully qualified name `std::vec::Vec` or a type alias like
 /// `type MyVec = Vec<String>`.
-#[cfg(feature = "__abi-generate")]
 fn path_is_vec(path: &Path) -> bool {
     path.leading_colon.is_none()
         && path.segments.len() == 1
@@ -60,7 +81,6 @@ fn path_is_vec(path: &Path) -> bool {
 /// Extracts the inner generic type from a `Vec<_>` type.
 ///
 /// For example, given `Vec<String>` this function will return `String`.
-#[cfg(feature = "__abi-generate")]
 pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
     match ty {
         Type::Path(type_path) if type_path.qself.is_none() && path_is_vec(&type_path.path) => {

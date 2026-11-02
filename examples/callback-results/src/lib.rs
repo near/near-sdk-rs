@@ -1,5 +1,5 @@
 use near_sdk::require;
-use near_sdk::{Promise, PromiseError, env, near};
+use near_sdk::{AccountId, NearToken, Promise, PromiseError, env, near};
 
 const A_VALUE: u8 = 8;
 
@@ -26,6 +26,31 @@ impl Callback {
             .and(Self::ext_self().d(d_value))
             .and(Self::ext_self().a())
             .then(Self::ext_self().handle_callbacks_reverse())
+    }
+
+    /// Calls `b` once per entry in `fails`, joined right-nested as `b0.and(b1.and(b2...))`, and
+    /// reports which calls failed. Joins flatten, so the callback sees the results in the same
+    /// left-to-right order as `fails`.
+    pub fn call_nested(fails: Vec<bool>) -> Promise {
+        fails
+            .into_iter()
+            .map(|fail| Self::ext_self().b(fail))
+            .rev()
+            .reduce(|inner, outer| outer.and(inner))
+            .expect("no calls")
+            .then(Self::ext_self().handle_vec())
+    }
+
+    /// Transfers each amount to its receiver concurrently and returns the receivers whose
+    /// transfer failed, for example because the account does not exist. Results carry no
+    /// receiver, so the legs are passed to the callback in the order they were joined.
+    pub fn pay_all(legs: Vec<(AccountId, NearToken)>) -> Promise {
+        let payout = legs
+            .iter()
+            .map(|(receiver, amount)| Promise::new(receiver.clone()).transfer(*amount))
+            .reduce(Promise::and)
+            .expect("no legs");
+        payout.then(Self::ext_self().on_paid(legs))
     }
 
     /// Calls function c with a value that will always succeed
@@ -68,6 +93,26 @@ impl Callback {
             require!(s == "Some string");
         }
         (b.is_err(), c.is_err(), d.is_err())
+    }
+
+    /// Receives any number of results from `b`, keeping failures instead of panicking.
+    #[private]
+    pub fn handle_vec(#[callback_vec] results: Vec<Result<String, PromiseError>>) -> Vec<bool> {
+        results.iter().map(Result::is_err).collect()
+    }
+
+    /// Matches each transfer result to the leg it belongs to.
+    #[private]
+    pub fn on_paid(
+        legs: Vec<(AccountId, NearToken)>,
+        #[callback_vec] results: Vec<Result<(), PromiseError>>,
+    ) -> Vec<AccountId> {
+        require!(legs.len() == results.len(), "one result per leg");
+        legs.into_iter()
+            .zip(results)
+            .filter(|(_, result)| result.is_err())
+            .map(|((receiver, _), _)| receiver)
+            .collect()
     }
 
     /// Receives the callbacks from the other promises called.
@@ -144,6 +189,37 @@ mod tests {
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workspaces_test_vec() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox_with_version("2.14.0").await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        for fails in [vec![false, true, false, true], vec![true, false, false], vec![false]] {
+            let res = contract
+                .call("call_nested")
+                .args_json((&fails,))
+                .gas(near_sdk::Gas::from_tgas(1_000))
+                .transact()
+                .await?;
+            assert_eq!(res.json::<Vec<bool>>()?, fails);
+        }
+
+        let alice = worker.dev_create_account().await?;
+        let bob = worker.dev_create_account().await?;
+        let ghost: near_sdk::AccountId = format!("ghost.{}", contract.id()).parse()?;
+        let one = near_sdk::NearToken::from_near(1);
+        let legs: Vec<(near_sdk::AccountId, near_sdk::NearToken)> = vec![
+            (alice.id().as_str().parse()?, one),
+            (ghost.clone(), one),
+            (bob.id().as_str().parse()?, one),
+        ];
+        let res = contract.call("pay_all").args_json((legs,)).max_gas().transact().await?;
+        assert_eq!(res.json::<Vec<near_sdk::AccountId>>()?, vec![ghost]);
 
         Ok(())
     }

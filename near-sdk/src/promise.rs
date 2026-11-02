@@ -889,6 +889,15 @@ impl Promise {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
+    ///
+    /// A callback chained with [`Promise::then`] receives one result per merged promise, in the
+    /// order they were merged, with nested merges flattened: `p1.and(p2.and(p3))` and
+    /// `p1.and(p2).and(p3)` both deliver `p1`, `p2`, `p3` at indices 0, 1 and 2 of
+    /// [`env::promise_result`](crate::env::promise_result). Results don't say which account they
+    /// came from, so if the set of merged promises varies, pass a description of it to the callback
+    /// as arguments and read the results with `#[callback_vec]` (see
+    /// [`near`](crate::near#callback_vec-annotates-function-arguments)).
+    ///
     /// Uses low-level [`crate::env::promise_and`]
     pub fn and(mut self, mut other: Promise) -> Promise {
         match (&mut self.subtype, &mut other.subtype) {
@@ -1303,7 +1312,8 @@ impl ConcurrentPromises {
     ///
     /// The returned promise is a [`Promise::and`] combination of all contained
     /// promises. Chain it with a [`Promise::then`] to wait for them to finish
-    /// and receive all their outputs as inputs in a following function call.
+    /// and receive all their outputs as inputs in a following function call,
+    /// in the same order as the contained promises.
     pub fn join(self) -> Promise {
         self.promises
             .into_iter()

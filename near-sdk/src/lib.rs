@@ -1008,6 +1008,11 @@ compile_error!(
 /// The optional `max_bytes` parameter (e.g., `#[callback_result(max_bytes = 100)]`) limits the
 /// maximum size of the callback data to prevent excessive memory usage.
 ///
+/// `#[callback_unwrap]` and `#[callback_result]` arguments read results by position, one per
+/// joined promise: if there are more arguments than results the callback aborts, and if there are
+/// fewer, the remaining results are silently ignored. When the number of joined promises depends
+/// on runtime values, use `#[callback_vec]` with `Vec<Result<T, PromiseError>>` instead.
+///
 /// ## `#[callback_vec]` (annotates function arguments)
 ///
 /// Collects results from multiple promises into a `Vec<T>`. This is useful when you have
@@ -1049,6 +1054,50 @@ compile_error!(
 /// **Note:** Only one `#[callback_vec]` parameter is allowed per method.
 ///
 /// The optional `max_bytes` parameter limits the maximum size of each callback result.
+///
+/// ### Keeping failed results
+///
+/// With element type `Result<T, PromiseError>`, failed results are kept as
+/// [`Err`] instead of panicking. Results come in the order the promises were joined (see
+/// [`Promise::and`]), but they don't say which account they came from, so pass that to the
+/// callback as an argument. A payout whose legs are only decided at runtime can then tell which
+/// transfers failed. A failed transfer's deposit is refunded to this contract, so it records the
+/// amount for the receiver to claim later rather than leaving it untracked:
+///
+/// ```rust
+/// use near_sdk::store::LookupMap;
+/// use near_sdk::{env, near, AccountId, NearToken, Promise, PromiseError};
+///
+/// #[near(contract_state)]
+/// pub struct Contract {
+///     claimable: LookupMap<AccountId, NearToken>,
+/// }
+///
+/// #[near]
+/// impl Contract {
+///     fn pay(&self, legs: Vec<(AccountId, NearToken)>) -> Promise {
+///         legs.iter()
+///             .map(|(receiver, amount)| Promise::new(receiver.clone()).transfer(*amount))
+///             .reduce(Promise::and)
+///             .expect("at least one leg")
+///             .then(Self::ext(env::current_account_id()).on_paid(legs))
+///     }
+///
+///     #[private]
+///     pub fn on_paid(
+///         &mut self,
+///         legs: Vec<(AccountId, NearToken)>,
+///         #[callback_vec] results: Vec<Result<(), PromiseError>>,
+///     ) {
+///         for ((receiver, amount), result) in legs.into_iter().zip(results) {
+///             if result.is_err() {
+///                 let owed = self.claimable.entry(receiver).or_insert(NearToken::from_yoctonear(0));
+///                 *owed = owed.saturating_add(amount);
+///             }
+///         }
+///     }
+/// }
+/// ```
 ///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
