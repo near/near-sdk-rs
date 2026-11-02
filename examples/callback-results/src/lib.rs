@@ -44,6 +44,7 @@ impl Callback {
     /// Transfers each amount to its receiver concurrently and returns the receivers whose
     /// transfer failed, for example because the account does not exist. Results carry no
     /// receiver, so the legs are passed to the callback in the order they were joined.
+    #[private]
     pub fn pay_all(legs: Vec<(AccountId, NearToken)>) -> Promise {
         let payout = legs
             .iter()

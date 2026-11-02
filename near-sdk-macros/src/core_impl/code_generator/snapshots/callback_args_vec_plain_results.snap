@@ -10,7 +10,7 @@ pub extern "C" fn method() {
     {
         ::near_sdk::env::panic_str("Method method is private");
     }
-    let x: Vec<Result<u64, String>> = ::std::iter::Iterator::collect(
+    let x: Vec<Result<u64, app::PromiseError>> = ::std::iter::Iterator::collect(
         ::std::iter::Iterator::map(
             0..::near_sdk::env::promise_results_count(),
             |i| {
