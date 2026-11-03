@@ -28,22 +28,7 @@ impl Callback {
             .then(Self::ext_self().handle_callbacks_reverse())
     }
 
-    /// Calls `b` once per entry in `fails`, joined right-nested as `b0.and(b1.and(b2...))`, and
-    /// reports which calls failed. Joins flatten, so the callback sees the results in the same
-    /// left-to-right order as `fails`.
-    pub fn call_nested(fails: Vec<bool>) -> Promise {
-        fails
-            .into_iter()
-            .map(|fail| Self::ext_self().b(fail))
-            .rev()
-            .reduce(|inner, outer| outer.and(inner))
-            .expect("no calls")
-            .then(Self::ext_self().handle_vec())
-    }
-
-    /// Transfers each amount to its receiver concurrently and returns the receivers whose
-    /// transfer failed, for example because the account does not exist. Results carry no
-    /// receiver, so the legs are passed to the callback in the order they were joined.
+    /// Pays every leg concurrently and returns the receivers whose transfer failed.
     #[private]
     pub fn pay_all(legs: Vec<(AccountId, NearToken)>) -> Promise {
         let payout = legs
@@ -96,13 +81,7 @@ impl Callback {
         (b.is_err(), c.is_err(), d.is_err())
     }
 
-    /// Receives any number of results from `b`, keeping failures instead of panicking.
-    #[private]
-    pub fn handle_vec(#[callback_vec] results: Vec<Result<String, PromiseError>>) -> Vec<bool> {
-        results.iter().map(Result::is_err).collect()
-    }
-
-    /// Matches each transfer result to the leg it belongs to.
+    /// Results come in join order, so they zip with `legs`.
     #[private]
     pub fn on_paid(
         legs: Vec<(AccountId, NearToken)>,
@@ -199,16 +178,6 @@ mod tests {
         let wasm = near_workspaces::compile_project("./").await?;
         let worker = near_workspaces::sandbox_with_version("2.14.0").await?;
         let contract = worker.dev_deploy(&wasm).await?;
-
-        for fails in [vec![false, true, false, true], vec![true, false, false], vec![false]] {
-            let res = contract
-                .call("call_nested")
-                .args_json((&fails,))
-                .gas(near_sdk::Gas::from_tgas(1_000))
-                .transact()
-                .await?;
-            assert_eq!(res.json::<Vec<bool>>()?, fails);
-        }
 
         let alice = worker.dev_create_account().await?;
         let bob = worker.dev_create_account().await?;

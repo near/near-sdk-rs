@@ -47,32 +47,20 @@ pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
     }
 }
 
-/// Extracts `T` from a `Result<T, PromiseError>` type, where the error is written as
-/// `PromiseError`, `near_sdk::PromiseError` or `::near_sdk::PromiseError`.
-///
-/// Unlike [`extract_ok_type`], other error types don't match, since `Result<T, E>` can be a
-/// regular deserializable value, including with an application's own `app::PromiseError`.
+/// Extracts `T` from `Result<T, PromiseError>`, where the error is written as `PromiseError`,
+/// `near_sdk::PromiseError` or `::near_sdk::PromiseError`.
 pub(crate) fn extract_promise_result_ok_type(ty: &Type) -> Option<&Type> {
     let Type::Path(type_path) = ty else { return None };
-    if type_path.qself.is_some() || !path_is_result(&type_path.path) {
-        return None;
-    }
     let PathArguments::AngleBracketed(params) = &type_path.path.segments.first()?.arguments else {
         return None;
     };
-    let mut args = params.args.iter();
-    let (Some(GenericArgument::Type(ok_type)), Some(GenericArgument::Type(Type::Path(err))), None) =
-        (args.next(), args.next(), args.next())
-    else {
-        return None;
-    };
-    let segments: Vec<_> = err.path.segments.iter().map(|segment| &segment.ident).collect();
-    let is_sdk_error = match segments.as_slice() {
-        [name] => err.path.leading_colon.is_none() && *name == "PromiseError",
-        [krate, name] => *krate == "near_sdk" && *name == "PromiseError",
-        _ => false,
-    };
-    (err.qself.is_none() && is_sdk_error).then_some(ok_type)
+    let err = params.args.iter().nth(1)?;
+    let err = quote! { #err }.to_string().replace(' ', "");
+    let is_promise_error = matches!(
+        err.as_str(),
+        "PromiseError" | "near_sdk::PromiseError" | "::near_sdk::PromiseError"
+    );
+    if params.args.len() == 2 && is_promise_error { extract_ok_type(ty) } else { None }
 }
 
 /// Checks whether the given path is literally "Vec".

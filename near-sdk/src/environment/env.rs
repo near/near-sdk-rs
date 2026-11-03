@@ -2231,11 +2231,6 @@ pub fn promise_results_count() -> u64 {
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 ///
-/// Results are indexed in the order the promises were joined with
-/// [`Promise::and`](crate::Promise::and), with nested joins flattened: after
-/// `a.and(b.and(c)).then(callback)`, index 0 is `a`, 1 is `b` and 2 is `c`. A result carries only a status and the returned bytes,
-/// not the receiver, so pass whatever identifies each promise as arguments to the callback.
-///
 /// # Examples
 /// ```no_run
 /// use near_sdk::env::{promise_result, promise_results_count, log_str};
