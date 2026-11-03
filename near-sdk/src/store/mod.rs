@@ -62,10 +62,8 @@
 //!
 //! ### Measuring storage
 //!
-//! Because writes are deferred, [`env::storage_usage`](crate::env::storage_usage) does not yet
-//! include them. A contract that charges the caller for the bytes it adds must flush first, or it
-//! under-charges and pays for the difference from its own balance. Flushing an outer collection
-//! does not flush a collection stored inside it, so flush the inner one as well:
+//! [`env::storage_usage`](crate::env::storage_usage) doesn't include cached writes, so flush
+//! before measuring. Flushing an outer collection doesn't flush a collection stored inside it:
 //!
 //! ```rust
 //! # near_sdk::testing_env!(near_sdk::test_utils::VMContextBuilder::new().build());
@@ -83,10 +81,6 @@
 //! let added = env::storage_usage() - before;
 //! assert!(added > outer_only);
 //! ```
-//!
-//! The contract state struct itself is written after the method returns, so a measurement inside
-//! the method never includes it. [`collections`](crate::collections) types write on every call and
-//! need no flush.
 //!
 //! ## General description
 //!
