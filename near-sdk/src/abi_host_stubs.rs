@@ -515,7 +515,7 @@ extern "C-unwind" fn universal_state_init_to_account_id(
     _state_init_len: u64,
     _state_init_ptr: u64,
     _register_id: u64,
-) {
+) -> u64 {
     unavailable("universal_state_init_to_account_id")
 }
 
