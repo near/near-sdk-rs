@@ -2,13 +2,13 @@
 
 Core NEAR types for off-chain and on-chain usage.
 
-This crate provides the foundational types (`PublicKey`, `AccountId`, `U128`, `Base64VecU8`, etc.) used by the [NEAR SDK](https://crates.io/crates/near-sdk), extracted so that off-chain applications (indexers, CLIs, frontends) can use them without pulling in the full smart contract SDK.
+This crate provides the foundational types (`PublicKey`, `AccountId`, `U128`, `Base64VecU8`, `BoundedString`, `BoundedVec`, etc.) used by the [NEAR SDK](https://crates.io/crates/near-sdk), extracted so that off-chain applications (indexers, CLIs, frontends) can use them without pulling in the full smart contract SDK.
 
 ## Usage
 
 ```toml
 [dependencies]
-near-sdk-core = "0.1"
+near-sdk-core = "4.0"
 ```
 
 For smart contract development, use [near-sdk](../near-sdk/README.md) directly - it re-exports everything from this crate.

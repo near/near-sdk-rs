@@ -27,7 +27,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::universal_state_init::UniversalStateInit;
+use crate::universal_state_init::{RawStateInit, StateInitError};
 use crate::{CryptoHash, GasWeight, PromiseError};
 
 #[cfg(feature = "deterministic-account-ids")]
@@ -67,13 +67,13 @@ const P256_HALF_ORDER: [u8; 32] = [
 
 #[inline]
 #[track_caller]
-fn expect_register<T>(option: Option<T>) -> T {
+pub(crate) fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
 }
 
 /// A simple helper to read blob value coming from host's method.
 #[inline]
-fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>> {
+fn try_method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Option<Vec<u8>> {
     unsafe { method(ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER)
 }
@@ -81,7 +81,7 @@ fn try_method_into_register(method: unsafe extern "C" fn(u64)) -> Option<Vec<u8>
 /// Same as `try_method_into_register` but expects the data.
 #[inline]
 #[track_caller]
-fn method_into_register(method: unsafe extern "C" fn(u64)) -> Vec<u8> {
+fn method_into_register(method: unsafe extern "C-unwind" fn(u64)) -> Vec<u8> {
     expect_register(try_method_into_register(method))
 }
 
@@ -1190,7 +1190,7 @@ pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 ///
 /// More info about promises in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/crosscontract#promises)
 ///
-/// More low-level info here: [`promise_create`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_create.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_create`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_create.html), the host function in nearcore's `near-vm-runner`.
 ///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L28> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L23>
 ///
@@ -1247,7 +1247,7 @@ pub fn promise_create(
 ///     Gas::from_tgas(30)
 /// );
 /// ```
-/// More low-level info here: [`promise_then`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_then.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_then`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_then.html), the host function in nearcore's `near-vm-runner`.
 ///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L49> and <https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L30>
 pub fn promise_then(
@@ -1306,7 +1306,7 @@ pub fn promise_then(
 ///
 /// let chained_promise = promise_and(&[promise1, promise2]);
 /// ```
-/// More low-level info here: [`promise_and`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_and.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_and`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_and.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
@@ -1350,7 +1350,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// All actions in a batch are executed in the order they were added.
 /// Batched actions act as a unit: they execute in the same receipt, and if any fails, then they all get reverted.
 /// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/smart-contracts/anatomy/actions)
-/// More low-level info here: [`promise_batch_create`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_create.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_create`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_create.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
@@ -1384,7 +1384,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
 ///
 /// More info about batching [here](crate::env::promise_batch_create)
-/// More low-level info here: [`promise_batch_then`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_then.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_then`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_then.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -1548,7 +1548,7 @@ pub fn set_state_init_data_entry(
 /// promise_batch_action_create_account(promise);
 /// ```
 ///
-/// More low-level info here: [`promise_batch_action_create_account`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_create_account.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_create_account`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_create_account.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe { sys::promise_batch_action_create_account(promise_index.0) }
@@ -1570,7 +1570,7 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
 /// let code = [0; 1487];
 /// promise_batch_action_deploy_contract(promise, &code);
 /// ```
-/// More low-level info here: [`promise_batch_action_deploy_contract`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_deploy_contract.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_deploy_contract`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_deploy_contract.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
@@ -1604,7 +1604,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 ///     Gas::from_tgas(30)
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_function_call`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_function_call.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_function_call`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_function_call.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -1648,7 +1648,7 @@ pub fn promise_batch_action_function_call(
 ///     GasWeight(1)
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_function_call_weight`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_function_call_weight.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_function_call_weight`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_function_call_weight.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -1689,7 +1689,7 @@ pub fn promise_batch_action_function_call_weight(
 ///     NearToken::from_near(1),
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_transfer`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_transfer.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_transfer`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_transfer.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
     unsafe {
@@ -1720,7 +1720,7 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
 ///     &pk
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_stake`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_stake.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_stake`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_stake.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: NearToken,
@@ -1757,7 +1757,7 @@ pub fn promise_batch_action_stake(
 ///     nonce
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_add_key_with_full_access`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_add_key_with_full_access.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_add_key_with_full_access`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_add_key_with_full_access.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
@@ -1921,7 +1921,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 ///     NearToken::from_near(1)
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_transfer_to_gas_key`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_transfer_to_gas_key.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_transfer_to_gas_key`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_transfer_to_gas_key.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_transfer_to_gas_key(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -1962,7 +1962,7 @@ pub fn promise_batch_action_transfer_to_gas_key(
 ///     num_nonces
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_add_gas_key_with_full_access`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_add_gas_key_with_full_access.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_add_gas_key_with_full_access`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_add_gas_key_with_full_access.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_add_gas_key_with_full_access(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -2007,7 +2007,7 @@ pub fn promise_batch_action_add_gas_key_with_full_access(
 ///     "increase,decrease"
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_add_gas_key_with_function_call`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_add_gas_key_with_function_call.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_add_gas_key_with_function_call`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_add_gas_key_with_function_call.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_add_gas_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -2055,7 +2055,7 @@ pub fn promise_batch_action_add_gas_key_with_function_call(
 ///     &pk
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_delete_key`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_delete_key.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_delete_key`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_delete_key.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
@@ -2084,7 +2084,7 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 ///     &AccountId::from_str("beneficiary.near").unwrap()
 /// );
 /// ```
-/// More low-level info here: [`promise_batch_action_delete_account`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_batch_action_delete_account.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_batch_action_delete_account`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_batch_action_delete_account.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
     beneficiary_id: &AccountId,
@@ -2218,7 +2218,7 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
 ///
 /// assert_eq!(promise_results_count(), 0);
 /// ```
-/// More low-level info here: [`promise_results_count`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_results_count.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_results_count`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_results_count.html), the host function in nearcore's `near-vm-runner`.
 ///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
@@ -2250,7 +2250,7 @@ pub fn promise_results_count() -> u64 {
 /// };
 /// ```
 ///
-/// More low-level info here: [`promise_result`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_result.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_result`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_result.html), the host function in nearcore's `near-vm-runner`.
 ///
 /// Example usages:
 /// - [near-contract-standards/src/fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178)
@@ -2328,7 +2328,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 ///
 /// promise_return(promise);
 /// ```
-/// More low-level info here: [`promise_return`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_return.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_return`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_return.html), the host function in nearcore's `near-vm-runner`.
 ///
 /// Example usages: [one](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/cross-contract-calls/low-level/src/lib.rs?plain=1#L38), [two](https://github.com/near/near-sdk-rs/blob/c2a2d36b2a83ad8fe110c3b21046064f581dc458/examples/factory-contract/low-level/src/lib.rs?plain=1#L57)
 pub fn promise_return(promise_idx: PromiseIndex) {
@@ -2381,7 +2381,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
-/// More low-level info here: [`promise_yield_create`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_yield_create.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_yield_create`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_yield_create.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
     function_name: &str,
@@ -2465,7 +2465,7 @@ pub fn promise_yield_create_id(
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
-/// More low-level info here: [`promise_yield_resume`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_yield_resume.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_yield_resume`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_yield_resume.html), the host function in nearcore's `near-vm-runner`.
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L84)
 pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> bool {
     let data = data.as_ref();
@@ -2494,7 +2494,7 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
 /// shipped in nearcore 2.13). `yield_id` must be exactly 32 bytes or the host aborts execution
 /// with `YieldIdMalformed`.
 ///
-/// More low-level info here: [`promise_yield_create_with_id`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_yield_create_with_id.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_yield_create_with_id`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_yield_create_with_id.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_yield_create_with_id(
     function_name: &str,
     arguments: impl AsRef<[u8]>,
@@ -2533,7 +2533,7 @@ pub fn promise_yield_create_with_id(
 /// Requires the host to support the yield-with-id functions (nearcore protocol version 85+,
 /// shipped in nearcore 2.13).
 ///
-/// More low-level info here: [`promise_yield_resume_with_yield_id`](https://docs.rs/near-vm-runner/0.38.0-rc.2/near_vm_runner/logic/host/fn.promise_yield_resume_with_yield_id.html), the host function in nearcore's `near-vm-runner`.
+/// More low-level info here: [`promise_yield_resume_with_yield_id`](https://docs.rs/near-vm-runner/0.38.0/near_vm_runner/logic/host/fn.promise_yield_resume_with_yield_id.html), the host function in nearcore's `near-vm-runner`.
 pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]>) -> bool {
     let data = data.as_ref();
     unsafe {
@@ -2550,21 +2550,36 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 // # Universal Accounts API #
 // ##########################
 
-/// Returns the `0u` universal account id that the given [`UniversalStateInit`] creates.
+/// Returns the `0u` account id of the given state-init bytes: SHA3-256 of exactly those bytes,
+/// Crockford-base32 encoded ([NEP-655]), once the host has checked that they are a canonical
+/// state init.
 ///
-/// The id is the SHA3-256 hash of the canonical borsh encoding of `state_init`, Crockford-base32
-/// encoded. Use it to know the address of an account before creating it with
-/// [`promise_batch_action_universal_state_init`], or to check that a caller-supplied id matches a
-/// state init. [`UniversalStateInit::derive_account_id`] computes the same id from the `sha3_256`
-/// host function instead of this one.
+/// `state_init` holds the borsh bytes of a versioned state init. The id commits to the bytes, so
+/// pass them unchanged, including a state-init version this SDK predates: the host validates
+/// against the versions it supports, not the ones this SDK knows.
 ///
-/// Uses low-level [`crate::sys::universal_state_init_to_account_id`]; see
-/// [`universal_state_init_to_account_id_raw`] to pass the borsh bytes directly.
+/// Use it to pick the receiver for [`promise_batch_action_universal_state_init`], or to check that
+/// a caller-supplied id matches the bytes.
+///
+/// Uses low-level [`crate::sys::universal_state_init_to_account_id`].
+///
+/// # Errors
+///
+/// - [`StateInitError::Malformed`] if the bytes do not decode into a state init the host knows.
+/// - [`StateInitError::NonCanonical`] if they decode, but are not the canonical encoding of the
+///   result (unsorted or duplicate storage keys or access-key handles). A non-canonical encoding
+///   has no account id, and re-encoding it would describe a different account.
+///
+/// `Ok` means the bytes are canonical, and no more: limits on keys, values and the number of
+/// entries are checked when the action is validated, and initialization still needs the code to
+/// exist and enough funding.
+///
+/// Off-chain (`non-contract-usage` without `unit-testing`) the same check runs locally through
+/// [`RawStateInit::try_derive_account_id`], which only knows this SDK's state-init versions.
 ///
 /// # Requirements
 ///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
+/// Requires nearcore protocol version 88+ (nearcore 2.14).
 ///
 /// # Examples
 /// ```no_run
@@ -2573,39 +2588,36 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 ///
 /// let state_init = UniversalStateInit::from(
 ///     UniversalStateInitV1::default().with_access_key(env::signer_account_pk()),
-/// );
-/// let account_id = env::universal_state_init_to_account_id(&state_init);
-/// assert_eq!(account_id, state_init.derive_account_id());
+/// )
+/// .to_raw();
+/// let account_id = env::universal_state_init_to_account_id(&state_init).unwrap();
+/// assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
 /// ```
-pub fn universal_state_init_to_account_id(state_init: &UniversalStateInit) -> AccountId {
-    universal_state_init_to_account_id_raw(&state_init.to_bytes())
-}
-
-/// Like [`universal_state_init_to_account_id`], but takes the borsh-encoded state init bytes
-/// directly, so a contract can derive the id for a state-init version this SDK predates.
 ///
-/// The account id commits to exactly these bytes: two encodings of the same logical state init
-/// are two different accounts.
-///
-/// # Requirements
-///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
-pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
+/// [NEP-655]: https://github.com/near/NEPs/pull/655
+pub fn universal_state_init_to_account_id(
+    state_init: &RawStateInit,
+) -> Result<AccountId, StateInitError> {
     #[cfg(any(
         target_arch = "wasm32",
         not(feature = "non-contract-usage"),
         all(feature = "unit-testing", not(test)),
     ))]
     {
-        unsafe {
+        let state_init = state_init.as_ref();
+        let status = unsafe {
             sys::universal_state_init_to_account_id(
                 state_init.len() as _,
                 state_init.as_ptr() as _,
                 ATOMIC_OP_REGISTER,
             )
         };
-        assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))
+        match status {
+            0 => Ok(assert_valid_account_id(expect_register(read_register(ATOMIC_OP_REGISTER)))),
+            1 => Err(StateInitError::Malformed),
+            2 => Err(StateInitError::NonCanonical),
+            _ => abort(),
+        }
     }
 
     #[cfg(all(
@@ -2614,27 +2626,32 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
         any(not(feature = "unit-testing"), test),
     ))]
     {
-        near_account_id::UniversalAccountId::from_hash(sha3_256(state_init)).into_account_id()
+        state_init.try_derive_account_id()
     }
 }
 
 /// Appends a `UniversalStateInit` action to the batch of actions for the given promise pointed
-/// by `promise_index`, creating the `0u` universal account that `state_init` describes and
+/// by `promise_index`, creating the `0u` universal account that the state-init bytes describe and
 /// funding it with `amount`.
 ///
-/// The promise's receiver must be the account id `state_init` derives to (see
-/// [`universal_state_init_to_account_id`]); the runtime checks that when the receipt is
-/// validated, not here.
+/// `state_init` holds the borsh bytes of a versioned state init. The bytes go into the
+/// action verbatim, so a contract can forward bytes it was handed, including a state-init version
+/// this SDK predates, without changing the account they derive to.
+///
+/// The promise's receiver must be the account id these bytes derive to (see
+/// [`universal_state_init_to_account_id`], which also checks that they are canonical). This call
+/// does not check either. The runtime validates the
+/// new receipt when the calling function call finishes, and a mismatch fails that call and rolls
+/// back its state changes.
 ///
 /// More info about batching [here](crate::env::promise_batch_create). Prefer
 /// [`crate::Promise::universal_state_init`] unless you need the low-level API.
 ///
-/// Uses low-level [`crate::sys::promise_batch_action_universal_state_init`]; see
-/// [`promise_batch_action_universal_state_init_raw`] to pass the borsh bytes directly.
+/// Uses low-level [`crate::sys::promise_batch_action_universal_state_init`].
 ///
 /// # Requirements
 ///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
+/// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
 /// nearcore 2.14).
 ///
 /// # Examples
@@ -2647,31 +2664,17 @@ pub fn universal_state_init_to_account_id_raw(state_init: &[u8]) -> AccountId {
 ///     UniversalStateInitV1::default()
 ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
 ///         .with_data_entry(b"owner", b"alice.near"),
-/// );
-/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init));
+/// )
+/// .to_raw();
+/// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init).unwrap());
 /// promise_batch_action_universal_state_init(promise, &state_init, NearToken::from_millinear(10));
 /// ```
 pub fn promise_batch_action_universal_state_init(
     promise_index: PromiseIndex,
-    state_init: &UniversalStateInit,
+    state_init: &RawStateInit,
     amount: NearToken,
 ) {
-    promise_batch_action_universal_state_init_raw(promise_index, &state_init.to_bytes(), amount)
-}
-
-/// Like [`promise_batch_action_universal_state_init`], but takes the borsh-encoded state init
-/// bytes directly, so a contract can create an account from a state-init version this SDK
-/// predates. The bytes travel into the action verbatim.
-///
-/// # Requirements
-///
-/// Requires the host to support universal accounts (nearcore protocol version 87+, shipped in
-/// nearcore 2.14).
-pub fn promise_batch_action_universal_state_init_raw(
-    promise_index: PromiseIndex,
-    state_init: &[u8],
-    amount: NearToken,
-) {
+    let state_init = state_init.as_ref();
     unsafe {
         sys::promise_batch_action_universal_state_init(
             promise_index.0,
@@ -3019,20 +3022,66 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 mod tests {
     use super::*;
 
-    /// Pinned to nearcore's `test_derive_universal_account_id` key-only vector, so this holds
-    /// whether the id comes from the mocked host function or the off-chain derivation.
+    /// Pinned to nearcore's key-only universal account id vector. Which branch runs
+    /// depends on the features: the mocked host function by default, the off-chain derivation
+    /// with `non-contract-usage`. `tests/universal_state_init.rs` always hits the mock.
     #[test]
     fn universal_state_init_to_account_id_matches_nearcore() {
-        use crate::universal_state_init::{PublicKeyHandle, UniversalStateInitV1};
+        use crate::universal_state_init::{
+            PublicKeyHandle, UniversalStateInit, UniversalStateInitV1,
+        };
 
         let state_init = UniversalStateInit::from(
             UniversalStateInitV1::default()
                 .with_access_key(PublicKeyHandle::MLDSA65Hash([0x11; 32])),
-        );
-        let account_id = universal_state_init_to_account_id(&state_init);
+        )
+        .to_raw();
+        let account_id = universal_state_init_to_account_id(&state_init).unwrap();
         assert_eq!(account_id.as_str(), "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g");
-        assert_eq!(account_id, universal_state_init_to_account_id_raw(&state_init.to_bytes()));
-        assert_eq!(account_id, state_init.derive_account_id());
+        assert_eq!(account_id, state_init.try_derive_account_id().unwrap());
+    }
+
+    /// Which branch runs depends on the features, as above: the mocked host function (nearcore's
+    /// strict decoder) by default, the local check with `non-contract-usage`.
+    #[test]
+    fn universal_state_init_to_account_id_rejects_noncanonical_bytes() {
+        use crate::universal_state_init::UniversalStateInit;
+
+        // NEP-655 Appendix A / nearcore's universal_state_init_vectors.rs wallet vector.
+        let wallet = hex::decode(concat!(
+            "0001012a000000",
+            "307362306437656634663933356336656637386530386164303335363937363761616563343232336133",
+            "01000000000000003d000000",
+            "01000000008565df94b8caab08f28cdd2ee014b800915741d4694fa840e50cca02",
+            "ae5c6466100e00000000000000000000000000000000000000000000",
+            "00000000",
+        ))
+        .unwrap();
+        assert_eq!(
+            universal_state_init_to_account_id(&RawStateInit(wallet)).unwrap().as_str(),
+            "0u4bfkw2qvgfzbf7zzkxykcppqymn0p2hbayjee3ygzrbhmmtyejx0",
+        );
+
+        // V1 with data keys b, a: it decodes, but the canonical encoding sorts them.
+        let unsorted = RawStateInit(
+            hex::decode("00000200000001000000620000000001000000610000000000000000").unwrap(),
+        );
+        assert_eq!(
+            universal_state_init_to_account_id(&unsorted),
+            Err(StateInitError::NonCanonical),
+        );
+        let sorted = UniversalStateInit::try_from(&unsorted).unwrap().to_raw();
+        assert_eq!(
+            universal_state_init_to_account_id(&sorted).unwrap().as_str(),
+            "0uxxf505cvpqd83cqj71wpya6mbmfh0tmjbqnjk6kwcze985r6f0tg",
+        );
+
+        for malformed in [vec![], vec![0xff, 0x00, 0x80, 0x01], [sorted.0, vec![0]].concat()] {
+            assert_eq!(
+                universal_state_init_to_account_id(&RawStateInit(malformed)),
+                Err(StateInitError::Malformed),
+            );
+        }
     }
 
     #[test]

@@ -1,5 +1,4 @@
 # Changelog
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -7,18 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.5](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.4...near-sys-v0.2.5) - 2025-08-19
+## [0.4.0](https://github.com/near/near-sdk-rs/compare/near-sys-v0.3.0...near-sys-v0.4.0) - 2026-10-27
+
+### Fixed
+
+- *(near-sys)* [**breaking**] declare host functions extern "C-unwind" ([#1656](https://github.com/near/near-sdk-rs/pull/1656))
+
+## [0.3.0](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.14...near-sys-v0.3.0) - 2026-10-19
 
 ### Added
 
-- Add global contract support (NEP-591) ([#1369](https://github.com/near/near-sdk-rs/pull/1369))
-# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
+- [**breaking**] forward raw state init bytes and validate canonical UAIDs (NEP-655) ([#1642](https://github.com/near/near-sdk-rs/pull/1642))
+- *(near-sys)* add ml_dsa_verify, sha3, and universal state init bindings (nearcore 2.14) ([#1628](https://github.com/near/near-sdk-rs/pull/1628))
 
 ## [0.2.14](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.13...near-sys-v0.2.14) - 2026-08-27
 

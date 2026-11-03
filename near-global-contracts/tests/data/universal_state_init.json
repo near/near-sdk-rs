@@ -1,0 +1,113 @@
+{
+  "description": "NEP-655 outer state-init canonicality vectors. Hex is the versioned payload, without the RawStateInit length wrapper. Data keys use unsigned byte lexicographic order; handles use tag then bytes. Local validation rejects unsupported versions. IDs use SHA3-256 and lowercase Crockford base32.",
+  "valid": [
+    {
+      "name": "empty",
+      "hex": "00000000000000000000",
+      "account_id": "0u1kajgpx8a97y8ap8y03pvt8kbm2p2cn9k5h17bgw1wa21j88865g"
+    },
+    {
+      "name": "code by account id",
+      "hex": "00010109000000636f64652e6e6561720000000000000000",
+      "account_id": "0uartat3agnh029e3nqsqzxtz5pd3130stv6a2eafszq4vgg56kaag"
+    },
+    {
+      "name": "code by hash",
+      "hex": "00010022222222222222222222222222222222222222222222222222222222222222220000000000000000",
+      "account_id": "0uk6fe1b5tnfxn87yhtc36czcehzd4ngf25crhj17871kax56nhxx0"
+    },
+    {
+      "name": "lexicographic storage keys and opaque values",
+      "hex": "0000040000000000000002000000ff00020000006161170000006e6f742061206e657374656420737461746520696e697401000000620000000001000000ff010000000000000000",
+      "account_id": "0uf40jrgvp9rttcztes53rc41yrsagjqy8e10ep87vat8k577c5kn0"
+    },
+    {
+      "name": "all handle tags and bytes",
+      "hex": "0000000000000400000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000",
+      "account_id": "0uje8f9e2zg9xn68xbrema9bn86d8e3b670rk9znyqk1km8gxwpczg"
+    },
+    {
+      "name": "key-only known answer",
+      "hex": "00000000000001000000031111111111111111111111111111111111111111111111111111111111111111",
+      "account_id": "0ux8te7g99f9kqzdtp9h4qnwt9aczpgayymmtbdc50w199rcw3at1g"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "empty input",
+      "hex": ""
+    },
+    {
+      "name": "truncated state",
+      "hex": "00"
+    },
+    {
+      "name": "unknown version",
+      "hex": "01000000000000000000"
+    },
+    {
+      "name": "trailing bytes",
+      "hex": "0000000000000000000000"
+    },
+    {
+      "name": "invalid option tag",
+      "hex": "00020000000000000000"
+    },
+    {
+      "name": "invalid code tag",
+      "hex": "0001020000000000000000"
+    },
+    {
+      "name": "invalid account id",
+      "hex": "00010101000000210000000000000000"
+    },
+    {
+      "name": "truncated account id",
+      "hex": "00010109000000636f6465"
+    },
+    {
+      "name": "unsorted storage keys",
+      "hex": "0000020000000100000062000000000200000061610000000000000000"
+    },
+    {
+      "name": "duplicate storage key equal values",
+      "hex": "000002000000010000006101000000310100000061010000003100000000"
+    },
+    {
+      "name": "duplicate storage key different values",
+      "hex": "000002000000010000006101000000310100000061010000003200000000"
+    },
+    {
+      "name": "unsorted same-tag handles",
+      "hex": "0000000000000200000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "unsorted mixed-tag handles",
+      "hex": "000000000000020000000300000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "duplicate handles",
+      "hex": "00000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "invalid full ML-DSA key tag",
+      "hex": "00000000000001000000020000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "truncated handle",
+      "hex": "000000000000010000000300000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "truncated data length",
+      "hex": "0000010000"
+    },
+    {
+      "name": "oversized declared data count",
+      "hex": "0000ffffffff"
+    },
+    {
+      "name": "oversized declared key length",
+      "hex": "000001000000ffffffff"
+    }
+  ]
+}
