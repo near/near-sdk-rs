@@ -237,65 +237,63 @@ impl PromiseAction {
     }
 }
 
-enum PromiseSingleSubtype {
-    Regular {
-        account_id: AccountId,
-        after: Option<Rc<RefCell<Promise>>>,
-        /// Promise index that is computed only once.
-        promise_index: Option<PromiseIndex>,
-    },
-    Yielded(PromiseIndex),
-}
-
-struct PromiseSingle {
-    pub subtype: PromiseSingleSubtype,
+/// Actions and refund configuration shared by receipt phases, never by joints.
+#[derive(Default)]
+struct PromiseActions {
+    actions: Vec<PromiseAction>,
     #[cfg(feature = "deterministic-account-ids")]
-    pub refund_to: Option<AccountId>,
-    pub actions: Vec<PromiseAction>,
+    refund_to: Option<AccountId>,
 }
 
-impl PromiseSingle {
-    pub const fn new(subtype: PromiseSingleSubtype) -> Self {
-        Self {
-            subtype,
-            #[cfg(feature = "deterministic-account-ids")]
-            refund_to: None,
-            actions: Vec::new(),
-        }
-    }
-
-    pub fn construct_recursively(&mut self) -> PromiseIndex {
-        let promise_index = match &mut self.subtype {
-            PromiseSingleSubtype::Regular { account_id, after, promise_index } => *promise_index
-                .get_or_insert_with(|| {
-                    if let Some(after) =
-                        after.as_mut().and_then(|p| p.borrow_mut().construct_recursively())
-                    {
-                        crate::env::promise_batch_then(after, account_id)
-                    } else {
-                        crate::env::promise_batch_create(account_id)
-                    }
-                }),
-            PromiseSingleSubtype::Yielded(promise_index) => *promise_index,
-        };
-
+impl PromiseActions {
+    fn construct(&mut self, promise_index: PromiseIndex) {
         #[cfg(feature = "deterministic-account-ids")]
         if let Some(refund_to) = self.refund_to.take() {
             crate::env::promise_set_refund_to(promise_index, &refund_to);
         }
-
         for action in mem::take(&mut self.actions) {
             action.add(promise_index);
         }
-
-        promise_index
     }
 }
 
-pub struct PromiseJoint {
-    pub promises: VecDeque<Promise>,
+struct PromiseReceipt {
+    account_id: AccountId,
+    actions: PromiseActions,
     /// Promise index that is computed only once.
-    pub promise_index: Option<PromiseIndex>,
+    promise_index: Option<PromiseIndex>,
+}
+
+impl PromiseReceipt {
+    fn new(account_id: AccountId) -> Self {
+        Self { account_id, actions: PromiseActions::default(), promise_index: None }
+    }
+
+    fn after(self, after: Rc<RefCell<Promise>>) -> PromiseLinked {
+        PromiseLinked { receipt: self, after }
+    }
+}
+
+struct PromiseLinked {
+    receipt: PromiseReceipt,
+    after: Rc<RefCell<Promise>>,
+}
+
+struct PromiseYielded {
+    promise_index: PromiseIndex,
+    actions: PromiseActions,
+}
+
+impl PromiseYielded {
+    fn new(promise_index: PromiseIndex) -> Self {
+        Self { promise_index, actions: PromiseActions::default() }
+    }
+}
+
+struct PromiseJoint {
+    promises: VecDeque<Promise>,
+    /// Promise index that is computed only once.
+    promise_index: Option<PromiseIndex>,
 }
 
 impl PromiseJoint {
@@ -311,6 +309,374 @@ impl PromiseJoint {
         }
         self.promise_index
     }
+}
+
+// All receipt phases use the same action builders and host-call implementation.
+macro_rules! promise_actions {
+    () => {
+        /// Create account on which this promise acts.
+        /// Uses low-level [`crate::env::promise_batch_action_create_account`]
+        pub fn create_account(self) -> Self {
+            self.add_action(PromiseAction::CreateAccount)
+        }
+
+        /// Deploy a smart contract to the account on which this promise acts.
+        /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
+        pub fn deploy_contract(self, code: impl Into<Vec<u8>>) -> Self {
+            self.add_action(PromiseAction::DeployContract { code: code.into() })
+        }
+
+        /// Deploy a global smart contract using the provided contract code.
+        /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
+        ///
+        /// # Examples
+        /// ```no_run
+        /// use near_sdk::{Promise, NearToken};
+        ///
+        /// let code = vec![0u8; 100]; // Contract bytecode
+        /// Promise::new("alice.near".parse().unwrap())
+        ///     .create_account()
+        ///     .transfer(NearToken::from_yoctonear(1000))
+        ///     .deploy_global_contract(code);
+        /// ```
+        pub fn deploy_global_contract(self, code: impl Into<Vec<u8>>) -> Self {
+            self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
+        }
+
+        /// Deploy a global smart contract, identifiable by the predecessor's account ID.
+        /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
+        ///
+        /// # Examples
+        /// ```no_run
+        /// use near_sdk::{Promise, NearToken};
+        ///
+        /// let code = vec![0u8; 100]; // Contract bytecode
+        /// Promise::new("alice.near".parse().unwrap())
+        ///     .create_account()
+        ///     .transfer(NearToken::from_yoctonear(1000))
+        ///     .deploy_global_contract_by_account_id(code);
+        /// ```
+        pub fn deploy_global_contract_by_account_id(self, code: impl Into<Vec<u8>>) -> Self {
+            self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
+        }
+
+        /// Use an existing global contract by code hash.
+        /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
+        ///
+        /// # Examples
+        /// ```no_run
+        /// use near_sdk::{Promise, NearToken};
+        ///
+        /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
+        /// Promise::new("alice.near".parse().unwrap())
+        ///     .create_account()
+        ///     .transfer(NearToken::from_yoctonear(1000))
+        ///     .use_global_contract(code_hash);
+        /// ```
+        pub fn use_global_contract(self, code_hash: impl Into<CryptoHash>) -> Self {
+            self.add_action(PromiseAction::UseGlobalContract { code_hash: code_hash.into() })
+        }
+
+        /// Use an existing global contract by referencing the account that deployed it.
+        /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
+        ///
+        /// # Examples
+        /// ```no_run
+        /// use near_sdk::{Promise, NearToken};
+        ///
+        /// Promise::new("alice.near".parse().unwrap())
+        ///     .create_account()
+        ///     .transfer(NearToken::from_yoctonear(1000))
+        ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
+        /// ```
+        pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
+            self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+        }
+
+        /// Creates a deterministic account with the given code, deposit, and data.
+        #[cfg(feature = "deterministic-account-ids")]
+        pub fn state_init(
+            self,
+            state_init: crate::state_init::StateInit,
+            deposit: NearToken,
+        ) -> Self {
+            self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
+        }
+
+        /// Adds an action that creates the `0u` universal account for `state_init` and funds it with
+        /// `deposit` ([NEP-655]).
+        ///
+        /// The promise's receiver must be the account id these exact bytes derive to
+        /// ([`RawStateInit::try_derive_account_id`](crate::universal_state_init::RawStateInit::try_derive_account_id)
+        /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id),
+        /// both of which reject non-canonical bytes).
+        /// The runtime validates the new receipt when the calling function call finishes, and a
+        /// mismatch fails that call and rolls back its state changes.
+        ///
+        /// `state_init` is either typed or raw; both convert into the
+        /// [`RawStateInit`](crate::universal_state_init::RawStateInit) bytes the action carries.
+        /// A typed [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit) (or
+        /// [`UniversalStateInitV1`](crate::universal_state_init::UniversalStateInitV1)) is encoded
+        /// once here, canonically, so its
+        /// [`derive_account_id`](crate::universal_state_init::UniversalStateInit::derive_account_id)
+        /// cannot fail. A `RawStateInit` goes in verbatim, which suits forwarding, including versions
+        /// this SDK cannot decode. Forward bytes you were handed as they are: decoding and re-encoding
+        /// them can change the account they derive to.
+        ///
+        /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`].
+        ///
+        /// # Requirements
+        ///
+        /// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
+        /// nearcore 2.14).
+        ///
+        /// # Examples
+        ///
+        /// A factory that validates locally supported state-init versions before scheduling an
+        /// action, taking the original bytes as a base64 JSON argument. Invalid input is rejected
+        /// before constructing a promise. To also accept versions this SDK predates, validate with
+        /// [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)
+        /// instead, which asks the host.
+        ///
+        /// ```no_run
+        /// use near_sdk::universal_state_init::RawStateInit;
+        /// use near_sdk::{env, near, Promise};
+        ///
+        /// #[near(contract_state)]
+        /// #[derive(Default)]
+        /// pub struct Factory;
+        ///
+        /// #[near]
+        /// impl Factory {
+        ///     #[payable]
+        ///     pub fn create(&mut self, state_init: RawStateInit) -> Promise {
+        ///         let account_id = state_init.try_derive_account_id()
+        ///             .unwrap_or_else(|_| env::panic_str("Invalid or non-canonical state init"));
+        ///         Promise::new(account_id)
+        ///             .universal_state_init(state_init, env::attached_deposit())
+        ///     }
+        /// }
+        /// ```
+        ///
+        /// Building a typed state init in the contract, which needs no validation:
+        ///
+        /// ```no_run
+        /// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
+        /// use near_sdk::{env, GlobalContractId, NearToken, Promise};
+        ///
+        /// let state_init = UniversalStateInit::V1(
+        ///     UniversalStateInitV1::default()
+        ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
+        ///         .with_access_key(env::signer_account_pk()),
+        /// );
+        /// Promise::new(state_init.derive_account_id())
+        ///     .universal_state_init(state_init, NearToken::from_millinear(10));
+        /// ```
+        ///
+        /// [NEP-655]: https://github.com/near/NEPs/pull/655
+        pub fn universal_state_init(
+            self,
+            state_init: impl Into<crate::universal_state_init::RawStateInit>,
+            deposit: NearToken,
+        ) -> Self {
+            self.add_action(PromiseAction::UniversalStateInit {
+                state_init: state_init.into(),
+                deposit,
+            })
+        }
+
+        /// A low-level interface for making a function call to the account that this promise acts on.
+        /// Uses low-level [`crate::env::promise_batch_action_function_call`]
+        pub fn function_call(
+            self,
+            function_name: impl Into<String>,
+            arguments: impl Into<Vec<u8>>,
+            amount: NearToken,
+            gas: Gas,
+        ) -> Self {
+            self.add_action(PromiseAction::FunctionCall {
+                function_name: function_name.into(),
+                arguments: arguments.into(),
+                amount,
+                gas,
+            })
+        }
+
+        /// A low-level interface for making a function call to the account that this promise acts on.
+        /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
+        /// on this function call at the end of the scheduling method execution.
+        /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
+        pub fn function_call_weight(
+            self,
+            function_name: impl Into<String>,
+            arguments: impl Into<Vec<u8>>,
+            amount: NearToken,
+            gas: Gas,
+            weight: GasWeight,
+        ) -> Self {
+            self.add_action(PromiseAction::FunctionCallWeight {
+                function_name: function_name.into(),
+                arguments: arguments.into(),
+                amount,
+                gas,
+                weight,
+            })
+        }
+
+        /// Transfer tokens to the account that this promise acts on.
+        /// Uses low-level [`crate::env::promise_batch_action_transfer`]
+        pub fn transfer(self, amount: NearToken) -> Self {
+            self.add_action(PromiseAction::Transfer { amount })
+        }
+
+        /// Stake the account for the given amount of tokens using the given public key.
+        /// Uses low-level [`crate::env::promise_batch_action_stake`]
+        pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
+            self.add_action(PromiseAction::Stake { amount, public_key })
+        }
+
+        /// Add full access key to the given account.
+        /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
+        pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
+            self.add_full_access_key_with_nonce(public_key, 0)
+        }
+
+        /// Add full access key to the given account with a provided nonce.
+        /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
+        pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
+            self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
+        }
+
+        /// Add an access key that is restricted to only calling a smart contract on some account using
+        /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
+        /// e.g. `"method_a,method_b"`.
+        /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
+        pub fn add_access_key_allowance(
+            self,
+            public_key: PublicKey,
+            allowance: Allowance,
+            receiver_id: AccountId,
+            function_names: impl Into<String>,
+        ) -> Self {
+            self.add_access_key_allowance_with_nonce(
+                public_key,
+                allowance,
+                receiver_id,
+                function_names,
+                0,
+            )
+        }
+
+        #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
+        pub fn add_access_key(
+            self,
+            public_key: PublicKey,
+            allowance: NearToken,
+            receiver_id: AccountId,
+            function_names: impl Into<String>,
+        ) -> Self {
+            let allowance = migrate_to_allowance(allowance);
+            self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
+        }
+
+        /// Add an access key with a provided nonce.
+        /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
+        pub fn add_access_key_allowance_with_nonce(
+            self,
+            public_key: PublicKey,
+            allowance: Allowance,
+            receiver_id: AccountId,
+            function_names: impl Into<String>,
+            nonce: u64,
+        ) -> Self {
+            self.add_action(PromiseAction::AddAccessKey {
+                public_key,
+                allowance,
+                receiver_id,
+                function_names: function_names.into(),
+                nonce,
+            })
+        }
+
+        #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance_with_nonce instead")]
+        pub fn add_access_key_with_nonce(
+            self,
+            public_key: PublicKey,
+            allowance: NearToken,
+            receiver_id: AccountId,
+            function_names: impl Into<String>,
+            nonce: u64,
+        ) -> Self {
+            let allowance = migrate_to_allowance(allowance);
+            self.add_access_key_allowance_with_nonce(
+                public_key,
+                allowance,
+                receiver_id,
+                function_names,
+                nonce,
+            )
+        }
+
+        /// Delete access key from the given account.
+        /// Uses low-level [`crate::env::promise_batch_action_delete_key`]
+        pub fn delete_key(self, public_key: PublicKey) -> Self {
+            self.add_action(PromiseAction::DeleteKey { public_key })
+        }
+
+        /// Delete the given account.
+        /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
+        pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
+            self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
+        }
+
+        /// Transfer tokens to a gas key on the account that this promise acts on.
+        /// Uses low-level [`crate::env::promise_batch_action_transfer_to_gas_key`]
+        ///
+        /// # Requirements
+        ///
+        /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+        /// shipped in nearcore 2.13).
+        pub fn transfer_to_gas_key(self, public_key: PublicKey, amount: NearToken) -> Self {
+            self.add_action(PromiseAction::TransferToGasKey { public_key, amount })
+        }
+
+        /// Add a full access gas key to the given account, reserving `num_nonces` parallel nonces.
+        /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_full_access`]
+        ///
+        /// # Requirements
+        ///
+        /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+        /// shipped in nearcore 2.13).
+        pub fn add_gas_key_full_access(self, public_key: PublicKey, num_nonces: u32) -> Self {
+            self.add_action(PromiseAction::AddGasKeyFullAccess { public_key, num_nonces })
+        }
+
+        /// Add a gas key restricted to only calling a smart contract on some account using only a
+        /// restricted set of methods, reserving `num_nonces` parallel nonces. Here `function_names`
+        /// is a comma separated list of methods, e.g. `"method_a,method_b"`.
+        /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_function_call`]
+        ///
+        /// # Requirements
+        ///
+        /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
+        /// shipped in nearcore 2.13).
+        pub fn add_gas_key_allowance_function_call(
+            self,
+            public_key: PublicKey,
+            num_nonces: u32,
+            allowance: Allowance,
+            receiver_id: AccountId,
+            function_names: String,
+        ) -> Self {
+            self.add_action(PromiseAction::AddGasKeyFunctionCall {
+                public_key,
+                num_nonces,
+                allowance,
+                receiver_id,
+                function_names,
+            })
+        }
+    };
 }
 
 /// A structure representing a result of the scheduled execution on another contract.
@@ -357,10 +723,11 @@ impl PromiseJoint {
 #[must_use = "return or detach explicitly via `.detach()`"]
 pub struct Promise {
     subtype: PromiseSubtype,
+    // Serialization takes &self, so return marking still needs interior mutability.
     should_return: RefCell<bool>,
 }
 
-/// Until we implement strongly typed promises we serialize them as unit struct.
+/// Promise serialization describes the returned value, so its Borsh schema remains unit.
 #[cfg(feature = "abi")]
 impl BorshSchema for Promise {
     fn add_definitions_recursively(
@@ -375,7 +742,9 @@ impl BorshSchema for Promise {
 }
 
 enum PromiseSubtype {
-    Single(PromiseSingle),
+    Fresh(PromiseReceipt),
+    Linked(PromiseLinked),
+    Yielded(PromiseYielded),
     Joint(PromiseJoint),
 }
 
@@ -383,9 +752,7 @@ impl Promise {
     /// Create a promise that acts on the given account.
     /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
-        Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
-            PromiseSingleSubtype::Regular { account_id, after: None, promise_index: None },
-        )))
+        Self::new_with_subtype(PromiseSubtype::Fresh(PromiseReceipt::new(account_id)))
     }
 
     const fn new_with_subtype(subtype: PromiseSubtype) -> Self {
@@ -436,9 +803,8 @@ impl Promise {
     ) -> (Self, YieldId) {
         let (promise_index, yield_id) =
             crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
-        let promise = Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
-            PromiseSingleSubtype::Yielded(promise_index),
-        )));
+        let promise =
+            Self::new_with_subtype(PromiseSubtype::Yielded(PromiseYielded::new(promise_index)));
         (promise, yield_id)
     }
 
@@ -485,9 +851,8 @@ impl Promise {
             weight,
             yield_id.as_bytes(),
         )?;
-        let promise = Self::new_with_subtype(PromiseSubtype::Single(PromiseSingle::new(
-            PromiseSingleSubtype::Yielded(promise_index),
-        )));
+        let promise =
+            Self::new_with_subtype(PromiseSubtype::Yielded(PromiseYielded::new(promise_index)));
         Some(promise)
     }
 
@@ -497,381 +862,32 @@ impl Promise {
     /// the created receipt.
     #[cfg(feature = "deterministic-account-ids")]
     pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
-        let PromiseSubtype::Single(promise) = &mut self.subtype else {
-            crate::env::panic_str("Cannot set refund account for a joint promise.");
-        };
-        promise.refund_to = Some(account_id.into());
+        match &mut self.subtype {
+            PromiseSubtype::Fresh(receipt) => &mut receipt.actions,
+            PromiseSubtype::Linked(linked) => &mut linked.receipt.actions,
+            PromiseSubtype::Yielded(yielded) => &mut yielded.actions,
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_str("Cannot set refund account for a joint promise.")
+            }
+        }
+        .refund_to = Some(account_id.into());
         self
     }
 
     fn add_action(mut self, action: PromiseAction) -> Self {
-        match &mut self.subtype {
-            PromiseSubtype::Single(x) => x.actions.push(action),
+        let actions = match &mut self.subtype {
+            PromiseSubtype::Fresh(receipt) => &mut receipt.actions,
+            PromiseSubtype::Linked(linked) => &mut linked.receipt.actions,
+            PromiseSubtype::Yielded(yielded) => &mut yielded.actions,
             PromiseSubtype::Joint(_) => {
                 crate::env::panic_str("Cannot add action to a joint promise.")
             }
-        }
+        };
+        actions.actions.push(action);
         self
     }
 
-    /// Create account on which this promise acts.
-    /// Uses low-level [`crate::env::promise_batch_action_create_account`]
-    pub fn create_account(self) -> Self {
-        self.add_action(PromiseAction::CreateAccount)
-    }
-
-    /// Deploy a smart contract to the account on which this promise acts.
-    /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
-    pub fn deploy_contract(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployContract { code: code.into() })
-    }
-
-    /// Deploy a global smart contract using the provided contract code.
-    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
-    ///
-    /// # Examples
-    /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
-    ///
-    /// let code = vec![0u8; 100]; // Contract bytecode
-    /// Promise::new("alice.near".parse().unwrap())
-    ///     .create_account()
-    ///     .transfer(NearToken::from_yoctonear(1000))
-    ///     .deploy_global_contract(code);
-    /// ```
-    pub fn deploy_global_contract(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
-    }
-
-    /// Deploy a global smart contract, identifiable by the predecessor's account ID.
-    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
-    ///
-    /// # Examples
-    /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
-    ///
-    /// let code = vec![0u8; 100]; // Contract bytecode
-    /// Promise::new("alice.near".parse().unwrap())
-    ///     .create_account()
-    ///     .transfer(NearToken::from_yoctonear(1000))
-    ///     .deploy_global_contract_by_account_id(code);
-    /// ```
-    pub fn deploy_global_contract_by_account_id(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
-    }
-
-    /// Use an existing global contract by code hash.
-    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
-    ///
-    /// # Examples
-    /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
-    ///
-    /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
-    /// Promise::new("alice.near".parse().unwrap())
-    ///     .create_account()
-    ///     .transfer(NearToken::from_yoctonear(1000))
-    ///     .use_global_contract(code_hash);
-    /// ```
-    pub fn use_global_contract(self, code_hash: impl Into<CryptoHash>) -> Self {
-        self.add_action(PromiseAction::UseGlobalContract { code_hash: code_hash.into() })
-    }
-
-    /// Use an existing global contract by referencing the account that deployed it.
-    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
-    ///
-    /// # Examples
-    /// ```no_run
-    /// use near_sdk::{Promise, NearToken};
-    ///
-    /// Promise::new("alice.near".parse().unwrap())
-    ///     .create_account()
-    ///     .transfer(NearToken::from_yoctonear(1000))
-    ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
-    /// ```
-    pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
-        self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
-    }
-
-    /// Creates a deterministic account with the given code, deposit, and data.
-    #[cfg(feature = "deterministic-account-ids")]
-    pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
-        self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
-    }
-
-    /// Adds an action that creates the `0u` universal account for `state_init` and funds it with
-    /// `deposit` ([NEP-655]).
-    ///
-    /// The promise's receiver must be the account id these exact bytes derive to
-    /// ([`RawStateInit::try_derive_account_id`](crate::universal_state_init::RawStateInit::try_derive_account_id)
-    /// or [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id),
-    /// both of which reject non-canonical bytes).
-    /// The runtime validates the new receipt when the calling function call finishes, and a
-    /// mismatch fails that call and rolls back its state changes.
-    ///
-    /// `state_init` is either typed or raw; both convert into the
-    /// [`RawStateInit`](crate::universal_state_init::RawStateInit) bytes the action carries.
-    /// A typed [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit) (or
-    /// [`UniversalStateInitV1`](crate::universal_state_init::UniversalStateInitV1)) is encoded
-    /// once here, canonically, so its
-    /// [`derive_account_id`](crate::universal_state_init::UniversalStateInit::derive_account_id)
-    /// cannot fail. A `RawStateInit` goes in verbatim, which suits forwarding, including versions
-    /// this SDK cannot decode. Forward bytes you were handed as they are: decoding and re-encoding
-    /// them can change the account they derive to.
-    ///
-    /// Uses low-level [`crate::env::promise_batch_action_universal_state_init`].
-    ///
-    /// # Requirements
-    ///
-    /// Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
-    /// nearcore 2.14).
-    ///
-    /// # Examples
-    ///
-    /// A factory that validates locally supported state-init versions before scheduling an
-    /// action, taking the original bytes as a base64 JSON argument. Invalid input is rejected
-    /// before constructing a promise. To also accept versions this SDK predates, validate with
-    /// [`env::universal_state_init_to_account_id`](crate::env::universal_state_init_to_account_id)
-    /// instead, which asks the host.
-    ///
-    /// ```no_run
-    /// use near_sdk::universal_state_init::RawStateInit;
-    /// use near_sdk::{env, near, Promise};
-    ///
-    /// #[near(contract_state)]
-    /// #[derive(Default)]
-    /// pub struct Factory;
-    ///
-    /// #[near]
-    /// impl Factory {
-    ///     #[payable]
-    ///     pub fn create(&mut self, state_init: RawStateInit) -> Promise {
-    ///         let account_id = state_init.try_derive_account_id()
-    ///             .unwrap_or_else(|_| env::panic_str("Invalid or non-canonical state init"));
-    ///         Promise::new(account_id)
-    ///             .universal_state_init(state_init, env::attached_deposit())
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// Building a typed state init in the contract, which needs no validation:
-    ///
-    /// ```no_run
-    /// use near_sdk::universal_state_init::{UniversalStateInit, UniversalStateInitV1};
-    /// use near_sdk::{env, GlobalContractId, NearToken, Promise};
-    ///
-    /// let state_init = UniversalStateInit::V1(
-    ///     UniversalStateInitV1::default()
-    ///         .with_code(GlobalContractId::AccountId("code.near".parse().unwrap()))
-    ///         .with_access_key(env::signer_account_pk()),
-    /// );
-    /// Promise::new(state_init.derive_account_id())
-    ///     .universal_state_init(state_init, NearToken::from_millinear(10));
-    /// ```
-    ///
-    /// [NEP-655]: https://github.com/near/NEPs/pull/655
-    pub fn universal_state_init(
-        self,
-        state_init: impl Into<crate::universal_state_init::RawStateInit>,
-        deposit: NearToken,
-    ) -> Self {
-        self.add_action(PromiseAction::UniversalStateInit {
-            state_init: state_init.into(),
-            deposit,
-        })
-    }
-
-    /// A low-level interface for making a function call to the account that this promise acts on.
-    /// Uses low-level [`crate::env::promise_batch_action_function_call`]
-    pub fn function_call(
-        self,
-        function_name: impl Into<String>,
-        arguments: impl Into<Vec<u8>>,
-        amount: NearToken,
-        gas: Gas,
-    ) -> Self {
-        self.add_action(PromiseAction::FunctionCall {
-            function_name: function_name.into(),
-            arguments: arguments.into(),
-            amount,
-            gas,
-        })
-    }
-
-    /// A low-level interface for making a function call to the account that this promise acts on.
-    /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
-    /// on this function call at the end of the scheduling method execution.
-    /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
-    pub fn function_call_weight(
-        self,
-        function_name: impl Into<String>,
-        arguments: impl Into<Vec<u8>>,
-        amount: NearToken,
-        gas: Gas,
-        weight: GasWeight,
-    ) -> Self {
-        self.add_action(PromiseAction::FunctionCallWeight {
-            function_name: function_name.into(),
-            arguments: arguments.into(),
-            amount,
-            gas,
-            weight,
-        })
-    }
-
-    /// Transfer tokens to the account that this promise acts on.
-    /// Uses low-level [`crate::env::promise_batch_action_transfer`]
-    pub fn transfer(self, amount: NearToken) -> Self {
-        self.add_action(PromiseAction::Transfer { amount })
-    }
-
-    /// Stake the account for the given amount of tokens using the given public key.
-    /// Uses low-level [`crate::env::promise_batch_action_stake`]
-    pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
-        self.add_action(PromiseAction::Stake { amount, public_key })
-    }
-
-    /// Add full access key to the given account.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
-    pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
-        self.add_full_access_key_with_nonce(public_key, 0)
-    }
-
-    /// Add full access key to the given account with a provided nonce.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
-    pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
-        self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
-    }
-
-    /// Add an access key that is restricted to only calling a smart contract on some account using
-    /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
-    /// e.g. `"method_a,method_b"`.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
-    pub fn add_access_key_allowance(
-        self,
-        public_key: PublicKey,
-        allowance: Allowance,
-        receiver_id: AccountId,
-        function_names: impl Into<String>,
-    ) -> Self {
-        self.add_access_key_allowance_with_nonce(
-            public_key,
-            allowance,
-            receiver_id,
-            function_names,
-            0,
-        )
-    }
-
-    #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
-    pub fn add_access_key(
-        self,
-        public_key: PublicKey,
-        allowance: NearToken,
-        receiver_id: AccountId,
-        function_names: impl Into<String>,
-    ) -> Self {
-        let allowance = migrate_to_allowance(allowance);
-        self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
-    }
-
-    /// Add an access key with a provided nonce.
-    /// Uses low-level [`crate::env::promise_batch_action_add_key_allowance_with_function_call`]
-    pub fn add_access_key_allowance_with_nonce(
-        self,
-        public_key: PublicKey,
-        allowance: Allowance,
-        receiver_id: AccountId,
-        function_names: impl Into<String>,
-        nonce: u64,
-    ) -> Self {
-        self.add_action(PromiseAction::AddAccessKey {
-            public_key,
-            allowance,
-            receiver_id,
-            function_names: function_names.into(),
-            nonce,
-        })
-    }
-
-    #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance_with_nonce instead")]
-    pub fn add_access_key_with_nonce(
-        self,
-        public_key: PublicKey,
-        allowance: NearToken,
-        receiver_id: AccountId,
-        function_names: impl Into<String>,
-        nonce: u64,
-    ) -> Self {
-        let allowance = migrate_to_allowance(allowance);
-        self.add_access_key_allowance_with_nonce(
-            public_key,
-            allowance,
-            receiver_id,
-            function_names,
-            nonce,
-        )
-    }
-
-    /// Delete access key from the given account.
-    /// Uses low-level [`crate::env::promise_batch_action_delete_key`]
-    pub fn delete_key(self, public_key: PublicKey) -> Self {
-        self.add_action(PromiseAction::DeleteKey { public_key })
-    }
-
-    /// Delete the given account.
-    /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
-    pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
-        self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
-    }
-
-    /// Transfer tokens to a gas key on the account that this promise acts on.
-    /// Uses low-level [`crate::env::promise_batch_action_transfer_to_gas_key`]
-    ///
-    /// # Requirements
-    ///
-    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
-    /// shipped in nearcore 2.13).
-    pub fn transfer_to_gas_key(self, public_key: PublicKey, amount: NearToken) -> Self {
-        self.add_action(PromiseAction::TransferToGasKey { public_key, amount })
-    }
-
-    /// Add a full access gas key to the given account, reserving `num_nonces` parallel nonces.
-    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_full_access`]
-    ///
-    /// # Requirements
-    ///
-    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
-    /// shipped in nearcore 2.13).
-    pub fn add_gas_key_full_access(self, public_key: PublicKey, num_nonces: u32) -> Self {
-        self.add_action(PromiseAction::AddGasKeyFullAccess { public_key, num_nonces })
-    }
-
-    /// Add a gas key restricted to only calling a smart contract on some account using only a
-    /// restricted set of methods, reserving `num_nonces` parallel nonces. Here `function_names`
-    /// is a comma separated list of methods, e.g. `"method_a,method_b"`.
-    /// Uses low-level [`crate::env::promise_batch_action_add_gas_key_with_function_call`]
-    ///
-    /// # Requirements
-    ///
-    /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
-    /// shipped in nearcore 2.13).
-    pub fn add_gas_key_allowance_function_call(
-        self,
-        public_key: PublicKey,
-        num_nonces: u32,
-        allowance: Allowance,
-        receiver_id: AccountId,
-        function_names: String,
-    ) -> Self {
-        self.add_action(PromiseAction::AddGasKeyFunctionCall {
-            public_key,
-            num_nonces,
-            allowance,
-            receiver_id,
-            function_names,
-        })
-    }
+    promise_actions!();
 
     /// Merge this promise with another promise, so that we can schedule execution of another
     /// smart contract right after all merged promises finish.
@@ -887,27 +903,47 @@ impl Promise {
     /// // p3.create_account();
     /// ```
     /// Uses low-level [`crate::env::promise_and`]
-    pub fn and(mut self, mut other: Promise) -> Promise {
-        match (&mut self.subtype, &mut other.subtype) {
-            (PromiseSubtype::Joint(x), PromiseSubtype::Joint(o)) => {
-                x.promises.append(&mut o.promises);
-                self
+    pub fn and(self, other: Promise) -> Promise {
+        let (joint, should_return) = self.and_impl(other);
+        Promise { subtype: PromiseSubtype::Joint(joint), should_return }
+    }
+
+    fn into_parts(mut self) -> (PromiseSubtype, RefCell<bool>) {
+        let subtype = mem::replace(
+            &mut self.subtype,
+            PromiseSubtype::Joint(PromiseJoint { promises: VecDeque::new(), promise_index: None }),
+        );
+        (subtype, mem::take(&mut self.should_return))
+    }
+
+    fn and_impl(self, other: Promise) -> (PromiseJoint, RefCell<bool>) {
+        // Preserve the joint's return flag and the existing left-to-right merge order.
+        let (left, left_return) = self.into_parts();
+        let (right, right_return) = other.into_parts();
+        match (left, right) {
+            (PromiseSubtype::Joint(mut left), PromiseSubtype::Joint(mut right)) => {
+                left.promises.append(&mut right.promises);
+                (left, left_return)
             }
-            (PromiseSubtype::Joint(x), _) => {
-                x.promises.push_back(other);
-                self
+            (PromiseSubtype::Joint(mut left), right) => {
+                left.promises.push_back(Promise { subtype: right, should_return: right_return });
+                (left, left_return)
             }
-            (_, PromiseSubtype::Joint(o)) => {
-                o.promises.push_front(self);
-                other
+            (left, PromiseSubtype::Joint(mut right)) => {
+                right.promises.push_front(Promise { subtype: left, should_return: left_return });
+                (right, right_return)
             }
-            _ => Promise {
-                subtype: PromiseSubtype::Joint(PromiseJoint {
-                    promises: [self, other].into(),
+            (left, right) => (
+                PromiseJoint {
+                    promises: [
+                        Promise { subtype: left, should_return: left_return },
+                        Promise { subtype: right, should_return: right_return },
+                    ]
+                    .into(),
                     promise_index: None,
-                }),
-                should_return: RefCell::new(false),
-            },
+                },
+                RefCell::new(false),
+            ),
         }
     }
 
@@ -934,23 +970,18 @@ impl Promise {
     /// This takes self as a reference counted object promise, to allow multiple
     /// dependencies pointing to the same promise without duplicating that
     /// promise.
-    fn then_impl(this: Rc<RefCell<Self>>, mut other: Promise) -> Promise {
-        match &mut other.subtype {
-            PromiseSubtype::Single(x) => match &mut x.subtype {
-                PromiseSingleSubtype::Regular { after, .. } => {
-                    if after.replace(this).is_some() {
-                        crate::env::panic_str(
-                            "Cannot callback promise which is already scheduled after another",
-                        );
-                    }
-                }
-                PromiseSingleSubtype::Yielded(_) => {
-                    crate::env::panic_str("Cannot callback yielded promise.")
-                }
-            },
+    fn then_impl(this: Rc<RefCell<Self>>, other: Promise) -> Promise {
+        match &other.subtype {
+            PromiseSubtype::Fresh(_) => {}
+            PromiseSubtype::Linked(_) => crate::env::panic_str(
+                "Cannot callback promise which is already scheduled after another",
+            ),
+            PromiseSubtype::Yielded(_) => crate::env::panic_str("Cannot callback yielded promise."),
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
-        other
+        let (subtype, should_return) = other.into_parts();
+        let PromiseSubtype::Fresh(receipt) = subtype else { unreachable!() };
+        Promise { subtype: PromiseSubtype::Linked(receipt.after(this)), should_return }
     }
 
     /// Schedules execution of multiple concurrent promises right after the
@@ -1030,7 +1061,29 @@ impl Promise {
 
     fn construct_recursively(&mut self) -> Option<PromiseIndex> {
         let res = match &mut self.subtype {
-            PromiseSubtype::Single(x) => x.construct_recursively(),
+            PromiseSubtype::Fresh(receipt) => {
+                let index = *receipt
+                    .promise_index
+                    .get_or_insert_with(|| crate::env::promise_batch_create(&receipt.account_id));
+                receipt.actions.construct(index);
+                index
+            }
+            PromiseSubtype::Linked(linked) => {
+                let receipt = &mut linked.receipt;
+                let index = *receipt.promise_index.get_or_insert_with(|| {
+                    if let Some(after) = linked.after.borrow_mut().construct_recursively() {
+                        crate::env::promise_batch_then(after, &receipt.account_id)
+                    } else {
+                        crate::env::promise_batch_create(&receipt.account_id)
+                    }
+                });
+                receipt.actions.construct(index);
+                index
+            }
+            PromiseSubtype::Yielded(yielded) => {
+                yielded.actions.construct(yielded.promise_index);
+                yielded.promise_index
+            }
             PromiseSubtype::Joint(x) => x.construct_recursively()?,
         };
         if *self.should_return.borrow() {
@@ -1082,6 +1135,260 @@ impl schemars::JsonSchema for Promise {
         schemars::schema::Schema::Bool(true)
     }
 }
+
+// The Option is only a move-out slot: consuming a typed handle leaves it empty so
+// Drop cannot schedule it again. It does not represent a promise phase.
+struct PromiseHandle<S: Into<PromiseSubtype>> {
+    state: Option<S>,
+    should_return: RefCell<bool>,
+}
+
+impl<S: Into<PromiseSubtype>> PromiseHandle<S> {
+    fn new(state: S) -> Self {
+        Self { state: Some(state), should_return: RefCell::new(false) }
+    }
+
+    fn into_parts(mut self) -> (S, RefCell<bool>) {
+        (
+            self.state.take().expect("promise handle already consumed"),
+            mem::take(&mut self.should_return),
+        )
+    }
+
+    fn into_promise(self) -> Promise {
+        let (state, should_return) = self.into_parts();
+        Promise { subtype: state.into(), should_return }
+    }
+}
+
+impl<S: Into<PromiseSubtype>> Drop for PromiseHandle<S> {
+    fn drop(&mut self) {
+        if let Some(state) = self.state.take() {
+            drop(Promise {
+                subtype: state.into(),
+                should_return: mem::take(&mut self.should_return),
+            });
+        }
+    }
+}
+
+// Concrete phase data is shared by the typed handles and the erased enum. Only
+// conversion into Promise is exposed; erasure cannot be reversed by callers.
+macro_rules! typed_promise {
+    ($(#[$attr:meta])* $name:ident, $state:ty, $variant:ident) => {
+        $(#[$attr])*
+        #[must_use = "return or detach explicitly via `.detach()`"]
+        pub struct $name(PromiseHandle<$state>);
+
+        impl From<$state> for PromiseSubtype {
+            fn from(state: $state) -> Self {
+                Self::$variant(state)
+            }
+        }
+
+        impl From<$name> for Promise {
+            fn from(promise: $name) -> Self {
+                promise.0.into_promise()
+            }
+        }
+
+        impl<T> From<$name> for PromiseOrValue<T> {
+            fn from(promise: $name) -> Self {
+                Self::Promise(promise.into())
+            }
+        }
+
+        impl $name {
+            /// Merge with any promise phase, consuming both promises.
+            pub fn and(self, other: impl Into<Promise>) -> JointPromise {
+                let (joint, should_return) = Promise::from(self).and_impl(other.into());
+                JointPromise(PromiseHandle { state: Some(joint), should_return })
+            }
+
+            /// Link a fresh receipt after this promise, consuming both phases.
+            /// A linked, yielded, or joint promise cannot be a continuation.
+            pub fn then(self, continuation: FreshPromise) -> LinkedPromise {
+                continuation.after(Rc::new(RefCell::new(self.into())))
+            }
+
+            /// Link fresh receipts to a single shared predecessor.
+            ///
+            /// The returned collection erases the linked phases, preserving
+            /// [`ConcurrentPromises::join`] and its behavior for any list length.
+            pub fn then_concurrent(
+                self,
+                promises: impl IntoIterator<Item = FreshPromise>,
+            ) -> ConcurrentPromises {
+                let this = Rc::new(RefCell::new(self.into()));
+                ConcurrentPromises {
+                    promises: promises.into_iter()
+                        .map(|promise| promise.after(Rc::clone(&this)).into())
+                        .collect(),
+                }
+            }
+
+            /// Mark this promise as the return value while preserving its phase.
+            #[allow(clippy::wrong_self_convention)]
+            pub fn as_return(self) -> Self {
+                *self.0.should_return.borrow_mut() = true;
+                self
+            }
+
+            /// Explicitly detach this promise, scheduling it on drop.
+            pub fn detach(self) {}
+        }
+    };
+}
+
+typed_promise!(
+    /// A fresh receipt, eligible to become a continuation exactly once.
+    ///
+    /// Use [`FreshPromise::new`] to opt into phase checking. Convert into
+    /// [`Promise`] when an erased return type is needed; there is intentionally
+    /// no conversion from `Promise` back to a specific phase.
+    ///
+    /// ```no_run
+    /// use near_sdk::{FreshPromise, NearToken, Promise};
+    /// let promise: Promise = FreshPromise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .then(FreshPromise::new("bob.near".parse().unwrap()))
+    ///     .transfer(NearToken::from_yoctonear(1))
+    ///     .into();
+    /// ```
+    FreshPromise, PromiseReceipt, Fresh
+);
+
+typed_promise!(
+    /// A receipt linked to its predecessor. It accepts actions but cannot be
+    /// used as another promise's continuation.
+    ///
+    /// ```compile_fail
+    /// use near_sdk::FreshPromise;
+    /// let callback = FreshPromise::new("alice.near".parse().unwrap())
+    ///     .then(FreshPromise::new("bob.near".parse().unwrap()));
+    /// FreshPromise::new("carol.near".parse().unwrap()).then(callback);
+    /// ```
+    ///
+    /// Concurrent continuations must also be fresh:
+    ///
+    /// ```compile_fail
+    /// use near_sdk::FreshPromise;
+    /// let callback = FreshPromise::new("alice.near".parse().unwrap())
+    ///     .then(FreshPromise::new("bob.near".parse().unwrap()));
+    /// FreshPromise::new("carol.near".parse().unwrap()).then_concurrent([callback]);
+    /// ```
+    LinkedPromise, PromiseLinked, Linked
+);
+
+typed_promise!(
+    /// A yielded receipt with an assigned host index and no predecessor slot.
+    /// It accepts actions and can precede a fresh receipt, but cannot be a continuation.
+    ///
+    /// ```compile_fail
+    /// use near_sdk::{FreshPromise, YieldedPromise, Gas, GasWeight};
+    /// let (yielded, _) = YieldedPromise::new("resume", [], Gas::from_tgas(5), GasWeight(1));
+    /// FreshPromise::new("alice.near".parse().unwrap()).then(yielded);
+    /// ```
+    YieldedPromise, PromiseYielded, Yielded
+);
+
+typed_promise!(
+    /// A joint promise. Only joining, chaining, returning, and detaching are
+    /// available; a joint owns no actions or receipt configuration.
+    ///
+    /// ```compile_fail
+    /// use near_sdk::FreshPromise;
+    /// let joint = FreshPromise::new("alice.near".parse().unwrap())
+    ///     .and(FreshPromise::new("bob.near".parse().unwrap()));
+    /// joint.create_account();
+    /// ```
+    ///
+    /// A joint cannot be used as a continuation:
+    ///
+    /// ```compile_fail
+    /// use near_sdk::FreshPromise;
+    /// let joint = FreshPromise::new("alice.near".parse().unwrap())
+    ///     .and(FreshPromise::new("bob.near".parse().unwrap()));
+    /// FreshPromise::new("carol.near".parse().unwrap()).then(joint);
+    /// ```
+    JointPromise, PromiseJoint, Joint
+);
+
+impl FreshPromise {
+    /// Create a fresh receipt acting on the given account.
+    pub fn new(account_id: AccountId) -> Self {
+        Self(PromiseHandle::new(PromiseReceipt::new(account_id)))
+    }
+
+    fn after(self, after: Rc<RefCell<Promise>>) -> LinkedPromise {
+        let (receipt, should_return) = self.0.into_parts();
+        LinkedPromise(PromiseHandle { state: Some(receipt.after(after)), should_return })
+    }
+}
+
+impl YieldedPromise {
+    /// Create a yielded receipt and its runtime-generated resumption identifier.
+    /// See [`Promise::new_yield`].
+    pub fn new(
+        function_name: &str,
+        arguments: impl AsRef<[u8]>,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> (Self, YieldId) {
+        let (promise_index, yield_id) =
+            crate::env::promise_yield_create_id(function_name, arguments, gas, weight);
+        (Self(PromiseHandle::new(PromiseYielded::new(promise_index))), yield_id)
+    }
+
+    /// Create a yielded receipt using a caller-provided resumption identifier.
+    /// See [`Promise::new_yield_with_id`].
+    pub fn new_with_id(
+        function_name: &str,
+        arguments: impl AsRef<[u8]>,
+        deposit: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        yield_id: UserYieldId,
+    ) -> Option<Self> {
+        let promise_index = crate::env::promise_yield_create_with_id(
+            function_name,
+            arguments,
+            deposit,
+            gas,
+            weight,
+            yield_id.as_bytes(),
+        )?;
+        Some(Self(PromiseHandle::new(PromiseYielded::new(promise_index))))
+    }
+}
+
+macro_rules! typed_receipt_actions {
+    ($name:ident, $($field:ident).+) => {
+        impl $name {
+            fn actions(&mut self) -> &mut PromiseActions {
+                &mut self.0.state.as_mut().expect("promise handle already consumed").$($field).+
+            }
+
+            fn add_action(mut self, action: PromiseAction) -> Self {
+                self.actions().actions.push(action);
+                self
+            }
+
+            /// Set the refund account for this receipt. See [`Promise::refund_to`].
+            #[cfg(feature = "deterministic-account-ids")]
+            pub fn refund_to(mut self, account_id: impl Into<AccountId>) -> Self {
+                self.actions().refund_to = Some(account_id.into());
+                self
+            }
+
+            promise_actions!();
+        }
+    };
+}
+
+typed_receipt_actions!(FreshPromise, actions);
+typed_receipt_actions!(LinkedPromise, receipt.actions);
+typed_receipt_actions!(YieldedPromise, actions);
 
 /// A unique identifier for a yielded promise that can be used to resume execution.
 ///
@@ -1334,6 +1641,331 @@ mod tests {
         AccountId, Allowance, NearToken, Promise, PublicKey, test_utils::VMContextBuilder,
         testing_env,
     };
+
+    use super::{FreshPromise, LinkedPromise, YieldedPromise};
+    use crate::{Gas, GasWeight, PromiseOrValue, UserYieldId};
+
+    fn receipts_from(build: impl FnOnce()) -> Vec<crate::mock::Receipt> {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        build();
+        get_created_receipts()
+    }
+
+    #[test]
+    fn typed_actions_match_erased_actions() {
+        macro_rules! actions {
+            ($promise:expr) => {
+                $promise
+                    .create_account()
+                    .transfer(NearToken::from_yoctonear(7))
+                    .deploy_contract(vec![1, 2, 3])
+                    .function_call(
+                        "call",
+                        vec![4, 5],
+                        NearToken::from_yoctonear(2),
+                        Gas::from_tgas(1),
+                    )
+                    .function_call_weight(
+                        "weighted",
+                        vec![6],
+                        NearToken::from_yoctonear(3),
+                        Gas::from_tgas(2),
+                        GasWeight(2),
+                    )
+                    .stake(NearToken::from_yoctonear(1), pk())
+                    .add_full_access_key_with_nonce(pk(), 42)
+                    .add_access_key_allowance_with_nonce(
+                        pk(),
+                        Allowance::Unlimited,
+                        bob(),
+                        "a,b",
+                        17,
+                    )
+                    .delete_key(pk())
+                    .delete_account(bob())
+            };
+        }
+        let erased = receipts_from(|| actions!(Promise::new(alice())).detach());
+        let typed = receipts_from(|| actions!(FreshPromise::new(alice())).detach());
+        assert_eq!(typed, erased);
+        assert_eq!(typed[0].actions.len(), 10);
+
+        let erased = receipts_from(|| {
+            actions!(Promise::new(bob()).then(Promise::new(alice()))).detach();
+        });
+        let typed = receipts_from(|| {
+            actions!(FreshPromise::new(bob()).then(FreshPromise::new(alice()))).detach();
+        });
+        assert_eq!(typed, erased);
+    }
+
+    #[test]
+    fn typed_joint_merges_match_erased_merges() {
+        macro_rules! graph {
+            ($fresh:ident, $shape:expr) => {{
+                let a = $fresh::new(alice()).create_account();
+                let b = $fresh::new(bob()).transfer(NearToken::from_yoctonear(2));
+                let c = $fresh::new("carol.near".parse().unwrap()).create_account();
+                let d = $fresh::new("dave.near".parse().unwrap()).create_account();
+                // Cover both joints, either side joint, and neither side joint.
+                let joint = match $shape {
+                    0 => a.and(b).and(c.and(d)),
+                    1 => a.and(b.and(c)).and(d),
+                    _ => a.and(b).and(c).and(d),
+                };
+                joint
+                    .then($fresh::new("callback.near".parse().unwrap()))
+                    .transfer(NearToken::from_yoctonear(3))
+                    .detach();
+            }};
+        }
+        for shape in 0..3 {
+            let erased = receipts_from(|| graph!(Promise, shape));
+            let typed = receipts_from(|| graph!(FreshPromise, shape));
+            assert_eq!(typed, erased, "merge shape {shape}");
+            assert_eq!(typed.len(), 5);
+        }
+    }
+
+    #[test]
+    fn typed_concurrent_promises_share_predecessor() {
+        macro_rules! graph {
+            ($fresh:ident, $split:expr) => {{
+                let mut promises = $fresh::new(alice())
+                    .create_account()
+                    .then($fresh::new(bob()).create_account())
+                    .then_concurrent([
+                        $fresh::new("carol.near".parse().unwrap()).create_account(),
+                        $fresh::new("dave.near".parse().unwrap()).create_account(),
+                    ]);
+                if $split {
+                    promises
+                        .split_off(1)
+                        .join()
+                        .then(Promise::new("callback.near".parse().unwrap()))
+                        .detach();
+                    promises.detach();
+                } else {
+                    promises.join().then(Promise::new("callback.near".parse().unwrap())).detach();
+                }
+            }};
+        }
+        for split in [false, true] {
+            let erased = receipts_from(|| graph!(Promise, split));
+            let typed = receipts_from(|| graph!(FreshPromise, split));
+            assert_eq!(typed, erased);
+            assert_eq!(typed.len(), 5, "shared predecessor must be created once");
+        }
+    }
+
+    #[test]
+    fn typed_drop_and_erasure_schedule_once() {
+        let erased = receipts_from(|| {
+            Promise::new(alice()).then(Promise::new(bob()).create_account()).detach();
+        });
+        let typed = receipts_from(|| {
+            let linked: LinkedPromise =
+                FreshPromise::new(alice()).then(FreshPromise::new(bob()).create_account());
+            let erased: Promise = linked.into();
+            assert!(get_created_receipts().is_empty(), "erasure must not schedule receipts");
+            drop(erased);
+        });
+        assert_eq!(typed, erased);
+        let typed = receipts_from(|| {
+            let _linked =
+                FreshPromise::new(alice()).then(FreshPromise::new(bob()).create_account());
+        });
+        assert_eq!(typed, erased);
+    }
+
+    #[test]
+    fn typed_return_and_unit_serialization_preserve_erased_behavior() {
+        let erased = receipts_from(|| {
+            Promise::new(alice()).then(Promise::new(bob())).as_return().detach();
+        });
+        let typed = receipts_from(|| {
+            let linked = FreshPromise::new(alice()).then(FreshPromise::new(bob())).as_return();
+            let promise: Promise = linked.into();
+            assert!(*promise.should_return.borrow());
+            promise.detach();
+        });
+        assert_eq!(typed, erased);
+
+        // Serialization takes &self, so return marking still needs RefCell<bool>.
+        for borsh in [false, true] {
+            let typed = receipts_from(|| {
+                let promise: Promise = FreshPromise::new(alice()).into();
+                assert!(!*promise.should_return.borrow());
+                if borsh {
+                    assert!(borsh::to_vec(&promise).unwrap().is_empty());
+                } else {
+                    assert_eq!(serde_json::to_string(&promise).unwrap(), "null");
+                }
+                assert!(*promise.should_return.borrow());
+                promise.detach();
+            });
+            assert_eq!(typed.len(), 1);
+        }
+        let typed = receipts_from(|| {
+            let promise: PromiseOrValue<()> = FreshPromise::new(alice()).into();
+            assert_eq!(serde_json::to_string(&promise).unwrap(), "null");
+            promise.detach();
+        });
+        assert_eq!(typed.len(), 1);
+    }
+
+    #[test]
+    fn typed_yield_matches_erased_yield() {
+        let erased = receipts_from(|| {
+            let (promise, _) =
+                Promise::new_yield("resume", [1, 2], Gas::from_tgas(5), GasWeight(1));
+            promise.detach();
+        });
+        let typed = receipts_from(|| {
+            let (promise, _) =
+                YieldedPromise::new("resume", [1, 2], Gas::from_tgas(5), GasWeight(1));
+            let promise: Promise = promise.as_return().into();
+            assert!(*promise.should_return.borrow());
+            promise.detach();
+        });
+        assert_eq!(typed, erased);
+
+        let erased = receipts_from(|| {
+            Promise::new_yield_with_id(
+                "resume",
+                [3],
+                NearToken::from_yoctonear(0),
+                Gas::from_tgas(5),
+                GasWeight(1),
+                UserYieldId::new([4; 32]),
+            )
+            .unwrap()
+            .detach();
+        });
+        let typed = receipts_from(|| {
+            let promise = YieldedPromise::new_with_id(
+                "resume",
+                [3],
+                NearToken::from_yoctonear(0),
+                Gas::from_tgas(5),
+                GasWeight(1),
+                UserYieldId::new([4; 32]),
+            )
+            .unwrap();
+            assert!(
+                YieldedPromise::new_with_id(
+                    "resume",
+                    [3],
+                    NearToken::from_yoctonear(0),
+                    Gas::from_tgas(5),
+                    GasWeight(1),
+                    UserYieldId::new([4; 32])
+                )
+                .is_none()
+            );
+            promise.detach();
+        });
+        assert_eq!(typed, erased);
+    }
+
+    #[cfg(feature = "deterministic-account-ids")]
+    #[test]
+    fn typed_refunds_match_erased_refunds() {
+        let erased = receipts_from(|| {
+            Promise::new(alice())
+                .refund_to(bob())
+                .then(Promise::new(bob()).create_account())
+                .refund_to(alice())
+                .detach();
+        });
+        let typed = receipts_from(|| {
+            FreshPromise::new(alice())
+                .refund_to(bob())
+                .then(FreshPromise::new(bob()).create_account())
+                .refund_to(alice())
+                .detach();
+        });
+        assert_eq!(typed, erased);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot add action to a joint promise.")]
+    fn erased_joint_still_rejects_actions() {
+        testing_env!(VMContextBuilder::new().build());
+        Promise::new(alice()).and(Promise::new(bob())).create_account().detach();
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot callback joint promise.")]
+    fn erased_joint_still_rejects_being_a_continuation() {
+        testing_env!(VMContextBuilder::new().build());
+        Promise::new(alice()).then(Promise::new(bob()).and(Promise::new(alice()))).detach();
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot callback promise which is already scheduled after another")]
+    fn erased_linked_still_rejects_being_a_continuation() {
+        testing_env!(VMContextBuilder::new().build());
+        Promise::new(alice()).then(Promise::new(bob()).then(Promise::new(alice()))).detach();
+    }
+
+    #[test]
+    fn promise_indices_and_actions_are_constructed_once() {
+        for phase in 0..3 {
+            testing_env!(VMContextBuilder::new().build());
+            let mut promise: Promise = match phase {
+                0 => FreshPromise::new(alice()).create_account().into(),
+                1 => FreshPromise::new(alice())
+                    .create_account()
+                    .then(FreshPromise::new(bob()).transfer(NearToken::from_yoctonear(7)))
+                    .into(),
+                _ => FreshPromise::new(alice())
+                    .create_account()
+                    .and(FreshPromise::new(bob()).transfer(NearToken::from_yoctonear(7)))
+                    .into(),
+            };
+            let index = promise.construct_recursively();
+            let receipts = get_created_receipts();
+            assert_eq!(receipts.len(), if phase == 0 { 1 } else { 2 });
+            assert_eq!(promise.construct_recursively(), index);
+            assert_eq!(get_created_receipts(), receipts);
+            drop(promise);
+            assert_eq!(get_created_receipts(), receipts, "drop must reuse the cached index");
+        }
+    }
+
+    #[test]
+    fn yielded_actions_share_construction_and_cached_index() {
+        // created_receipts omits yields. Compare host gas as well as the assigned
+        // index and action drain, so two empty receipt lists cannot pass this test.
+        fn construct(mut promise: Promise) -> (crate::PromiseIndex, Gas) {
+            let before = crate::env::used_gas();
+            let index = promise.construct_recursively().unwrap();
+            let after = crate::env::used_gas();
+            let super::PromiseSubtype::Yielded(yielded) = &promise.subtype else {
+                panic!("expected a yielded promise");
+            };
+            assert!(yielded.actions.actions.is_empty());
+            assert_eq!(yielded.promise_index, index);
+            assert_eq!(promise.construct_recursively(), Some(index));
+            drop(promise);
+            (index, Gas::from_gas(after.as_gas() - before.as_gas()))
+        }
+
+        testing_env!(VMContextBuilder::new().build());
+        let (erased, _) = Promise::new_yield("resume", [1, 2], Gas::from_tgas(5), GasWeight(1));
+        let erased = construct(erased.transfer(NearToken::from_yoctonear(7)));
+
+        testing_env!(VMContextBuilder::new().build());
+        let (typed, _) = YieldedPromise::new("resume", [1, 2], Gas::from_tgas(5), GasWeight(1));
+        let typed = construct(typed.transfer(NearToken::from_yoctonear(7)).into());
+        assert_eq!(typed, erased);
+
+        testing_env!(VMContextBuilder::new().build());
+        let (empty, _) = Promise::new_yield("resume", [1, 2], Gas::from_tgas(5), GasWeight(1));
+        let empty = construct(empty);
+        assert!(typed.1 > empty.1, "the transfer must reach the host");
+    }
 
     fn pk() -> PublicKey {
         "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap()

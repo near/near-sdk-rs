@@ -1607,7 +1607,8 @@ pub use near_sys as sys;
 
 mod promise;
 pub use promise::{
-    Allowance, ConcurrentPromises, Promise, PromiseOrValue, ResumeError, UserYieldId, YieldId,
+    Allowance, ConcurrentPromises, FreshPromise, JointPromise, LinkedPromise, Promise,
+    PromiseOrValue, ResumeError, UserYieldId, YieldId, YieldedPromise,
 };
 
 // Private types just used within macro generation, not stable to be used.

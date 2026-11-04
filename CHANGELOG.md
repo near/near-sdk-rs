@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add opt-in fresh, linked, yielded, and joint promise types with consuming, phase-checked transitions.
+
 ## [5.30.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v5.30.0) - 2026-10-27
 
 Stable release for nearcore 2.14. Includes every change since 5.29.1, including those first shipped in 5.30.0-rc.1 and 5.30.0-rc.2.
