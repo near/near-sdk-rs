@@ -27,6 +27,7 @@ use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+#[cfg(feature = "universal-accounts")]
 use crate::universal_state_init::{RawStateInit, StateInitError};
 use crate::{CryptoHash, GasWeight, PromiseError};
 
@@ -2595,6 +2596,7 @@ pub fn promise_yield_resume_with_yield_id(yield_id: &[u8], data: impl AsRef<[u8]
 /// ```
 ///
 /// [NEP-655]: https://github.com/near/NEPs/pull/655
+#[cfg(feature = "universal-accounts")]
 pub fn universal_state_init_to_account_id(
     state_init: &RawStateInit,
 ) -> Result<AccountId, StateInitError> {
@@ -2669,6 +2671,7 @@ pub fn universal_state_init_to_account_id(
 /// let promise = promise_batch_create(&universal_state_init_to_account_id(&state_init).unwrap());
 /// promise_batch_action_universal_state_init(promise, &state_init, NearToken::from_millinear(10));
 /// ```
+#[cfg(feature = "universal-accounts")]
 pub fn promise_batch_action_universal_state_init(
     promise_index: PromiseIndex,
     state_init: &RawStateInit,
@@ -3025,6 +3028,7 @@ mod tests {
     /// Pinned to nearcore's key-only universal account id vector. Which branch runs
     /// depends on the features: the mocked host function by default, the off-chain derivation
     /// with `non-contract-usage`. `tests/universal_state_init.rs` always hits the mock.
+    #[cfg(feature = "universal-accounts")]
     #[test]
     fn universal_state_init_to_account_id_matches_nearcore() {
         use crate::universal_state_init::{
@@ -3043,6 +3047,7 @@ mod tests {
 
     /// Which branch runs depends on the features, as above: the mocked host function (nearcore's
     /// strict decoder) by default, the local check with `non-contract-usage`.
+    #[cfg(feature = "universal-accounts")]
     #[test]
     fn universal_state_init_to_account_id_rejects_noncanonical_bytes() {
         use crate::universal_state_init::UniversalStateInit;
