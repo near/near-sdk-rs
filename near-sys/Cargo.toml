@@ -17,6 +17,7 @@ Syscall definitions for builtin functions of the NEAR runtime.
 [features]
 global-contracts = []
 deterministic-account-ids = []
+universal-accounts = []
 
 [package.metadata.docs.rs]
 all-features = true

@@ -98,6 +98,7 @@ tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
 strum_macros = "0.25.3"
 insta = "1.39.0"
+wasmparser = { version = "0.243", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
@@ -113,6 +114,10 @@ arbitrary = [
 ]
 expensive-debug = []
 deterministic-account-ids = ["dep:hex", "near-sys/deterministic-account-ids"]
+# Universal (`0u`) accounts (NEP-655). Requires nearcore protocol version 88+: every
+# `Promise` links `promise_batch_action_universal_state_init` when enabled, and a contract
+# importing it cannot be deployed before then.
+universal-accounts = ["near-sys/universal-accounts"]
 digest = ["dep:near-digest"]
 unstable = ["near-sdk-core/unstable"]
 legacy = []
@@ -160,10 +165,10 @@ __macro-docs = []
 # Minimum nearcore protocol version this release of near-sdk targets.
 # Read by cargo-near to determine the maximum rustc version allowed when
 # building contracts that depend on this near-sdk. PV 84 (nearcore 2.12)
-# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+. nearcore 2.14
-# adds the unconditional protocol 87 imports and ships protocol 88, which the
-# universal-account API documents as its floor (the canonical state init check).
-min_protocol_version = 88
+# unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+. PV 85 is what
+# the gas-key actions linked by every `Promise` require. The `universal-accounts`
+# feature raises the floor to 88.
+min_protocol_version = 85
 
 [package.metadata.docs.rs]
 all-features = true

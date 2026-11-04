@@ -30,8 +30,11 @@
 //!
 //! # Requirements
 //!
-//! Requires the host to support universal accounts (nearcore protocol version 88+, shipped in
-//! nearcore 2.14). The host checks canonicality from protocol version 88.
+//! This module is available when the `universal-accounts` feature is enabled on `near-sdk`. The
+//! feature makes every [`Promise`](crate::Promise) link the universal state init host function,
+//! so a contract built with it requires the host to support universal accounts (nearcore
+//! protocol version 88+, shipped in nearcore 2.14) even if it never creates one. The host checks
+//! canonicality from protocol version 88.
 //!
 //! [NEP-655]: https://github.com/near/NEPs/pull/655
 

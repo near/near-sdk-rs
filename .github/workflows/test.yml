@@ -96,8 +96,8 @@ jobs:
             name: linux
         features:
           - ""
-          - "--features unstable,legacy,__abi-generate,deterministic-account-ids"
-          - "--features unstable,deterministic-account-ids,non-contract-usage"
+          - "--features unstable,legacy,__abi-generate,deterministic-account-ids,universal-accounts"
+          - "--features unstable,deterministic-account-ids,universal-accounts,non-contract-usage"
     steps:
       - uses: actions/checkout@v4
 
@@ -287,7 +287,7 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate,deterministic-account-ids
+          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate,deterministic-account-ids,universal-accounts
           cargo doc -p near-sdk-macros --features __abi-generate
           cargo doc -p near-contract-standards --no-deps --features abi
           cargo doc -p near-sys
