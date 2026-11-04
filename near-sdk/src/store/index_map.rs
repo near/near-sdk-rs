@@ -17,8 +17,8 @@ where
 {
     pub(crate) prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying index map.
-    /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
-    /// invalidated.
+    /// Each cached entry has its own heap allocation (see `StableMap`), so references to it stay
+    /// valid while other entries are inserted.
     ///
     /// Note: u32 indices are used over usize to have consistent functionality across architectures.
     /// Some functionality would be different from tests to Wasm if exceeding 32-bit length.
@@ -51,7 +51,7 @@ where
         let mut buf = Vec::new();
         // Capacity is prefix length plus bytes needed for u32 bytes (4*u8)
         let mut key_buf = Vec::with_capacity(self.prefix.len() + 4);
-        for (k, v) in self.cache.inner().iter_mut() {
+        for (k, v) in self.cache.iter_mut() {
             if let Some(v) = v.get_mut()
                 && v.is_modified()
             {
