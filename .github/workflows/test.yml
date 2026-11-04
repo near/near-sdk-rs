@@ -244,6 +244,12 @@ jobs:
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features unstable
       - run: cargo check -p near-contract-standards --target wasm32-unknown-unknown
 
+      # ABI generation links a HOST cdylib, which every check above skips by targeting
+      # wasm32. That gap is why #1221 went unnoticed for two years: MSVC requires every
+      # `near-sys` host-function symbol at link time, while ELF and Mach-O defer them.
+      - name: ABI generation links on a Windows host
+        run: cargo build --manifest-path examples/adder/Cargo.toml --features near-sdk/__abi-generate
+
   audit:
     name: Audit
     runs-on: warp-ubuntu-latest-x64-4x
