@@ -60,6 +60,28 @@
 //! // ...
 //! ```
 //!
+//! ### Measuring storage
+//!
+//! [`env::storage_usage`](crate::env::storage_usage) doesn't include cached writes, so flush
+//! before measuring. Flushing an outer collection doesn't flush a collection stored inside it:
+//!
+//! ```rust
+//! # near_sdk::testing_env!(near_sdk::test_utils::VMContextBuilder::new().build());
+//! use near_sdk::env;
+//! use near_sdk::store::{IterableSet, LookupMap};
+//!
+//! let mut sets: LookupMap<u32, IterableSet<u32>> = LookupMap::new(b"s");
+//! let before = env::storage_usage();
+//! sets.insert(1, IterableSet::new(b"e"));
+//! sets.get_mut(&1).unwrap().insert(7);
+//!
+//! sets.flush(); // writes the inner set's header only
+//! let outer_only = env::storage_usage() - before;
+//! sets.get_mut(&1).unwrap().flush(); // writes the inner set's element
+//! let added = env::storage_usage() - before;
+//! assert!(added > outer_only);
+//! ```
+//!
 //! ## General description
 //!
 //! These collections are more scalable versions of [`std::collections`] when used as contract

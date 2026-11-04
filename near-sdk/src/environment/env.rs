@@ -415,6 +415,9 @@ pub fn epoch_height() -> u64 {
 
 /// Current total storage usage of this smart contract that this account would be paying for.
 ///
+/// Writes still cached by [`store`](crate::store) collections aren't counted yet, see
+/// [Measuring storage](crate::store#measuring-storage).
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::storage_usage;
