@@ -19,223 +19,11 @@ use crate::{
 
 pub use near_sdk_core::allowance::Allowance;
 
-enum PromiseAction {
-    CreateAccount,
-    DeployContract {
-        code: Vec<u8>,
-    },
-    FunctionCall {
-        function_name: String,
-        arguments: Vec<u8>,
-        amount: NearToken,
-        gas: Gas,
-    },
-    FunctionCallWeight {
-        function_name: String,
-        arguments: Vec<u8>,
-        amount: NearToken,
-        gas: Gas,
-        weight: GasWeight,
-    },
-    Transfer {
-        amount: NearToken,
-    },
-    Stake {
-        amount: NearToken,
-        public_key: PublicKey,
-    },
-    AddFullAccessKey {
-        public_key: PublicKey,
-        nonce: u64,
-    },
-    AddAccessKey {
-        public_key: PublicKey,
-        allowance: Allowance,
-        receiver_id: AccountId,
-        function_names: String,
-        nonce: u64,
-    },
-    DeleteKey {
-        public_key: PublicKey,
-    },
-    DeleteAccount {
-        beneficiary_id: AccountId,
-    },
-    TransferToGasKey {
-        public_key: PublicKey,
-        amount: NearToken,
-    },
-    AddGasKeyFullAccess {
-        public_key: PublicKey,
-        num_nonces: u32,
-    },
-    AddGasKeyFunctionCall {
-        public_key: PublicKey,
-        num_nonces: u32,
-        allowance: Allowance,
-        receiver_id: AccountId,
-        function_names: String,
-    },
-    DeployGlobalContract {
-        code: Vec<u8>,
-    },
-    DeployGlobalContractByAccountId {
-        code: Vec<u8>,
-    },
-    UseGlobalContract {
-        code_hash: CryptoHash,
-    },
-    UseGlobalContractByAccountId {
-        account_id: AccountId,
-    },
-    #[cfg(feature = "deterministic-account-ids")]
-    DeterministicStateInit {
-        state_init: crate::state_init::StateInit,
-        deposit: NearToken,
-    },
-    UniversalStateInit {
-        state_init: crate::universal_state_init::RawStateInit,
-        deposit: NearToken,
-    },
-}
-
-impl PromiseAction {
-    pub fn add(self, promise_index: PromiseIndex) {
-        use PromiseAction::*;
-        match self {
-            CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
-            DeployContract { code } => {
-                crate::env::promise_batch_action_deploy_contract(promise_index, &code)
-            }
-            FunctionCall { function_name, arguments, amount, gas } => {
-                crate::env::promise_batch_action_function_call(
-                    promise_index,
-                    &function_name,
-                    &arguments,
-                    amount,
-                    gas,
-                )
-            }
-            FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
-                crate::env::promise_batch_action_function_call_weight(
-                    promise_index,
-                    &function_name,
-                    &arguments,
-                    amount,
-                    gas,
-                    GasWeight(weight.0),
-                )
-            }
-            Transfer { amount } => crate::env::promise_batch_action_transfer(promise_index, amount),
-            Stake { amount, public_key } => {
-                crate::env::promise_batch_action_stake(promise_index, amount, &public_key)
-            }
-            AddFullAccessKey { public_key, nonce } => {
-                crate::env::promise_batch_action_add_key_with_full_access(
-                    promise_index,
-                    &public_key,
-                    nonce,
-                )
-            }
-            AddAccessKey { public_key, allowance, receiver_id, function_names, nonce } => {
-                crate::env::promise_batch_action_add_key_allowance_with_function_call(
-                    promise_index,
-                    &public_key,
-                    nonce,
-                    allowance,
-                    &receiver_id,
-                    &function_names,
-                )
-            }
-            DeleteKey { public_key } => {
-                crate::env::promise_batch_action_delete_key(promise_index, &public_key)
-            }
-            DeleteAccount { beneficiary_id } => {
-                crate::env::promise_batch_action_delete_account(promise_index, &beneficiary_id)
-            }
-            TransferToGasKey { public_key, amount } => {
-                crate::env::promise_batch_action_transfer_to_gas_key(
-                    promise_index,
-                    &public_key,
-                    amount,
-                )
-            }
-            AddGasKeyFullAccess { public_key, num_nonces } => {
-                crate::env::promise_batch_action_add_gas_key_with_full_access(
-                    promise_index,
-                    &public_key,
-                    num_nonces,
-                )
-            }
-            AddGasKeyFunctionCall {
-                public_key,
-                num_nonces,
-                allowance,
-                receiver_id,
-                function_names,
-            } => crate::env::promise_batch_action_add_gas_key_with_function_call(
-                promise_index,
-                &public_key,
-                num_nonces,
-                allowance,
-                &receiver_id,
-                &function_names,
-            ),
-            DeployGlobalContract { code } => {
-                crate::env::promise_batch_action_deploy_global_contract(promise_index, &code)
-            }
-            DeployGlobalContractByAccountId { code } => {
-                crate::env::promise_batch_action_deploy_global_contract_by_account_id(
-                    promise_index,
-                    &code,
-                )
-            }
-            UseGlobalContract { code_hash } => {
-                crate::env::promise_batch_action_use_global_contract(promise_index, &code_hash)
-            }
-            UseGlobalContractByAccountId { account_id } => {
-                crate::env::promise_batch_action_use_global_contract_by_account_id(
-                    promise_index,
-                    account_id,
-                )
-            }
-            #[cfg(feature = "deterministic-account-ids")]
-            DeterministicStateInit {
-                state_init: crate::state_init::StateInit::V1(state_init),
-                deposit,
-            } => {
-                use crate::GlobalContractId;
-
-                let action_index = match &state_init.code {
-                    GlobalContractId::CodeHash(code_hash) => {
-                        crate::env::promise_batch_action_state_init(
-                            promise_index,
-                            *code_hash,
-                            deposit,
-                        )
-                    }
-                    GlobalContractId::AccountId(account_id) => {
-                        crate::env::promise_batch_action_state_init_by_account_id(
-                            promise_index,
-                            account_id,
-                            deposit,
-                        )
-                    }
-                };
-                for (key, value) in &state_init.data {
-                    crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
-                }
-            }
-            UniversalStateInit { state_init, deposit } => {
-                crate::env::promise_batch_action_universal_state_init(
-                    promise_index,
-                    &state_init,
-                    deposit,
-                )
-            }
-        }
-    }
-}
+/// One queued batch action. Each builder method boxes the host call it needs, so a contract
+/// imports only the `promise_batch_action_*` host functions of the actions it can construct.
+/// A closed enum dispatched through one `match` would make every `Promise` import all of them,
+/// and a contract importing a host function the network doesn't have yet can't be deployed.
+type PromiseAction = Box<dyn FnOnce(PromiseIndex)>;
 
 enum PromiseSingleSubtype {
     Regular {
@@ -285,7 +73,7 @@ impl PromiseSingle {
         }
 
         for action in mem::take(&mut self.actions) {
-            action.add(promise_index);
+            action(promise_index);
         }
 
         promise_index
@@ -504,9 +292,9 @@ impl Promise {
         self
     }
 
-    fn add_action(mut self, action: PromiseAction) -> Self {
+    fn add_action(mut self, action: impl FnOnce(PromiseIndex) + 'static) -> Self {
         match &mut self.subtype {
-            PromiseSubtype::Single(x) => x.actions.push(action),
+            PromiseSubtype::Single(x) => x.actions.push(Box::new(action)),
             PromiseSubtype::Joint(_) => {
                 crate::env::panic_str("Cannot add action to a joint promise.")
             }
@@ -517,13 +305,16 @@ impl Promise {
     /// Create account on which this promise acts.
     /// Uses low-level [`crate::env::promise_batch_action_create_account`]
     pub fn create_account(self) -> Self {
-        self.add_action(PromiseAction::CreateAccount)
+        self.add_action(move |i| crate::env::promise_batch_action_create_account(i))
     }
 
     /// Deploy a smart contract to the account on which this promise acts.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
     pub fn deploy_contract(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployContract { code: code.into() })
+        self.add_action({
+            let code = code.into();
+            move |i| crate::env::promise_batch_action_deploy_contract(i, &code)
+        })
     }
 
     /// Deploy a global smart contract using the provided contract code.
@@ -540,7 +331,10 @@ impl Promise {
     ///     .deploy_global_contract(code);
     /// ```
     pub fn deploy_global_contract(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
+        self.add_action({
+            let code = code.into();
+            move |i| crate::env::promise_batch_action_deploy_global_contract(i, &code)
+        })
     }
 
     /// Deploy a global smart contract, identifiable by the predecessor's account ID.
@@ -557,7 +351,10 @@ impl Promise {
     ///     .deploy_global_contract_by_account_id(code);
     /// ```
     pub fn deploy_global_contract_by_account_id(self, code: impl Into<Vec<u8>>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
+        self.add_action({
+            let code = code.into();
+            move |i| crate::env::promise_batch_action_deploy_global_contract_by_account_id(i, &code)
+        })
     }
 
     /// Use an existing global contract by code hash.
@@ -574,7 +371,10 @@ impl Promise {
     ///     .use_global_contract(code_hash);
     /// ```
     pub fn use_global_contract(self, code_hash: impl Into<CryptoHash>) -> Self {
-        self.add_action(PromiseAction::UseGlobalContract { code_hash: code_hash.into() })
+        self.add_action({
+            let code_hash = code_hash.into();
+            move |i| crate::env::promise_batch_action_use_global_contract(i, &code_hash)
+        })
     }
 
     /// Use an existing global contract by referencing the account that deployed it.
@@ -590,13 +390,34 @@ impl Promise {
     ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
     /// ```
     pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
-        self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_use_global_contract_by_account_id(i, account_id)
+        })
     }
 
     /// Creates a deterministic account with the given code, deposit, and data.
     #[cfg(feature = "deterministic-account-ids")]
     pub fn state_init(self, state_init: crate::state_init::StateInit, deposit: NearToken) -> Self {
-        self.add_action(PromiseAction::DeterministicStateInit { state_init, deposit })
+        let crate::state_init::StateInit::V1(state_init) = state_init;
+        self.add_action(move |promise_index| {
+            use crate::GlobalContractId;
+
+            let action_index = match &state_init.code {
+                GlobalContractId::CodeHash(code_hash) => {
+                    crate::env::promise_batch_action_state_init(promise_index, *code_hash, deposit)
+                }
+                GlobalContractId::AccountId(account_id) => {
+                    crate::env::promise_batch_action_state_init_by_account_id(
+                        promise_index,
+                        account_id,
+                        deposit,
+                    )
+                }
+            };
+            for (key, value) in &state_init.data {
+                crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
+            }
+        })
     }
 
     /// Adds an action that creates the `0u` universal account for `state_init` and funds it with
@@ -675,9 +496,9 @@ impl Promise {
         state_init: impl Into<crate::universal_state_init::RawStateInit>,
         deposit: NearToken,
     ) -> Self {
-        self.add_action(PromiseAction::UniversalStateInit {
-            state_init: state_init.into(),
-            deposit,
+        self.add_action({
+            let state_init = state_init.into();
+            move |i| crate::env::promise_batch_action_universal_state_init(i, &state_init, deposit)
         })
     }
 
@@ -690,11 +511,17 @@ impl Promise {
         amount: NearToken,
         gas: Gas,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCall {
-            function_name: function_name.into(),
-            arguments: arguments.into(),
-            amount,
-            gas,
+        self.add_action({
+            let (function_name, arguments) = (function_name.into(), arguments.into());
+            move |i| {
+                crate::env::promise_batch_action_function_call(
+                    i,
+                    &function_name,
+                    &arguments,
+                    amount,
+                    gas,
+                )
+            }
         })
     }
 
@@ -710,25 +537,31 @@ impl Promise {
         gas: Gas,
         weight: GasWeight,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCallWeight {
-            function_name: function_name.into(),
-            arguments: arguments.into(),
-            amount,
-            gas,
-            weight,
+        self.add_action({
+            let (function_name, arguments) = (function_name.into(), arguments.into());
+            move |i| {
+                crate::env::promise_batch_action_function_call_weight(
+                    i,
+                    &function_name,
+                    &arguments,
+                    amount,
+                    gas,
+                    weight,
+                )
+            }
         })
     }
 
     /// Transfer tokens to the account that this promise acts on.
     /// Uses low-level [`crate::env::promise_batch_action_transfer`]
     pub fn transfer(self, amount: NearToken) -> Self {
-        self.add_action(PromiseAction::Transfer { amount })
+        self.add_action(move |i| crate::env::promise_batch_action_transfer(i, amount))
     }
 
     /// Stake the account for the given amount of tokens using the given public key.
     /// Uses low-level [`crate::env::promise_batch_action_stake`]
     pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
-        self.add_action(PromiseAction::Stake { amount, public_key })
+        self.add_action(move |i| crate::env::promise_batch_action_stake(i, amount, &public_key))
     }
 
     /// Add full access key to the given account.
@@ -740,7 +573,9 @@ impl Promise {
     /// Add full access key to the given account with a provided nonce.
     /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
     pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
-        self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_add_key_with_full_access(i, &public_key, nonce)
+        })
     }
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
@@ -785,12 +620,18 @@ impl Promise {
         function_names: impl Into<String>,
         nonce: u64,
     ) -> Self {
-        self.add_action(PromiseAction::AddAccessKey {
-            public_key,
-            allowance,
-            receiver_id,
-            function_names: function_names.into(),
-            nonce,
+        self.add_action({
+            let function_names = function_names.into();
+            move |i| {
+                crate::env::promise_batch_action_add_key_allowance_with_function_call(
+                    i,
+                    &public_key,
+                    nonce,
+                    allowance,
+                    &receiver_id,
+                    &function_names,
+                )
+            }
         })
     }
 
@@ -816,13 +657,15 @@ impl Promise {
     /// Delete access key from the given account.
     /// Uses low-level [`crate::env::promise_batch_action_delete_key`]
     pub fn delete_key(self, public_key: PublicKey) -> Self {
-        self.add_action(PromiseAction::DeleteKey { public_key })
+        self.add_action(move |i| crate::env::promise_batch_action_delete_key(i, &public_key))
     }
 
     /// Delete the given account.
     /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
-        self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_delete_account(i, &beneficiary_id)
+        })
     }
 
     /// Transfer tokens to a gas key on the account that this promise acts on.
@@ -833,7 +676,9 @@ impl Promise {
     /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
     /// shipped in nearcore 2.13).
     pub fn transfer_to_gas_key(self, public_key: PublicKey, amount: NearToken) -> Self {
-        self.add_action(PromiseAction::TransferToGasKey { public_key, amount })
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_transfer_to_gas_key(i, &public_key, amount)
+        })
     }
 
     /// Add a full access gas key to the given account, reserving `num_nonces` parallel nonces.
@@ -844,7 +689,13 @@ impl Promise {
     /// Requires the host to support gas-key host functions (nearcore protocol version 85+,
     /// shipped in nearcore 2.13).
     pub fn add_gas_key_full_access(self, public_key: PublicKey, num_nonces: u32) -> Self {
-        self.add_action(PromiseAction::AddGasKeyFullAccess { public_key, num_nonces })
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_add_gas_key_with_full_access(
+                i,
+                &public_key,
+                num_nonces,
+            )
+        })
     }
 
     /// Add a gas key restricted to only calling a smart contract on some account using only a
@@ -864,12 +715,15 @@ impl Promise {
         receiver_id: AccountId,
         function_names: String,
     ) -> Self {
-        self.add_action(PromiseAction::AddGasKeyFunctionCall {
-            public_key,
-            num_nonces,
-            allowance,
-            receiver_id,
-            function_names,
+        self.add_action(move |i| {
+            crate::env::promise_batch_action_add_gas_key_with_function_call(
+                i,
+                &public_key,
+                num_nonces,
+                allowance,
+                &receiver_id,
+                &function_names,
+            )
         })
     }
 

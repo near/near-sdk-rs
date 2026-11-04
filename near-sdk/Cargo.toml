@@ -98,6 +98,7 @@ tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
 strum_macros = "0.25.3"
 insta = "1.39.0"
+wasmparser = { version = "0.243", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
