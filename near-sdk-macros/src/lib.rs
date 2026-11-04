@@ -311,9 +311,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let ext_gen = generate_ext_structs(&ident, Some(&generics));
-    #[cfg(feature = "__abi-embed-checked")]
+    #[cfg(feature = "__abi-embed")]
     let abi_embedded = abi::embed();
-    #[cfg(not(feature = "__abi-embed-checked"))]
+    #[cfg(not(feature = "__abi-embed"))]
     let abi_embedded = quote! {};
     let item = proc_macro2::TokenStream::from(item);
     TokenStream::from(quote! {
