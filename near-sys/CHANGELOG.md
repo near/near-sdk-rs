@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/near/near-sdk-rs/compare/near-sys-v0.4.0...near-sys-v0.4.1) - 2026-11-04
+
+### Other
+
+- feature gate universal accounts ([#1672](https://github.com/near/near-sdk-rs/pull/1672))
+
 ## [0.4.0](https://github.com/near/near-sdk-rs/compare/near-sys-v0.3.0...near-sys-v0.4.0) - 2026-10-27
 
 ### Fixed
