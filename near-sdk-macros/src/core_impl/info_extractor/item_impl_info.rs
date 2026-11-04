@@ -1,6 +1,6 @@
 use crate::ImplItemMethodInfo;
 use syn::spanned::Spanned;
-use syn::{Error, ImplItem, ItemImpl, Type};
+use syn::{Error, ImplItem, ItemImpl, Type, parse_quote};
 
 /// Information extracted from `impl` section.
 pub struct ItemImplInfo {
@@ -8,6 +8,10 @@ pub struct ItemImplInfo {
     pub ty: Type,
     /// Info extracted for each public method.
     pub methods: Vec<ImplItemMethodInfo>,
+    /// Path to the `near-sdk` crate to use in generated code. Defaults to `::near_sdk`;
+    /// overridden via [`ItemImplInfo::set_krate`] when `#[near(crate = "...")]` /
+    /// `#[near_bindgen(crate = "...")]` is used.
+    pub krate: syn::Path,
 }
 
 impl ItemImplInfo {
@@ -42,6 +46,14 @@ impl ItemImplInfo {
             return Err(combined_error.unwrap());
         }
 
-        Ok(Self { ty, methods })
+        Ok(Self { ty, methods, krate: parse_quote!(::near_sdk) })
+    }
+
+    /// Overrides the `near-sdk` crate path used by this `impl` block and all of its methods.
+    pub fn set_krate(&mut self, krate: &syn::Path) {
+        for method in &mut self.methods {
+            method.attr_signature_info.krate = krate.clone();
+        }
+        self.krate = krate.clone();
     }
 }

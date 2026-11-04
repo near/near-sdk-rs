@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_trait_info.rs
-assertion_line: 56
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub mod external_cross_contract {
@@ -54,7 +53,7 @@ pub mod external_cross_contract {
                     arr: &'nearinput Vec<u8>,
                 }
                 let __args = Input { arr: &arr };
-                match near_sdk::serde_json::to_vec(&__args) {
+                match ::near_sdk::serde_json::to_vec(&__args) {
                     Ok(serialized) => serialized,
                     Err(_) => {
                         ::near_sdk::env::panic_str(

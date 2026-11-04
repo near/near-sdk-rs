@@ -78,6 +78,7 @@ impl ImplItemMethodInfo {
     }
 
     fn result_return_body_tokens(&self) -> TokenStream2 {
+        let krate = &self.attr_signature_info.krate;
         let contract_init = self.contract_init_tokens();
         let method_invocation_with_return = self.method_invocation_with_return_tokens();
         let contract_ser = self.contract_ser_tokens();
@@ -94,14 +95,15 @@ impl ImplItemMethodInfo {
                     #value_return
                     #contract_ser
                 }
-                ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
+                ::std::result::Result::Err(err) => #krate::FunctionError::panic(&err)
             }
         }
     }
 
     fn panic_hook_tokens(&self) -> TokenStream2 {
+        let krate = &self.attr_signature_info.krate;
         quote! {
-            ::near_sdk::env::setup_panic_hook();
+            #krate::env::setup_panic_hook();
         }
     }
 
@@ -115,28 +117,29 @@ impl ImplItemMethodInfo {
 
     fn arg_parsing_tokens(&self) -> TokenStream2 {
         if self.attr_signature_info.has_input_args() {
+            let krate = &self.attr_signature_info.krate;
             let decomposition = self.attr_signature_info.decomposition_pattern();
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                    match ::near_sdk::env::input() {
-                        Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
+                    match #krate::env::input() {
+                        Some(input) => match #krate::serde_json::from_slice(&input) {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"));
+                                #krate::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"));
                             }
                         },
-                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => #krate::env::panic_str("Expected input since method has arguments.")
                     };
                 },
                 SerializerType::Borsh => quote! {
-                    match ::near_sdk::env::input() {
-                        Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
+                    match #krate::env::input() {
+                        Some(input) => match #krate::borsh::BorshDeserialize::try_from_slice(&input) {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"));
+                                #krate::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"));
                             }
                         },
-                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => #krate::env::panic_str("Expected input since method has arguments.")
                     };
                 },
             };
@@ -151,12 +154,13 @@ impl ImplItemMethodInfo {
     fn deposit_check_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let reject_deposit_code = || {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
             let error = format!("Method {} doesn't accept deposit", self.attr_signature_info.ident);
             quote! {
-                if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-                    ::near_sdk::env::panic_str(#error);
+                if #krate::env::attached_deposit().as_yoctonear() != 0 {
+                    #krate::env::panic_str(#error);
                 }
             }
         };
@@ -184,10 +188,11 @@ impl ImplItemMethodInfo {
 
     fn private_check_tokens(&self) -> TokenStream2 {
         if self.attr_signature_info.is_private() {
+            let krate = &self.attr_signature_info.krate;
             let error = format!("Method {} is private", self.attr_signature_info.ident);
             quote! {
-                if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
-                    ::near_sdk::env::panic_str(#error);
+                if #krate::env::current_account_id() != #krate::env::predecessor_account_id() {
+                    #krate::env::panic_str(#error);
                 }
             }
         } else {
@@ -198,6 +203,7 @@ impl ImplItemMethodInfo {
     fn state_check_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         // The purpose of the state check is to prevent the contract from being initialized twice,
         // so it's not applicable to Call and View methods.
         match &self.attr_signature_info.method_kind {
@@ -207,8 +213,8 @@ impl ImplItemMethodInfo {
                 if !init_method.ignores_state {
                     let struct_type = &self.struct_type;
                     quote! {
-                        if <#struct_type as ::near_sdk::state::ContractState>::state_exists() {
-                            ::near_sdk::env::panic_str("The contract has already been initialized");
+                        if <#struct_type as #krate::state::ContractState>::state_exists() {
+                            #krate::env::panic_str("The contract has already been initialized");
                         }
                     }
                 } else {
@@ -223,6 +229,7 @@ impl ImplItemMethodInfo {
     fn contract_init_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let struct_type = &self.struct_type;
         let ident = &self.attr_signature_info.ident;
         let arg_list = self.attr_signature_info.arg_list();
@@ -231,7 +238,7 @@ impl ImplItemMethodInfo {
             let mutability = receiver.mutability;
 
             quote! {
-                let #mutability contract = <#struct_type as ::near_sdk::state::ContractState>::state_read().unwrap_or_default();
+                let #mutability contract = <#struct_type as #krate::state::ContractState>::state_read().unwrap_or_default();
             }
         };
 
@@ -263,10 +270,11 @@ impl ImplItemMethodInfo {
     fn contract_ser_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let contract_ser = || {
             let struct_type = &self.struct_type;
             quote! {
-                <#struct_type as ::near_sdk::state::ContractState>::state_write(&contract);
+                <#struct_type as #krate::state::ContractState>::state_write(&contract);
             }
         };
 
@@ -366,17 +374,18 @@ impl ImplItemMethodInfo {
     fn value_ser_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = match near_sdk::serde_json::to_vec(&result) {
+                let result = match #krate::serde_json::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
+                    Err(_) => #krate::env::panic_str("Failed to serialize the return value using JSON."),
                 };
             },
             SerializerType::Borsh => quote! {
-                let result = match near_sdk::borsh::to_vec(&result) {
+                let result = match #krate::borsh::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
+                    Err(_) => #krate::env::panic_str("Failed to serialize the return value using Borsh."),
                 };
             },
         };
@@ -395,9 +404,10 @@ impl ImplItemMethodInfo {
     fn value_return_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
+        let krate = &self.attr_signature_info.krate;
         let value_return = || {
             quote! {
-                ::near_sdk::env::value_return(&result);
+                #krate::env::value_return(&result);
             }
         };
 
