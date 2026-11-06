@@ -105,6 +105,36 @@ impl<const MAX: usize> From<BoundedBase64VecU8<MAX>> for BoundedVec<u8, MAX> {
     }
 }
 
+impl<const MAX: usize> IntoIterator for BoundedBase64VecU8<MAX> {
+    type Item = u8;
+    type IntoIter = std::vec::IntoIter<u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, const MAX: usize> IntoIterator for &'a BoundedBase64VecU8<MAX> {
+    type Item = &'a u8;
+    type IntoIter = std::slice::Iter<'a, u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<const MAX: usize> PartialEq<[u8]> for BoundedBase64VecU8<MAX> {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_slice() == other
+    }
+}
+
+impl<const MAX: usize> PartialEq<Vec<u8>> for BoundedBase64VecU8<MAX> {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
 #[cfg(feature = "serde")]
 impl<const MAX: usize> serde::Serialize for BoundedBase64VecU8<MAX> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -135,18 +165,24 @@ impl<'de, const MAX: usize> serde::Deserialize<'de> for BoundedBase64VecU8<MAX> 
             }
 
             fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
+                self.visit_bytes(s.as_bytes())
+            }
+
+            /// Base64 text handed over as bytes, as `String` also accepts. `visit_byte_buf`
+            /// forwards here by default. Bytes that are not ASCII fail base64 decoding.
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
                 use base64::Engine;
 
-                if s.len() > BoundedBase64VecU8::<MAX>::MAX_ENCODED_LEN {
-                    // Decoded length of `s`, assuming it is valid padded base64. It is always
+                if v.len() > BoundedBase64VecU8::<MAX>::MAX_ENCODED_LEN {
+                    // Decoded length of `v`, assuming it is valid padded base64. It is always
                     // above `MAX` here.
-                    let padding = s.bytes().rev().take(2).take_while(|&b| b == b'=').count();
-                    let len = s.len().div_ceil(4) * 3 - padding;
+                    let padding = v.iter().rev().take(2).take_while(|&&b| b == b'=').count();
+                    let len = v.len().div_ceil(4) * 3 - padding;
                     return Err(E::custom(TooLongError { len, max: MAX }));
                 }
 
                 let bytes =
-                    base64::engine::general_purpose::STANDARD.decode(s).map_err(E::custom)?;
+                    base64::engine::general_purpose::STANDARD.decode(v).map_err(E::custom)?;
                 // Up to 2 bytes over `MAX` still fit into `MAX_ENCODED_LEN` characters.
                 BoundedBase64VecU8::new(bytes).map_err(E::custom)
             }
@@ -231,6 +267,11 @@ mod tests {
         assert_eq!(Vec::from(bb.clone()), vec![1, 2]);
         assert_eq!(bb.clone().into_inner(), vec![1, 2]);
 
+        assert_eq!(bb, [1, 2][..]);
+        assert_eq!(bb, vec![1, 2]);
+        assert_eq!((&bb).into_iter().count(), 2);
+        assert_eq!(bb.clone().into_iter().collect::<Vec<_>>(), vec![1, 2]);
+
         let bv = BoundedVec::<u8, 4>::from(bb.clone());
         assert_eq!(bv.as_slice(), &[1, 2]);
         assert_eq!(Bb4::from(bv), bb);
@@ -280,7 +321,7 @@ mod tests {
     fn base64_json_checks_length_before_decoding() {
         // Invalid base64 within the bound is a decoding error, not a length error.
         let err = serde_json::from_str::<Bb4>(r#""!!!!""#).unwrap_err();
-        assert!(!err.to_string().contains("ERR_TOO_LONG"), "{err}");
+        assert!(err.to_string().contains("Invalid symbol"), "{err}");
 
         // Oversized and invalid base64: the length check runs first.
         let err = serde_json::from_str::<Bb4>(r#""!!!!!!!!!!!!""#).unwrap_err();
@@ -289,6 +330,28 @@ mod tests {
         // Not a string at all.
         let err = serde_json::from_str::<Bb4>("[1,2,3]").unwrap_err();
         assert!(err.to_string().contains("invalid type"), "{err}");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn base64_deserialize_visit_bytes() {
+        use serde::Deserialize;
+        use serde::de::value::{BytesDeserializer, Error};
+
+        // `BytesDeserializer` calls `visit_bytes`. Without it serde's default rejects bytes with
+        // "invalid type: byte array", so a successful parse proves the method exists.
+        let ok = Bb4::deserialize(BytesDeserializer::<Error>::new(b"AQIDBA==")).unwrap();
+        assert_eq!(ok, vec![1, 2, 3, 4]);
+
+        // Rejected after decoding, then before decoding.
+        let err = Bb4::deserialize(BytesDeserializer::<Error>::new(b"AQIDBAU=")).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG: length 5 exceeds"), "{err}");
+        let err = Bb4::deserialize(BytesDeserializer::<Error>::new(b"AQIDBAUGBw==")).unwrap_err();
+        assert!(err.to_string().contains("ERR_TOO_LONG: length 7 exceeds"), "{err}");
+
+        // Not ASCII: a base64 decoding error.
+        let err = Bb4::deserialize(BytesDeserializer::<Error>::new(&[0xff; 4])).unwrap_err();
+        assert!(err.to_string().contains("Invalid symbol"), "{err}");
     }
 
     #[cfg(feature = "borsh")]

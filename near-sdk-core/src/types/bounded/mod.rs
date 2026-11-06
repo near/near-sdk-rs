@@ -11,12 +11,10 @@
 //! - [`BoundedBase64VecU8`]: bytes, JSON base64 string or Borsh `Vec<u8>`. Use it for byte
 //!   arguments passed as JSON.
 //!
-//! `serde` gives no way to stop inside a JSON string token: the deserializer scans the whole
-//! string before the type sees it. So rejecting an oversized JSON value costs the same as parsing
-//! it into the unbounded type, and the bound saves the copy, decoding and storage after that.
-//! `BoundedVec` does not deserialize from JSON. A JSON array can be rejected after `MAX + 1`
-//! elements, so its rejection cost would differ from the string types by up to a scan of the
-//! whole input. Bytes go through [`BoundedBase64VecU8`] instead, a string like the others.
+//! `BoundedVec` does not deserialize from JSON. A JSON string is always scanned to its closing
+//! quote before the length check, while a JSON array could be rejected after `MAX + 1` elements,
+//! so the rejection cost of the two would differ by up to a scan of the whole input. Bytes go
+//! through [`BoundedBase64VecU8`] instead, a string like the others.
 
 mod base64_vec;
 mod string;
@@ -33,7 +31,8 @@ use std::fmt;
 ///
 /// `len` is the length of the rejected value and `max` the bound it violated. For
 /// [`BoundedString`] both are measured in UTF-8 bytes; for [`BoundedVec`] in elements; for
-/// [`BoundedBase64VecU8`] in decoded bytes.
+/// [`BoundedBase64VecU8`] in decoded bytes. A base64 string rejected before decoding reports the
+/// length it would decode to if it were valid base64, even when it is not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TooLongError {
     /// Length of the rejected value.

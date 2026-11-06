@@ -125,10 +125,6 @@ impl<const MAX: usize> PartialEq<&str> for BoundedString<MAX> {
 /// into an owned `String`. With `serde_json::from_slice` (what `#[near]` uses for arguments) an
 /// unescaped string is borrowed straight from the input, so an oversized one is rejected without
 /// any allocation.
-///
-/// `serde` gives no way to stop inside a string token, so the deserializer still scans the whole
-/// string before the check runs. Rejecting an oversized string costs as much gas as parsing a
-/// plain `String` of the same length; the bound saves the copy and everything after it.
 #[cfg(feature = "serde")]
 impl<'de, const MAX: usize> serde::Deserialize<'de> for BoundedString<MAX> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

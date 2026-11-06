@@ -12,7 +12,7 @@ use super::{TooLongError, check_len};
 /// `BoundedVec<u8, MAX>`.
 ///
 /// Only the number of elements is bounded. If the elements themselves are variable-size, bound
-/// them too (for example `BoundedVec<BoundedString<64>, 8>`).
+/// them too (for example `BoundedVec<BoundedString<64>, 8>` in Borsh state or arguments).
 ///
 /// # Example
 /// ```rust
