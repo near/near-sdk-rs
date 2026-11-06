@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.0...near-sdk-v5.30.1) - 2026-11-04
+
+### Other
+
+- *(store)* flush, including nested collections, before measuring storage usage ([#1669](https://github.com/near/near-sdk-rs/pull/1669))
+- feature gate universal accounts ([#1672](https://github.com/near/near-sdk-rs/pull/1672))
+- *(deps)* replace symbolic-debuginfo with object in abi_tests ([#1671](https://github.com/near/near-sdk-rs/pull/1671))
+
 ## [5.30.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.29.1...near-sdk-v5.30.0) - 2026-10-27
 
 Stable release for nearcore 2.14. Includes every change since 5.29.1, including those first shipped in 5.30.0-rc.1 and 5.30.0-rc.2.
