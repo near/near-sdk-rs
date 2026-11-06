@@ -7,7 +7,7 @@ pub use self::primitives::*;
 #[cfg(feature = "unstable")]
 mod bounded;
 #[cfg(feature = "unstable")]
-pub use self::bounded::{BoundedString, BoundedVec, TooLongError};
+pub use self::bounded::{BoundedBase64VecU8, BoundedString, BoundedVec, TooLongError};
 
 pub use near_account_id::{self as account_id, AccountId, AccountIdRef};
 /// A wrapper struct for `u64` that represents gas. And provides helpful methods to convert to and from tera-gas and giga-gas.
