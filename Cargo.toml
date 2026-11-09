@@ -22,6 +22,34 @@ repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://docs.near.org/"
 rust-version = "1.95"
 
+[workspace.dependencies]
+arbitrary = "1.4"
+base64 = "0.22"
+borsh = "1.0.0"
+bs58 = "0.5"
+hex = "0.4"
+hex-literal = "1.1.0"
+near-abi = "0.4.0"
+near-account-id = "3"
+near-crypto = { version = "0.38.0", default-features = false }
+near-crypto-hash = { path = "near-crypto-hash", version = "~0.2.0" }
+near-digest = { path = "near-digest", version = "0.1.5" }
+near-gas = "0.3"
+near-parameters = "0.38.0"
+near-primitives-core = "0.38.0"
+near-sdk = { path = "near-sdk" }
+near-sdk-core = { path = "near-sdk-core", version = "~4.4.2" }
+near-sdk-env = { path = "near-sdk-env", version = "~0.1.9" }
+near-sys = { path = "near-sys", version = "~0.4.1" }
+near-token = "0.3"
+schemars = "0.8.22"
+schemars-v0_8 = { package = "schemars", version = "0.8.22" }
+serde = "1"
+serde_json = "1"
+serde_with = "3"
+sha3 = "0.11"
+unicode-segmentation = "1"
+
 [workspace.lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ['cfg(near)']
