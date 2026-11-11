@@ -97,7 +97,7 @@ jobs:
         features:
           - ""
           - "--features unstable,legacy,__abi-generate,deterministic-account-ids,universal-accounts"
-          - "--features unstable,deterministic-account-ids,universal-accounts,non-contract-usage"
+          - "--features unstable,deterministic-account-ids,universal-accounts,non-contract-usage,arbitrary"
     steps:
       - uses: actions/checkout@v4
 
