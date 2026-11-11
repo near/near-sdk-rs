@@ -318,6 +318,41 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
+    fn base64_json_limit_for_each_remainder() {
+        fn parse<const MAX: usize>(s: &str) -> Result<Vec<u8>, String> {
+            let json = serde_json::to_string(s).unwrap();
+            serde_json::from_str::<BoundedBase64VecU8<MAX>>(&json)
+                .map(BoundedBase64VecU8::into_inner)
+                .map_err(|e| e.to_string())
+        }
+
+        fn assert_err(res: Result<Vec<u8>, String>, needle: &str) {
+            let err = res.unwrap_err();
+            assert!(err.contains(needle), "{err}");
+        }
+
+        // Invalid base64 shows which path a length takes: a length error means it was rejected
+        // before decoding, "Invalid symbol" means it reached the decoder.
+
+        // MAX = 0: no characters fit.
+        assert_eq!(parse::<0>(""), Ok(vec![]));
+        assert_err(parse::<0>("AA=="), "ERR_TOO_LONG: length 1 exceeds");
+        assert_err(parse::<0>("!!!!"), "ERR_TOO_LONG");
+
+        // MAX = 2: 4 characters fit, but 3 bytes also encode to 4 characters.
+        assert_eq!(parse::<2>("AQI="), Ok(vec![1, 2]));
+        assert_err(parse::<2>("AQID"), "ERR_TOO_LONG: length 3 exceeds");
+        assert_err(parse::<2>("!!!!"), "Invalid symbol");
+
+        // MAX = 3: 4 characters fit exactly, 8 do not.
+        assert_eq!(parse::<3>("AQID"), Ok(vec![1, 2, 3]));
+        assert_err(parse::<3>("AQIDBA=="), "ERR_TOO_LONG: length 4 exceeds");
+        assert_err(parse::<3>("!!!!"), "Invalid symbol");
+        assert_err(parse::<3>("!!!!!!!!"), "ERR_TOO_LONG");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn base64_json_checks_length_before_decoding() {
         // Invalid base64 within the bound is a decoding error, not a length error.
         let err = serde_json::from_str::<Bb4>(r#""!!!!""#).unwrap_err();
