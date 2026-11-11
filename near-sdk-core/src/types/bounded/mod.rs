@@ -56,7 +56,7 @@ impl From<TooLongError> for std::io::Error {
     }
 }
 
-/// Helper that compares provided string length and max length. Returns `TooLongError` if len > max.
+/// Returns [`TooLongError`] if `len > max`.
 #[inline]
 fn check_len(len: usize, max: usize) -> Result<(), TooLongError> {
     if len > max { Err(TooLongError { len, max }) } else { Ok(()) }

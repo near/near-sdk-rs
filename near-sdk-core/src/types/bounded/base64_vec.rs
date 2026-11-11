@@ -8,9 +8,10 @@ use super::{BoundedVec, TooLongError};
 /// on construction ([`BoundedBase64VecU8::new`], [`TryFrom`]) and on both JSON and Borsh
 /// deserialization. Oversized inputs fail with [`TooLongError`].
 ///
-/// `MAX` counts decoded bytes. JSON input is standard base64 with padding, and its length is
-/// checked before decoding, so an oversized string is never decoded. Like [`BoundedString`], the
-/// string is still scanned to the closing quote before the check runs.
+/// `MAX` counts decoded bytes. JSON input is standard base64 with padding. A string longer than
+/// the base64 encoding of `MAX` bytes is rejected without decoding. A string within that length
+/// can still hold up to 2 bytes more than `MAX`, so it is decoded and then checked. Like
+/// [`BoundedString`], the string is still scanned to the closing quote before any check runs.
 ///
 /// The Borsh wire format is identical to `Vec<u8>`, and the type converts to and from
 /// `BoundedVec<u8, MAX>` for free.
@@ -147,8 +148,8 @@ impl<const MAX: usize> serde::Serialize for BoundedBase64VecU8<MAX> {
     }
 }
 
-/// The bound is checked on the length of the encoded string before it is decoded, so an oversized
-/// string is rejected without decoding it, and decoding allocates at most `MAX + 2` bytes.
+/// A string longer than the base64 encoding of `MAX` bytes is rejected without decoding. A string
+/// within that length decodes to at most `MAX + 2` bytes, which are then checked against `MAX`.
 #[cfg(feature = "serde")]
 impl<'de, const MAX: usize> serde::Deserialize<'de> for BoundedBase64VecU8<MAX> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
