@@ -36,17 +36,22 @@ near-crypto-hash = { path = "near-crypto-hash", version = "~0.2.0" }
 near-digest = { path = "near-digest", version = "0.1.5" }
 near-gas = "0.3"
 near-parameters = "0.38.0"
+near-primitives = "0.38.0"
 near-primitives-core = "0.38.0"
+# For dev-dependencies only: this path-only entry has no `version`, so using it
+# from a published crate's `[dependencies]` would fail at `cargo publish` time.
 near-sdk = { path = "near-sdk" }
 near-sdk-core = { path = "near-sdk-core", version = "~4.4.2" }
 near-sdk-env = { path = "near-sdk-env", version = "~0.1.9" }
 near-sys = { path = "near-sys", version = "~0.4.1" }
 near-token = "0.3"
+near-vm-runner = { version = "0.38.0", default-features = false }
 schemars = "0.8.22"
 schemars-v0_8 = { package = "schemars", version = "0.8.22" }
 serde = "1"
 serde_json = "1"
 serde_with = "3"
+sha2 = "0.11"
 sha3 = "0.11"
 unicode-segmentation = "1"
 
