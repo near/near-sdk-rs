@@ -69,9 +69,9 @@ near-abi = { workspace = true, features = [
     "__chunked-entries",
 ], optional = true }
 # nearcore 2.14 (protocols 87 and 88).
-near-vm-runner = { version = "0.38.0", default-features = false, optional = true }
+near-primitives = { workspace = true, optional = true }
 near-primitives-core = { workspace = true, optional = true }
-near-primitives = { version = "0.38.0", optional = true }
+near-vm-runner = { workspace = true, optional = true }
 near-crypto = { workspace = true, optional = true }
 unicode-segmentation = { workspace = true, optional = true }
 near-parameters = { workspace = true, optional = true }
