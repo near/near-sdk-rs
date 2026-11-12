@@ -22,7 +22,7 @@ near-sys = { workspace = true, optional = true }
 near-sys = { workspace = true }
 
 [target.'cfg(not(near))'.dependencies]
-ripemd = { version = "0.1.1" }
+ripemd = { workspace = true }
 sha2 = { workspace = true }
 sha3 = { workspace = true }
 
