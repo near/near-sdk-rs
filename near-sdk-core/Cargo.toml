@@ -15,7 +15,7 @@ Core Rust types from the NEAR SDK, extracted for use without the full SDK.
 """
 
 [dependencies]
-serde = { workspace = true, features = ["derive"], optional = true }
+serde = { workspace = true, default-features = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, features = ["preserve_order"], optional = true }
 serde_with = { workspace = true, features = [
     "base64",

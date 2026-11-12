@@ -20,17 +20,17 @@ required-features = ["abi", "unstable"]
 
 [dependencies]
 # Provide near_bidgen macros.
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, default-features = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with = { workspace = true, features = ["base64", "hex", "json"] }
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.30.1" }
-near-sys = { path = "../near-sys", version = "0.4.1" }
+near-sys = { workspace = true }
 near-sdk-env = { workspace = true }
 near-sdk-core = { workspace = true, features = [
     "serde",
     "borsh",
 ] }
-near-global-contracts = { path = "../near-global-contracts/", version = "~0.3.3", features = [
+near-global-contracts = { workspace = true, features = [
     "serde",
     "borsh",
 ] }
