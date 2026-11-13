@@ -219,6 +219,29 @@ mod tests {
     }
 
     #[test]
+    fn callback_args_vec_results() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[private] pub fn method(&self, #[callback_vec] x: Vec<Result<String, PromiseError>>) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    /// A `Result` with another error type is a regular value, deserialized as before.
+    #[test]
+    fn callback_args_vec_plain_results() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[private] pub fn method(&self, #[callback_vec] x: Vec<Result<u64, app::PromiseError>>) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
     fn simple_init() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {

@@ -889,6 +889,11 @@ impl Promise {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
+    ///
+    /// A callback chained with [`Promise::then`] gets one result per merged promise, in merge
+    /// order with nested merges flattened: `p1.and(p2.and(p3))` gives `p1`, `p2`, `p3`. Results
+    /// don't include the receiver, so pass it to the callback as an argument.
+    ///
     /// Uses low-level [`crate::env::promise_and`]
     pub fn and(mut self, mut other: Promise) -> Promise {
         match (&mut self.subtype, &mut other.subtype) {

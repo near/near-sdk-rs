@@ -149,7 +149,7 @@ impl ImplItemMethodInfo {
                 BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, .. } => {
                     if callback_vec.is_none() {
                         let typ = if let Some(vec_type) = utils::extract_vec_type(typ) {
-                            vec_type
+                            utils::extract_promise_result_ok_type(vec_type).unwrap_or(vec_type)
                         } else {
                             return syn::Error::new_spanned(
                                 &arg.ty,
