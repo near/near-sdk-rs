@@ -25,9 +25,10 @@ fn compilation_tests() {
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
 
-    if rustversion::cfg!(since(1.80)) && std::env::consts::OS == "linux" {
-        // The compilation error output has slightly changed in 1.7x and 1.8x and between platforms,
-        // so we snapshoted this single version
+    if rustversion::cfg!(all(since(1.95), before(1.96))) && std::env::consts::OS == "linux" {
+        // The compiler error output changes between rustc versions and platforms, so the snapshot
+        // only matches the pinned CI toolchain (linux 1.95). When the pin moves, update this range
+        // and re-bless the snapshot with `TRYBUILD=overwrite`.
         t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     }
     t.compile_fail("compilation_tests/generic_function.rs");
