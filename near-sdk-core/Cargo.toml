@@ -15,50 +15,50 @@ Core Rust types from the NEAR SDK, extracted for use without the full SDK.
 """
 
 [dependencies]
-serde = { version = "1", features = ["derive"], optional = true }
-serde_json = { version = "1", features = ["preserve_order"], optional = true }
-serde_with = { version = "3", features = [
+serde = { workspace = true, default-features = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, features = ["preserve_order"], optional = true }
+serde_with = { workspace = true, features = [
     "base64",
     "hex",
     "json",
 ], optional = true }
-borsh = { version = "1.0.0", features = ["derive"], optional = true }
-base64 = { version = "0.22", optional = true }
-hex = { version = "0.4", optional = true }
-bs58 = "0.5"
+borsh = { workspace = true, features = ["derive"], optional = true }
+base64 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+bs58 = { workspace = true }
 
-arbitrary = { version = "1.4", features = ["derive"], optional = true }
+arbitrary = { workspace = true, features = ["derive"], optional = true }
 
-near-account-id = { version = "3" }
-near-gas = { version = "0.3" }
-near-token = { version = "0.3" }
-near-crypto-hash = { path = "../near-crypto-hash/", version = "~0.2.0" }
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.9", optional = true }
+near-account-id = { workspace = true }
+near-gas = { workspace = true }
+near-token = { workspace = true }
+near-crypto-hash = { workspace = true }
+near-sdk-env = { workspace = true, optional = true }
 
-schemars-v0_8 = { version = "0.8.22", optional = true, package = "schemars" }
-near-primitives-core = { version = "0.38.0", optional = true }
-unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "0.38.0", optional = true }
+schemars-v0_8 = { workspace = true, optional = true }
+near-primitives-core = { workspace = true, optional = true }
+unicode-segmentation = { workspace = true, optional = true }
+near-parameters = { workspace = true, optional = true }
 
 # near-crypto is only used by the `near-crypto-interop` conversions, which are host-only (gated
 # `cfg(all(not(target_arch = "wasm32"), feature = "near-crypto-interop"))`). Keep it off wasm targets
 # so contracts that enable `unit-testing` still build for wasm — since nearcore 2.13, near-crypto
 # pulls a non-optional aws-lc-rs (C) dependency that cannot compile for wasm32. Mirrors near-sdk.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-crypto = { version = "0.38.0", default-features = false, optional = true }
+near-crypto = { workspace = true, optional = true }
 
 [target.'cfg(near)'.dependencies]
-near-sdk-env = { path = "../near-sdk-env/", version = "~0.1.9" }
+near-sdk-env = { workspace = true }
 
 # `PublicKeyHandle` hashes ML-DSA-65 keys with SHA3-256. On-chain that is the `sha3_256` host
 # function via `near-sdk-env`; off-chain it is pure Rust, like `near-global-contracts` does for
 # its own derivation.
 [target.'cfg(not(near))'.dependencies]
-sha3 = { version = "0.11" }
+sha3 = { workspace = true }
 
 [dev-dependencies]
 # XXX: `near-sdk` was added in order to enable tests and doctests compiling with mockchain
-near-sdk = { path = "../near-sdk", features = ["unit-testing"] }
+near-sdk = { workspace = true, features = ["unit-testing"] }
 
 [lints]
 workspace = true
