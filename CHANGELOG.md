@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.30.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.1...near-sdk-v5.30.2) - 2026-11-13
 
+### Fixed
+
+- *(near-sdk-core)*: bounded types follow-ups ([#1677](https://github.com/near/near-sdk-rs/pull/1677))
+
 ### Other
 
 - *(near-sdk)* run `schema_derive_invalids` snapshot only on pinned rustc 1.95 ([#1684](https://github.com/near/near-sdk-rs/pull/1684))
