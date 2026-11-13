@@ -11,6 +11,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
+
+[dev-dependencies]
+near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] }
+
 [build-dependencies]
 cargo-near-build = { version = "0.11.2" }
 duct = "0.13.7"
