@@ -1,6 +1,6 @@
 [package]
 name = "near-global-contracts"
-version = "0.3.3"
+version = "0.3.4"
 edition.workspace = true
 license.workspace = true
 categories.workspace = true
@@ -28,7 +28,7 @@ near-digest = { path = "../near-digest/", version = "0.1.5", features = [
 ] }
 # `UniversalStateInitV1::access_keys` is a set of `near_sdk_core::types::PublicKeyHandle`,
 # which lives next to `PublicKey` in near-sdk-core.
-near-sdk-core = { path = "../near-sdk-core/", version = "~4.4.2" }
+near-sdk-core = { path = "../near-sdk-core/", version = "~4.4.3" }
 
 hex = { version = "0.4", optional = true }
 
