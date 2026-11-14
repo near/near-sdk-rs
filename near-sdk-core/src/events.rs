@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 /// Wraps an event payload with its [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md) metadata.
 ///
-/// `standard`, `version`, and `event` map directly to the NEP-297 fields. The payload is stored by
-/// reference under `data` so callers retain type safety and avoid eager serialization.
+/// `standard`, `version`, and `event` map directly to the NEP-297 fields. The payload is borrowed so
+/// callers retain type safety and avoid eager serialization.
 ///
 /// # Type Parameters
 /// - `T`: Event payload that is borrowed so it can be serialized lazily. Must implement
@@ -60,7 +60,7 @@ impl<T: serde::Serialize> serde::Serialize for Nep297Event<'_, T> {
 }
 
 impl<'a, T> Nep297Event<'a, T> {
-    /// Constructs a new NEP-297 wrapper from the provided metadata and payload.
+    /// Constructs a wrapper for an event enum that already serializes its `event` and `data` keys.
     pub fn new<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
     where
         S: Into<Cow<'a, str>>,
@@ -71,13 +71,12 @@ impl<'a, T> Nep297Event<'a, T> {
             standard: standard.into(),
             version: version.into(),
             event: event.into(),
-            data: Nep297EventData::Plain(data),
+            data: Nep297EventData::Tagged(data),
         }
     }
 
-    /// Constructs a wrapper for an event enum that already serializes its `event` and `data` keys.
-    #[doc(hidden)]
-    pub fn new_tagged<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
+    /// Constructs a new NEP-297 wrapper that serializes the provided payload under `data`.
+    pub fn new_with_data<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
     where
         S: Into<Cow<'a, str>>,
         V: Into<Cow<'a, str>>,
@@ -87,7 +86,7 @@ impl<'a, T> Nep297Event<'a, T> {
             standard: standard.into(),
             version: version.into(),
             event: event.into(),
-            data: Nep297EventData::Tagged(data),
+            data: Nep297EventData::Plain(data),
         }
     }
 

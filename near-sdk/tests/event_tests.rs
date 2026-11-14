@@ -41,6 +41,13 @@ enum RenamedEvent {
     Minted { amount: u64 },
 }
 
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde", tag = "event", content = "data", rename_all = "snake_case")]
+enum HandwrittenEvent {
+    Minted { amount: u64 },
+    Paused,
+}
+
 #[test]
 fn test_plain_struct_payload() {
     #[derive(Serialize)]
@@ -49,7 +56,7 @@ fn test_plain_struct_payload() {
         amount: u64,
     }
 
-    let event = Nep297Event::new("nep999", "1.0.0", "minted", &Minted { amount: 5 });
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &Minted { amount: 5 });
 
     assert_eq!(
         event.to_event_log(),
@@ -67,7 +74,7 @@ fn test_plain_struct_payload_preserves_large_integers() {
     }
 
     let payload = Minted { amount: 10u128.pow(24) };
-    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &payload);
 
     assert_eq!(
         event.to_event_log(),
@@ -91,14 +98,14 @@ fn test_plain_struct_payload_preserves_event_and_data_fields() {
     }
 
     let event_and_data = EventAndData { event: "minted", data: 5 };
-    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_and_data);
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &event_and_data);
     assert_eq!(
         event.to_event_log(),
         r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted","data":5}}"#
     );
 
     let event_only = EventOnly { event: "minted" };
-    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_only);
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &event_only);
     assert_eq!(
         event.to_event_log(),
         r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted"}}"#
@@ -112,6 +119,23 @@ fn test_macro_event_preserves_serde_variant_rename() {
     assert_eq!(
         event.to_event_log(),
         r#"EVENT_JSON:{"standard":"renamed_standard","version":"1.0.0","event":"mint","data":{"amount":5}}"#
+    );
+}
+
+#[test]
+fn test_handwritten_tagged_event_preserves_existing_format() {
+    let minted = HandwrittenEvent::Minted { amount: 5 };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &minted);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":5}}"#
+    );
+
+    let paused = HandwrittenEvent::Paused;
+    let event = Nep297Event::new("nep999", "1.0.0", "paused", &paused);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"paused"}"#
     );
 }
 
