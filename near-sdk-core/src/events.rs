@@ -13,34 +13,49 @@ pub struct Nep297Event<'a, T> {
     standard: Cow<'a, str>,
     version: Cow<'a, str>,
     event: Cow<'a, str>,
-    data: &'a T,
+    data: Nep297EventData<'a, T>,
+}
+
+#[derive(Debug)]
+enum Nep297EventData<'a, T> {
+    Plain(&'a T),
+    Tagged(&'a T),
 }
 
 #[cfg(feature = "serde")]
 impl<T: serde::Serialize> serde::Serialize for Nep297Event<'_, T> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::{Error, SerializeMap};
-
-        let mut payload = serde_json::to_value(self.data).map_err(S::Error::custom)?;
-        let data = match &mut payload {
-            serde_json::Value::Object(fields)
-                if fields.get("event").and_then(serde_json::Value::as_str)
-                    == Some(self.event())
-                    && fields.keys().all(|key| key == "event" || key == "data") =>
-            {
-                fields.remove("data")
-            }
-            _ => Some(payload),
-        };
-
-        let mut event = serializer.serialize_map(Some(3 + usize::from(data.is_some())))?;
-        event.serialize_entry("standard", self.standard())?;
-        event.serialize_entry("version", self.version())?;
-        event.serialize_entry("event", self.event())?;
-        if let Some(data) = data {
-            event.serialize_entry("data", &data)?;
+        #[derive(serde::Serialize)]
+        #[serde(bound(serialize = "T: serde::Serialize"))]
+        struct PlainEvent<'a, T> {
+            standard: &'a str,
+            version: &'a str,
+            event: &'a str,
+            data: &'a T,
         }
-        event.end()
+
+        #[derive(serde::Serialize)]
+        #[serde(bound(serialize = "T: serde::Serialize"))]
+        struct TaggedEvent<'a, T> {
+            standard: &'a str,
+            version: &'a str,
+            #[serde(flatten)]
+            data: &'a T,
+        }
+
+        match self.data {
+            Nep297EventData::Plain(data) => PlainEvent {
+                standard: self.standard(),
+                version: self.version(),
+                event: self.event(),
+                data,
+            }
+            .serialize(serializer),
+            Nep297EventData::Tagged(data) => {
+                TaggedEvent { standard: self.standard(), version: self.version(), data }
+                    .serialize(serializer)
+            }
+        }
     }
 }
 
@@ -52,7 +67,28 @@ impl<'a, T> Nep297Event<'a, T> {
         V: Into<Cow<'a, str>>,
         E: Into<Cow<'a, str>>,
     {
-        Self { standard: standard.into(), version: version.into(), event: event.into(), data }
+        Self {
+            standard: standard.into(),
+            version: version.into(),
+            event: event.into(),
+            data: Nep297EventData::Plain(data),
+        }
+    }
+
+    /// Constructs a wrapper for an event enum that already serializes its `event` and `data` keys.
+    #[doc(hidden)]
+    pub fn new_tagged<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
+    where
+        S: Into<Cow<'a, str>>,
+        V: Into<Cow<'a, str>>,
+        E: Into<Cow<'a, str>>,
+    {
+        Self {
+            standard: standard.into(),
+            version: version.into(),
+            event: event.into(),
+            data: Nep297EventData::Tagged(data),
+        }
     }
 
     /// Returns the NEP-297 standard identifier associated with this event.
@@ -72,7 +108,9 @@ impl<'a, T> Nep297Event<'a, T> {
 
     /// Returns raw payload without serializing or extracting the value stored under the `data` key.
     pub fn data_raw(&self) -> &'a T {
-        self.data
+        match self.data {
+            Nep297EventData::Plain(data) | Nep297EventData::Tagged(data) => data,
+        }
     }
 }
 

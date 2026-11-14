@@ -34,6 +34,13 @@ mod private {
     }
 }
 
+#[near(event_json(standard = "renamed_standard"))]
+enum RenamedEvent {
+    #[event_version("1.0.0")]
+    #[serde(rename = "mint")]
+    Minted { amount: u64 },
+}
+
 #[test]
 fn test_plain_struct_payload() {
     #[derive(Serialize)]
@@ -49,6 +56,63 @@ fn test_plain_struct_payload() {
         r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":5}}"#
     );
     assert_eq!(event.data(), Some(serde_json::json!({ "amount": 5 })));
+}
+
+#[test]
+fn test_plain_struct_payload_preserves_large_integers() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Minted {
+        amount: u128,
+    }
+
+    let payload = Minted { amount: 10u128.pow(24) };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":1000000000000000000000000}}"#
+    );
+}
+
+#[test]
+fn test_plain_struct_payload_preserves_event_and_data_fields() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct EventAndData<'a> {
+        event: &'a str,
+        data: u64,
+    }
+
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct EventOnly<'a> {
+        event: &'a str,
+    }
+
+    let event_and_data = EventAndData { event: "minted", data: 5 };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_and_data);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted","data":5}}"#
+    );
+
+    let event_only = EventOnly { event: "minted" };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_only);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted"}}"#
+    );
+}
+
+#[test]
+fn test_macro_event_preserves_serde_variant_rename() {
+    let event = RenamedEvent::Minted { amount: 5 }.to_nep297_event();
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"renamed_standard","version":"1.0.0","event":"mint","data":{"amount":5}}"#
+    );
 }
 
 #[test]
