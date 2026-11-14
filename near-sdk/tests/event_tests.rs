@@ -1,5 +1,6 @@
+use near_sdk::serde::Serialize;
 use near_sdk::test_utils::get_logs;
-use near_sdk::{AccountId, AsNep297Event, near};
+use near_sdk::{AccountId, AsNep297Event, Nep297Event, near};
 
 #[near(event_json(standard = "test_standard"))]
 #[derive(Debug)]
@@ -31,6 +32,23 @@ mod private {
         #[event_version("1.0.0")]
         Test,
     }
+}
+
+#[test]
+fn test_plain_struct_payload() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Minted {
+        amount: u64,
+    }
+
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &Minted { amount: 5 });
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":5}}"#
+    );
+    assert_eq!(event.data(), Some(serde_json::json!({ "amount": 5 })));
 }
 
 #[test]

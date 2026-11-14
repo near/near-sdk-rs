@@ -9,22 +9,39 @@ use std::borrow::Cow;
 /// - `T`: Event payload that is borrowed so it can be serialized lazily. Must implement
 ///   `serde::Serialize` to use the serialization helpers available with the `serde` feature.
 #[derive(Debug)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize),
-    serde(bound(serialize = "T: serde::Serialize"))
-)]
 pub struct Nep297Event<'a, T> {
     standard: Cow<'a, str>,
     version: Cow<'a, str>,
-
-    // NEP-297 expects the payload to contribute the `event` key, so skip our copy to prevent duplicates.
-    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     event: Cow<'a, str>,
-
-    // Flatten the payload so its `event`/`data` keys appear alongside the NEP-297 metadata.
-    #[cfg_attr(feature = "serde", serde(flatten))]
     data: &'a T,
+}
+
+#[cfg(feature = "serde")]
+impl<T: serde::Serialize> serde::Serialize for Nep297Event<'_, T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{Error, SerializeMap};
+
+        let mut payload = serde_json::to_value(self.data).map_err(S::Error::custom)?;
+        let data = match &mut payload {
+            serde_json::Value::Object(fields)
+                if fields.get("event").and_then(serde_json::Value::as_str)
+                    == Some(self.event())
+                    && fields.keys().all(|key| key == "event" || key == "data") =>
+            {
+                fields.remove("data")
+            }
+            _ => Some(payload),
+        };
+
+        let mut event = serializer.serialize_map(Some(3 + usize::from(data.is_some())))?;
+        event.serialize_entry("standard", self.standard())?;
+        event.serialize_entry("version", self.version())?;
+        event.serialize_entry("event", self.event())?;
+        if let Some(data) = data {
+            event.serialize_entry("data", &data)?;
+        }
+        event.end()
+    }
 }
 
 impl<'a, T> Nep297Event<'a, T> {
