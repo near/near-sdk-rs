@@ -2,40 +2,92 @@ use std::borrow::Cow;
 
 /// Wraps an event payload with its [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md) metadata.
 ///
-/// `standard`, `version`, and `event` map directly to the NEP-297 fields. The payload is stored by
-/// reference under `data` so callers retain type safety and avoid eager serialization.
+/// `standard`, `version`, and `event` map directly to the NEP-297 fields. The payload is borrowed so
+/// callers retain type safety and avoid eager serialization.
 ///
 /// # Type Parameters
 /// - `T`: Event payload that is borrowed so it can be serialized lazily. Must implement
 ///   `serde::Serialize` to use the serialization helpers available with the `serde` feature.
 #[derive(Debug)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize),
-    serde(bound(serialize = "T: serde::Serialize"))
-)]
 pub struct Nep297Event<'a, T> {
     standard: Cow<'a, str>,
     version: Cow<'a, str>,
-
-    // NEP-297 expects the payload to contribute the `event` key, so skip our copy to prevent duplicates.
-    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     event: Cow<'a, str>,
+    data: Nep297EventData<'a, T>,
+}
 
-    // Flatten the payload so its `event`/`data` keys appear alongside the NEP-297 metadata.
-    #[cfg_attr(feature = "serde", serde(flatten))]
-    data: &'a T,
+#[derive(Debug)]
+enum Nep297EventData<'a, T> {
+    Plain(&'a T),
+    Tagged(&'a T),
+}
+
+#[cfg(feature = "serde")]
+impl<T: serde::Serialize> serde::Serialize for Nep297Event<'_, T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(serde::Serialize)]
+        #[serde(bound(serialize = "T: serde::Serialize"))]
+        struct PlainEvent<'a, T> {
+            standard: &'a str,
+            version: &'a str,
+            event: &'a str,
+            data: &'a T,
+        }
+
+        #[derive(serde::Serialize)]
+        #[serde(bound(serialize = "T: serde::Serialize"))]
+        struct TaggedEvent<'a, T> {
+            standard: &'a str,
+            version: &'a str,
+            #[serde(flatten)]
+            data: &'a T,
+        }
+
+        match self.data {
+            Nep297EventData::Plain(data) => PlainEvent {
+                standard: self.standard(),
+                version: self.version(),
+                event: self.event(),
+                data,
+            }
+            .serialize(serializer),
+            Nep297EventData::Tagged(data) => {
+                TaggedEvent { standard: self.standard(), version: self.version(), data }
+                    .serialize(serializer)
+            }
+        }
+    }
 }
 
 impl<'a, T> Nep297Event<'a, T> {
-    /// Constructs a new NEP-297 wrapper from the provided metadata and payload.
+    /// Constructs a wrapper for an event enum that already serializes its `event` and `data` keys.
     pub fn new<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
     where
         S: Into<Cow<'a, str>>,
         V: Into<Cow<'a, str>>,
         E: Into<Cow<'a, str>>,
     {
-        Self { standard: standard.into(), version: version.into(), event: event.into(), data }
+        Self {
+            standard: standard.into(),
+            version: version.into(),
+            event: event.into(),
+            data: Nep297EventData::Tagged(data),
+        }
+    }
+
+    /// Constructs a new NEP-297 wrapper that serializes the provided payload under `data`.
+    pub fn new_with_data<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
+    where
+        S: Into<Cow<'a, str>>,
+        V: Into<Cow<'a, str>>,
+        E: Into<Cow<'a, str>>,
+    {
+        Self {
+            standard: standard.into(),
+            version: version.into(),
+            event: event.into(),
+            data: Nep297EventData::Plain(data),
+        }
     }
 
     /// Returns the NEP-297 standard identifier associated with this event.
@@ -55,7 +107,9 @@ impl<'a, T> Nep297Event<'a, T> {
 
     /// Returns raw payload without serializing or extracting the value stored under the `data` key.
     pub fn data_raw(&self) -> &'a T {
-        self.data
+        match self.data {
+            Nep297EventData::Plain(data) | Nep297EventData::Tagged(data) => data,
+        }
     }
 }
 
