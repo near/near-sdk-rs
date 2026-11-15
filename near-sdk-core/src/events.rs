@@ -1,5 +1,8 @@
 use std::borrow::Cow;
 
+#[cfg(feature = "serde")]
+mod shape;
+
 /// Wraps an event payload with its [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md) metadata.
 ///
 /// `standard`, `version`, and `event` map directly to the NEP-297 fields. The payload is borrowed so
@@ -18,8 +21,8 @@ pub struct Nep297Event<'a, T> {
 
 #[derive(Debug)]
 enum Nep297EventData<'a, T> {
+    Auto(&'a T),
     Plain(&'a T),
-    Tagged(&'a T),
 }
 
 #[cfg(feature = "serde")]
@@ -43,24 +46,25 @@ impl<T: serde::Serialize> serde::Serialize for Nep297Event<'_, T> {
             data: &'a T,
         }
 
+        let data = self.data_raw();
         match self.data {
-            Nep297EventData::Plain(data) => PlainEvent {
+            Nep297EventData::Auto(_) if shape::has_event_key(data) => {
+                TaggedEvent { standard: self.standard(), version: self.version(), data }
+                    .serialize(serializer)
+            }
+            Nep297EventData::Auto(_) | Nep297EventData::Plain(_) => PlainEvent {
                 standard: self.standard(),
                 version: self.version(),
                 event: self.event(),
                 data,
             }
             .serialize(serializer),
-            Nep297EventData::Tagged(data) => {
-                TaggedEvent { standard: self.standard(), version: self.version(), data }
-                    .serialize(serializer)
-            }
         }
     }
 }
 
 impl<'a, T> Nep297Event<'a, T> {
-    /// Constructs a wrapper for an event enum that already serializes its `event` and `data` keys.
+    /// Constructs a new NEP-297 wrapper from the provided metadata and payload.
     pub fn new<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
     where
         S: Into<Cow<'a, str>>,
@@ -71,11 +75,11 @@ impl<'a, T> Nep297Event<'a, T> {
             standard: standard.into(),
             version: version.into(),
             event: event.into(),
-            data: Nep297EventData::Tagged(data),
+            data: Nep297EventData::Auto(data),
         }
     }
 
-    /// Constructs a new NEP-297 wrapper that serializes the provided payload under `data`.
+    /// Constructs a NEP-297 wrapper that always serializes the payload under `data`.
     pub fn new_with_data<S, V, E>(standard: S, version: V, event: E, data: &'a T) -> Self
     where
         S: Into<Cow<'a, str>>,
@@ -108,7 +112,7 @@ impl<'a, T> Nep297Event<'a, T> {
     /// Returns raw payload without serializing or extracting the value stored under the `data` key.
     pub fn data_raw(&self) -> &'a T {
         match self.data {
-            Nep297EventData::Plain(data) | Nep297EventData::Tagged(data) => data,
+            Nep297EventData::Auto(data) | Nep297EventData::Plain(data) => data,
         }
     }
 }

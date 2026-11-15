@@ -56,7 +56,7 @@ fn test_plain_struct_payload() {
         amount: u64,
     }
 
-    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &Minted { amount: 5 });
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &Minted { amount: 5 });
 
     assert_eq!(
         event.to_event_log(),
@@ -74,7 +74,7 @@ fn test_plain_struct_payload_preserves_large_integers() {
     }
 
     let payload = Minted { amount: 10u128.pow(24) };
-    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &payload);
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
 
     assert_eq!(
         event.to_event_log(),
@@ -83,7 +83,7 @@ fn test_plain_struct_payload_preserves_large_integers() {
 }
 
 #[test]
-fn test_plain_struct_payload_preserves_event_and_data_fields() {
+fn test_payload_starting_with_event_keeps_tagged_shape() {
     #[derive(Serialize)]
     #[serde(crate = "near_sdk::serde")]
     struct EventAndData<'a> {
@@ -98,17 +98,100 @@ fn test_plain_struct_payload_preserves_event_and_data_fields() {
     }
 
     let event_and_data = EventAndData { event: "minted", data: 5 };
-    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &event_and_data);
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_and_data);
     assert_eq!(
         event.to_event_log(),
-        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted","data":5}}"#
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":5}"#
     );
 
     let event_only = EventOnly { event: "minted" };
-    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &event_only);
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_only);
     assert_eq!(
         event.to_event_log(),
-        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"minted"}}"#
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted"}"#
+    );
+}
+
+#[test]
+fn test_tagged_payload_is_independent_of_field_order() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct DataThenEvent<'a> {
+        data: u64,
+        event: &'a str,
+    }
+
+    let payload = DataThenEvent { data: 5, event: "minted" };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","data":5,"event":"minted"}"#
+    );
+}
+
+#[test]
+fn test_explicit_plain_payload_can_contain_event_field() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Payload<'a> {
+        event: &'a str,
+        amount: u64,
+    }
+
+    let payload = Payload { event: "metadata", amount: 5 };
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"metadata","amount":5}}"#
+    );
+}
+
+#[test]
+fn test_shape_probe_does_not_serialize_field_values() {
+    use std::cell::Cell;
+
+    struct Counted<'a>(&'a Cell<u32>);
+
+    impl Serialize for Counted<'_> {
+        fn serialize<S: near_sdk::serde::Serializer>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            self.0.set(self.0.get() + 1);
+            serializer.serialize_u64(5)
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Tagged<'a> {
+        event: &'static str,
+        data: Counted<'a>,
+    }
+
+    let serializations = Cell::new(0);
+    let payload = Tagged { event: "minted", data: Counted(&serializations) };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":5}"#
+    );
+    assert_eq!(serializations.get(), 1);
+}
+
+#[test]
+fn test_non_map_payloads_are_nested_under_data() {
+    let unit = Nep297Event::new("nep999", "1.0.0", "paused", &());
+    assert_eq!(
+        unit.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"paused","data":null}"#
+    );
+
+    let amounts = vec![1u64, 2, 3];
+    let list = Nep297Event::new("nep999", "1.0.0", "minted", &amounts);
+    assert_eq!(
+        list.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":[1,2,3]}"#
     );
 }
 
