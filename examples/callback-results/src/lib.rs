@@ -8,31 +8,6 @@ pub struct Callback;
 
 #[near]
 impl Callback {
-    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks`.
-    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
-        Self::ext_self()
-            .a()
-            .and(Self::ext_self().b(fail_b))
-            .and(Self::ext_self().c(c_value))
-            .and(Self::ext_self().d(d_value))
-            .then(Self::ext_self().handle_callbacks())
-    }
-
-    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks_reverse`.
-    pub fn call_all_reverse(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
-        Self::ext_self()
-            .b(fail_b)
-            .and(Self::ext_self().c(c_value))
-            .and(Self::ext_self().d(d_value))
-            .and(Self::ext_self().a())
-            .then(Self::ext_self().handle_callbacks_reverse())
-    }
-
-    /// Calls function c with a value that will always succeed
-    pub fn a() -> Promise {
-        Self::ext_self().c(A_VALUE)
-    }
-
     /// Returns a static string if `fail` is false, panicking otherwise.
     #[private]
     pub fn b(fail: bool) -> &'static str {
@@ -55,6 +30,11 @@ impl Callback {
         require!(value > 0, "Value must be positive");
     }
 
+    /// Calls function c with a value that will always succeed
+    pub fn a() -> Promise {
+        Self::ext_self().c(A_VALUE)
+    }
+
     /// Receives the callbacks from the other promises called.
     #[private]
     pub fn handle_callbacks(
@@ -70,9 +50,19 @@ impl Callback {
         (b.is_err(), c.is_err(), d.is_err())
     }
 
+    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks`.
+    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
+        Self::ext_self()
+            .a()
+            .and(Self::ext_self().b(fail_b))
+            .and(Self::ext_self().c(c_value))
+            .and(Self::ext_self().d(d_value))
+            .then(Self::ext_self().handle_callbacks())
+    }
+
     /// Receives the callbacks from the other promises called.
-    /// used in `workspaces_test_reverse` to check the same result as in `workspaces_test`
-    /// with respect to `callback_unwrap`/`callback_result` attributes' order in args
+    /// Used by the `call_all_reverse` test case to check that the order of
+    /// `callback_unwrap`/`callback_result` arguments doesn't change the result.
     #[private]
     pub fn handle_callbacks_reverse(
         #[callback_result] b: Result<String, PromiseError>,
@@ -86,92 +76,14 @@ impl Callback {
         }
         (b.is_err(), c.is_err(), d.is_err())
     }
-}
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    #[tokio::test]
-    async fn workspaces_test() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.14.0").await?;
-        let contract = worker.dev_deploy(&wasm).await?;
-
-        // Call function a only to ensure it has correct behaviour
-        let res = contract.call("a").transact().await?;
-        assert_eq!(res.json::<u8>()?, 8);
-
-        // Following tests the function call where the `call_all` function always succeeds and handles
-        // the result of the async calls made from within the function with callbacks.
-
-        // No failures
-        let res =
-            contract.call("call_all").args_json((false, 1u8, 1u8)).max_gas().transact().await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, false));
-
-        // Fail b
-        let res =
-            contract.call("call_all").args_json((true, 1u8, 1u8)).max_gas().transact().await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (true, false, false));
-
-        // Fail c
-        let res =
-            contract.call("call_all").args_json((false, 0u8, 1u8)).max_gas().transact().await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (false, true, false));
-
-        // Fail d
-        let res = contract
-            .call("call_all")
-            .args_json((false, 1u8, 0u8))
-            .gas(near_sdk::Gas::from_tgas(1_000))
-            .transact()
-            .await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, true));
-
-        // Fail b and c
-        let res = contract
-            .call("call_all")
-            .args_json((true, 0u8, 1u8))
-            .gas(near_sdk::Gas::from_tgas(1_000))
-            .transact()
-            .await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, false));
-
-        // Fail all
-        let res = contract
-            .call("call_all")
-            .args_json((true, 0u8, 0u8))
-            .gas(near_sdk::Gas::from_tgas(1_000))
-            .transact()
-            .await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn workspaces_test_reverse() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.14.0").await?;
-        let contract = worker.dev_deploy(&wasm).await?;
-
-        // No failures
-        let res = contract
-            .call("call_all_reverse")
-            .args_json((false, 1u8, 1u8))
-            .max_gas()
-            .transact()
-            .await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, false));
-
-        // Fail all
-        let res = contract
-            .call("call_all_reverse")
-            .args_json((true, 0u8, 0u8))
-            .gas(near_sdk::Gas::from_tgas(1_000))
-            .transact()
-            .await?;
-        assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));
-
-        Ok(())
+    /// Call functions a, b, c, and d asynchronously and handle results with `handle_callbacks_reverse`.
+    pub fn call_all_reverse(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
+        Self::ext_self()
+            .b(fail_b)
+            .and(Self::ext_self().c(c_value))
+            .and(Self::ext_self().d(d_value))
+            .and(Self::ext_self().a())
+            .then(Self::ext_self().handle_callbacks_reverse())
     }
 }
