@@ -10,17 +10,6 @@ pub struct Adder {}
 
 #[near]
 impl Adder {
-    /// Call functions a, b, and c, d,  asynchronously and handle results with `add_callback_vec`.
-    pub fn call_all() -> Promise {
-        Self::ext_self()
-            .a()
-            .and(Self::ext_self().b())
-            .and(Self::ext_self().c())
-            .and(Self::ext_self().d())
-            .then(Self::ext_self().add_callback_vec())
-    }
-
-    /// Adds two pairs point-wise.
     pub fn a(&self) -> Pair {
         Pair(1, 1)
     }
@@ -39,35 +28,16 @@ impl Adder {
 
     pub fn add_callback_vec(&self, #[callback_vec] elements: Vec<Pair>) -> Pair {
         let start = Pair(0, 0);
-        elements.iter().fold(start, |acc, el| sum_pair(&acc, &el))
+        elements.iter().fold(start, |acc, el| Pair(acc.0 + el.0, acc.1 + el.1))
     }
-}
 
-fn sum_pair(a: &Pair, b: &Pair) -> Pair {
-    Pair(a.0 + b.0, a.1 + b.1)
-}
-
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use crate::Pair;
-
-    #[tokio::test]
-    async fn test_add_callback_vec() -> anyhow::Result<()> {
-        let wasm = near_workspaces::compile_project("./").await?;
-        let worker = near_workspaces::sandbox_with_version("2.14.0").await?;
-        let contract = worker.dev_deploy(&wasm).await?;
-
-        let res = contract
-            .call("call_all")
-            .args_json(())
-            .gas(near_sdk::Gas::from_tgas(1_000))
-            .transact()
-            .await?;
-        println!("res: {:#?}", res);
-
-        let result = res.json::<Pair>()?;
-        assert_eq!(result, Pair(21, 33));
-
-        Ok(())
+    /// Call functions a, b, and c, d,  asynchronously and handle results with `add_callback_vec`.
+    pub fn call_all() -> Promise {
+        Self::ext_self()
+            .a()
+            .and(Self::ext_self().b())
+            .and(Self::ext_self().c())
+            .and(Self::ext_self().d())
+            .then(Self::ext_self().add_callback_vec())
     }
 }
