@@ -165,7 +165,7 @@ fn sdk_context_to_vm_context(
     near_vm_runner::logic::VMContext {
         current_account_id: context.current_account_id.as_str().parse().unwrap(),
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
-        signer_account_pk: context.signer_account_pk.into_bytes(),
+        signer_account_pk: Some(context.signer_account_pk.into_bytes()),
         predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
         input: context.input,
         block_height: context.block_index,
@@ -177,7 +177,10 @@ fn sdk_context_to_vm_context(
         attached_deposit: context.attached_deposit,
         prepaid_gas: Gas::from_gas(context.prepaid_gas.as_gas()),
         random_seed: context.random_seed.to_vec(),
-        view_config: context.view_config,
+        execution_mode: match context.view_config {
+            Some(view_config) => near_vm_runner::logic::ExecutionMode::View(view_config),
+            None => near_vm_runner::logic::ExecutionMode::Internal,
+        },
         output_data_receivers: context
             .output_data_receivers
             .into_iter()
