@@ -69,12 +69,12 @@ near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
 # nearcore 2.14 (protocols 87 and 88).
-near-vm-runner = { version = "0.38.0", default-features = false, optional = true }
-near-primitives-core = { version = "0.38.0", optional = true }
-near-primitives = { version = "0.38.0", optional = true }
-near-crypto = { version = "0.38.0", default-features = false, optional = true }
+near-vm-runner = { version = "0", default-features = false, optional = true, git = "https://github.com/near/nearcore", package = "near-vm-runner", branch = "2.15-release" }
+near-primitives-core = { version = "0", optional = true, git = "https://github.com/near/nearcore", package = "near-primitives-core", branch = "2.15-release" }
+near-primitives = { version = "0", optional = true, git = "https://github.com/near/nearcore", package = "near-primitives", branch = "2.15-release" }
+near-crypto = { version = "0", default-features = false, optional = true, git = "https://github.com/near/nearcore", package = "near-crypto", branch = "2.15-release" }
 unicode-segmentation = { version = "1", optional = true }
-near-parameters = { version = "0.38.0", optional = true }
+near-parameters = { version = "0", optional = true, git = "https://github.com/near/nearcore", package = "near-parameters", branch = "2.15-release" }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
@@ -91,7 +91,10 @@ getrandom = { version = "0.2", features = ["js"] }
 rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
-object = { version = "0.40", default-features = false, features = ["read", "std"] }
+object = { version = "0.40", default-features = false, features = [
+    "read",
+    "std",
+] }
 near-workspaces = { version = "0.24.0", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
@@ -168,7 +171,7 @@ __macro-docs = []
 # unlocks bulk-memory + reftypes opcodes, enabling rustc 1.93+. PV 85 is what
 # the gas-key actions linked by every `Promise` require. The `universal-accounts`
 # feature raises the floor to 88.
-min_protocol_version = 85
+min_protocol_version = 88
 
 [package.metadata.docs.rs]
 all-features = true
