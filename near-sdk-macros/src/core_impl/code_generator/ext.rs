@@ -13,18 +13,18 @@ pub(crate) fn generate_ext_structs(
     let name = format_ident!("{}Ext", ident);
     let mut ext_code = quote! {
         /// API for calling this contract's functions in a subsequent execution.
-        pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
+        pub fn ext(__near_account_id: ::near_sdk::AccountId) -> #name {
             #name {
-                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id),
+                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(__near_account_id),
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
             }
         }
 
-        pub fn ext_on(promise: ::near_sdk::Promise) -> #name {
+        pub fn ext_on(__near_promise: ::near_sdk::Promise) -> #name {
             #name {
-                promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(promise),
+                promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(__near_promise),
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
@@ -72,16 +72,16 @@ pub(crate) fn generate_ext_structs(
       }
 
       impl #name {
-          pub fn with_attached_deposit(mut self, amount: ::near_sdk::NearToken) -> Self {
-              self.deposit = amount;
+          pub fn with_attached_deposit(mut self, __near_amount: ::near_sdk::NearToken) -> Self {
+              self.deposit = __near_amount;
               self
           }
-          pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
-              self.static_gas = static_gas;
+          pub fn with_static_gas(mut self, __near_static_gas: ::near_sdk::Gas) -> Self {
+              self.static_gas = __near_static_gas;
               self
           }
-          pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-              self.gas_weight = ::near_sdk::GasWeight(gas_weight);
+          pub fn with_unused_gas_weight(mut self, __near_gas_weight: u64) -> Self {
+              self.gas_weight = ::near_sdk::GasWeight(__near_gas_weight);
               self
           }
       }
@@ -171,9 +171,9 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
             let __args = #serialize;
             match self.promise_or_create_on {
-                ::near_sdk::PromiseOrValue::Promise(p) => p,
-                ::near_sdk::PromiseOrValue::Value(account_id) => {
-                    ::near_sdk::Promise::new(account_id)
+                ::near_sdk::PromiseOrValue::Promise(__near_promise) => __near_promise,
+                ::near_sdk::PromiseOrValue::Value(__near_account_id) => {
+                    ::near_sdk::Promise::new(__near_account_id)
                 }
             }
                 .function_call_weight(
