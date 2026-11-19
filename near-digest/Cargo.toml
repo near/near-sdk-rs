@@ -12,9 +12,9 @@ description = """
 """
 
 [dependencies]
-digest = "0.11.3"
+digest = { workspace = true }
 
-zeroize = { version = "1.9.0", features = ["derive"], optional = true }
+zeroize = { workspace = true, features = ["derive"], optional = true }
 
 [target.'cfg(not(near))'.dependencies]
 ripemd = { workspace = true, optional = true }
@@ -23,7 +23,7 @@ sha3 = { workspace = true, optional = true }
 
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { workspace = true }
-impl-tools = "0.12.0"
+impl-tools = { workspace = true }
 
 [features]
 ripemd = ["dep:ripemd"]
@@ -50,7 +50,7 @@ near-digest = { path = ".", features = [
     "zeroize",
     "unstable",
 ] }
-rstest = "0.26.1"
+rstest = { workspace = true }
 hex-literal = { workspace = true }
 
 [target.'cfg(near)'.dev-dependencies]
