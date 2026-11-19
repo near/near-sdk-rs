@@ -269,33 +269,10 @@ impl AttrSigInfo {
                             )
                             .into_compile_error();
                         };
-                        let deserialize = deserialize_data(serializer_ty);
-                        let deserialization_tweak = match ok_type {
-                            // The unit type in this context is a bit special because functions
-                            // without an explicit return type do not serialize their response.
-                            // But when someone tries to refer to their callback result with
-                            // `#[callback_result]` they specify the callback type as
-                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
-                            // an empty byte array.
-                            //
-                            // So instead of going through serde, we consider deserialization to be
-                            // successful if the byte array is empty or try the normal
-                            // deserialization otherwise.
-                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
-                                Some(quote! {
-                                    if data.is_empty() {
-                                        return ();
-                                    }
-                                })
-                            }
-                            _ => None,
-                        };
+                        let deserialize = deserialize_result_data(ok_type, serializer_ty);
                         let result = quote! {
                             ::near_sdk::env::promise_result_checked(#idx, #max_bytes)
-                                .map(|data| {
-                                    #deserialization_tweak
-                                    #deserialize
-                                })
+                                .map(|data| #deserialize)
                         };
                         quote! {
                             #acc
@@ -320,6 +297,18 @@ impl AttrSigInfo {
             })
             .fold(TokenStream2::new(), |acc, (arg, max_bytes)| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
+                // `Vec<Result<T, PromiseError>>` keeps failed results instead of panicking, so a
+                // callback can tell which of a variable number of joined promises failed.
+                if let Some(ok_type) = utils::extract_vec_type(ty).and_then(utils::extract_promise_result_ok_type) {
+                    let deserialize = deserialize_result_data(ok_type, &arg.serializer_ty);
+                    return quote! {
+                        #acc
+                        let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
+                            0..::near_sdk::env::promise_results_count(),
+                            |i| ::near_sdk::env::promise_result_checked(i, #max_bytes)
+                                .map(|data| #deserialize)));
+                    };
+                }
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
                     #acc
@@ -332,6 +321,32 @@ impl AttrSigInfo {
                         }));
                 }
             })
+    }
+}
+
+/// Deserializes the `Ok` value of a callback result held in `data`.
+fn deserialize_result_data(ok_type: &syn::Type, ty: &SerializerType) -> TokenStream2 {
+    let deserialize = deserialize_data(ty);
+    match ok_type {
+        // The unit type in this context is a bit special because functions
+        // without an explicit return type do not serialize their response.
+        // But when someone tries to refer to their callback result with
+        // `#[callback_result]` they specify the callback type as
+        // `Result<(), PromiseError>` which cannot be correctly deserialized from
+        // an empty byte array.
+        //
+        // So instead of going through serde, we consider deserialization to be
+        // successful if the byte array is empty or try the normal
+        // deserialization otherwise.
+        syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => quote! {
+            {
+                if data.is_empty() {
+                    return ();
+                }
+                #deserialize
+            }
+        },
+        _ => deserialize,
     }
 }
 

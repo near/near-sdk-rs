@@ -1050,6 +1050,9 @@ compile_error!(
 ///
 /// The optional `max_bytes` parameter limits the maximum size of each callback result.
 ///
+/// With element type `Result<T, PromiseError>`, failed results are kept as [`Err`] instead of
+/// panicking, in the order the promises were joined (see [`Promise::and`]).
+///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
