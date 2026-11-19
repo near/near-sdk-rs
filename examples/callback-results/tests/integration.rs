@@ -3,6 +3,7 @@ use near_kit::signer::InMemorySigner;
 use near_kit::transaction::FunctionCall;
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
+use serde_json::json;
 use test_case::test_case;
 
 /// Builds this crate's contract with `cargo near` and returns the wasm.
@@ -89,14 +90,16 @@ async fn test_call_all(method: &str) -> anyhow::Result<()> {
         ((true, 0, 0), (true, true, true)),
     ];
 
-    for (args, failed) in cases {
+    for ((fail_b, c_value, d_value), failed) in cases {
+        let args = json!({ "fail_b": fail_b, "c_value": c_value, "d_value": d_value });
+
         let reported: (bool, bool, bool) = alice
             .transaction(&contract_id)
-            .add_action(FunctionCall::new(method).args(args).gas(Gas::from_tgas(20)))
+            .add_action(FunctionCall::new(method).args(&args).gas(Gas::from_tgas(20)))
             .await?
             .json()?;
 
-        assert_eq!(reported, failed, "{method}{args:?}");
+        assert_eq!(reported, failed, "{method}({args})");
     }
 
     Ok(())
