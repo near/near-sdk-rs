@@ -30,7 +30,7 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId, AccountId)>
         .add_action(
             FunctionCall::new("new")
                 .args(json!({ "fungible_token_account_id": ft_contract_id }))
-                .gas(Gas::from_ggas(500)),
+                .gas(Gas::from_tgas(1)),
         )
         .await?
         .result()?;
@@ -178,7 +178,7 @@ async fn test_transfer_call_with_burned_amount() -> anyhow::Result<()> {
         .add_action(
             FunctionCall::new("storage_unregister")
                 .args(json!({ "force": true }))
-                .gas(Gas::from_ggas(1500))
+                .gas(Gas::from_tgas(2))
                 .deposit(ONE_YOCTO),
         )
         .await?;

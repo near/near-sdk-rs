@@ -17,7 +17,7 @@ async fn test_storage_deposit_not_enough_deposit() -> anyhow::Result<()> {
         .transaction(&ft_contract_id)
         .add_action(
             FunctionCall::new("storage_deposit")
-                .gas(Gas::from_ggas(1500))
+                .gas(Gas::from_tgas(2))
                 .deposit(STORAGE_DEPOSIT.saturating_sub(ONE_YOCTO)),
         )
         .await?;
@@ -45,7 +45,7 @@ async fn test_storage_deposit_minimal_deposit() -> anyhow::Result<()> {
 
     bob.transaction(&ft_contract_id)
         .add_action(
-            FunctionCall::new("storage_deposit").gas(Gas::from_ggas(1500)).deposit(STORAGE_DEPOSIT),
+            FunctionCall::new("storage_deposit").gas(Gas::from_tgas(2)).deposit(STORAGE_DEPOSIT),
         )
         .await?
         .result()?;
@@ -90,7 +90,7 @@ async fn test_storage_deposit_refunds_excessive_deposit() -> anyhow::Result<()> 
     bob.transaction(&ft_contract_id)
         .add_action(
             FunctionCall::new("storage_deposit")
-                .gas(Gas::from_ggas(1500))
+                .gas(Gas::from_tgas(2))
                 .deposit(NearToken::from_near(5)),
         )
         .await?

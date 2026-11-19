@@ -77,7 +77,7 @@ pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, Accou
                     "owner_id": alice.account_id(),
                     "total_supply": U128(TOTAL_SUPPLY),
                 }))
-                .gas(Gas::from_ggas(1500)),
+                .gas(Gas::from_tgas(2)),
         )
         .await?
         .result()?;
@@ -96,7 +96,7 @@ pub async fn register(
         .add_action(
             FunctionCall::new("storage_deposit")
                 .args(json!({ "account_id": account_id }))
-                .gas(Gas::from_ggas(1500))
+                .gas(Gas::from_tgas(2))
                 .deposit(STORAGE_DEPOSIT),
         )
         .await?

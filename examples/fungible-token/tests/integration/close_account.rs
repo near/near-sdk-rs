@@ -14,7 +14,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let closed: bool = bob
         .transaction(&ft_contract_id)
         .add_action(
-            FunctionCall::new("storage_unregister").gas(Gas::from_ggas(1500)).deposit(ONE_YOCTO),
+            FunctionCall::new("storage_unregister").gas(Gas::from_tgas(2)).deposit(ONE_YOCTO),
         )
         .await?
         .json()?;
@@ -35,7 +35,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
             .add_action(
                 FunctionCall::new("storage_unregister")
                     .args(&args)
-                    .gas(Gas::from_ggas(1500))
+                    .gas(Gas::from_tgas(2))
                     .deposit(ONE_YOCTO),
             )
             .await?;
@@ -60,7 +60,7 @@ async fn test_close_account_force_non_empty_balance() -> anyhow::Result<()> {
         .add_action(
             FunctionCall::new("storage_unregister")
                 .args(json!({ "force": true }))
-                .gas(Gas::from_ggas(1500))
+                .gas(Gas::from_tgas(2))
                 .deposit(ONE_YOCTO),
         )
         .await?
