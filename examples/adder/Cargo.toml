@@ -16,7 +16,7 @@ near-sdk = { path = "../../near-sdk" }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 cargo-near-build = "0.11.5"
-near-kit = "0.31.1"
+near-kit = "0.32.0"
 near-sandbox = "0.4.1"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
