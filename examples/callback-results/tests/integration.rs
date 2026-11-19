@@ -91,7 +91,11 @@ async fn test_call_all(method: &str) -> anyhow::Result<()> {
     ];
 
     for ((fail_b, c_value, d_value), failed) in cases {
-        let args = json!({ "fail_b": fail_b, "c_value": c_value, "d_value": d_value });
+        let args = json!({
+            "fail_b": fail_b,
+            "c_value": c_value,
+            "d_value": d_value,
+        });
 
         let reported: (bool, bool, bool) = alice
             .transaction(&contract_id)
