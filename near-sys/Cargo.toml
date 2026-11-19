@@ -1,6 +1,6 @@
 [package]
 name = "near-sys"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Near Inc <hello@near.org>"]
 edition.workspace = true
 license.workspace = true
@@ -17,6 +17,10 @@ Syscall definitions for builtin functions of the NEAR runtime.
 [features]
 global-contracts = []
 deterministic-account-ids = []
+universal-accounts = []
 
 [package.metadata.docs.rs]
 all-features = true
+
+[lints]
+# `near-sys` is not supposed to have `cfg(near)` at all, so we don't use workspace-level linst

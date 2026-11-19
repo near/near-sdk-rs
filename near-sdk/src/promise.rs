@@ -93,6 +93,7 @@ enum PromiseAction {
         state_init: crate::state_init::StateInit,
         deposit: NearToken,
     },
+    #[cfg(feature = "universal-accounts")]
     UniversalStateInit {
         state_init: crate::universal_state_init::RawStateInit,
         deposit: NearToken,
@@ -226,6 +227,7 @@ impl PromiseAction {
                     crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
                 }
             }
+            #[cfg(feature = "universal-accounts")]
             UniversalStateInit { state_init, deposit } => {
                 crate::env::promise_batch_action_universal_state_init(
                     promise_index,
@@ -670,6 +672,7 @@ impl Promise {
     /// ```
     ///
     /// [NEP-655]: https://github.com/near/NEPs/pull/655
+    #[cfg(feature = "universal-accounts")]
     pub fn universal_state_init(
         self,
         state_init: impl Into<crate::universal_state_init::RawStateInit>,

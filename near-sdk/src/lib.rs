@@ -1637,6 +1637,7 @@ pub mod state;
 #[cfg(feature = "deterministic-account-ids")]
 pub mod state_init;
 
+#[cfg(feature = "universal-accounts")]
 pub mod universal_state_init;
 
 #[cfg(feature = "digest")]

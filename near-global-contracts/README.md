@@ -7,7 +7,8 @@ off-chain code (indexers, CLIs, services, non-NEAR wasm runtimes) can use the sa
 and produce the same account IDs that on-chain contracts do.
 
 Contract authors using `near-sdk` get these types re-exported under
-`near_sdk::state_init` and `near_sdk::universal_state_init` and do not need to depend on
+`near_sdk::state_init` (feature `deterministic-account-ids`) and
+`near_sdk::universal_state_init` (feature `universal-accounts`) and do not need to depend on
 this crate directly.
 
 A `0u` id is SHA3-256 of the exact canonical state-init bytes. `RawStateInit` holds bytes

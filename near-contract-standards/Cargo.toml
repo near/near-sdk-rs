@@ -14,7 +14,9 @@ NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "~5.30.0", default-features = false, features = [
+# Not inherited: the workspace `near-sdk` entry is path-only (dev-dependencies only), and
+# `default-features = false` cannot be applied to an inherited entry that keeps defaults.
+near-sdk = { path = "../near-sdk", version = "~5.30.2", default-features = false, features = [
     "legacy",
 ] }
 
@@ -29,3 +31,6 @@ abi = ["near-sdk/__abi-generate"]
 
 [package.metadata.docs.rs]
 features = ["abi"]
+
+[lints]
+workspace = true

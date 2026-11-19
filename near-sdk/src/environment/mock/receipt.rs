@@ -122,6 +122,7 @@ pub enum MockAction {
     /// Creates a `0u` universal account. `state_init` is the borsh of a
     /// [`UniversalStateInit`](crate::universal_state_init::UniversalStateInit), kept as the raw
     /// bytes the action carries (the account id commits to exactly those bytes).
+    #[cfg(feature = "universal-accounts")]
     UniversalStateInit {
         receipt_index: ReceiptIndex,
         state_init: Vec<u8>,
@@ -153,6 +154,7 @@ impl MockAction {
             MockAction::TransferToGasKey { receipt_index, .. } => Some(*receipt_index),
             MockAction::AddGasKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::AddGasKeyWithFunctionCall { receipt_index, .. } => Some(*receipt_index),
+            #[cfg(feature = "universal-accounts")]
             MockAction::UniversalStateInit { receipt_index, .. } => Some(*receipt_index),
         }
     }
@@ -293,8 +295,15 @@ impl From<LogicMockAction> for MockAction {
                 receiver_id,
                 method_names,
             },
+            #[cfg(feature = "universal-accounts")]
             LogicMockAction::UniversalStateInit { receipt_index, state_init, amount } => {
                 Self::UniversalStateInit { receipt_index, state_init, amount }
+            }
+            #[cfg(not(feature = "universal-accounts"))]
+            LogicMockAction::UniversalStateInit { .. } => {
+                panic!(
+                    "Universal accounts functionality requires the 'universal-accounts' feature flag"
+                )
             }
         }
     }

@@ -5,6 +5,8 @@
 //! that near-sdk's own unit tests can select. The mock answers the host's canonicality question
 //! with nearcore's own strict decoder, as the chain does from protocol version 88.
 
+#![cfg(feature = "universal-accounts")]
+
 use near_sdk::mock::MockAction;
 use near_sdk::test_utils::{VMContextBuilder, get_created_receipts};
 use near_sdk::universal_state_init::{

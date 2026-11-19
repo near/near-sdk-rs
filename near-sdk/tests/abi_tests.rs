@@ -1,3 +1,4 @@
+use object::Object;
 use std::{collections::HashSet, env, fs, path::Path, process::Command};
 
 // These methods are prepended to the contract internally, update this test list if they change
@@ -32,11 +33,18 @@ fn ensure_abi_for_prepended_functions() {
 
     let dylib_file_contents = fs::read(dylib_file).expect("unable to read build file");
 
-    let near_abi_symbols = symbolic_debuginfo::Object::parse(&dylib_file_contents)
-        .expect("unable to parse dylib")
-        .symbols()
-        .flat_map(|sym| sym.name)
-        .filter(|sym_name| sym_name.starts_with("__near_abi_"))
+    let dylib = object::File::parse(&*dylib_file_contents).expect("unable to parse dylib");
+    // Mach-O prefixes C symbol names with an extra `_`.
+    let symbol_prefix = if dylib.format() == object::BinaryFormat::MachO { "_" } else { "" };
+    let near_abi_symbols = dylib
+        .exports()
+        .expect("unable to read dylib exports")
+        .filter_map(|export| match export.expect("unable to read dylib export").into_name() {
+            object::read::NameOrOrdinal::Name(name) => String::from_utf8(name.into_owned()).ok(),
+            object::read::NameOrOrdinal::Ordinal(_) => None,
+        })
+        .filter_map(|name| name.strip_prefix(symbol_prefix).map(str::to_owned))
+        .filter(|name| name.starts_with("__near_abi_"))
         .collect::<HashSet<_>>();
 
     // ensure methods are prepended
