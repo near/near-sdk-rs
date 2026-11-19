@@ -29,3 +29,6 @@ abi = ["near-sdk/__abi-generate"]
 
 [package.metadata.docs.rs]
 features = ["abi"]
+
+[lints]
+workspace = true
