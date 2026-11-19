@@ -1,5 +1,6 @@
+use near_sdk::serde::Serialize;
 use near_sdk::test_utils::get_logs;
-use near_sdk::{AccountId, AsNep297Event, near};
+use near_sdk::{AccountId, AsNep297Event, Nep297Event, near};
 
 #[near(event_json(standard = "test_standard"))]
 #[derive(Debug)]
@@ -31,6 +32,194 @@ mod private {
         #[event_version("1.0.0")]
         Test,
     }
+}
+
+#[near(event_json(standard = "renamed_standard"))]
+enum RenamedEvent {
+    #[event_version("1.0.0")]
+    #[serde(rename = "mint")]
+    Minted { amount: u64 },
+}
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde", tag = "event", content = "data", rename_all = "snake_case")]
+enum HandwrittenEvent {
+    Minted { amount: u64 },
+    Paused,
+}
+
+#[test]
+fn test_plain_struct_payload() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Minted {
+        amount: u64,
+    }
+
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &Minted { amount: 5 });
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":5}}"#
+    );
+    assert_eq!(event.data(), Some(serde_json::json!({ "amount": 5 })));
+}
+
+#[test]
+fn test_plain_struct_payload_preserves_large_integers() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Minted {
+        amount: u128,
+    }
+
+    let payload = Minted { amount: 10u128.pow(24) };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":1000000000000000000000000}}"#
+    );
+}
+
+#[test]
+fn test_payload_starting_with_event_keeps_tagged_shape() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct EventAndData<'a> {
+        event: &'a str,
+        data: u64,
+    }
+
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct EventOnly<'a> {
+        event: &'a str,
+    }
+
+    let event_and_data = EventAndData { event: "minted", data: 5 };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_and_data);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":5}"#
+    );
+
+    let event_only = EventOnly { event: "minted" };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &event_only);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted"}"#
+    );
+}
+
+#[test]
+fn test_tagged_payload_is_independent_of_field_order() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct DataThenEvent<'a> {
+        data: u64,
+        event: &'a str,
+    }
+
+    let payload = DataThenEvent { data: 5, event: "minted" };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","data":5,"event":"minted"}"#
+    );
+}
+
+#[test]
+fn test_explicit_plain_payload_can_contain_event_field() {
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Payload<'a> {
+        event: &'a str,
+        amount: u64,
+    }
+
+    let payload = Payload { event: "metadata", amount: 5 };
+    let event = Nep297Event::new_with_data("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"event":"metadata","amount":5}}"#
+    );
+}
+
+#[test]
+fn test_shape_probe_does_not_serialize_field_values() {
+    use std::cell::Cell;
+
+    struct Counted<'a>(&'a Cell<u32>);
+
+    impl Serialize for Counted<'_> {
+        fn serialize<S: near_sdk::serde::Serializer>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            self.0.set(self.0.get() + 1);
+            serializer.serialize_u64(5)
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(crate = "near_sdk::serde")]
+    struct Tagged<'a> {
+        event: &'static str,
+        data: Counted<'a>,
+    }
+
+    let serializations = Cell::new(0);
+    let payload = Tagged { event: "minted", data: Counted(&serializations) };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &payload);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":5}"#
+    );
+    assert_eq!(serializations.get(), 1);
+}
+
+#[test]
+fn test_non_map_payloads_are_nested_under_data() {
+    let unit = Nep297Event::new("nep999", "1.0.0", "paused", &());
+    assert_eq!(
+        unit.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"paused","data":null}"#
+    );
+
+    let amounts = vec![1u64, 2, 3];
+    let list = Nep297Event::new("nep999", "1.0.0", "minted", &amounts);
+    assert_eq!(
+        list.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":[1,2,3]}"#
+    );
+}
+
+#[test]
+fn test_macro_event_preserves_serde_variant_rename() {
+    let event = RenamedEvent::Minted { amount: 5 }.to_nep297_event();
+
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"renamed_standard","version":"1.0.0","event":"mint","data":{"amount":5}}"#
+    );
+}
+
+#[test]
+fn test_handwritten_tagged_event_preserves_existing_format() {
+    let minted = HandwrittenEvent::Minted { amount: 5 };
+    let event = Nep297Event::new("nep999", "1.0.0", "minted", &minted);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"minted","data":{"amount":5}}"#
+    );
+
+    let paused = HandwrittenEvent::Paused;
+    let event = Nep297Event::new("nep999", "1.0.0", "paused", &paused);
+    assert_eq!(
+        event.to_event_log(),
+        r#"EVENT_JSON:{"standard":"nep999","version":"1.0.0","event":"paused"}"#
+    );
 }
 
 #[test]
