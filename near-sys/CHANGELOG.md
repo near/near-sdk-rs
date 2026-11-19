@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/near/near-sdk-rs/compare/near-sys-v0.4.1...near-sys-v0.4.2) - 2026-11-19
+
+### Other
+
+- building with rustc 1.100 updates (no sdk MSRV bump) ([#1689](https://github.com/near/near-sdk-rs/pull/1689))
+
 ## [0.4.1](https://github.com/near/near-sdk-rs/compare/near-sys-v0.4.0...near-sys-v0.4.1) - 2026-11-04
 
 ### Other

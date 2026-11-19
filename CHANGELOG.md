@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.30.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.2...near-sdk-v5.30.3) - 2026-11-19
+
+### Other
+
+- centralize shared workspace dependencies ([#1678](https://github.com/near/near-sdk-rs/pull/1678))
+- building with rustc 1.100 updates (no sdk MSRV bump) ([#1689](https://github.com/near/near-sdk-rs/pull/1689))
+
 ## [5.30.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.30.1...near-sdk-v5.30.2) - 2026-11-13
 
 ### Fixed

@@ -16,7 +16,7 @@ NEAR smart contracts standard library.
 [dependencies]
 # Not inherited: the workspace `near-sdk` entry is path-only (dev-dependencies only), and
 # `default-features = false` cannot be applied to an inherited entry that keeps defaults.
-near-sdk = { path = "../near-sdk", version = "~5.30.2", default-features = false, features = [
+near-sdk = { path = "../near-sdk", version = "~5.30.3", default-features = false, features = [
     "legacy",
 ] }
 
