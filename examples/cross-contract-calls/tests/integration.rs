@@ -60,7 +60,7 @@ async fn test_factorial(contract_path: &str, factorial_10_gas: Gas) -> anyhow::R
     // `factorial(1)` returns right away, without cross-contract calls.
     let one: u32 = alice
         .transaction(&contract_id)
-        .add_action(FunctionCall::new("factorial").args(json!({ "n": 1 })).gas(Gas::from_ggas(250)))
+        .add_action(FunctionCall::new("factorial").args(json!({ "n": 1 })).gas(Gas::from_tgas(1)))
         .await?
         .json()?;
 
