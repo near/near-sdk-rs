@@ -21,3 +21,6 @@ universal-accounts = []
 
 [package.metadata.docs.rs]
 all-features = true
+
+[lints]
+# `near-sys` is not supposed to have `cfg(near)` at all, so we don't use workspace-level linst

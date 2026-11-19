@@ -16,19 +16,18 @@ Main macro of the library for writing NEAR smart contracts.
 proc-macro = true
 
 [dependencies]
-proc-macro2 = { version = "1", default-features = false }
-syn = { version = "2", default-features = false }
-strum = { version = "0.26", default-features = false }
-strum_macros = "0.26"
-quote = { version = "1.0", default-features = false }
-Inflector = { version = "0.11.4", default-features = false, features = [] }
-darling = { version = "0.20.3", default-features = false }
-serde = { version = "1", default-features = false, features = ["serde_derive"] }
-serde_json = { version = "1" }
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+strum_macros = { workspace = true }
+quote = { workspace = true }
+Inflector = { workspace = true }
+darling = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["serde_derive"] }
+serde_json = { workspace = true }
 
 [dev-dependencies]
-insta = { version = "1.31.0", features = ["yaml"] }
-prettyplease = { version = "0.2.15" }
+insta = { workspace = true, features = ["yaml"] }
+prettyplease = { workspace = true }
 
 
 [features]
@@ -38,3 +37,6 @@ __abi-generate = ["abi"]
 
 [package.metadata.docs.rs]
 features = ["__abi-generate"]
+
+[lints]
+workspace = true
