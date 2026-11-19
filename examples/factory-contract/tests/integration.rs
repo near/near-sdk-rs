@@ -84,7 +84,10 @@ async fn test_deploy_status_message(
         .transaction(&factory_id)
         .add_action(
             FunctionCall::new("complex_call")
-                .args(json!({ "account_id": child_contract_id, "message": message }))
+                .args(json!({
+                    "account_id": child_contract_id,
+                    "message": message,
+                }))
                 .gas(complex_call_gas),
         )
         .await?
