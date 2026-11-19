@@ -3,6 +3,7 @@ use near_kit::signer::InMemorySigner;
 use near_kit::transaction::FunctionCall;
 use near_kit::{Gas, Near, NearToken, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
+use serde_json::json;
 use test_case::test_case;
 
 /// Builds the contract in `path` (relative to this crate) with `cargo near` and returns the wasm.
@@ -24,9 +25,6 @@ async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
     .await?
 }
 
-// `complex_call` needs about 6.3 Tgas in the high-level factory. The low-level one
-// reserves a fixed 20 Tgas for `set_status` and 40 Tgas for `get_result`, so it
-// needs about 63 Tgas.
 #[test_case("high-level", Gas::from_tgas(10) ; "high_level")]
 #[test_case("low-level", Gas::from_tgas(70) ; "low_level")]
 #[tokio::test]
@@ -64,14 +62,16 @@ async fn test_deploy_status_message(
 
     // The factory creates `child-contract.factory.alice`, funds it with 20 NEAR, gives it
     // Alice's key and deploys the status-message contract there.
-    // `deploy_status_message` needs about 17.2 Tgas, so 25 Tgas leaves some headroom.
     let child_contract_id = factory_id.sub_account("child-contract")?;
 
     alice
         .transaction(&factory_id)
         .add_action(
             FunctionCall::new("deploy_status_message")
-                .args((&child_contract_id, NearToken::from_near(20)))
+                .args(json!({
+                    "account_id": child_contract_id,
+                    "amount": NearToken::from_near(20),
+                }))
                 .gas(Gas::from_tgas(25)),
         )
         .await?
@@ -84,7 +84,7 @@ async fn test_deploy_status_message(
         .transaction(&factory_id)
         .add_action(
             FunctionCall::new("complex_call")
-                .args((&child_contract_id, message))
+                .args(json!({ "account_id": child_contract_id, "message": message }))
                 .gas(complex_call_gas),
         )
         .await?
