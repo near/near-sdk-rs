@@ -2976,7 +2976,7 @@ pub fn state_exists() -> bool {
 ///
 /// assert_eq!(storage_byte_cost(), NearToken::from_yoctonear(10000000000000000000));
 /// ```
-/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105), [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/fungible-token/tests/workspaces.rs)
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105) and [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs)
 pub fn storage_byte_cost() -> NearToken {
     NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
 }

@@ -1,5 +1,15 @@
+#[cfg(test)]
+mod tests;
+
 use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 use near_sdk::{AccountId, CryptoHash, Promise, PromiseError, env, ext_contract, near};
+
+// Example contract interface that we'll deploy as a global contract
+#[ext_contract]
+pub trait ExtStatusMessage {
+    fn set_status(&mut self, message: String);
+    fn get_status(&self, account_id: AccountId) -> Option<String>;
+}
 
 #[derive(Default)]
 #[near(contract_state)]
@@ -8,13 +18,6 @@ pub struct GlobalFactoryContract {
     pub global_contracts_registered_by_code_hash: std::collections::HashMap<String, CryptoHash>,
     /// Store account IDs that have deployed global contracts
     pub global_contracts_registered_by_account_id: std::collections::HashMap<String, AccountId>,
-}
-
-// Example contract interface that we'll deploy as a global contract
-#[ext_contract]
-pub trait ExtStatusMessage {
-    fn set_status(&mut self, message: String);
-    fn get_status(&self, account_id: AccountId) -> Option<String>;
 }
 
 #[near]
@@ -102,16 +105,6 @@ impl GlobalFactoryContract {
         ext_status_message::ext(account_id).set_status(message).detach();
     }
 
-    /// Example of complex call using global contracts
-    pub fn complex_global_call(&mut self, account_id: AccountId, message: String) -> Promise {
-        // 1) call global status_message to record a message from the signer.
-        // 2) call global status_message to retrieve the message of the signer.
-        // 3) return that message as its own result.
-        ext_status_message::ext(account_id.clone())
-            .set_status(message)
-            .then(Self::ext_self().get_result(account_id))
-    }
-
     #[handle_result]
     pub fn get_result(
         &self,
@@ -123,56 +116,14 @@ impl GlobalFactoryContract {
             Err(_) => Err("Failed to set status"),
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use near_sdk::test_utils::{VMContextBuilder, accounts};
-    use near_sdk::{AccountId, testing_env};
-
-    fn get_context(predecessor_account_id: AccountId) -> near_sdk::VMContext {
-        VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .signer_account_id(predecessor_account_id.clone())
-            .predecessor_account_id(predecessor_account_id)
-            .build()
-    }
-
-    #[test]
-    fn test_deploy_global_contract() {
-        let context = get_context(accounts(1));
-        testing_env!(context);
-
-        let mut contract = GlobalFactoryContract::default();
-        let code = vec![0u8; 100]; // Mock bytecode
-
-        contract.deploy_global_contract("test_contract".to_string(), code.clone().into()).detach();
-
-        // Check that the contract was recorded
-        let stored_hash = contract.get_global_contract_hash("test_contract".to_string());
-        assert!(stored_hash.is_some());
-
-        let expected_hash = near_sdk::env::sha256_array(&code);
-        assert_eq!(stored_hash.unwrap(), expected_hash);
-    }
-
-    #[test]
-    fn test_list_global_contracts() {
-        let context = get_context(accounts(1));
-        testing_env!(context);
-
-        let mut contract = GlobalFactoryContract::default();
-        let code = vec![0u8; 100];
-
-        contract.deploy_global_contract("test_contract".to_string(), code.clone().into()).detach();
-
-        let contracts = contract.get_global_contracts_registered_by_code_hash();
-
-        let expected_hash: Base58CryptoHash =
-            "EoFMvgbdQttJ3vLsVBcgZaWbhEGrJnpqda85qtbu7LbL".parse().unwrap();
-        assert_eq!(contracts.len(), 1);
-        assert_eq!(contracts[0].0, "test_contract");
-        assert_eq!(contracts[0].1, expected_hash);
+    /// Example of complex call using global contracts
+    pub fn complex_global_call(&mut self, account_id: AccountId, message: String) -> Promise {
+        // 1) call global status_message to record a message from the signer.
+        // 2) call global status_message to retrieve the message of the signer.
+        // 3) return that message as its own result.
+        ext_status_message::ext(account_id.clone())
+            .set_status(message)
+            .then(Self::ext_self().get_result(account_id))
     }
 }

@@ -1,4 +1,3 @@
-use near_sdk::env;
 use near_sdk::{PromiseOrValue, log, near};
 
 #[derive(Default)]
@@ -7,19 +6,6 @@ pub struct CrossContract {}
 
 #[near]
 impl CrossContract {
-    pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
-        if n <= 1 {
-            return PromiseOrValue::Value(1);
-        }
-        let account_id = env::current_account_id();
-
-        Self::ext(account_id.clone())
-            .with_unused_gas_weight(6)
-            .factorial(n - 1)
-            .then(Self::ext(account_id).factorial_mult(n))
-            .into()
-    }
-
     /// Used for callbacks only. Multiplies current factorial result by the next value. Panics if
     /// it is not called by the contract itself.
     #[private]
@@ -28,5 +14,16 @@ impl CrossContract {
         let result = n * cur;
         log!("Multiplied {:?}", result.clone());
         result
+    }
+
+    pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
+        if n <= 1 {
+            return PromiseOrValue::Value(1);
+        }
+        Self::ext_self()
+            .with_unused_gas_weight(6)
+            .factorial(n - 1)
+            .then(Self::ext_self().factorial_mult(n))
+            .into()
     }
 }

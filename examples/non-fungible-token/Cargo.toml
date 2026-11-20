@@ -8,11 +8,13 @@ repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]
 anyhow = "1.0"
-near-contract-standards = { path = "../../near-contract-standards" }
-near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.24.0", features = ["unstable"] }
-rstest = "0.23.0"
+test-case = "3"
+tokio = { version = "1", features = ["full"] }
+cargo-near-build = "0.11.5"
+near-kit = "0.32.0"
+near-sandbox = "0.4.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [profile.release]
 codegen-units = 1

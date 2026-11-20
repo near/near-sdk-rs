@@ -9,16 +9,16 @@ const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
 
-#[derive(PanicOnDefault)]
-#[near(contract_state)]
-pub struct DeFi {
-    fungible_token_account_id: AccountId,
-}
-
 // Have to repeat the same trait for our own implementation.
 #[allow(dead_code)]
 trait ValueReturnTrait {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128>;
+}
+
+#[derive(PanicOnDefault)]
+#[near(contract_state)]
+pub struct DeFi {
+    fungible_token_account_id: AccountId,
 }
 
 #[near]
@@ -27,6 +27,15 @@ impl DeFi {
     pub fn new(fungible_token_account_id: AccountId) -> Self {
         require!(!env::state_exists(), "Already initialized");
         Self { fungible_token_account_id: fungible_token_account_id.into() }
+    }
+}
+
+#[near]
+impl ValueReturnTrait for DeFi {
+    fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
+        log!("in value_please, amount_to_return = {}", amount_to_return);
+        let amount: Balance = amount_to_return.parse().expect("Not an integer");
+        PromiseOrValue::Value(amount.into())
     }
 }
 
@@ -58,14 +67,5 @@ impl FungibleTokenReceiver for DeFi {
                     .into()
             }
         }
-    }
-}
-
-#[near]
-impl ValueReturnTrait for DeFi {
-    fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
-        log!("in value_please, amount_to_return = {}", amount_to_return);
-        let amount: Balance = amount_to_return.parse().expect("Not an integer");
-        PromiseOrValue::Value(amount.into())
     }
 }

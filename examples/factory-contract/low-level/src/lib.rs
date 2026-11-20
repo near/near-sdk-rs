@@ -33,6 +33,22 @@ impl FactoryContract {
             SINGLE_CALL_GAS,
         );
     }
+
+    pub fn get_result(&mut self, account_id: AccountId) {
+        const SET_STATUS_MAX_RESULT_LENGTH: usize = 0; // set_status returns empty result
+
+        env::promise_result_checked(0, SET_STATUS_MAX_RESULT_LENGTH)
+            .unwrap_or_else(|_| env::panic_str("Failed to set status"));
+
+        env::promise_return(env::promise_create(
+            account_id,
+            "get_status",
+            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
+            NearToken::from_near(0),
+            SINGLE_CALL_GAS,
+        ));
+    }
+
     pub fn complex_call(&mut self, account_id: AccountId, message: String) {
         // 1) call status_message to record a message from the signer.
         // 2) check that the promise succeed
@@ -55,20 +71,5 @@ impl FactoryContract {
             SINGLE_CALL_GAS.saturating_mul(2),
         );
         env::promise_return(promise1);
-    }
-
-    pub fn get_result(&mut self, account_id: AccountId) {
-        const SET_STATUS_MAX_RESULT_LENGTH: usize = 0; // set_status returns empty result
-
-        env::promise_result_checked(0, SET_STATUS_MAX_RESULT_LENGTH)
-            .unwrap_or_else(|_| env::panic_str("Failed to set status"));
-
-        env::promise_return(env::promise_create(
-            account_id,
-            "get_status",
-            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
-            NearToken::from_near(0),
-            SINGLE_CALL_GAS,
-        ));
     }
 }

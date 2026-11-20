@@ -13,6 +13,22 @@ pub struct CrossContract {}
 
 #[near]
 impl CrossContract {
+    /// Used for callbacks only. Multiplies current factorial result by the next value. Panics if
+    /// it is not called by the contract itself.
+    pub fn factorial_mult(&self, n: u32) {
+        const MAX_RESULT_LENGTH: usize = "\"+4294967295\"".len(); // u32::MAX
+
+        require!(env::current_account_id() == env::predecessor_account_id());
+        require!(env::promise_results_count() == 1);
+
+        let data = env::promise_result_checked(0, MAX_RESULT_LENGTH).unwrap_or_else(|_| {
+            env::panic_str("Promise with index 0 failed or returned too long result")
+        });
+        let cur = serde_json::from_slice::<u32>(&data).unwrap();
+
+        env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
+    }
+
     pub fn factorial(&self, n: u32) {
         if n <= 1 {
             env::value_return(&serde_json::to_vec(&1u32).unwrap());
@@ -36,21 +52,5 @@ impl CrossContract {
             FACTORIAL_MULT_CALL_GAS,
         );
         env::promise_return(promise1);
-    }
-
-    /// Used for callbacks only. Multiplies current factorial result by the next value. Panics if
-    /// it is not called by the contract itself.
-    pub fn factorial_mult(&self, n: u32) {
-        const MAX_RESULT_LENGTH: usize = "\"+4294967295\"".len(); // u32::MAX
-
-        require!(env::current_account_id() == env::predecessor_account_id());
-        require!(env::promise_results_count() == 1);
-
-        let data = env::promise_result_checked(0, MAX_RESULT_LENGTH).unwrap_or_else(|_| {
-            env::panic_str("Promise with index 0 failed or returned too long result")
-        });
-        let cur = serde_json::from_slice::<u32>(&data).unwrap();
-
-        env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }
 }
