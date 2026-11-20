@@ -94,10 +94,12 @@ jobs:
           - os: warp-ubuntu-latest-x64-4x
             rs: "stable"
             name: linux
+        # `near-global-contracts/schemars-v1` runs its schema tests twice: next to `schemars-v0_8`
+        # (turned on by `__abi-generate`), comparing the two, and on its own.
         features:
           - ""
-          - "--features unstable,legacy,__abi-generate,deterministic-account-ids,universal-accounts"
-          - "--features unstable,deterministic-account-ids,universal-accounts,non-contract-usage,arbitrary"
+          - "--features unstable,legacy,__abi-generate,deterministic-account-ids,universal-accounts,near-global-contracts/schemars-v1"
+          - "--features unstable,deterministic-account-ids,universal-accounts,non-contract-usage,arbitrary,near-global-contracts/schemars-v1"
     steps:
       - uses: actions/checkout@v4
 

@@ -67,6 +67,7 @@ pure-Rust hashing and does not import any NEAR host functions. You can verify wi
 | `serde`                    | `Serialize`/`Deserialize` impls (`RawStateInit` as base64; typed state init for builders and inspection) |
 | `borsh`                    | `BorshSerialize`/`BorshDeserialize` impls (also enables the typed `derive_account_id`s) |
 | `abi`                      | `schemars::JsonSchema` and `borsh::BorshSchema` for ABI tooling         |
+| `schemars-v1`              | `schemars` 1.x `JsonSchema` impls, e.g. for TypeScript bindings; combines with `abi` |
 | `arbitrary`                | `arbitrary::Arbitrary` impls for fuzzing                                |
 | `near-primitives-interop`  | `From`/`Into` between these types (and `StateInitError`) and the `near-primitives-core` ones |
 

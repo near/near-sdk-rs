@@ -36,6 +36,7 @@ near-crypto-hash = { workspace = true }
 near-sdk-env = { workspace = true, optional = true }
 
 schemars-v0_8 = { workspace = true, optional = true }
+schemars-v1 = { workspace = true, optional = true }
 near-primitives-core = { workspace = true, optional = true }
 unicode-segmentation = { workspace = true, optional = true }
 near-parameters = { workspace = true, optional = true }
@@ -88,6 +89,9 @@ schemars-v0_8 = [
     "near-account-id/schemars-v0_8",
     "near-gas/schemars-v0_8",
 ]
+
+# schemars 1.x impls. Only `PublicKeyHandle` has one so far, for `near-global-contracts`.
+schemars-v1 = ["dep:schemars-v1"]
 
 abi = [
     "borsh",
