@@ -8,15 +8,15 @@ use near_sdk::{AccountId, Gas, PanicOnDefault, PromiseOrValue, env, log, near, r
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
+// Have to repeat the same trait for our own implementation.
+pub trait ValueReturnTrait {
+    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct TokenReceiver {
     non_fungible_token_account_id: AccountId,
-}
-
-// Have to repeat the same trait for our own implementation.
-pub trait ValueReturnTrait {
-    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
 #[near]
@@ -24,6 +24,14 @@ impl TokenReceiver {
     #[init]
     pub fn new(non_fungible_token_account_id: AccountId) -> Self {
         Self { non_fungible_token_account_id }
+    }
+}
+
+#[near]
+impl ValueReturnTrait for TokenReceiver {
+    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
+        log!("in ok_go, return_it={}", return_it);
+        PromiseOrValue::Value(return_it)
     }
 }
 
@@ -76,13 +84,5 @@ impl NonFungibleTokenReceiver for TokenReceiver {
             }
             _ => env::panic_str("unsupported msg"),
         }
-    }
-}
-
-#[near]
-impl ValueReturnTrait for TokenReceiver {
-    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
-        log!("in ok_go, return_it={}", return_it);
-        PromiseOrValue::Value(return_it)
     }
 }
