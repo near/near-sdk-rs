@@ -16,7 +16,13 @@ Global contract identifiers and account derivation for deterministic (NEP-616, `
 # backend is pulled in unconditionally on the `cfg(not(near))` path). Including all of
 # serde/borsh/abi here surfaces the full type surface.
 [package.metadata.docs.rs]
-features = ["serde", "borsh", "abi", "near-primitives-interop"]
+features = [
+    "serde",
+    "borsh",
+    "abi",
+    "schemars-v1",
+    "near-primitives-interop",
+]
 
 [dependencies]
 # `internal_unstable` is for `AccountId::new_unvalidated` in the `0s` derivation.
@@ -47,6 +53,7 @@ near-sdk-env = { workspace = true, optional = true }
 near-primitives-core = { workspace = true, optional = true }
 
 schemars-v0_8 = { workspace = true, optional = true }
+schemars-v1 = { workspace = true, optional = true }
 
 [target.'cfg(near)'.dependencies]
 near-sdk-env = { workspace = true }
@@ -84,6 +91,16 @@ schemars-v0_8 = [
     "near-account-id/schemars-v0_8",
     "serde_with/schemars_0_8",
     "near-sdk-core/schemars-v0_8",
+]
+
+# schemars 1.x, for JSON Schema tooling that has moved off 0.8 (TypeScript bindings and the
+# like). Independent of `schemars-v0_8`, and the two can be enabled together.
+schemars-v1 = [
+    "serde",
+    "dep:schemars-v1",
+    "near-account-id/schemars-v1",
+    "serde_with/schemars_1",
+    "near-sdk-core/schemars-v1",
 ]
 
 abi = [

@@ -43,6 +43,9 @@
 //!   preserve the raw bytes when forwarding.
 //! - `abi` — schema generation for ABI tooling. Like `schemars-v0_8`, it enables `serde`, since
 //!   the schema describes the JSON form.
+//! - `schemars-v1` — `schemars` 1.x `JsonSchema` impls for the serde types, for JSON Schema tooling
+//!   such as TypeScript binding generators. It also enables `serde`, and can be combined with
+//!   `schemars-v0_8` or `abi`, which stay on `schemars` 0.8.
 //! - `arbitrary` — `arbitrary::Arbitrary` impls for fuzzing.
 //! - `near-primitives-interop` — `From`/`Into` between this crate's types and the equivalents
 //!   in `near-primitives-core`, for code that bridges to nearcore.
@@ -88,6 +91,9 @@ pub use state_init::*;
 
 mod universal_state_init;
 pub use universal_state_init::*;
+
+#[cfg(feature = "schemars-v1")]
+mod schemars_v1;
 
 // Re-export the underlying AccountId so consumers don't have to add `near-account-id` to their
 // Cargo.toml just to spell out the return type of `derive_account_id`.

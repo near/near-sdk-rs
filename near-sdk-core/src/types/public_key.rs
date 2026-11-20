@@ -517,6 +517,22 @@ impl schemars_v0_8::JsonSchema for PublicKeyHandle {
     }
 }
 
+/// A plain string, inlined, like the `schemars-v0_8` impl.
+#[cfg(feature = "schemars-v1")]
+impl schemars_v1::JsonSchema for PublicKeyHandle {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        String::schema_name()
+    }
+
+    fn json_schema(generator: &mut schemars_v1::SchemaGenerator) -> schemars_v1::Schema {
+        String::json_schema(generator)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -810,5 +826,25 @@ mod tests {
             bs58::encode([7u8; 32]).into_string().parse::<PublicKeyHandle>().unwrap(),
             PublicKeyHandle::ED25519([7; 32])
         );
+    }
+
+    #[test]
+    #[cfg(feature = "schemars-v1")]
+    fn public_key_handle_schemars_v1() {
+        use schemars_v1::json_schema;
+
+        // 1.x names `String` "string" (0.8: "String"); the handle reuses its schema either way.
+        assert_eq!(
+            schemars_v1::schema_for!(PublicKeyHandle),
+            json_schema!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "title": "string",
+                "type": "string",
+            })
+        );
+        // Inlined into containing schemas rather than added to `$defs`, as with 0.8.
+        let mut generator = schemars_v1::SchemaGenerator::default();
+        assert_eq!(generator.subschema_for::<PublicKeyHandle>(), json_schema!({"type": "string"}));
+        assert!(generator.definitions().is_empty());
     }
 }
