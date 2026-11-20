@@ -33,8 +33,14 @@ cargo near build reproducible-wasm --no-locked
 For a non-demo reproducible build/deploy a specific Cargo.lock has to be committed to git,
 which is not done for demo examples in order to optimize maintenance burden.
 
-## Testing
-To test run:
+## Run Tests:
+
+### Unit Tests
 ```bash
-cargo test
+cargo test --lib
+```
+
+### Integration Tests
+```bash
+cargo test --test integration
 ```
