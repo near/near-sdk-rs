@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use near_kit::json_types::U128;
 use near_kit::protocol::{Action, ActionErrorKind, FunctionCallError};
 use near_kit::rpc::{FinalExecutionOutcome, STORAGE_AMOUNT_PER_BYTE};
@@ -6,6 +8,7 @@ use near_kit::transaction::FunctionCall;
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
+use tokio::sync::Mutex;
 
 /// One whole token: the token metadata sets 24 decimals.
 pub const ONE_TOKEN: u128 = 10u128.pow(24);
@@ -19,13 +22,27 @@ pub const STORAGE_DEPOSIT: NearToken = STORAGE_AMOUNT_PER_BYTE.saturating_mul(12
 /// The deposit `ft_transfer`, `ft_transfer_call` and `storage_unregister` require.
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
+/// The wasm of each contract `build_contract` has built in this process, by path.
+static BUILT_CONTRACTS: Mutex<BTreeMap<String, Vec<u8>>> = Mutex::const_new(BTreeMap::new());
+
 /// Builds the contract in `path` (relative to this crate) with `cargo near` and returns the wasm.
+///
+/// `cargo test` runs all the tests of this binary in one process, so each contract is built once
+/// and the tests share its wasm.
 pub async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
+    // Keep the lock until the build is done, so other tests wait for it instead of building the
+    // same contract again
+    let mut built_contracts = BUILT_CONTRACTS.lock().await;
+
+    if let Some(wasm) = built_contracts.get(path) {
+        return Ok(wasm.clone());
+    }
+
     let manifest = cargo_near_build::camino::Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(path)
         .join("Cargo.toml");
 
-    tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+    let wasm = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
         let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
             no_locked: true,
             manifest_path: Some(manifest),
@@ -35,7 +52,11 @@ pub async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
 
         Ok(std::fs::read(&artifact)?)
     })
-    .await?
+    .await??;
+
+    built_contracts.insert(path.to_string(), wasm.clone());
+
+    Ok(wasm)
 }
 
 /// Starts a node with Alice and Bob in genesis and deploys the token contract to `ft.alice`.

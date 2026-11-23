@@ -6,13 +6,28 @@ use near_kit::transaction::FunctionCall;
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
+use tokio::sync::Mutex;
 
 /// The token supply Alice owns after setup.
 pub const TOTAL_SUPPLY: u128 = 10_000;
 
+/// This crate's contract, once `build_contract` has built it in this process.
+static BUILT_CONTRACT: Mutex<Option<Vec<u8>>> = Mutex::const_new(None);
+
 /// Builds this crate's contract with `cargo near` and returns the wasm.
+///
+/// `cargo test` runs all the tests of this binary in one process, so the contract is built once
+/// and the tests share its wasm.
 pub async fn build_contract() -> anyhow::Result<Vec<u8>> {
-    tokio::task::spawn_blocking(|| -> anyhow::Result<Vec<u8>> {
+    // Keep the lock until the build is done, so other tests wait for it instead of building the
+    // contract again
+    let mut built_contract = BUILT_CONTRACT.lock().await;
+
+    if let Some(wasm) = built_contract.as_ref() {
+        return Ok(wasm.clone());
+    }
+
+    let wasm = tokio::task::spawn_blocking(|| -> anyhow::Result<Vec<u8>> {
         let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
             no_locked: true,
             manifest_path: Some(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml").into()),
@@ -22,7 +37,11 @@ pub async fn build_contract() -> anyhow::Result<Vec<u8>> {
 
         Ok(std::fs::read(&artifact)?)
     })
-    .await?
+    .await??;
+
+    *built_contract = Some(wasm.clone());
+
+    Ok(wasm)
 }
 
 /// Starts a node with Alice and Bob in genesis and deploys the token contract to
