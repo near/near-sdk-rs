@@ -8,9 +8,13 @@ use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde::Deserialize;
 use serde_json::json;
+use tokio::time::{Instant, timeout_at};
 
 /// The signature the MPC server submits for Alice's request.
 const SIGNATURE_TEXT: &str = "I'm a cool signature, Kolo?";
+
+/// How long `sign` waits for Alice's transaction to become final.
+const FINAL_STATUS_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// A pending request as `get_requests` returns it. The tests only need its data id.
 #[derive(Debug, Deserialize)]
@@ -91,13 +95,22 @@ async fn sign(
         .await?;
 
     // The transaction stays open until the MPC server responds or the request times out, which
-    // can take longer than the node waits to answer one request. Ask again after each timeout
+    // can take longer than the node waits to answer one request. Ask again after each timeout,
+    // but fail the test if the transaction still isn't final by the deadline
+    let deadline = Instant::now() + FINAL_STATUS_TIMEOUT;
+
     loop {
-        let tx_details = alice
+        let tx_status = alice
             .near()
             .tx_status(&submitted.transaction_hash, alice.account_id().clone())
-            .wait_until::<Final>()
-            .await;
+            .wait_until::<Final>();
+
+        let Ok(tx_details) = timeout_at(deadline, tx_status).await else {
+            anyhow::bail!(
+                "transaction {} isn't final after {FINAL_STATUS_TIMEOUT:?}",
+                submitted.transaction_hash
+            );
+        };
 
         match tx_details {
             Err(error) if matches!(error.as_rpc(), Some(RpcError::Timeout { .. })) => continue,
