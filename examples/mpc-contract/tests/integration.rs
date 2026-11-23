@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use near_kit::protocol::Action;
-use near_kit::rpc::{FinalExecutionOutcome, RpcError};
+use near_kit::rpc::{FinalExecutionOutcome, Finality, RpcError};
 use near_kit::signer::InMemorySigner;
-use near_kit::transaction::{Final, FunctionCall, Included};
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall, Included};
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde::Deserialize;
@@ -13,8 +13,8 @@ use tokio::time::{Instant, timeout_at};
 /// The signature the MPC server submits for Alice's request.
 const SIGNATURE_TEXT: &str = "I'm a cool signature, Kolo?";
 
-/// How long `sign` waits for Alice's transaction to become final.
-const FINAL_STATUS_TIMEOUT: Duration = Duration::from_secs(120);
+/// How long `sign` waits for Alice's transaction to execute.
+const EXECUTION_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// A pending request as `get_requests` returns it. The tests only need its data id.
 #[derive(Debug, Deserialize)]
@@ -41,7 +41,12 @@ async fn build_contract() -> anyhow::Result<Vec<u8>> {
 /// `mpc.alice`.
 ///
 /// The node stops when the returned `Sandbox` is dropped, so keep it until the test ends.
-async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, AccountId)> {
+async fn setup() -> anyhow::Result<(
+    Sandbox,
+    SigningNear<ExecutedOptimistic>,
+    SigningNear<ExecutedOptimistic>,
+    AccountId,
+)> {
     let alice_account = GenesisAccount::default_with_name(account!("alice"));
     let mpc_server_account = GenesisAccount::default_with_name(account!("mpc-server"));
 
@@ -53,14 +58,18 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, AccountId
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
-    let mpc_server = client.with_signer(InMemorySigner::new(
-        mpc_server_account.account_id,
-        mpc_server_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
+    let mpc_server = client
+        .with_signer(InMemorySigner::new(
+            mpc_server_account.account_id,
+            mpc_server_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the contract account, fund it and deploy the contract
     let wasm = build_contract().await?;
@@ -78,10 +87,10 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, AccountId
 }
 
 /// Alice asks the contract to sign a message. Waits until her transaction and every receipt it
-/// spawned are final, including the callbacks that run once the request gets a signature or
+/// spawned have executed, including the callbacks that run once the request gets a signature or
 /// times out.
 async fn sign(
-    alice: &SigningNear,
+    alice: &SigningNear<ExecutedOptimistic>,
     contract_id: &AccountId,
 ) -> anyhow::Result<FinalExecutionOutcome> {
     let submitted = alice
@@ -96,18 +105,18 @@ async fn sign(
 
     // The transaction stays open until the MPC server responds or the request times out, which
     // can take longer than the node waits to answer one request. Ask again after each timeout,
-    // but fail the test if the transaction still isn't final by the deadline
-    let deadline = Instant::now() + FINAL_STATUS_TIMEOUT;
+    // but fail the test if the transaction still hasn't executed by the deadline
+    let deadline = Instant::now() + EXECUTION_TIMEOUT;
 
     loop {
         let tx_status = alice
             .near()
             .tx_status(&submitted.transaction_hash, alice.account_id().clone())
-            .wait_until::<Final>();
+            .wait_until::<ExecutedOptimistic>();
 
         let Ok(tx_details) = timeout_at(deadline, tx_status).await else {
             anyhow::bail!(
-                "transaction {} isn't final after {FINAL_STATUS_TIMEOUT:?}",
+                "transaction {} hasn't executed after {EXECUTION_TIMEOUT:?}",
                 submitted.transaction_hash
             );
         };
@@ -121,14 +130,17 @@ async fn sign(
 
 /// The MPC server waits for Alice's request to show up in the contract and responds to it with
 /// a signature.
-async fn respond(mpc_server: &SigningNear, contract_id: &AccountId) -> anyhow::Result<()> {
+async fn respond(
+    mpc_server: &SigningNear<ExecutedOptimistic>,
+    contract_id: &AccountId,
+) -> anyhow::Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(2));
 
     for _ in 0..10 {
         interval.tick().await;
 
         let requests: Vec<SignatureRequest> =
-            mpc_server.near().view(contract_id, "get_requests").await?;
+            mpc_server.near().view(contract_id, "get_requests").at(Finality::Optimistic).await?;
 
         if let Some(request) = requests.first() {
             mpc_server

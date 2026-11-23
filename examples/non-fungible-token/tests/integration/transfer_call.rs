@@ -1,4 +1,4 @@
-use near_kit::transaction::FunctionCall;
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall};
 use near_kit::{AccountId, Gas, SigningNear};
 use near_sandbox::Sandbox;
 use serde_json::json;
@@ -9,7 +9,8 @@ use crate::shared::{
 };
 
 /// Runs the shared setup and deploys the token receiver contract to `token-receiver.alice`.
-async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId, AccountId)> {
+async fn setup() -> anyhow::Result<(Sandbox, SigningNear<ExecutedOptimistic>, AccountId, AccountId)>
+{
     let (node, alice, _, nft_contract_id) = crate::shared::setup().await?;
 
     let token_receiver_id =

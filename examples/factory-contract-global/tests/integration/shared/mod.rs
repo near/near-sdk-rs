@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use near_kit::protocol::Action;
 use near_kit::rpc::STORAGE_AMOUNT_PER_BYTE;
 use near_kit::signer::InMemorySigner;
+use near_kit::transaction::ExecutedOptimistic;
 use near_kit::{AccountId, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use tokio::sync::Mutex;
@@ -51,7 +52,7 @@ pub async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
 /// Alice pays for the setup and calls the factory.
 ///
 /// The node stops when the returned `Sandbox` is dropped, so keep it until the test ends.
-pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId)> {
+pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear<ExecutedOptimistic>, AccountId)> {
     let alice_account = GenesisAccount::default_with_name(account!("alice"));
 
     let node = Sandbox::start_sandbox_with_config(SandboxConfig {
@@ -62,10 +63,12 @@ pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId)> {
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the factory account, fund it and deploy the factory contract
     let wasm = build_contract(".").await?;

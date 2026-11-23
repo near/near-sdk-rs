@@ -1,12 +1,17 @@
 use near_kit::json_types::U128;
+use near_kit::rpc::Finality;
 use near_kit::standards::NftToken;
+use near_kit::transaction::ExecutedOptimistic;
 use near_kit::{AccountId, Near, SigningNear};
 use serde_json::{Value, json};
 
 use crate::shared::{mint, setup};
 
 /// Mints three more tokens to Alice, who then owns the tokens "0" to "3".
-async fn mint_more(alice: &SigningNear, nft_contract_id: &AccountId) -> anyhow::Result<()> {
+async fn mint_more(
+    alice: &SigningNear<ExecutedOptimistic>,
+    nft_contract_id: &AccountId,
+) -> anyhow::Result<()> {
     mint(alice, nft_contract_id, "1", "Black as the Night", "In charcoal").await?;
     mint(alice, nft_contract_id, "2", "Hamakua", "Vintage recording").await?;
     mint(alice, nft_contract_id, "3", "Aloha ke akua", "Original with piano").await?;
@@ -21,7 +26,8 @@ async fn token_ids(
     method: &str,
     args: &Value,
 ) -> anyhow::Result<Vec<String>> {
-    let tokens: Vec<NftToken> = near.view(nft_contract_id, method).args(args).await?;
+    let tokens: Vec<NftToken> =
+        near.view(nft_contract_id, method).args(args).at(Finality::Optimistic).await?;
 
     Ok(tokens.into_iter().map(|token| token.token_id).collect())
 }
@@ -35,6 +41,7 @@ async fn nft_supply_for_owner(
     let supply: U128 = near
         .view(nft_contract_id, "nft_supply_for_owner")
         .args(json!({ "account_id": account_id }))
+        .at(Finality::Optimistic)
         .await?;
 
     Ok(supply.0)
@@ -46,7 +53,8 @@ async fn test_enum_total_supply() -> anyhow::Result<()> {
 
     mint_more(&alice, &nft_contract_id).await?;
 
-    let total_supply: U128 = alice.near().view(&nft_contract_id, "nft_total_supply").await?;
+    let total_supply: U128 =
+        alice.near().view(&nft_contract_id, "nft_total_supply").at(Finality::Optimistic).await?;
 
     assert_eq!(total_supply.0, 4);
 

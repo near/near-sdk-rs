@@ -1,6 +1,6 @@
 use near_kit::protocol::Action;
 use near_kit::signer::InMemorySigner;
-use near_kit::transaction::FunctionCall;
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall};
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
@@ -25,7 +25,7 @@ async fn build_contract() -> anyhow::Result<Vec<u8>> {
 /// `callback-results.alice`. Alice pays for the setup and calls the contract.
 ///
 /// The node stops when the returned `Sandbox` is dropped, so keep it until the test ends.
-async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId)> {
+async fn setup() -> anyhow::Result<(Sandbox, SigningNear<ExecutedOptimistic>, AccountId)> {
     let alice_account = GenesisAccount::default_with_name(account!("alice"));
 
     let node = Sandbox::start_sandbox_with_config(SandboxConfig {
@@ -36,10 +36,12 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId)> {
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the contract account, fund it and deploy the contract
     let wasm = build_contract().await?;

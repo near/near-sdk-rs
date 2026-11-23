@@ -1,5 +1,5 @@
 use near_kit::protocol::ActionErrorKind;
-use near_kit::rpc::OutcomeError;
+use near_kit::rpc::{Finality, OutcomeError};
 use near_kit::transaction::FunctionCall;
 use near_kit::{CryptoHash, Gas, NearToken};
 use serde_json::json;
@@ -24,12 +24,16 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
         .near()
         .view(&factory_id, "get_global_contract_hash")
         .args(json!({ "name": "non_existent" }))
+        .at(Finality::Optimistic)
         .await?;
 
     assert_eq!(stored_hash, None);
 
-    let registered: Vec<(String, CryptoHash)> =
-        alice.near().view(&factory_id, "get_global_contracts_registered_by_code_hash").await?;
+    let registered: Vec<(String, CryptoHash)> = alice
+        .near()
+        .view(&factory_id, "get_global_contracts_registered_by_code_hash")
+        .at(Finality::Optimistic)
+        .await?;
 
     assert!(registered.is_empty());
 

@@ -1,6 +1,8 @@
 use near_abi::AbiRoot;
 use near_kit::protocol::Action;
+use near_kit::rpc::Finality;
 use near_kit::signer::InMemorySigner;
+use near_kit::transaction::ExecutedOptimistic;
 use near_kit::{Near, NearToken, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 
@@ -34,10 +36,12 @@ async fn test_embedded_abi() -> anyhow::Result<()> {
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the contract account, fund it and deploy the contract
     let wasm = build_contract().await?;
@@ -52,8 +56,12 @@ async fn test_embedded_abi() -> anyhow::Result<()> {
         .result()?;
 
     // `__contract_abi` returns the ABI as zstd-compressed JSON, so read the raw bytes
-    let compressed_abi =
-        client.view::<()>(&contract_id, "__contract_abi").fetch_raw().await?.result;
+    let compressed_abi = client
+        .view::<()>(&contract_id, "__contract_abi")
+        .at(Finality::Optimistic)
+        .fetch_raw()
+        .await?
+        .result;
 
     let abi: AbiRoot = serde_json::from_slice(&zstd::decode_all(compressed_abi.as_slice())?)?;
 

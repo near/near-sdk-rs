@@ -1,7 +1,7 @@
 use near_kit::json_types::U128;
 use near_kit::protocol::Action;
-use near_kit::rpc::ExecutionStatus;
-use near_kit::transaction::FunctionCall;
+use near_kit::rpc::{ExecutionStatus, Finality};
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall};
 use near_kit::{AccountId, Gas, NearToken, SigningNear};
 use near_sandbox::Sandbox;
 use serde_json::json;
@@ -15,7 +15,8 @@ const AMOUNT: u128 = 100 * ONE_TOKEN;
 
 /// Runs the shared setup and deploys the DeFi contract to `defi.alice`.
 /// The DeFi contract isn't registered with the token contract yet.
-async fn setup() -> anyhow::Result<(Sandbox, SigningNear, AccountId, AccountId)> {
+async fn setup() -> anyhow::Result<(Sandbox, SigningNear<ExecutedOptimistic>, AccountId, AccountId)>
+{
     let (node, alice, _, ft_contract_id) = crate::shared::setup().await?;
 
     // Create the DeFi account, fund it, deploy the DeFi contract and point it at the token
@@ -208,7 +209,8 @@ async fn test_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert_eq!(used, [U128(AMOUNT)]);
 
     // Alice's tokens and the 10 returned ones are burnt, the DeFi contract keeps the rest
-    let total_supply: U128 = alice.near().view(&ft_contract_id, "ft_total_supply").await?;
+    let total_supply: U128 =
+        alice.near().view(&ft_contract_id, "ft_total_supply").at(Finality::Optimistic).await?;
 
     assert_eq!(total_supply.0, AMOUNT - 10);
     assert_eq!(ft_balance_of(alice.near(), &ft_contract_id, &defi_contract_id).await?, AMOUNT - 10);

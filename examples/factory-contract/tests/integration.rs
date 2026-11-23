@@ -1,6 +1,6 @@
 use near_kit::protocol::Action;
 use near_kit::signer::InMemorySigner;
-use near_kit::transaction::FunctionCall;
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall};
 use near_kit::{Gas, Near, NearToken, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
@@ -43,10 +43,12 @@ async fn test_deploy_status_message(
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the factory account, fund it and deploy the factory contract
     let wasm = build_contract(contract_path).await?;

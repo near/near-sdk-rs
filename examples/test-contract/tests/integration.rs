@@ -1,8 +1,8 @@
 use near_abi::AbiRoot;
 use near_kit::protocol::{Action, ActionErrorKind, FunctionCallError};
-use near_kit::rpc::FinalExecutionOutcome;
+use near_kit::rpc::{FinalExecutionOutcome, Finality};
 use near_kit::signer::{InMemorySigner, SecretKey};
-use near_kit::transaction::FunctionCall;
+use near_kit::transaction::{ExecutedOptimistic, Final, FunctionCall};
 use near_kit::{Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
@@ -28,7 +28,8 @@ async fn build_contract() -> anyhow::Result<Vec<u8>> {
 /// also sign transactions as the contract.
 ///
 /// The node stops when the returned `Sandbox` is dropped, so keep it until the test ends.
-async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear)> {
+async fn setup()
+-> anyhow::Result<(Sandbox, SigningNear<ExecutedOptimistic>, SigningNear<ExecutedOptimistic>)> {
     let alice_account = GenesisAccount::default_with_name(account!("alice"));
 
     let node = Sandbox::start_sandbox_with_config(SandboxConfig {
@@ -39,10 +40,12 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear)> {
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the contract account with its own key, fund it and deploy the contract
     let wasm = build_contract().await?;
@@ -55,10 +58,14 @@ async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear)> {
         .add_action(Action::transfer(NearToken::from_near(10)))
         .add_action(Action::add_full_access_key(contract_key.public_key()))
         .add_action(Action::deploy_contract(wasm))
+        // near-kit reads the signer's key from the final block, and the tests sign with this key
+        .wait_until::<Final>()
         .await?
         .result()?;
 
-    let contract = client.with_signer(InMemorySigner::new(contract_id, contract_key));
+    let contract = client
+        .with_signer(InMemorySigner::new(contract_id, contract_key))
+        .wait_until::<ExecutedOptimistic>();
 
     Ok((node, alice, contract))
 }
@@ -86,6 +93,7 @@ async fn test_embedded_abi() -> anyhow::Result<()> {
     let compressed_abi = contract
         .near()
         .view::<()>(contract.account_id(), "__contract_abi")
+        .at(Finality::Optimistic)
         .fetch_raw()
         .await?
         .result;
@@ -128,7 +136,8 @@ async fn test_private_init_can_be_called_by_current_account() -> anyhow::Result<
         .await?
         .result()?;
 
-    let value: u32 = contract.near().view(contract.account_id(), "get_value").await?;
+    let value: u32 =
+        contract.near().view(contract.account_id(), "get_value").at(Finality::Optimistic).await?;
 
     assert_eq!(value, 42);
 

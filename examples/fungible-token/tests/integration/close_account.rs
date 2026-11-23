@@ -1,5 +1,6 @@
 use near_kit::Gas;
 use near_kit::json_types::U128;
+use near_kit::rpc::Finality;
 use near_kit::transaction::FunctionCall;
 use serde_json::json;
 
@@ -68,7 +69,8 @@ async fn test_close_account_force_non_empty_balance() -> anyhow::Result<()> {
 
     assert!(closed);
 
-    let total_supply: U128 = alice.near().view(&ft_contract_id, "ft_total_supply").await?;
+    let total_supply: U128 =
+        alice.near().view(&ft_contract_id, "ft_total_supply").at(Finality::Optimistic).await?;
 
     assert_eq!(total_supply.0, 0);
 

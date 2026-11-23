@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use near_kit::json_types::U128;
 use near_kit::protocol::{Action, ActionErrorKind, FunctionCallError};
-use near_kit::rpc::{FinalExecutionOutcome, STORAGE_AMOUNT_PER_BYTE};
+use near_kit::rpc::{FinalExecutionOutcome, Finality, STORAGE_AMOUNT_PER_BYTE};
 use near_kit::signer::InMemorySigner;
-use near_kit::transaction::FunctionCall;
+use near_kit::transaction::{ExecutedOptimistic, FunctionCall};
 use near_kit::{AccountId, Gas, Near, NearToken, SigningNear, account};
 use near_sandbox::{GenesisAccount, Sandbox, SandboxConfig};
 use serde_json::json;
@@ -63,7 +63,12 @@ pub async fn build_contract(path: &str) -> anyhow::Result<Vec<u8>> {
 /// Alice owns the whole token supply. Bob isn't registered with the token contract.
 ///
 /// The node stops when the returned `Sandbox` is dropped, so keep it until the test ends.
-pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, AccountId)> {
+pub async fn setup() -> anyhow::Result<(
+    Sandbox,
+    SigningNear<ExecutedOptimistic>,
+    SigningNear<ExecutedOptimistic>,
+    AccountId,
+)> {
     let alice_account = GenesisAccount::default_with_name(account!("alice"));
     let bob_account = GenesisAccount::default_with_name(account!("bob"));
 
@@ -75,13 +80,16 @@ pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, Accou
 
     let client = Near::custom(&node.rpc_addr, "sandbox").build();
 
-    let alice = client.with_signer(InMemorySigner::new(
-        alice_account.account_id,
-        alice_account.private_key.parse()?,
-    ));
+    let alice = client
+        .with_signer(InMemorySigner::new(
+            alice_account.account_id,
+            alice_account.private_key.parse()?,
+        ))
+        .wait_until::<ExecutedOptimistic>();
 
     let bob = client
-        .with_signer(InMemorySigner::new(bob_account.account_id, bob_account.private_key.parse()?));
+        .with_signer(InMemorySigner::new(bob_account.account_id, bob_account.private_key.parse()?))
+        .wait_until::<ExecutedOptimistic>();
 
     // Create the token account, fund it, deploy the token contract and mint the supply to Alice
     let wasm = build_contract("ft").await?;
@@ -108,7 +116,7 @@ pub async fn setup() -> anyhow::Result<(Sandbox, SigningNear, SigningNear, Accou
 
 /// Registers `account_id` with the token contract. `payer` pays the storage deposit.
 pub async fn register(
-    payer: &SigningNear,
+    payer: &SigningNear<ExecutedOptimistic>,
     ft_contract_id: &AccountId,
     account_id: &AccountId,
 ) -> anyhow::Result<()> {
@@ -135,6 +143,7 @@ pub async fn ft_balance_of(
     let balance: U128 = near
         .view(ft_contract_id, "ft_balance_of")
         .args(json!({ "account_id": account_id }))
+        .at(Finality::Optimistic)
         .await?;
 
     Ok(balance.0)
