@@ -175,7 +175,7 @@ async fn negative_path() -> anyhow::Result<()> {
     let (_node, alice, _, contract_id) = setup().await?;
 
     // Alice starts the signing process, but the MPC server doesn't respond, so the request
-    // times out. The protocol-level parameter `yield_timeout_length_in_blocks` sets when
+    // times out after `yield_timeout_length_in_blocks` blocks, a protocol-level parameter
     let tx_details = sign(&alice, &contract_id).await?;
 
     tx_details.result()?;
