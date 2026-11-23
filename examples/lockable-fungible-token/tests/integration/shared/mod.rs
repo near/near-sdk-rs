@@ -30,6 +30,9 @@ pub async fn build_contract() -> anyhow::Result<Vec<u8>> {
     let wasm = tokio::task::spawn_blocking(|| -> anyhow::Result<Vec<u8>> {
         let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
             no_locked: true,
+            // The tests don't use the ABI. Generating it needs crates that aren't in Cargo.lock,
+            // so every build would query the crates.io index
+            no_abi: true,
             manifest_path: Some(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml").into()),
             ..Default::default()
         })
