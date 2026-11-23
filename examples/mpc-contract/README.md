@@ -36,7 +36,6 @@ Please note you would need to have three terminals open to test this example.
 
 ```bash
 npm i -g near-sandbox
-near-sandbox localnet
 near-sandbox init
 near-sandbox run --rpc-addr 127.0.0.1:2323
 ```
@@ -45,12 +44,13 @@ near-sandbox run --rpc-addr 127.0.0.1:2323
 
 ```bash
 # preparing network config. Skip if you already configured your account.
+# The CLI then asks about optional network settings (API key, faucet URL, ...): answer "No" to each.
 near config add-connection --network-name localnet --connection-name sandbox --rpc-url http://127.0.0.1:2323/ --wallet-url https://app.mynearwallet.com/ --explorer-transaction-url https://explorer.near.org/transactions/
 
-VALIDATOR_KEY=$(cat ~/.near/validator_key.json | jq .secret_key)
+VALIDATOR_KEY=$(cat ~/.near/validator_key.json | jq -r .secret_key)
 
 # adding validator account
-near account import-account using-private-key $VALIDATOR_KEY network-config sandbox
+near account import-account using-private-key "$VALIDATOR_KEY" test.near network-config sandbox --check-account-id save-to-keychain
 
 # deploying contract
 cargo near deploy build-non-reproducible-wasm test.near without-init-call network-config sandbox sign-with-keychain send
@@ -64,15 +64,16 @@ One account will send a request for signing: This account will hang on transacti
 near contract call-function as-transaction test.near 'sign' json-args '{ "message": "message-to-sign" }' prepaid-gas '200.0 Tgas' attached-deposit '0 NEAR' sign-as test.near network-config sandbox sign-with-keychain send
 ```
 
-After this you should see that it's waiting.
+After this you should see that it's waiting. The CLI waits for about a minute, until the transaction expires (100 blocks on localnet). If nobody responds by then, it gives up with `Transaction has expired`, although the request stays pending on-chain until it times out.
 
 #### TERMINAL 3
-This terminal will send the data on-chain to resume the transaction. After this transaction is completed, the first transaction will be resumed and completed. Please note that you need to do that before timeout happens (200 blocks in this case).
+This terminal will send the data on-chain to resume the transaction. After this transaction is completed, the first transaction will be resumed and completed. Please note that you need to do that before timeout happens (200 blocks in this case), and within about a minute to see the result in the second terminal.
 ```bash
 # This should return a non-null value
 near --quiet contract call-function as-read-only test.near get_requests json-args {} network-config sandbox now | jq first.data_id
 
-DATA_ID=$(near --quiet contract call-function as-read-only test.near get_requests json-args {} network-config sandbox now | jq first.data_id)
+# `jq -c` prints the data id on one line, so the shell passes it as a single argument
+DATA_ID=$(near --quiet contract call-function as-read-only test.near get_requests json-args {} network-config sandbox now | jq -c first.data_id)
 
 near contract call-function as-transaction test.near 'sign_respond' json-args '{ "data_id": '$DATA_ID', "signature": "signature" }' prepaid-gas '200.0 Tgas' attached-deposit '0 NEAR' sign-as test.near network-config sandbox sign-with-keychain send
 ```
