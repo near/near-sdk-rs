@@ -112,4 +112,15 @@ mod tests {
         let expected = "View function can't be payable.";
         assert_eq!(expected.to_string(), actual.to_string());
     }
+
+    #[test]
+    fn two_callback_vec_arguments_fail() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            pub fn method(&self, #[callback_vec] a: Vec<u64>, #[callback_vec] b: Vec<u64>) { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
+        let expected = "A function can only have one #[callback_vec] parameter.";
+        assert_eq!(expected, actual.to_string());
+    }
 }

@@ -1,6 +1,7 @@
 use super::visitor::Visitor;
 use super::{
-    ArgInfo, BindgenArgType, HandleResultAttr, InitAttr, MethodKind, SerializerAttr, SerializerType,
+    ArgInfo, BindgenArgType, CallbackBindgenArgType, HandleResultAttr, InitAttr, MethodKind,
+    SerializerAttr, SerializerType,
 };
 use crate::core_impl::{Returns, utils};
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -162,6 +163,24 @@ impl AttrSigInfo {
                     args.push(ArgInfo::new(pat_typed, source_type)?);
                 }
             }
+        }
+
+        // Checked here rather than only in the ABI generator, so that non-ABI builds reject the
+        // same input. The documented contract allows one `#[callback_vec]` parameter per method.
+        let second_callback_vec = args
+            .iter()
+            .filter(|arg| {
+                matches!(
+                    arg.bindgen_ty,
+                    BindgenArgType::Callback { ty: CallbackBindgenArgType::ArgVec, .. }
+                )
+            })
+            .nth(1);
+        if let Some(arg) = second_callback_vec {
+            return Err(Error::new(
+                arg.original.span(),
+                "A function can only have one #[callback_vec] parameter.",
+            ));
         }
 
         let (method_kind, returns) = visitor.build()?;
