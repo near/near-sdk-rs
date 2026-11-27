@@ -444,6 +444,14 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         input.attrs = args.attrs;
 
         if borsh_schema && matches!(&input.data, syn::Data::Enum(_)) {
+            // The proxy is a copy of the original enum, so it has to keep the same
+            // representation. Without `repr` the explicit discriminants of variants
+            // that hold data no longer compile, and the Borsh schema would use the
+            // variant index instead of the discriminant.
+            for attr in derive_input.attrs.iter().filter(|attr| attr.path().is_ident("repr")) {
+                input.attrs.push(attr.clone());
+            }
+
             for attr in derive_input.attrs.iter().filter(|attr| attr.path().is_ident("borsh")) {
                 let options = match attr.parse_args_with(
                     syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,

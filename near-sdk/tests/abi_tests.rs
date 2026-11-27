@@ -26,6 +26,16 @@ fn near_schema_preserves_borsh_enum_discriminants() {
         Second = 7,
     }
 
+    // Variants that hold data need an explicit `repr` to carry a discriminant.
+    #[derive(BorshSerialize, NearSchema)]
+    #[repr(u8)]
+    #[borsh(crate = "near_sdk::borsh", use_discriminant = true)]
+    #[abi(borsh)]
+    enum WithData {
+        First = 1,
+        Second(u8) = 7,
+    }
+
     fn check_tags<T: BorshSchema + BorshSerialize>(values: [T; 2]) {
         let schema = schema_container_of::<T>();
         let Some(Definition::Enum { variants, .. }) = schema.get_definition(schema.declaration())
@@ -40,6 +50,7 @@ fn near_schema_preserves_borsh_enum_discriminants() {
 
     check_tags([Explicit::First, Explicit::Second]);
     check_tags([Ordinal::First, Ordinal::Second]);
+    check_tags([WithData::First, WithData::Second(0)]);
 }
 
 #[test]
