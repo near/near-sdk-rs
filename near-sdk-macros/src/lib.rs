@@ -443,11 +443,34 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         let mut input = derive_input.clone();
         input.attrs = args.attrs;
 
+        // <unspecified> or #[abi(json)]
+        let json_schema = json_schema || !borsh_schema;
+
+        // The schema copy must only keep attributes that the requested schema
+        // derives understand. `#[abi(borsh)]` plus a `#[serde(...)]` field, or
+        // `#[abi(json)]` plus a `#[borsh(skip)]` field, otherwise fails with
+        // `cannot find attribute` because the other family's derive is absent.
+        // Other container attributes (docs, repr, cfg, ...) are left alone.
+        input.attrs.retain(|attr| {
+            if attr.path().is_ident("serde")
+                || attr.path().is_ident("schemars")
+                || attr.path().is_ident("validate")
+            {
+                json_schema
+            } else if attr.path().is_ident("borsh") || attr.path().is_ident("borsh_skip") {
+                borsh_schema
+            } else {
+                true
+            }
+        });
+
         let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
             attrs.retain(|attr| {
-                ["serde", "schemars", "validate", "borsh"]
-                    .iter()
-                    .any(|&path| attr.path().is_ident(path))
+                (json_schema
+                    && ["serde", "schemars", "validate"]
+                        .iter()
+                        .any(|&path| attr.path().is_ident(path)))
+                    || (borsh_schema && attr.path().is_ident("borsh"))
             });
         };
 
@@ -482,9 +505,6 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             } else {
                 quote! {::near_sdk}
             };
-
-        // <unspecified> or #[abi(json)]
-        let json_schema = json_schema || !borsh_schema;
 
         let derive = get_schema_derive(json_schema, borsh_schema, near_sdk_crate.clone(), true);
 
