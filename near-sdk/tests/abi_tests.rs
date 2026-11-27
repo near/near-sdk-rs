@@ -4,6 +4,44 @@ use std::{collections::HashSet, env, fs, path::Path, process::Command};
 // These methods are prepended to the contract internally, update this test list if they change
 const PREPENDED_METHODS: [&str; 1] = ["contract_source_metadata"];
 
+#[cfg(feature = "abi")]
+#[test]
+fn near_schema_preserves_borsh_enum_discriminants() {
+    use near_sdk::NearSchema;
+    use near_sdk::borsh::{BorshSchema, BorshSerialize, schema::Definition, schema_container_of};
+
+    #[derive(BorshSerialize, NearSchema)]
+    #[borsh(crate = "near_sdk::borsh", use_discriminant = true)]
+    #[abi(borsh)]
+    enum Explicit {
+        First = 1,
+        Second = 7,
+    }
+
+    #[derive(BorshSerialize, NearSchema)]
+    #[borsh(crate = "near_sdk::borsh", use_discriminant = false)]
+    #[abi(borsh)]
+    enum Ordinal {
+        First = 1,
+        Second = 7,
+    }
+
+    fn check_tags<T: BorshSchema + BorshSerialize>(values: [T; 2]) {
+        let schema = schema_container_of::<T>();
+        let Some(Definition::Enum { variants, .. }) = schema.get_definition(schema.declaration())
+        else {
+            panic!("expected an enum schema");
+        };
+        let tags: Vec<_> = variants.iter().map(|(tag, _, _)| *tag).collect();
+        let serialized = values.map(|value| i64::from(near_sdk::borsh::to_vec(&value).unwrap()[0]));
+
+        assert_eq!(tags, serialized);
+    }
+
+    check_tags([Explicit::First, Explicit::Second]);
+    check_tags([Ordinal::First, Ordinal::Second]);
+}
+
 #[test]
 fn ensure_abi_for_prepended_functions() {
     const NEAR_SDK_DIR: &str = env!("CARGO_MANIFEST_DIR");
