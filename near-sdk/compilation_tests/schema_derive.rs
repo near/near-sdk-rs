@@ -247,6 +247,56 @@ pub fn json_borsh_schema_spec() {
     const_assert_impls!(StructNoSchemaSpec: near_sdk::borsh::BorshSchema);
 }
 
+pub fn borsh_schema_ignores_serde_attrs() {
+    #[derive(NearSchema)]
+    #[abi(borsh)]
+    #[serde(rename = "BorshOnlySTRUCT")]
+    struct StructBorshOnlyWithSerde {
+        #[serde(skip)]
+        skipped: u8,
+        kept: u8,
+    }
+
+    const_assert_impls!(StructBorshOnlyWithSerde: near_sdk::borsh::BorshSchema);
+    const_assert_impls!(StructBorshOnlyWithSerde: !near_sdk::schemars::JsonSchema);
+
+    #[derive(NearSchema)]
+    #[abi(borsh)]
+    #[serde(rename = "BorshOnlyENUM")]
+    enum EnumBorshOnlyWithSerde {
+        Kept,
+        #[serde(skip)]
+        Skipped,
+    }
+
+    const_assert_impls!(EnumBorshOnlyWithSerde: near_sdk::borsh::BorshSchema);
+    const_assert_impls!(EnumBorshOnlyWithSerde: !near_sdk::schemars::JsonSchema);
+}
+
+pub fn json_schema_ignores_borsh_attrs() {
+    #[derive(NearSchema)]
+    #[abi(json)]
+    struct StructJsonOnlyWithBorshSkip {
+        #[borsh(skip)]
+        skipped: u8,
+        kept: u8,
+    }
+
+    const_assert_impls!(StructJsonOnlyWithBorshSkip: near_sdk::schemars::JsonSchema);
+    const_assert_impls!(StructJsonOnlyWithBorshSkip: !near_sdk::borsh::BorshSchema);
+
+    #[derive(NearSchema)]
+    #[abi(json)]
+    enum EnumJsonOnlyWithBorshSkip {
+        Kept,
+        #[borsh(skip)]
+        Skipped,
+    }
+
+    const_assert_impls!(EnumJsonOnlyWithBorshSkip: near_sdk::schemars::JsonSchema);
+    const_assert_impls!(EnumJsonOnlyWithBorshSkip: !near_sdk::borsh::BorshSchema);
+}
+
 // original comment by @miraclx
 // fixme! this should fail, since A__NEAR_SCHEMA_PROXY does not derive NearSchema
 // fixme! hygeinic macro expansion is required to make this work
