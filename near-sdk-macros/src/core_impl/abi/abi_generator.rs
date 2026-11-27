@@ -158,7 +158,8 @@ impl ImplItemMethodInfo {
                             .into_compile_error();
                         };
 
-                        callback_vec = Some(self.abi_callback_vec_tokens(typ));
+                        let abi_type = generate_abi_type(typ, &arg.serializer_ty);
+                        callback_vec = Some(quote! { ::std::option::Option::Some(#abi_type) });
                     } else {
                         return syn::Error::new(
                             Span::call_site(),
@@ -226,21 +227,6 @@ impl ImplItemMethodInfo {
             // Init methods don't return a value, they just save the newly created contract state.
             Init(_) => quote! { ::std::option::Option::None },
             View(view_method) => some_abi_type(&view_method.result_serializer),
-        }
-    }
-
-    fn abi_callback_vec_tokens(&self, callback_vec_type: &Type) -> TokenStream2 {
-        let abi_type = |result_serializer: &SerializerType| {
-            let tokens = generate_abi_type(callback_vec_type, result_serializer);
-            quote! {
-                ::std::option::Option::Some(#tokens)
-            }
-        };
-
-        match &self.attr_signature_info.method_kind {
-            MethodKind::Call(call_method) => abi_type(&call_method.result_serializer),
-            MethodKind::Init(_) => quote! { ::std::option::Option::None },
-            MethodKind::View(view_method) => abi_type(&view_method.result_serializer),
         }
     }
 }
@@ -347,7 +333,7 @@ mod tests {
             #[private] 
             pub fn method(
                 &self, 
-                #[callback_vec] x: Vec<String>, 
+                #[callback_vec] #[serializer(borsh)] x: Vec<String>,
             ) -> bool { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -399,7 +385,7 @@ mod tests {
         let mut method = parse_quote! {
             #[init]
             #[private]
-            pub fn new() -> Self { }
+            pub fn new(#[callback_vec] x: Vec<String>) -> Self { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
