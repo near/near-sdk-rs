@@ -443,6 +443,34 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         let mut input = derive_input.clone();
         input.attrs = args.attrs;
 
+        if borsh_schema && matches!(&input.data, syn::Data::Enum(_)) {
+            // The proxy is a copy of the original enum, so it has to keep the same
+            // representation. Without `repr` the explicit discriminants of variants
+            // that hold data no longer compile, and the Borsh schema would use the
+            // variant index instead of the discriminant.
+            for attr in derive_input.attrs.iter().filter(|attr| attr.path().is_ident("repr")) {
+                input.attrs.push(attr.clone());
+            }
+
+            for attr in derive_input.attrs.iter().filter(|attr| attr.path().is_ident("borsh")) {
+                let options = match attr.parse_args_with(
+                    syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,
+                ) {
+                    Ok(options) => options,
+                    Err(err) => return err.to_compile_error().into(),
+                };
+
+                // The proxy's schema must use the same enum tags as the original type.
+                for option in
+                    options.iter().filter(|option| option.path().is_ident("use_discriminant"))
+                {
+                    input.attrs.push(parse_quote!(
+                        #[cfg_attr(not(target_arch = "wasm32"), borsh(#option))]
+                    ));
+                }
+            }
+        }
+
         let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
             attrs.retain(|attr| {
                 ["serde", "schemars", "validate", "borsh"]
