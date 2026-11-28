@@ -263,7 +263,7 @@ impl NonFungibleToken {
             old_owner_id: owner_id,
             new_owner_id: receiver_id,
             token_ids: &[token_id],
-            authorized_id: sender_id.filter(|sender_id| *sender_id == owner_id).map(|f| f.deref()),
+            authorized_id: sender_id.filter(|sender_id| *sender_id != owner_id).map(|f| f.deref()),
             memo: memo.as_deref(),
         }
         .emit();
@@ -479,5 +479,63 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         }
         NonFungibleToken::emit_transfer(&receiver_id, &previous_owner_id, &token_id, None, None);
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::{self, VMContextBuilder};
+    use near_sdk::testing_env;
+
+    fn setup() -> (NonFungibleToken, AccountId, AccountId, AccountId) {
+        let owner: AccountId = "owner.near".parse().unwrap();
+        let approved: AccountId = "approved.near".parse().unwrap();
+        let receiver: AccountId = "receiver.near".parse().unwrap();
+        testing_env!(VMContextBuilder::new().predecessor_account_id(owner.clone()).build());
+
+        let mut nft = NonFungibleToken::new(
+            b"o".to_vec(),
+            owner.clone(),
+            None::<Vec<u8>>,
+            None::<Vec<u8>>,
+            Some(b"a".to_vec()),
+        );
+        nft.internal_mint_with_refund("0".to_string(), owner.clone(), None, None);
+        nft.approvals_by_id
+            .as_mut()
+            .unwrap()
+            .insert(&"0".to_string(), &HashMap::from([(approved.clone(), 1)]));
+        (nft, owner, approved, receiver)
+    }
+
+    #[test]
+    fn transfer_by_approved_account_emits_authorized_id() {
+        let (mut nft, owner, approved, receiver) = setup();
+
+        nft.internal_transfer(&approved, &receiver, &"0".to_string(), Some(1), None);
+
+        assert_eq!(nft.owner_by_id.get(&"0".to_string()), Some(receiver));
+        assert_eq!(
+            test_utils::get_logs(),
+            vec![format!(
+                r#"EVENT_JSON:{{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{{"old_owner_id":"{owner}","new_owner_id":"receiver.near","token_ids":["0"],"authorized_id":"{approved}"}}]}}"#
+            )]
+        );
+    }
+
+    #[test]
+    fn transfer_by_owner_omits_authorized_id() {
+        let (mut nft, owner, _approved, receiver) = setup();
+
+        nft.internal_transfer(&owner, &receiver, &"0".to_string(), None, None);
+
+        assert_eq!(nft.owner_by_id.get(&"0".to_string()), Some(receiver));
+        assert_eq!(
+            test_utils::get_logs(),
+            vec![format!(
+                r#"EVENT_JSON:{{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{{"old_owner_id":"{owner}","new_owner_id":"receiver.near","token_ids":["0"]}}]}}"#
+            )]
+        );
     }
 }
