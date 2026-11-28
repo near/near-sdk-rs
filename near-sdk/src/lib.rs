@@ -480,8 +480,8 @@ compile_error!(
 ///
 /// ### Customize `json` serializer
 ///
-/// The `#[near(serializers = [json])]` macro does not support passing configuration parameters to the `json` serializer.
-/// Yet, you can just use [`#[serde(...)]` attributes](https://serde.rs/attributes.html) as if `#[derive(Serialize, Deserialize)]` is added to the struct (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
+/// The `#[near(serializers = [json(...)])]` macro passes its parameters on as a `#[serde(...)]` attribute.
+/// You can also just use [`#[serde(...)]` attributes](https://serde.rs/attributes.html) as if `#[derive(Serialize, Deserialize)]` is added to the struct (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
 ///
 /// ```rust
 /// use near_sdk::near;

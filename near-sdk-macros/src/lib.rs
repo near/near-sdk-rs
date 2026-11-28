@@ -116,6 +116,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut has_json = false;
 
     let mut borsh_attr = quote! {};
+    let mut json_attr = quote! {};
 
     match near_macro_args.serializers {
         Some(serializers) => {
@@ -131,7 +132,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                             if *ident == "json" {
                                 has_json = true;
                                 path.path = syn::Path::from(Ident::new("serde", Span::call_site()));
-                                call_expr.args.push(parse_quote! {crate=#string_serde_crate});
+                                json_attr = quote! {#[#new_expr]};
+                                return;
                             } else if *ident == "borsh" {
                                 has_borsh = true;
                                 call_expr.args.push(parse_quote! {crate=#string_borsh_crate});
@@ -173,6 +175,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             )]
             #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
             #[serde(crate = #string_serde_crate)]
+            #json_attr
         };
     }
 
